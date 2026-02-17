@@ -54,7 +54,7 @@ class DatumSalesRegisterReport {
   dynamic remark;
   dynamic sId;
   Account account;
-  User user;
+  User? user;
 
   factory DatumSalesRegisterReport.fromJson(Map<String, dynamic> json) =>
       DatumSalesRegisterReport(
@@ -67,9 +67,11 @@ class DatumSalesRegisterReport {
         vouchAmt: json["VOUCH_AMT"],
         imgUrl: json['IMG_URL'] ?? "",
         remark: json['REMARK'] ?? "",
-        sId: json['S_ID'] ?? "",
+        sId: json['SALES_ID'] ?? "",
         account: Account.fromJson(json['partyAccount']),
-        user: User.fromJson(json['usermast']),
+        user: json['usermast'] != null
+            ? User.fromJson(json['usermast'])
+            : User(userCd: "", userName: ""),
       );
 
   Map<String, dynamic> toJson() => {
@@ -82,9 +84,9 @@ class DatumSalesRegisterReport {
         "VOUCH_AMT": vouchAmt,
         "IMG_URL": imgUrl,
         "REMARK": remark,
-        "S_ID": sId,
+        "SALES_ID": sId,
         "partyAccount": account.toJson(),
-        "usermast": user.toJson(),
+        "usermast": user!.toJson(),
       };
 }
 

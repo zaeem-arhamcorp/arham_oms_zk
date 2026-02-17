@@ -1,20 +1,15 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
-import 'dart:typed_data';
-import 'package:arham_corporation/constants/constants.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/product_response.dart';
 import 'package:arham_corporation/models/receipt_confim_model.dart';
 import 'package:arham_corporation/models/salesRegisterReportModal.dart';
-import 'package:arham_corporation/network.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:cancellation_token_http/http.dart' as httpc;
 import 'package:arham_corporation/models/personModal.dart';
 import 'package:arham_corporation/models/userWiseOutStandingModal.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:arham_corporation/models/ItemWiseReportModal.dart';
@@ -39,10 +34,6 @@ import '../models/productModal.dart';
 import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
 import '../providers/user_provider.dart';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
 
 class Services {
   Future<DashboardModal?> getDashboarddata(BuildContext context) async {
@@ -1255,6 +1246,8 @@ class Services {
           'x-app-type': 'oms',
         },
       );
+      print("${AppConfig.baseURLReport}sales-register-report?$queryString");
+      print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerDetailReportModalFromJson(response.body);
