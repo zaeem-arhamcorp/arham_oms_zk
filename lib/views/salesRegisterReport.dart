@@ -1,23 +1,42 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/constants/constants.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/accountLeagerReportModal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/models/salesRegisterReportModal.dart';
+import 'package:arham_corporation/network.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/item_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/services.dart';
+import 'package:arham_corporation/widgets/common_text.dart';
+import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:arham_corporation/widgets/pdfViewerScreen.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:whatsapp_share/whatsapp_share.dart';
 
 import '../providers/global.dart';
 import '../providers/party_provider.dart';
+
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 
 class SalesRegisterReportScreen extends StatefulWidget {
   @override
@@ -48,6 +67,14 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
   var updateRight = false;
   var deleteRight = false;
   var printRight = false;
+
+  var picker = ImagePicker();
+
+  var proofOfDelivery = Rx<File?>(null);
+
+  var proofOfDeliveryWeb = Rxn<Uint8List>();
+
+  var proofOfDeliveryUrl = RxnString();
 
   Future<bool?> checkWhatsappInstalled() async {
     isWhatsappInstalled =
@@ -442,6 +469,8 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
   @override
   Widget build(BuildContext context) {
     final PartyProvider party = context.watch<PartyProvider>();
+    final ProfileProvider profile = context.watch<ProfileProvider>();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(
@@ -1358,9 +1387,131 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                                             SizedBox(
                                                               height: 7.0,
                                                             ),
+                                                            Divider(
+                                                                height: 8.0,
+                                                                thickness: 1.0),
                                                           ],
                                                         );
-                                                      }))
+                                                      })),
+                                              Row(
+                                                // mainAxisAlignment:
+                                                //     MainAxisAlignment.end,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  if (data[index].imgUrl !=
+                                                          null &&
+                                                      data[index].imgUrl !=
+                                                          '' &&
+                                                      profile.userCode ==
+                                                          data[index]
+                                                              .user
+                                                              .userCd)
+                                                    IconButton(
+                                                        onPressed: () {
+                                                          showImagePreviewDialog(
+                                                            context: context,
+                                                            imageUrl:
+                                                                data[index]
+                                                                    .imgUrl,
+                                                          );
+                                                        },
+                                                        icon: Icon(
+                                                            Icons.visibility)),
+                                                  // if (data[index].imgUrl ==
+                                                  //     null &&
+                                                  //     data[index].imgUrl ==
+                                                  //         '' &&
+                                                  //     profile.userCode ==
+                                                  //         data[index]
+                                                  //             .user
+                                                  //             .userCd)
+                                                  Container(
+                                                    child: profile.userCode ==
+                                                            data[index]
+                                                                .user
+                                                                .userCd
+                                                        ? IconButton(
+                                                            onPressed: () {
+                                                              // _openUploadDialog(
+                                                              //   context:
+                                                              //       context,
+                                                              //   oId: data[index]
+                                                              //       .oId.toString(),
+                                                              // );
+
+                                                              final TextEditingController
+                                                                  remarksController =
+                                                                  TextEditingController();
+
+                                                              showDialog(
+                                                                context:
+                                                                    context,
+                                                                barrierDismissible:
+                                                                    false,
+                                                                builder: (_) =>
+                                                                    CommonUploadInputDialog(
+                                                                  title:
+                                                                      "Upload Proof",
+                                                                  message:
+                                                                      "Please upload delivery proof for Order ID: ${data[index].sId}.",
+                                                                  controllerValue:
+                                                                      remarksController,
+                                                                  isLoading:
+                                                                      false.obs,
+                                                                  fileRx:
+                                                                      proofOfDelivery,
+                                                                  webFileRx:
+                                                                      proofOfDeliveryWeb,
+                                                                  onUploadTap: () =>
+                                                                      pickImage(
+                                                                          'proofOfDelivery'),
+                                                                  onDeleteTap: () =>
+                                                                      removeImage(
+                                                                          'proofOfDelivery'),
+                                                                  onSubmit:
+                                                                      () async {
+                                                                    if (proofOfDelivery.value ==
+                                                                            null &&
+                                                                        proofOfDeliveryWeb.value ==
+                                                                            null) {
+                                                                      AppSnackBar.showGetXCustomSnackBar(
+                                                                          message:
+                                                                              "Please upload image");
+                                                                      return;
+                                                                    }
+
+                                                                    await insertOrUpdateSalesRegister(
+                                                                      data[index]
+                                                                          .sId
+                                                                          .toString(),
+                                                                      context,
+                                                                      "",
+                                                                      remarksController
+                                                                          .text,
+                                                                    );
+
+                                                                    removeImage(
+                                                                        'proofOfDelivery');
+                                                                    Get.back();
+                                                                  },
+                                                                  onCancel: () {
+                                                                    removeImage(
+                                                                        'proofOfDelivery');
+                                                                    remarksController
+                                                                        .clear();
+                                                                    Get.back();
+                                                                  },
+                                                                ),
+                                                              );
+                                                            },
+                                                            icon: Icon(Icons
+                                                                .attach_file))
+                                                        : Container(),
+                                                  ),
+                                                ],
+                                              )
                                             ]),
                                         ]),
                                   )),
@@ -1381,6 +1532,434 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                   ),
                 ))
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> pickImage(String type) async {
+    Get.bottomSheet(
+      SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.camera_alt),
+              title: Text('Capture from Camera'),
+              onTap: () async {
+                Navigator.pop(Get.context!);
+                final XFile? image =
+                    await picker.pickImage(source: ImageSource.camera);
+                _setImage(type, image);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.photo),
+              title: Text('Select from Gallery'),
+              onTap: () async {
+                Navigator.pop(Get.context!);
+                final XFile? image =
+                    await picker.pickImage(source: ImageSource.gallery);
+                _setImage(type, image);
+              },
+            ),
+          ],
+        ),
+      ),
+      backgroundColor: Theme.of(Get.context!).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+    );
+  }
+
+  void _setImage(String type, XFile? image) {
+    if (image != null) {
+      final file = File(image.path);
+      switch (type) {
+        case 'proofOfDelivery':
+          proofOfDelivery.value = file;
+          proofOfDeliveryUrl.value = '';
+      }
+    }
+  }
+
+  void removeImage(String type) {
+    switch (type) {
+      case 'proofOfDelivery':
+        proofOfDelivery.value = null;
+        proofOfDeliveryWeb.value = null;
+        proofOfDeliveryUrl.value = '';
+    }
+  }
+
+  Widget _buildUploadTileViewMobileWithWeb(
+    String title,
+    Rx<File?> fileRx,
+    Rxn<Uint8List> webFileRx,
+    RxnString urlRx,
+    VoidCallback onTap,
+    VoidCallback onDelete,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CommonText(text: title, fontWeight: FontWeight.w700)
+            .paddingOnly(top: 10, bottom: 10),
+        Obx(() {
+          final file = fileRx.value;
+          final webFile = webFileRx.value;
+          final url = urlRx.value;
+
+          Widget imageWidget;
+
+          if (kIsWeb && webFile != null) {
+            imageWidget = Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.memory(webFile, fit: BoxFit.contain),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton(
+                    icon: Icon(Icons.cancel, color: Colors.red),
+                    onPressed: onDelete,
+                  ),
+                ),
+              ],
+            );
+          } else if (!kIsWeb && file != null) {
+            imageWidget = Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.file(file, fit: BoxFit.contain),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton(
+                    icon: Icon(Icons.cancel, color: Colors.red),
+                    onPressed: onDelete,
+                  ),
+                ),
+              ],
+            );
+          } else if (url != null && url.isNotEmpty) {
+            imageWidget = Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton(
+                    icon: Icon(Icons.cancel, color: Colors.red),
+                    onPressed: onDelete,
+                  ),
+                ),
+              ],
+            );
+          } else {
+            imageWidget = Center(child: CommonText(text: "Tap to upload"));
+          }
+
+          return InkWell(
+            onTap: onTap,
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: imageWidget,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Future<void> insertOrUpdateSalesRegister(
+    String sId,
+    BuildContext context,
+    String type,
+    String remarks,
+  ) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    try {
+      if (!await Network.isConnected()) {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: Constants.networkMsg,
+        );
+        return;
+      }
+
+      // ✅ Validate token
+      if (ub.token == null || ub.token!.isEmpty) {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: "Session expired. Please login again.",
+        );
+        return;
+      }
+
+      final bool isUpdate = type == "U";
+      final uri = Uri.parse(AppConfig.transactionUploadImageURL);
+
+      final request = http.MultipartRequest(isUpdate ? 'PUT' : 'POST', uri);
+
+      // ✅ DO NOT set Content-Type manually
+      request.headers.addAll({
+        'x-app-type': 'oms',
+        'Authorization': "Bearer ${ub.token!}", // now non-null
+      });
+
+      debugPrint("Headers: ${request.headers}");
+
+      // ✅ Add Fields
+      final Map<String, String> fields = {
+        "remark": remarks,
+        "sId": sId,
+        //"moduleNo": "205",
+      };
+
+      fields.forEach((key, value) {
+        if (value.isNotEmpty) {
+          request.fields[key] = value;
+        }
+      });
+
+      debugPrint("Fields: ${request.fields}");
+
+      // ✅ File upload helper
+      Future<void> addFile({
+        required Uint8List bytes,
+        required String fileName,
+        required String fieldName,
+        required String mimeType,
+      }) async {
+        final typeSplit = mimeType.split('/');
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            fieldName,
+            bytes,
+            filename: fileName,
+            contentType: http.MediaType(typeSplit[0], typeSplit[1]),
+          ),
+        );
+
+        debugPrint("📎 Attached $fieldName: $fileName ($mimeType)");
+      }
+
+      // ✅ Attach Image (Web)
+      if (kIsWeb && proofOfDeliveryWeb.value != null) {
+        await addFile(
+          bytes: proofOfDeliveryWeb.value!,
+          fileName: 'payment_qr.png',
+          fieldName: 'image',
+          mimeType: 'image/png',
+        );
+      }
+
+      // ✅ Attach Image (Mobile)
+      if (!kIsWeb &&
+          proofOfDelivery.value != null &&
+          await File(proofOfDelivery.value!.path).exists()) {
+        final file = File(proofOfDelivery.value!.path);
+        final bytes = await file.readAsBytes();
+        final mimeType =
+            lookupMimeType(file.path) ?? 'application/octet-stream';
+
+        await addFile(
+          bytes: bytes,
+          fileName: p.basename(file.path),
+          fieldName: 'image',
+          mimeType: mimeType,
+        );
+      }
+
+      // ✅ Send Request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint("Response Status: ${response.statusCode}");
+      debugPrint("Response Body: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        getDate();
+      } else {
+        AppSnackBar.showGetXCustomSnackBar(
+          message:
+              'Error ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'}',
+        );
+      }
+    } catch (e) {
+      AppSnackBar.showGetXCustomSnackBar(
+        message: e.toString(),
+      );
+    }
+  }
+
+  void showImagePreviewDialog({
+    required BuildContext context,
+    required String imageUrl,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          children: [
+            /// Image
+            InteractiveViewer(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white,
+                      size: 60,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            /// Close Button
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  void _openUploadDialog({
+    required BuildContext context,
+    required String oId,
+  }) {
+    final TextEditingController remarksController = TextEditingController();
+
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                /// Title
+                Text(
+                  "Upload Proof With Order ID: $oId",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 15),
+
+                /// Image Upload Tile
+                _buildUploadTileViewMobileWithWeb(
+                  "Proof Of Delivery",
+                  proofOfDelivery,
+                  proofOfDeliveryWeb,
+                  proofOfDeliveryUrl,
+                  () => pickImage('proofOfDelivery'),
+                  () => removeImage('proofOfDelivery'),
+                ),
+
+                const SizedBox(height: 15),
+
+                /// Remarks Field
+                const Text(
+                  "Remarks",
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+
+                const SizedBox(height: 5),
+
+                TextFormField(
+                  controller: remarksController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: "Enter remarks",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                /// Buttons Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    /// Cancel Button
+                    TextButton(
+                      onPressed: () {
+                        removeImage('proofOfDelivery');
+                        Get.back();
+                      },
+                      child: const Text("Cancel"),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    /// Submit Button
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (proofOfDelivery.value == null &&
+                            proofOfDeliveryWeb.value == null) {
+                          AppSnackBar.showGetXCustomSnackBar(
+                            message: "Please upload image",
+                          );
+                          return;
+                        }
+
+                        await insertOrUpdateSalesRegister(
+                          oId,
+                          context,
+                          "", // Insert
+                          remarksController.text.trim(),
+                        );
+
+                        removeImage('proofOfDelivery');
+                        Get.back();
+                      },
+                      child: const Text("Submit"),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -42,5 +42,5 @@ class AppConfig {
   static String resetPasswordURL = "${baseURL}reset-password";
   static String changePasswordURL = "${baseURL}change-password";
   static String checkUserURL = "${baseURL}check-user";
-  static String orderUploadImageURL = "${baseURL}orders/upload-image";
+  static String transactionUploadImageURL = "${baseURL}transaction-images/upload";
 }

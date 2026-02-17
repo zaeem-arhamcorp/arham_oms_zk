@@ -73,7 +73,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
   var proofOfDeliveryWeb = Rxn<Uint8List>();
 
-  var paymentQrUrl = RxnString();
+  var proofOfDeliveryUrl = RxnString();
 
   Future<bool?> checkWhatsappInstalled() async {
     isWhatsappInstalled =
@@ -1853,7 +1853,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       switch (type) {
         case 'proofOfDelivery':
           proofOfDelivery.value = file;
-          paymentQrUrl.value = '';
+          proofOfDeliveryUrl.value = '';
       }
     }
   }
@@ -1863,7 +1863,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       case 'proofOfDelivery':
         proofOfDelivery.value = null;
         proofOfDeliveryWeb.value = null;
-        paymentQrUrl.value = '';
+        proofOfDeliveryUrl.value = '';
     }
   }
 
@@ -1981,7 +1981,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       }
 
       final bool isUpdate = type == "U";
-      final uri = Uri.parse(AppConfig.orderUploadImageURL);
+      final uri = Uri.parse(AppConfig.transactionUploadImageURL);
 
       final request = http.MultipartRequest(isUpdate ? 'PUT' : 'POST', uri);
 
@@ -2163,7 +2163,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                   "Proof Of Delivery",
                   proofOfDelivery,
                   proofOfDeliveryWeb,
-                  paymentQrUrl,
+                  proofOfDeliveryUrl,
                   () => pickImage('proofOfDelivery'),
                   () => removeImage('proofOfDelivery'),
                 ),

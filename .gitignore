@@ -41,3 +41,28 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+pubspec.lock
+
+# Generated files
+**/flutter_build/
+**/*.dill
+**/*.stamp
+
+# Android
+.gradle/
+local.properties
+android/.gradle/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
