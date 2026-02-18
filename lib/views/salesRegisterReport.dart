@@ -1401,13 +1401,14 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                                         .spaceBetween,
                                                 children: [
                                                   if (data[index].imgUrl !=
-                                                          null &&
-                                                      data[index].imgUrl !=
-                                                          ''/* &&
+                                                              null &&
+                                                          data[index].imgUrl !=
+                                                              '' /* &&
                                                       profile.userCode ==
                                                           data[index]
                                                               .user!
-                                                              .userCd*/)
+                                                              .userCd*/
+                                                      )
                                                     IconButton(
                                                         onPressed: () {
                                                           showImagePreviewDialog(
@@ -1427,94 +1428,187 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                                   //         data[index]
                                                   //             .user
                                                   //             .userCd)
-                            IconButton(
-                            onPressed: () {
-                            // _openUploadDialog(
-                            //   context:
-                            //       context,
-                            //   oId: data[index]
-                            //       .oId.toString(),
-                            // );
+                                                  IconButton(
+                                                      onPressed: () {
+                                                        // _openUploadDialog(
+                                                        //   context:
+                                                        //       context,
+                                                        //   oId: data[index]
+                                                        //       .oId.toString(),
+                                                        // );
 
-                            if (data[index]
-                                .sId
-                                .toString()
-                                .isEmpty) {
-                            AppSnackBar
-                                .showGetXCustomSnackBar(
-                            message:
-                            "No Sales ID Found");
-                            } else {
-                            final TextEditingController
-                            remarksController =
-                            TextEditingController();
+                                                        if (data[index]
+                                                                .imgUrl
+                                                                .toString()
+                                                                .isNotEmpty &&
+                                                            data[index]
+                                                                    .imgUrl !=
+                                                                null) {
+                                                          showDialog(
+                                                            context: context,
+                                                            builder:
+                                                                (BuildContext
+                                                                    context) {
+                                                              return AlertDialog(
+                                                                title: Text(
+                                                                    'Replace Image'),
+                                                                content: Text(
+                                                                    'Are you sure you want to replace image?'),
+                                                                actions: [
+                                                                  TextButton(
+                                                                    onPressed:
+                                                                        () {
+                                                                      Get.back();
+                                                                    },
+                                                                    child: Text(
+                                                                        'No'),
+                                                                  ),
+                                                                  TextButton(
+                                                                    onPressed:
+                                                                        () {
+                                                                      Get.back();
+                                                                      final TextEditingController
+                                                                          remarksController =
+                                                                          TextEditingController();
 
-                            showDialog(
-                            context:
-                            context,
-                            barrierDismissible:
-                            false,
-                            builder: (_) =>
-                            CommonUploadInputDialog(
-                            title:
-                            "Upload Proof",
-                            message:
-                            "Please upload delivery proof for Sales ID: ${data[index].sId}.",
-                            controllerValue:
-                            remarksController,
-                            isLoading:
-                            false
-                                .obs,
-                            fileRx:
-                            proofOfDelivery,
-                            webFileRx:
-                            proofOfDeliveryWeb,
-                            onUploadTap: () =>
-                            pickImage(
-                            'proofOfDelivery'),
-                            onDeleteTap: () =>
-                            removeImage(
-                            'proofOfDelivery'),
-                            onSubmit:
-                            () async {
-                            if (proofOfDelivery.value ==
-                            null &&
-                            proofOfDeliveryWeb.value ==
-                            null) {
-                            AppSnackBar.showGetXCustomSnackBar(
-                            message:
-                            "Please upload image");
-                            return;
-                            }
+                                                                      showDialog(
+                                                                        context:
+                                                                            context,
+                                                                        barrierDismissible:
+                                                                            false,
+                                                                        builder:
+                                                                            (_) =>
+                                                                                CommonUploadInputDialog(
+                                                                          title:
+                                                                              "Upload Proof",
+                                                                          message:
+                                                                              "Please upload delivery proof for Sales ID: ${data[index].sId}.",
+                                                                          controllerValue:
+                                                                              remarksController,
+                                                                          isLoading:
+                                                                              false.obs,
+                                                                          fileRx:
+                                                                              proofOfDelivery,
+                                                                          webFileRx:
+                                                                              proofOfDeliveryWeb,
+                                                                          onUploadTap: () =>
+                                                                              pickImage('proofOfDelivery'),
+                                                                          onDeleteTap: () =>
+                                                                              removeImage('proofOfDelivery'),
+                                                                          onSubmit:
+                                                                              () async {
+                                                                            if (proofOfDelivery.value == null &&
+                                                                                proofOfDeliveryWeb.value == null) {
+                                                                              AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
+                                                                              return;
+                                                                            }
 
-                            await insertOrUpdateSalesRegister(
-                            data[index]
-                                .sId
-                                .toString(),
-                            context,
-                            "",
-                            remarksController
-                                .text,
-                            );
+                                                                            await insertOrUpdateSalesRegister(
+                                                                              data[index].sId.toString(),
+                                                                              "",
+                                                                              remarksController.text,
+                                                                            ).then((_) {
+                                                                              removeImage('proofOfDelivery');
 
-                            removeImage(
-                            'proofOfDelivery');
-                            Get.back();
-                            },
-                            onCancel:
-                            () {
-                            removeImage(
-                            'proofOfDelivery');
-                            remarksController
-                                .clear();
-                            Get.back();
-                            },
-                            ),
-                            );
-                            }
-                            },
-                            icon: Icon(Icons
-                                .attach_file)),
+                                                                              Get.back();
+                                                                            });
+                                                                          },
+                                                                          onCancel:
+                                                                              () {
+                                                                            removeImage('proofOfDelivery');
+                                                                            remarksController.clear();
+                                                                            Get.back();
+                                                                          },
+                                                                        ),
+                                                                      );
+                                                                    },
+                                                                    child: Text(
+                                                                        'Yes'),
+                                                                  ),
+                                                                ],
+                                                              );
+                                                            },
+                                                          );
+                                                        } else {
+                                                          if (data[index]
+                                                              .sId
+                                                              .toString()
+                                                              .isEmpty) {
+                                                            AppSnackBar
+                                                                .showGetXCustomSnackBar(
+                                                                    message:
+                                                                        "No Sales ID Found");
+                                                          } else {
+                                                            final TextEditingController
+                                                                remarksController =
+                                                                TextEditingController();
+
+                                                            showDialog(
+                                                              context: context,
+                                                              barrierDismissible:
+                                                                  false,
+                                                              builder: (_) =>
+                                                                  CommonUploadInputDialog(
+                                                                title:
+                                                                    "Upload Proof",
+                                                                message:
+                                                                    "Please upload delivery proof for Sales ID: ${data[index].sId}.",
+                                                                controllerValue:
+                                                                    remarksController,
+                                                                isLoading:
+                                                                    false.obs,
+                                                                fileRx:
+                                                                    proofOfDelivery,
+                                                                webFileRx:
+                                                                    proofOfDeliveryWeb,
+                                                                onUploadTap: () =>
+                                                                    pickImage(
+                                                                        'proofOfDelivery'),
+                                                                onDeleteTap: () =>
+                                                                    removeImage(
+                                                                        'proofOfDelivery'),
+                                                                onSubmit:
+                                                                    () async {
+                                                                  if (proofOfDelivery
+                                                                              .value ==
+                                                                          null &&
+                                                                      proofOfDeliveryWeb
+                                                                              .value ==
+                                                                          null) {
+                                                                    AppSnackBar.showGetXCustomSnackBar(
+                                                                        message:
+                                                                            "Please upload image");
+                                                                    return;
+                                                                  }
+
+                                                                  await insertOrUpdateSalesRegister(
+                                                                    data[index]
+                                                                        .sId
+                                                                        .toString(),
+                                                                    "",
+                                                                    remarksController
+                                                                        .text,
+                                                                  ).then((_) {
+                                                                    removeImage(
+                                                                        'proofOfDelivery');
+
+                                                                    Get.back();
+                                                                  });
+                                                                },
+                                                                onCancel: () {
+                                                                  removeImage(
+                                                                      'proofOfDelivery');
+                                                                  remarksController
+                                                                      .clear();
+                                                                  Get.back();
+                                                                },
+                                                              ),
+                                                            );
+                                                          }
+                                                        }
+                                                      },
+                                                      icon: Icon(
+                                                          Icons.attach_file)),
                                                   // Container(
                                                   //   child: profile.userCode ==
                                                   //           data[index]
@@ -1784,11 +1878,12 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
 
   Future<void> insertOrUpdateSalesRegister(
     String sId,
-    BuildContext context,
     String type,
     String remarks,
   ) async {
-    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    //final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    final UserProvider ub =
+        Provider.of<UserProvider>(Get.context!, listen: false);
 
     try {
       if (!await Network.isConnected()) {
@@ -2045,13 +2140,13 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
 
                         await insertOrUpdateSalesRegister(
                           oId,
-                          context,
                           "", // Insert
                           remarksController.text.trim(),
-                        );
+                        ).then((_) {
+                          removeImage('proofOfDelivery');
 
-                        removeImage('proofOfDelivery');
-                        Get.back();
+                          Get.back();
+                        });
                       },
                       child: const Text("Submit"),
                     ),
