@@ -2079,7 +2079,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       final Map<String, String> fields = {
         "remark": remarks,
         "oId": oId,
-        //"moduleNo": "205",
+        "moduleNo": "304",
       };
 
       fields.forEach((key, value) {

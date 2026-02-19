@@ -1918,7 +1918,7 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
       final Map<String, String> fields = {
         "remark": remarks,
         "sId": sId,
-        //"moduleNo": "205",
+        "moduleNo": "313",
       };
 
       fields.forEach((key, value) {

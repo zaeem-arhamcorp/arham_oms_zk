@@ -15,6 +15,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 
 class Helper {
+  static String maskMobileNumber(String mobile) {
+    if (mobile.length < 6) return mobile; // safety check
+
+    final firstTwo = mobile.substring(0, 2);
+    final lastFour = mobile.substring(mobile.length - 4);
+
+    return '$firstTwo****$lastFour';
+  }
+
   static bool isValidEmail(String email) {
     final emailRegex = RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',

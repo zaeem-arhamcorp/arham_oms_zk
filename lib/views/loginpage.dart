@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/utlityModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 
@@ -12,6 +14,7 @@ import 'package:arham_corporation/views/signuppage.dart';
 import 'package:arham_corporation/widgets/app_dimensions.dart';
 import 'package:arham_corporation/widgets/app_font_weight.dart';
 import 'package:arham_corporation/widgets/bottomnavebar.dart';
+import 'package:arham_corporation/widgets/common_app_input.dart';
 import 'package:arham_corporation/widgets/common_button.dart';
 import 'package:arham_corporation/widgets/common_input_dialog.dart';
 import 'package:arham_corporation/widgets/common_text.dart';
@@ -56,6 +59,9 @@ class _LoginPageState extends State<LoginPage> {
   var isVerifyOTPLoading = false.obs;
   var isVerifyOTPDisable = false.obs;
   var isResendOTPLoading = false.obs;
+  var resendSeconds = 60.obs;
+  var isResendEnabled = false.obs;
+  Timer? _resendTimer;
 
   //var isResendOTPDisable = false.obs;
   var mobileNo = ''.obs;
@@ -74,6 +80,47 @@ class _LoginPageState extends State<LoginPage> {
 
   var isLoginWithOTP = false.obs;
 
+  var isResetPasswordLoading = false.obs;
+  var isResetPasswordDisable = false.obs;
+  var isResetPasswordEnable = false.obs;
+  var newPasswordController = TextEditingController().obs;
+  var confirmPasswordController = TextEditingController().obs;
+
+  var newPasswordFocus = FocusNode();
+  var confirmPassWordFocus = FocusNode();
+
+  var isNewPasswordObscured = true.obs;
+  var isConfirmPasswordObscured = true.obs;
+
+  void newPassToggleObscured() {
+    isNewPasswordObscured.value = !isNewPasswordObscured.value;
+  }
+
+  void confirmPassToggleObscured() {
+    isConfirmPasswordObscured.value = !isConfirmPasswordObscured.value;
+  }
+
+  void startResendTimer() {
+    resendSeconds.value = 60;
+    isResendEnabled.value = false;
+
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (resendSeconds.value == 0) {
+        timer.cancel();
+        isResendEnabled.value = true;
+      } else {
+        resendSeconds.value--;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     //fToast.init(context); // Initialize FToast
@@ -89,7 +136,16 @@ class _LoginPageState extends State<LoginPage> {
           child: Center(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-              child: isVerified.value ? _loginView(context) : _otpView(context),
+              //child: isVerified.value ? _loginView(context) : _otpView(context),
+              child: Obx(() {
+                final verified = isVerified.value;
+                final resetEnabled = isResetPasswordEnable.value;
+
+                if (verified && resetEnabled)
+                  return _resetPasswordView(context);
+                if (verified) return _loginView(context);
+                return _otpView(context);
+              }),
             ),
           ),
         ),
@@ -279,7 +335,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
-                      if (tempToken.isEmpty)
+                      if (isLoginWithOTP.value == false && tempToken.isEmpty)
                         Align(
                           alignment: Alignment.centerRight,
                           child: CommonTextButton(
@@ -537,6 +593,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _otpView(BuildContext context) {
+    startResendTimer(); // restart timer
+
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     final outline = theme.colorScheme.outline;
@@ -584,7 +642,8 @@ class _LoginPageState extends State<LoginPage> {
         if (mobileNo.value.isNotEmpty)
           Obx(
             () => CommonText(
-              text: mobileNo.value,
+              //text: mobileNo.value,
+              text: Helper.maskMobileNumber(mobileNo.value),
               fontSize: AppDimensions.fontSizeMedium,
               fontWeight: AppFontWeight.w900,
             ).paddingOnly(top: 20),
@@ -616,18 +675,42 @@ class _LoginPageState extends State<LoginPage> {
           fontSize: AppDimensions.fontSizeMedium,
           fontWeight: AppFontWeight.w600,
         ).paddingOnly(top: 30),
-        isResendOTPLoading.value
-            ? SizedBox(
-                height: 25,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : CommonTextButton(
-                title: 'Resend',
-                underline: true,
-                onPressed: () {
-                  resendOTPValidation();
-                },
-              ).paddingOnly(top: 10),
+        // isResendOTPLoading.value
+        //     ? SizedBox(
+        //         height: 25,
+        //         child: Center(child: CircularProgressIndicator()),
+        //       )
+        //     : CommonTextButton(
+        //         title: 'Resend',
+        //         underline: true,
+        //         onPressed: () {
+        //           resendOTPValidation();
+        //         },
+        //       ).paddingOnly(top: 10),
+        Obx(() {
+          if (isResendOTPLoading.value) {
+            return const SizedBox(
+              height: 25,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!isResendEnabled.value) {
+            return CommonText(
+              text: 'Resend in ${resendSeconds.value}s',
+              fontSize: 14,
+            ).paddingOnly(top: 10);
+          }
+
+          return CommonTextButton(
+            title: 'Resend',
+            underline: true,
+            onPressed: () {
+              resendOTPValidation();
+              startResendTimer(); // restart timer
+            },
+          ).paddingOnly(top: 10);
+        }),
         Obx(
           () => CommonButton(
             buttonText: 'Verify OTP',
@@ -795,9 +878,9 @@ class _LoginPageState extends State<LoginPage> {
           ub.saveUserData(value["role"] ?? "", value["token"]).then((value) {
             ub.setSignIn().then((value) {
               final locationProvider =
-              Provider.of<LocationProvider>(context, listen: false);
+                  Provider.of<LocationProvider>(context, listen: false);
               final userProvider =
-              Provider.of<UserProvider>(context, listen: false);
+                  Provider.of<UserProvider>(context, listen: false);
               locationProvider.start(userProvider);
               //context.read<LocationProvider>().start(context);
               context.read<PartyProvider>().getpartyname(context);
@@ -998,32 +1081,43 @@ class _LoginPageState extends State<LoginPage> {
             global.loadingsignup(false);
 
             //Navigator.pop(context);
+            if (isResetPasswordEnable.value) {
+              AppSnackBar.showGetXCustomSnackBar(
+                message: 'Verify OTP successfully',
+                backgroundColor: Colors.green,
+              );
 
-            AppSnackBar.showGetXCustomSnackBar(
-              message: 'Verify OTP successfully',
-              backgroundColor: Colors.green,
-            );
+              //isResetPasswordEnable.value = true;
+              isVerified.value = true;
+              isTextFieldDisable.value = false;
+              isLoginProcessing = false;
+            } else {
+              AppSnackBar.showGetXCustomSnackBar(
+                message: 'Verify OTP successfully',
+                backgroundColor: Colors.green,
+              );
 
-            isVerified.value = true;
-            isTextFieldDisable.value = false;
-            isLoginProcessing = false;
+              isVerified.value = true;
+              isTextFieldDisable.value = false;
+              isLoginProcessing = false;
 
-            FocusManager.instance.primaryFocus?.unfocus();
-            global.loadinglogin(true);
-            AuthServices()
-                .performLoginWithUserCd(
-                    _emailClt.text, _passwordClt.text, context)
-                .then((value) async {
-              if (value != null) {
-                setState(() {
-                  tempToken = json.decode(value)["tempToken"];
-                });
+              FocusManager.instance.primaryFocus?.unfocus();
+              global.loadinglogin(true);
+              AuthServices()
+                  .performLoginWithUserCd(
+                      _emailClt.text, _passwordClt.text, context)
+                  .then((value) async {
+                if (value != null) {
+                  setState(() {
+                    tempToken = json.decode(value)["tempToken"];
+                  });
 
-                if (tempToken.isNotEmpty) {
-                  _fetchFirmDropdown(tempToken);
-                } else {}
-              }
-            });
+                  if (tempToken.isNotEmpty) {
+                    _fetchFirmDropdown(tempToken);
+                  } else {}
+                }
+              });
+            }
           } else {
             global.loadingsignup(false);
           }
@@ -1051,31 +1145,6 @@ class _LoginPageState extends State<LoginPage> {
         global.loadingsignup(false);
       }
     });
-
-    // if (verifyOTPController.value.text.isEmpty) {
-    //   AppSnackBar.showGetXCustomSnackBar(message: 'Please enter OTP.');
-    // } else if (verifyOTPController.value.text.isNotEmpty &&
-    //     verifyOTPController.value.text.length < 6) {
-    //   AppSnackBar.showGetXCustomSnackBar(message: 'Please enter a valid OTP.');
-    // } else {
-    //   FocusManager.instance.primaryFocus?.unfocus();
-    //   global.loadingsignup(true);
-    //
-    //   Authservices().resendOTP(mobileNo.value, context).then((value) {
-    //     if (value != null) {
-    //       global.loadingsignup(false);
-    //
-    //       verifyOTPController.value.clear();
-    //
-    //       AppSnackBar.showGetXCustomSnackBar(
-    //         message: 'OTP resent successfully',
-    //         backgroundColor: Colors.green,
-    //       );
-    //     } else {
-    //       global.loadingsignup(false);
-    //     }
-    //   });
-    // }
   }
 
   void forgotPasswordWithAPI() {
@@ -1169,6 +1238,7 @@ class _LoginPageState extends State<LoginPage> {
                 isLoginProcessing = false;
                 mobileNo.value = response['data']['MOBILENO'];
                 isVerified.value = response['data']['IS_VERIFIED'];
+                isResetPasswordEnable.value = true;
                 print('Mobile No Verified ${isVerified.value}');
 
                 if (isVerified.value == true) {
@@ -1214,5 +1284,124 @@ class _LoginPageState extends State<LoginPage> {
         }
       });
     }
+  }
+
+  void resetPasswordWithAPI() {
+    final Global global = Provider.of<Global>(context, listen: false);
+
+    if (newPasswordController.value.text.isEmpty) {
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Please enter new password.',
+      );
+    } else if (confirmPasswordController.value.text.isEmpty) {
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Please enter confirm password.',
+      );
+    } else if (confirmPasswordController.value.text !=
+        newPasswordController.value.text) {
+      AppSnackBar.showGetXCustomSnackBar(
+          message: 'Confirm Password & New Password Not Match.');
+    } else {
+      FocusManager.instance.primaryFocus?.unfocus();
+      global.loadinglogin(true);
+
+      AuthServices()
+          .resetPassword(
+        mobileNo.value,
+        verifyOTPController.value.text,
+        newPasswordController.value.text,
+        context,
+      )
+          .then((value) {
+        if (value != null) {
+          global.loadinglogin(false);
+
+          AppSnackBar.showGetXCustomSnackBar(
+            message: 'Reset password successfully',
+            backgroundColor: Colors.green,
+          );
+
+          mobileNo.value = '';
+          isResetPasswordEnable.value = false;
+          isLoginProcessing = false;
+          isVerified.value = true;
+          isTextFieldDisable.value = false;
+        } else {
+          global.loadinglogin(false);
+        }
+      });
+    }
+  }
+
+  Widget _resetPasswordView(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      //mainAxisSize: MainAxisSize.min,
+      children: [
+        CommonText(
+          text: 'Reset Password',
+          fontSize: AppDimensions.fontSizeExtraLarge,
+          fontWeight: AppFontWeight.w900,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        if (mobileNo.value.isNotEmpty)
+          Obx(
+            () => CommonText(
+              //text: mobileNo.value,
+              text:
+                  "OTP verified for ${Helper.maskMobileNumber(mobileNo.value)}.Enter your new password below.",
+              fontSize: AppDimensions.fontSizeMedium,
+              fontWeight: AppFontWeight.w900,
+            ).paddingOnly(top: 25),
+          ),
+        SizedBox(
+          height: 20,
+        ),
+        CommonAppInput(
+          maxLines: 1,
+          suffixIcon: isNewPasswordObscured.value
+              ? Icons.visibility_off_rounded
+              : Icons.visibility_rounded,
+          onSubmitted: (val) {
+            FocusScope.of(context).requestFocus(confirmPassWordFocus);
+          },
+          onSuffixClick: () => newPassToggleObscured(),
+          textInputAction: TextInputAction.next,
+          textEditingController: newPasswordController.value,
+          hintText: "Password",
+          maxLength: 12,
+          focusNode: newPasswordFocus,
+          isPassword: isNewPasswordObscured.value ? true : false,
+          nextFocusNode: confirmPassWordFocus,
+        ),
+        SizedBox(
+          height: 10,
+        ),
+        CommonAppInput(
+          maxLines: 1,
+          textInputAction: TextInputAction.done,
+          suffixIcon: isConfirmPasswordObscured.value
+              ? Icons.visibility_off_rounded
+              : Icons.visibility_rounded,
+          maxLength: 12,
+          onSuffixClick: () => confirmPassToggleObscured(),
+          textEditingController: confirmPasswordController.value,
+          hintText: "Confirm Password",
+          focusNode: confirmPassWordFocus,
+          isPassword: isConfirmPasswordObscured.value ? true : false,
+        ),
+        Obx(
+          () => CommonButton(
+            buttonText: 'Reset Password',
+            onPressed: () {
+              resetPasswordWithAPI();
+            },
+            isLoading: isResetPasswordLoading.value,
+            isDisable: isResetPasswordDisable.value,
+          ),
+        ).paddingOnly(top: 16),
+      ],
+    );
   }
 }

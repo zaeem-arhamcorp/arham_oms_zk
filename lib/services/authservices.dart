@@ -499,4 +499,49 @@ class AuthServices {
     }
     return null;
   }
+
+  Future<dynamic> resetPassword(
+    String mobileNumber,
+    String otp,
+    String newPassword,
+    BuildContext context,
+  ) async {
+    final Global global = Provider.of<Global>(context, listen: false);
+
+    try {
+      if (await Network.isConnected()) {
+        Map<String, dynamic> param = {
+          'mobileNo': mobileNumber,
+          "otp": otp,
+          "newPassword": newPassword
+        };
+
+        final http.Response response = await http.post(
+          Uri.parse(AppConfig.resetPasswordURL),
+          headers: {
+            'x-app-type': 'oms',
+          },
+          body: param, // Encode the body as JSON
+        );
+
+        print(response.body);
+
+        if (response.statusCode == 200) {
+          return response.body;
+        } else {
+          global.loadinglogin(false);
+          AppSnackBar.showGetXCustomSnackBar(
+              message: json.decode(response.body)["message"]);
+          //Fluttertoast.showToast(msg: json.decode(response.body)["message"]);
+        }
+      } else {
+        AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
+      }
+    } catch (e) {
+      global.loadinglogin(false);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      //Fluttertoast.showToast(msg: "Something went wrong");
+      print("Error in AuthServices Reset Password ${e.toString()}");
+    }
+  }
 }

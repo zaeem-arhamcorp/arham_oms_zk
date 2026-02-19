@@ -62,6 +62,24 @@ class _SignUpPageState extends State<SignUpPage> {
   var mobileNo = ''.obs;
   var isVerified = true.obs;
   var verifyOTPController = TextEditingController().obs;
+  var resendSeconds = 60.obs;
+  var isResendEnabled = false.obs;
+  Timer? _resendTimer;
+
+  void startResendTimer() {
+    resendSeconds.value = 60;
+    isResendEnabled.value = false;
+
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (resendSeconds.value == 0) {
+        timer.cancel();
+        isResendEnabled.value = true;
+      } else {
+        resendSeconds.value--;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -73,6 +91,7 @@ class _SignUpPageState extends State<SignUpPage> {
     _emailIDFocusNode.dispose();
     verifyOTPController.value.dispose();
     verifyOTPController.close();
+    _resendTimer?.cancel();
     super.dispose();
   }
 
@@ -470,6 +489,8 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _otpView(BuildContext context) {
+    startResendTimer(); // restart timer
+
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     final outline = theme.colorScheme.outline;
@@ -517,7 +538,8 @@ class _SignUpPageState extends State<SignUpPage> {
         if (mobileNo.value.isNotEmpty)
           Obx(
             () => CommonText(
-              text: mobileNo.value,
+              //text: mobileNo.value,
+              text: Helper.maskMobileNumber(mobileNo.value),
               fontSize: AppDimensions.fontSizeMedium,
               fontWeight: AppFontWeight.w900,
             ).paddingOnly(top: 20),
@@ -549,18 +571,42 @@ class _SignUpPageState extends State<SignUpPage> {
           fontSize: AppDimensions.fontSizeMedium,
           fontWeight: AppFontWeight.w600,
         ).paddingOnly(top: 30),
-        isResendOTPLoading.value
-            ? SizedBox(
-                height: 25,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : CommonTextButton(
-                title: 'Resend',
-                underline: true,
-                onPressed: () {
-                  resendOTPValidation();
-                },
-              ).paddingOnly(top: 10),
+        // isResendOTPLoading.value
+        //     ? SizedBox(
+        //         height: 25,
+        //         child: Center(child: CircularProgressIndicator()),
+        //       )
+        //     : CommonTextButton(
+        //         title: 'Resend',
+        //         underline: true,
+        //         onPressed: () {
+        //           resendOTPValidation();
+        //         },
+        //       ).paddingOnly(top: 10),
+        Obx(() {
+          if (isResendOTPLoading.value) {
+            return const SizedBox(
+              height: 25,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!isResendEnabled.value) {
+            return CommonText(
+              text: 'Resend in ${resendSeconds.value}s',
+              fontSize: 14,
+            ).paddingOnly(top: 10);
+          }
+
+          return CommonTextButton(
+            title: 'Resend',
+            underline: true,
+            onPressed: () {
+              resendOTPValidation();
+              startResendTimer(); // restart timer
+            },
+          ).paddingOnly(top: 10);
+        }),
         Obx(
           () => CommonButton(
             buttonText: 'Verify OTP',
