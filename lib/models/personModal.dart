@@ -46,6 +46,7 @@ class DatumModules {
   dynamic moduleType;
   dynamic sORTING;
   dynamic aPPTYPE;
+  dynamic appTypeCategory;
   dynamic READ_RIGHT;
   dynamic WRITE_RIGHT;
   dynamic UPDATE_RIGHT;
@@ -59,6 +60,7 @@ class DatumModules {
       required this.moduleType,
       required this.sORTING,
       required this.aPPTYPE,
+      required this.appTypeCategory,
       required this.role,
       required this.READ_RIGHT,
       required this.WRITE_RIGHT,
@@ -72,6 +74,7 @@ class DatumModules {
       moduleType: json["MODULE_TYPE"],
       sORTING: json["SORTING"],
       aPPTYPE: json["APP_TYPE"],
+      appTypeCategory: json["APP_TYPE_CATEGORY"],
       READ_RIGHT: json["READ_RIGHT"],
       WRITE_RIGHT: json["WRITE_RIGHT"],
       UPDATE_RIGHT: json["UPDATE_RIGHT"],
@@ -85,6 +88,7 @@ class DatumModules {
         "MODULE_TYPE": moduleType,
         "SORTING": sORTING,
         "APP_TYPE": aPPTYPE,
+        "APP_TYPE_CATEGORY": appTypeCategory,
         "READ_RIGHT": READ_RIGHT,
         "WRITE_RIGHT": WRITE_RIGHT,
         "UPDATE_RIGHT": UPDATE_RIGHT,

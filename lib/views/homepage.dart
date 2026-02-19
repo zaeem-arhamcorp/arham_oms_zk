@@ -6,6 +6,7 @@ import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/views/About%20me.dart';
+import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:flutter/material.dart';
@@ -564,6 +565,21 @@ class _HomePageState extends State<HomePage> {
                     Get.to(() => SettingScreen());
                   },
                 ),
+              ListTile(
+                leading: Icon(
+                  Icons.key,
+                  size: 30,
+                ),
+                title: Text(
+                  'Change Password',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  Get.to(() => ChangePasswordView());
+                },
+              ),
               ListTile(
                 leading: Icon(
                   Icons.info_outline,
