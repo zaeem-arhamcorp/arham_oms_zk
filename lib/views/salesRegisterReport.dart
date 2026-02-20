@@ -1504,7 +1504,10 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                                                             }
 
                                                                             await insertOrUpdateSalesRegister(
-                                                                              data[index].sId.toString(),
+                                                                              data[index].vouchNo.toString(),
+                                                                              data[index].bookCd.toString(),
+                                                                              data[index].partyBl.toString(),
+                                                                              data[index].partyCd.toString(),
                                                                               "",
                                                                               remarksController.text,
                                                                             ).then((_) {
@@ -1531,7 +1534,7 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                                           );
                                                         } else {
                                                           if (data[index]
-                                                              .sId
+                                                              .vouchNo
                                                               .toString()
                                                               .isEmpty) {
                                                             AppSnackBar
@@ -1583,7 +1586,16 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
 
                                                                   await insertOrUpdateSalesRegister(
                                                                     data[index]
-                                                                        .sId
+                                                                        .vouchNo
+                                                                        .toString(),
+                                                                    data[index]
+                                                                        .bookCd
+                                                                        .toString(),
+                                                                    data[index]
+                                                                        .partyBl
+                                                                        .toString(),
+                                                                    data[index]
+                                                                        .partyCd
                                                                         .toString(),
                                                                     "",
                                                                     remarksController
@@ -1624,7 +1636,7 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                                   //             // );
                                                   //
                                                   //             if (data[index]
-                                                  //                 .sId
+                                                  //                 .vouchNo
                                                   //                 .toString()
                                                   //                 .isEmpty) {
                                                   //               AppSnackBar
@@ -1877,13 +1889,18 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
   }
 
   Future<void> insertOrUpdateSalesRegister(
-    String sId,
+    String vouchNo,
+    String bookCD,
+    String billNo,
+    String partyCd,
     String type,
     String remarks,
   ) async {
     //final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final UserProvider ub =
         Provider.of<UserProvider>(Get.context!, listen: false);
+    await ub.getSyncId();
+    String? storedSyncId = ub.syncId;
 
     try {
       if (!await Network.isConnected()) {
@@ -1916,8 +1933,12 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
 
       // ✅ Add Fields
       final Map<String, String> fields = {
+        "vouchNo": vouchNo,
+        "syncId": storedSyncId.toString(),
+        "bookCd": bookCD,
+        "billNo": billNo,
+        "partyCd": partyCd,
         "remark": remarks,
-        "sId": sId,
         "moduleNo": "313",
       };
 
@@ -2141,6 +2162,9 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                         await insertOrUpdateSalesRegister(
                           oId,
                           "", // Insert
+                          "",
+                          "",
+                          "",
                           remarksController.text.trim(),
                         ).then((_) {
                           removeImage('proofOfDelivery');

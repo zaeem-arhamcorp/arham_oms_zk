@@ -30,7 +30,8 @@ class SalesRegisterReportModal {
 
 class DatumSalesRegisterReport {
   DatumSalesRegisterReport(
-      {required this.vouchDt,
+      {required this.vouchNo,
+      required this.vouchDt,
       required this.bookCd,
       required this.partyBl,
       required this.partyCd,
@@ -43,6 +44,7 @@ class DatumSalesRegisterReport {
       required this.account,
       required this.user});
 
+  dynamic vouchNo;
   dynamic vouchDt;
   dynamic bookCd;
   dynamic partyBl;
@@ -58,6 +60,7 @@ class DatumSalesRegisterReport {
 
   factory DatumSalesRegisterReport.fromJson(Map<String, dynamic> json) =>
       DatumSalesRegisterReport(
+        vouchNo: json["VOUCH_NO"],
         vouchDt: json["VOUCH_DT"],
         bookCd: json["BOOK_CD"],
         partyBl: json["PARTY_BL"],
@@ -75,6 +78,7 @@ class DatumSalesRegisterReport {
       );
 
   Map<String, dynamic> toJson() => {
+        "VOUCH_NO": vouchNo,
         "VOUCH_DT": vouchDt,
         "BOOK_CD": bookCd,
         "PARTY_BL": partyBl,
