@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,6 @@ import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../models/narrationModal.dart';
 import '../../models/partynameModal.dart';
-import '../../providers/user_provider.dart';
 import '../../views/loginpage.dart';
 import '../model/product_model.dart';
 
@@ -65,20 +65,23 @@ class ProductController extends GetxController {
     } else {
       filteredDepartments.value = deptment
           .where((dept) =>
-              dept.deptName.toLowerCase().contains(query.toLowerCase()))
+          dept.deptName.toLowerCase().contains(query.toLowerCase()))
           .toList();
     }
   }
 
   void toggleSearch() {
     if (showDeptSearch.value) {
+      print('1');
       showDeptSearch.value = false; // Close department search
       showSearch.value = true; // Switch to normal search
       departmentController.clear();
       filteredDepartments.value = deptment; // Reset to full list when cleared
     } else if (showSearch.value) {
+      print('2');
       showSearch.value = false; // Close normal search
     } else {
+      print('3');
       showSearch.value = true; // Open normal search
     }
   }
@@ -137,7 +140,8 @@ class ProductController extends GetxController {
 
         // Ensure all words from the search query are found
         return searchWords.every(
-            (word) => searchableFields.any((field) => field.contains(word)));
+                (word) =>
+                searchableFields.any((field) => field.contains(word)));
       }).toList();
     } else {
       // 3️⃣ Normal single-word search
@@ -192,7 +196,7 @@ class ProductController extends GetxController {
 
         // Ensure all words from the search query are found
         return searchWords.every(
-          (word) => searchableFields.any((field) => field.contains(word)),
+              (word) => searchableFields.any((field) => field.contains(word)),
         );
       }).toList();
     } else {
@@ -232,7 +236,7 @@ class ProductController extends GetxController {
     filteredList = filteredList.toSet().toList();
 
     filteredProducts.assignAll(filteredList);
-    log("Filtered products: $filteredList");
+    log("Filtered products: ${filteredList}");
   }
 
   void searchProducts(String query) {
@@ -242,10 +246,10 @@ class ProductController extends GetxController {
     List<ProductItem> baseList = selectedChip.value.isEmpty
         ? products
         : products
-            .where((product) =>
-                product.deptCd.toLowerCase() ==
-                selectedChip.value.toLowerCase())
-            .toList();
+        .where((product) =>
+    product.deptCd.toLowerCase() ==
+        selectedChip.value.toLowerCase())
+        .toList();
 
     List<ProductItem> filteredList;
 
@@ -278,7 +282,7 @@ class ProductController extends GetxController {
         ];
 
         return searchWords.every(
-          (word) => searchableFields.any((field) => field.contains(word)),
+              (word) => searchableFields.any((field) => field.contains(word)),
         );
       }).toList();
     } else {
@@ -340,10 +344,11 @@ class ProductController extends GetxController {
     } else {
       final filteredList = products
           .where((product) =>
-              product.deptCd.toLowerCase() == selectedChip.value.toLowerCase())
+      product.deptCd.toLowerCase() == selectedChip.value.toLowerCase())
           .toList();
       filteredProducts.assignAll(filteredList);
-      log("Filtered products for department '${selectedChip.value}': $filteredList");
+      log("Filtered products for department '${selectedChip
+          .value}': $filteredList");
     }
   }
 
@@ -399,39 +404,46 @@ class ProductController extends GetxController {
     try {
       _fetchNarrationOptions('OTHER_DESC', otherDescOptions);
       _fetchNarrationOptions('FLD5', fld5DescOptions);
+      ;
     } catch (e) {
       log('Error in fetchOptions: $e');
     }
   }
 
-  void getOptions() {
+  getOptions() {
     Services().getNarration(Get.context, "OTHER_DESC").then((value) {
       if (value != null) {
-        otherDescOptions.addAll(value.map((e) => DatumNarration(
-            NARR_NAME: e.NARR_NAME,
-            NARR_TYPE: e.NARR_TYPE,
-            SYNC_ID: e.SYNC_ID)));
+        otherDescOptions.addAll(value.map((e) =>
+            DatumNarration(
+                NARR_NAME: e.NARR_NAME,
+                NARR_TYPE: e.NARR_TYPE,
+                SYNC_ID: e.SYNC_ID)));
       } else {
+        print("Error: OTHER_DESC returned null or invalid data.");
       }
     }).catchError((error) {
+      print("Error fetching OTHER_DESC: $error");
     });
 
     Services().getNarration(Get.context, "FLD5").then((value) {
       if (value != null) {
-        fld5DescOptions.addAll(value.map((e) => DatumNarration(
-            NARR_NAME: e.NARR_NAME,
-            NARR_TYPE: e.NARR_TYPE,
-            SYNC_ID: e.SYNC_ID)));
+        fld5DescOptions.addAll(value.map((e) =>
+            DatumNarration(
+                NARR_NAME: e.NARR_NAME,
+                NARR_TYPE: e.NARR_TYPE,
+                SYNC_ID: e.SYNC_ID)));
       } else {
+        print("Error: FLD5 returned null or invalid data.");
       }
     }).catchError((error) {
+      print("Error fetching FLD5: $error");
     });
   }
 
-  Future<void> _fetchNarrationOptions(
-      String narrationType, RxList<DatumNarration> targetList) async {
+  Future<void> _fetchNarrationOptions(String narrationType,
+      RxList<DatumNarration> targetList) async {
     final String url =
-        ('${AppConfig.baseURL}master-entry/narration?narrType=$narrationType');
+    ('${AppConfig.baseURL}master-entry/narration?narrType=$narrationType');
 
     try {
       // ignore: unused_local_variable
@@ -446,8 +458,10 @@ class ProductController extends GetxController {
     } on DioException catch (e) {
       if (e.response?.statusCode == 403) {
         // Handle 403 Forbidden error specifically
+        print('Access forbidden: ${e.response?.data}');
       } else {
         // Handle other errors
+        print('Request error: $e');
       }
     }
   }
@@ -464,6 +478,8 @@ class ProductController extends GetxController {
         ),
       );
 
+      print('${AppConfig.baseURL}$endpoint');
+      print('Bearer ${ub.token}');
       if (response.statusCode == 200) {
         return response.data;
       } else if (response.statusCode == 401) {

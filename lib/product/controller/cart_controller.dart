@@ -1,13 +1,12 @@
 import 'dart:developer';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_config.dart';
-import '../../providers/user_provider.dart';
 import '../../views/loginpage.dart';
 
 class CartController extends GetxController {
@@ -16,6 +15,11 @@ class CartController extends GetxController {
   var productAddedStates = <String, bool>{}.obs;
   var cartCount = 0.obs;
 
+  // State management for product input fields
+  var productQuantities = <String, String>{}.obs;
+  var productFreeQuantities = <String, String>{}.obs;
+  var productRemarks = <String, String>{}.obs;
+
   final dio = Dio();
 
   Future<void> addItemToCart({
@@ -23,7 +27,7 @@ class CartController extends GetxController {
     required String itemCd,
     required String qty,
     String? otherDesc,
-    String? lrate,// Fazal Changes 13-03-2025
+    String? lrate, // Fazal Changes 13-03-2025
     String? rate,
     String? remarks,
   }) async {
@@ -32,7 +36,7 @@ class CartController extends GetxController {
     productLoadingStates[itemCd] = true;
 
     final UserProvider userProvider =
-        Provider.of<UserProvider>(Get.context!, listen: false);
+    Provider.of<UserProvider>(Get.context!, listen: false);
 
     try {
       final requestBody = {
@@ -41,13 +45,18 @@ class CartController extends GetxController {
         "qty": qty,
         //if(lrate!=null && lrate.toString().isNotEmpty) "lrate": lrate,// Fazal Changes 13-03-2025
         "lrate": rate,
-        if (otherDesc != null && otherDesc.trim().isNotEmpty)
+        if (otherDesc != null && otherDesc
+            .trim()
+            .isNotEmpty)
           "otherDesc": otherDesc,
-        if (remarks != null && remarks.trim().isNotEmpty) "fld5": remarks,
-        if (rate != null && rate.trim().isNotEmpty) "rate": rate,
-        "moduleNo":"205"
+        if (remarks != null && remarks
+            .trim()
+            .isNotEmpty) "fld5": remarks,
+        if (rate != null && rate
+            .trim()
+            .isNotEmpty) "rate": rate,
+        "moduleNo": "205"
       };
-
 
       final response = await dio.post(
         "${AppConfig.baseURL}cart",
@@ -60,13 +69,12 @@ class CartController extends GetxController {
         ),
       );
       log(">>>>>>>>>> $requestBody");
-      if (kDebugMode) {
-        print("here add to card url ""${AppConfig.baseURL}cart");
-      }
+      print("here add to card url " "${AppConfig.baseURL}cart");
 
       if (response.statusCode == 401) {
         //showToast("Session expired. Please log in again.");
-        AppSnackBar.showGetXCustomSnackBar(message: "Session expired. Please log in again.");
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Session expired. Please log in again.");
 
         Get.offAll(() => LoginPage());
       } else {
@@ -91,6 +99,46 @@ class CartController extends GetxController {
   void clearCartState() {
     productAddedStates.clear();
     productLoadingStates.clear();
+    productQuantities.clear();
+    productFreeQuantities.clear();
+    productRemarks.clear();
     update();
+  }
+
+  // Get quantity for a product
+  String getQuantity(String itemCd) {
+    return productQuantities[itemCd] ?? '';
+  }
+
+  // Set quantity for a product
+  void setQuantity(String itemCd, String value) {
+    productQuantities[itemCd] = value;
+  }
+
+  // Get free quantity for a product
+  String getFreeQuantity(String itemCd) {
+    return productFreeQuantities[itemCd] ?? '';
+  }
+
+  // Set free quantity for a product
+  void setFreeQuantity(String itemCd, String value) {
+    productFreeQuantities[itemCd] = value;
+  }
+
+  // Get remark for a product
+  String getRemark(String itemCd) {
+    return productRemarks[itemCd] ?? '';
+  }
+
+  // Set remark for a product
+  void setRemark(String itemCd, String value) {
+    productRemarks[itemCd] = value;
+  }
+
+  // Clear product input fields after adding to cart
+  void clearProductInputs(String itemCd) {
+    productQuantities.remove(itemCd);
+    productFreeQuantities.remove(itemCd);
+    productRemarks.remove(itemCd);
   }
 }
