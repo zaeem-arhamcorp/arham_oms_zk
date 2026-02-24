@@ -257,7 +257,7 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                 onChanged: (value) {
                                   //4
                                   setStatee(() {
-                                    _tempParty = _buildSearchList(value, party);
+                                    _tempParty = Helper.buildSearchList(value, party);
                                   });
                                 }),
                           ),
