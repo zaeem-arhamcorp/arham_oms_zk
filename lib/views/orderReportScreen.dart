@@ -1425,11 +1425,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                   if (data[index].imgUrl !=
                                                           null &&
                                                       data[index].imgUrl !=
-                                                          '' &&
+                                                          '' /*&&
                                                       profile.userCode ==
                                                           data[index]
                                                               .user
-                                                              .userCd)
+                                                              .userCd*/)
                                                     IconButton(
                                                         onPressed: () {
                                                           showImagePreviewDialog(
@@ -1449,172 +1449,331 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                   //         data[index]
                                                   //             .user
                                                   //             .userCd)
-                                                  Container(
-                                                    child: profile.userCode ==
+                                                  // Container(
+                                                  //   child: profile.userCode ==
+                                                  //           data[index]
+                                                  //               .user
+                                                  //               .userCd
+                                                  //       ? IconButton(
+                                                  //           onPressed: () {
+                                                  //             // _openUploadDialog(
+                                                  //             //   context:
+                                                  //             //       context,
+                                                  //             //   oId: data[index]
+                                                  //             //       .oId.toString(),
+                                                  //             // );
+                                                  //
+                                                  //             if (data[index]
+                                                  //                     .imgUrl
+                                                  //                     .toString()
+                                                  //                     .isNotEmpty &&
+                                                  //                 data[index]
+                                                  //                         .imgUrl !=
+                                                  //                     null) {
+                                                  //               showDialog(
+                                                  //                 context:
+                                                  //                     context,
+                                                  //                 builder:
+                                                  //                     (BuildContext
+                                                  //                         context) {
+                                                  //                   return AlertDialog(
+                                                  //                     title: Text(
+                                                  //                         'Replace Image'),
+                                                  //                     content: Text(
+                                                  //                         'Are you sure you want to replace image?'),
+                                                  //                     actions: [
+                                                  //                       TextButton(
+                                                  //                         onPressed:
+                                                  //                             () {
+                                                  //                           Get.back();
+                                                  //                         },
+                                                  //                         child:
+                                                  //                             Text('No'),
+                                                  //                       ),
+                                                  //                       TextButton(
+                                                  //                         onPressed:
+                                                  //                             () {
+                                                  //                           Get.back();
+                                                  //                           final TextEditingController
+                                                  //                               remarksController =
+                                                  //                               TextEditingController();
+                                                  //
+                                                  //                           showDialog(
+                                                  //                             context: context,
+                                                  //                             barrierDismissible: false,
+                                                  //                             builder: (_) => CommonUploadInputDialog(
+                                                  //                               title: "Upload Proof",
+                                                  //                               message: "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                  //                               controllerValue: remarksController,
+                                                  //                               isLoading: false.obs,
+                                                  //                               fileRx: proofOfDelivery,
+                                                  //                               webFileRx: proofOfDeliveryWeb,
+                                                  //                               onUploadTap: () => pickImage('proofOfDelivery'),
+                                                  //                               onDeleteTap: () => removeImage('proofOfDelivery'),
+                                                  //                               onSubmit: () async {
+                                                  //                                 if (proofOfDelivery.value == null && proofOfDeliveryWeb.value == null) {
+                                                  //                                   AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
+                                                  //                                   return;
+                                                  //                                 }
+                                                  //
+                                                  //                                 await insertOrUpdateOrder(
+                                                  //                                   data[index].oId.toString(),
+                                                  //                                   "",
+                                                  //                                   remarksController.text,
+                                                  //                                 ).then((_) {
+                                                  //                                   removeImage('proofOfDelivery');
+                                                  //
+                                                  //                                   Get.back();
+                                                  //                                 });
+                                                  //                               },
+                                                  //                               onCancel: () {
+                                                  //                                 removeImage('proofOfDelivery');
+                                                  //                                 remarksController.clear();
+                                                  //                                 Get.back();
+                                                  //                               },
+                                                  //                             ),
+                                                  //                           );
+                                                  //                         },
+                                                  //                         child:
+                                                  //                             Text('Yes'),
+                                                  //                       ),
+                                                  //                     ],
+                                                  //                   );
+                                                  //                 },
+                                                  //               );
+                                                  //             } else {
+                                                  //               final TextEditingController
+                                                  //                   remarksController =
+                                                  //                   TextEditingController();
+                                                  //
+                                                  //               showDialog(
+                                                  //                 context:
+                                                  //                     context,
+                                                  //                 barrierDismissible:
+                                                  //                     false,
+                                                  //                 builder: (_) =>
+                                                  //                     CommonUploadInputDialog(
+                                                  //                   title:
+                                                  //                       "Upload Proof",
+                                                  //                   message:
+                                                  //                       "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                  //                   controllerValue:
+                                                  //                       remarksController,
+                                                  //                   isLoading:
+                                                  //                       false
+                                                  //                           .obs,
+                                                  //                   fileRx:
+                                                  //                       proofOfDelivery,
+                                                  //                   webFileRx:
+                                                  //                       proofOfDeliveryWeb,
+                                                  //                   onUploadTap: () =>
+                                                  //                       pickImage(
+                                                  //                           'proofOfDelivery'),
+                                                  //                   onDeleteTap: () =>
+                                                  //                       removeImage(
+                                                  //                           'proofOfDelivery'),
+                                                  //                   onSubmit:
+                                                  //                       () async {
+                                                  //                     if (proofOfDelivery.value ==
+                                                  //                             null &&
+                                                  //                         proofOfDeliveryWeb.value ==
+                                                  //                             null) {
+                                                  //                       AppSnackBar.showGetXCustomSnackBar(
+                                                  //                           message:
+                                                  //                               "Please upload image");
+                                                  //                       return;
+                                                  //                     }
+                                                  //
+                                                  //                     await insertOrUpdateOrder(
+                                                  //                       data[index]
+                                                  //                           .oId
+                                                  //                           .toString(),
+                                                  //                       "",
+                                                  //                       remarksController
+                                                  //                           .text,
+                                                  //                     ).then(
+                                                  //                         (_) {
+                                                  //                       removeImage(
+                                                  //                           'proofOfDelivery');
+                                                  //
+                                                  //                       Get.back();
+                                                  //                     });
+                                                  //                   },
+                                                  //                   onCancel:
+                                                  //                       () {
+                                                  //                     removeImage(
+                                                  //                         'proofOfDelivery');
+                                                  //                     remarksController
+                                                  //                         .clear();
+                                                  //                     Get.back();
+                                                  //                   },
+                                                  //                 ),
+                                                  //               );
+                                                  //             }
+                                                  //           },
+                                                  //           icon: Icon(Icons
+                                                  //               .attach_file))
+                                                  //       : Container(),
+                                                  // ),
+                                                  IconButton(
+                                                      onPressed: () {
+                                                        // _openUploadDialog(
+                                                        //   context:
+                                                        //       context,
+                                                        //   oId: data[index]
+                                                        //       .oId.toString(),
+                                                        // );
+
+                                                        if (data[index]
+                                                            .imgUrl
+                                                            .toString()
+                                                            .isNotEmpty &&
                                                             data[index]
-                                                                .user
-                                                                .userCd
-                                                        ? IconButton(
-                                                            onPressed: () {
-                                                              // _openUploadDialog(
-                                                              //   context:
-                                                              //       context,
-                                                              //   oId: data[index]
-                                                              //       .oId.toString(),
-                                                              // );
-
-                                                              if (data[index]
-                                                                      .imgUrl
-                                                                      .toString()
-                                                                      .isNotEmpty &&
-                                                                  data[index]
-                                                                          .imgUrl !=
-                                                                      null) {
-                                                                showDialog(
-                                                                  context:
-                                                                      context,
-                                                                  builder:
-                                                                      (BuildContext
-                                                                          context) {
-                                                                    return AlertDialog(
-                                                                      title: Text(
-                                                                          'Replace Image'),
-                                                                      content: Text(
-                                                                          'Are you sure you want to replace image?'),
-                                                                      actions: [
-                                                                        TextButton(
-                                                                          onPressed:
-                                                                              () {
-                                                                            Get.back();
-                                                                          },
-                                                                          child:
-                                                                              Text('No'),
-                                                                        ),
-                                                                        TextButton(
-                                                                          onPressed:
-                                                                              () {
-                                                                            Get.back();
-                                                                            final TextEditingController
-                                                                                remarksController =
-                                                                                TextEditingController();
-
-                                                                            showDialog(
-                                                                              context: context,
-                                                                              barrierDismissible: false,
-                                                                              builder: (_) => CommonUploadInputDialog(
-                                                                                title: "Upload Proof",
-                                                                                message: "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                                                controllerValue: remarksController,
-                                                                                isLoading: false.obs,
-                                                                                fileRx: proofOfDelivery,
-                                                                                webFileRx: proofOfDeliveryWeb,
-                                                                                onUploadTap: () => pickImage('proofOfDelivery'),
-                                                                                onDeleteTap: () => removeImage('proofOfDelivery'),
-                                                                                onSubmit: () async {
-                                                                                  if (proofOfDelivery.value == null && proofOfDeliveryWeb.value == null) {
-                                                                                    AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
-                                                                                    return;
-                                                                                  }
-
-                                                                                  await insertOrUpdateOrder(
-                                                                                    data[index].oId.toString(),
-                                                                                    "",
-                                                                                    remarksController.text,
-                                                                                  ).then((_) {
-                                                                                    removeImage('proofOfDelivery');
-
-                                                                                    Get.back();
-                                                                                  });
-                                                                                },
-                                                                                onCancel: () {
-                                                                                  removeImage('proofOfDelivery');
-                                                                                  remarksController.clear();
-                                                                                  Get.back();
-                                                                                },
-                                                                              ),
-                                                                            );
-                                                                          },
-                                                                          child:
-                                                                              Text('Yes'),
-                                                                        ),
-                                                                      ],
-                                                                    );
-                                                                  },
-                                                                );
-                                                              } else {
-                                                                final TextEditingController
-                                                                    remarksController =
-                                                                    TextEditingController();
-
-                                                                showDialog(
-                                                                  context:
-                                                                      context,
-                                                                  barrierDismissible:
-                                                                      false,
-                                                                  builder: (_) =>
-                                                                      CommonUploadInputDialog(
-                                                                    title:
-                                                                        "Upload Proof",
-                                                                    message:
-                                                                        "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                                    controllerValue:
-                                                                        remarksController,
-                                                                    isLoading:
-                                                                        false
-                                                                            .obs,
-                                                                    fileRx:
-                                                                        proofOfDelivery,
-                                                                    webFileRx:
-                                                                        proofOfDeliveryWeb,
-                                                                    onUploadTap: () =>
-                                                                        pickImage(
-                                                                            'proofOfDelivery'),
-                                                                    onDeleteTap: () =>
-                                                                        removeImage(
-                                                                            'proofOfDelivery'),
-                                                                    onSubmit:
-                                                                        () async {
-                                                                      if (proofOfDelivery.value ==
-                                                                              null &&
-                                                                          proofOfDeliveryWeb.value ==
-                                                                              null) {
-                                                                        AppSnackBar.showGetXCustomSnackBar(
-                                                                            message:
-                                                                                "Please upload image");
-                                                                        return;
-                                                                      }
-
-                                                                      await insertOrUpdateOrder(
-                                                                        data[index]
-                                                                            .oId
-                                                                            .toString(),
-                                                                        "",
-                                                                        remarksController
-                                                                            .text,
-                                                                      ).then(
-                                                                          (_) {
-                                                                        removeImage(
-                                                                            'proofOfDelivery');
-
-                                                                        Get.back();
-                                                                      });
-                                                                    },
-                                                                    onCancel:
+                                                                .imgUrl !=
+                                                                null) {
+                                                          showDialog(
+                                                            context:
+                                                            context,
+                                                            builder:
+                                                                (BuildContext
+                                                            context) {
+                                                              return AlertDialog(
+                                                                title: Text(
+                                                                    'Replace Image'),
+                                                                content: Text(
+                                                                    'Are you sure you want to replace image?'),
+                                                                actions: [
+                                                                  TextButton(
+                                                                    onPressed:
                                                                         () {
-                                                                      removeImage(
-                                                                          'proofOfDelivery');
-                                                                      remarksController
-                                                                          .clear();
                                                                       Get.back();
                                                                     },
+                                                                    child:
+                                                                    Text('No'),
                                                                   ),
-                                                                );
-                                                              }
+                                                                  TextButton(
+                                                                    onPressed:
+                                                                        () {
+                                                                      Get.back();
+                                                                      final TextEditingController
+                                                                      remarksController =
+                                                                      TextEditingController();
+
+                                                                      showDialog(
+                                                                        context: context,
+                                                                        barrierDismissible: false,
+                                                                        builder: (_) => CommonUploadInputDialog(
+                                                                          title: "Upload Proof",
+                                                                          message: "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                                          controllerValue: remarksController,
+                                                                          isLoading: false.obs,
+                                                                          fileRx: proofOfDelivery,
+                                                                          webFileRx: proofOfDeliveryWeb,
+                                                                          onUploadTap: () => pickImage('proofOfDelivery'),
+                                                                          onDeleteTap: () => removeImage('proofOfDelivery'),
+                                                                          onSubmit: () async {
+                                                                            if (proofOfDelivery.value == null && proofOfDeliveryWeb.value == null) {
+                                                                              AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
+                                                                              return;
+                                                                            }
+
+                                                                            await insertOrUpdateOrder(
+                                                                              data[index].oId.toString(),
+                                                                              "",
+                                                                              remarksController.text,
+                                                                            ).then((_) {
+                                                                              removeImage('proofOfDelivery');
+
+                                                                              Get.back();
+                                                                            });
+                                                                          },
+                                                                          onCancel: () {
+                                                                            removeImage('proofOfDelivery');
+                                                                            remarksController.clear();
+                                                                            Get.back();
+                                                                          },
+                                                                        ),
+                                                                      );
+                                                                    },
+                                                                    child:
+                                                                    Text('Yes'),
+                                                                  ),
+                                                                ],
+                                                              );
                                                             },
-                                                            icon: Icon(Icons
-                                                                .attach_file))
-                                                        : Container(),
-                                                  ),
+                                                          );
+                                                        } else {
+                                                          final TextEditingController
+                                                          remarksController =
+                                                          TextEditingController();
+
+                                                          showDialog(
+                                                            context:
+                                                            context,
+                                                            barrierDismissible:
+                                                            false,
+                                                            builder: (_) =>
+                                                                CommonUploadInputDialog(
+                                                                  title:
+                                                                  "Upload Proof",
+                                                                  message:
+                                                                  "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                                  controllerValue:
+                                                                  remarksController,
+                                                                  isLoading:
+                                                                  false
+                                                                      .obs,
+                                                                  fileRx:
+                                                                  proofOfDelivery,
+                                                                  webFileRx:
+                                                                  proofOfDeliveryWeb,
+                                                                  onUploadTap: () =>
+                                                                      pickImage(
+                                                                          'proofOfDelivery'),
+                                                                  onDeleteTap: () =>
+                                                                      removeImage(
+                                                                          'proofOfDelivery'),
+                                                                  onSubmit:
+                                                                      () async {
+                                                                    if (proofOfDelivery.value ==
+                                                                        null &&
+                                                                        proofOfDeliveryWeb.value ==
+                                                                            null) {
+                                                                      AppSnackBar.showGetXCustomSnackBar(
+                                                                          message:
+                                                                          "Please upload image");
+                                                                      return;
+                                                                    }
+
+                                                                    await insertOrUpdateOrder(
+                                                                      data[index]
+                                                                          .oId
+                                                                          .toString(),
+                                                                      "",
+                                                                      remarksController
+                                                                          .text,
+                                                                    ).then(
+                                                                            (_) {
+                                                                          removeImage(
+                                                                              'proofOfDelivery');
+
+                                                                          Get.back();
+                                                                        });
+                                                                  },
+                                                                  onCancel:
+                                                                      () {
+                                                                    removeImage(
+                                                                        'proofOfDelivery');
+                                                                    remarksController
+                                                                        .clear();
+                                                                    Get.back();
+                                                                  },
+                                                                ),
+                                                          );
+                                                        }
+                                                      },
+                                                      icon: Icon(Icons
+                                                          .attach_file)),
                                                   // if (data[index].imgUrl ==
                                                   //     null &&
                                                   //     data[index].imgUrl ==

@@ -49,7 +49,8 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
       BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
       BottomNavigationBarItem(icon: Icon(Icons.widgets_outlined), label: 'Menus'),
     ];
-    if (p.data != null && p.data!.modulesList!.any((module) => module.mODULENO == "301")) {
+    if (p.data != null && p.data!.modulesList!.any((module) => module.mODULENO == "301" &&
+        (module.rEADRIGHT == true || module.pRINTRIGHT == true))) {
       items.add(BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'));
     }
     items.add(BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Order'));

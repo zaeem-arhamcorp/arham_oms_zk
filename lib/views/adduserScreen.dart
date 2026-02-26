@@ -512,7 +512,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                             flex: 2,
                                             child: Text(
                                               "${filterModules[i].moduleName}",
-                                              maxLines: 2,
+                                              maxLines: 3,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontSize: 14.0,

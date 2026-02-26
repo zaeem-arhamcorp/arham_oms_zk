@@ -513,6 +513,17 @@ class _ProductCardState extends State<ProductCard> {
                         cartController.productAddedStates.length;
 
                     print(cartController.cartCount.value);
+
+                    // Hide keyboard
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (Get.context != null) {
+                          FocusScope.of(Get.context!).requestFocus(controller.focusNode);
+                        }
+                      });
+                    });
                   });
                 }
               } catch (e) {
@@ -829,6 +840,17 @@ class _ProductCardState extends State<ProductCard> {
                               // Update cart count accurately
                               cartController.cartCount.value =
                                   cartController.productAddedStates.length;
+
+                              // Hide keyboard
+                              FocusManager.instance.primaryFocus?.unfocus();
+
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                Future.delayed(const Duration(milliseconds: 100), () {
+                                  if (Get.context != null) {
+                                    FocusScope.of(Get.context!).requestFocus(controller.focusNode);
+                                  }
+                                });
+                              });
                             });
                           }
                         } catch (e) {
