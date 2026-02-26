@@ -190,12 +190,14 @@ class _SignUpPageState extends State<SignUpPage> {
     bool isPassword,
     int maxLength, {
     TextInputType keyboardType = TextInputType.text,
+    TextInputAction textInputAction = TextInputAction.next,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged, // 👈 dynamic onChanged
   }) {
     return Padding(
       padding: EdgeInsets.only(top: 10.h),
       child: TextField(
+        textInputAction: textInputAction,
         controller: controller,
         focusNode: currentFocus,
         obscureText: isPassword && !showPassword,
@@ -227,6 +229,7 @@ class _SignUpPageState extends State<SignUpPage> {
     return Padding(
       padding: EdgeInsets.only(top: 10.h),
       child: TextField(
+        textInputAction: TextInputAction.done,
         controller: _emailID,
         focusNode: _emailIDFocusNode,
         cursorColor: Colors.black,

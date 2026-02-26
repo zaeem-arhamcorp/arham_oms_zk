@@ -200,6 +200,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     if (!isLoginWithOTP.value)
                       TextField(
+                        textInputAction: TextInputAction.next,
                         controller: _emailClt,
                         enabled: !isLoginProcessing && tempToken.isEmpty,
                         // Disable during login
@@ -228,6 +229,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     if (!isLoginWithOTP.value)
                       TextField(
+                        textInputAction: TextInputAction.done,
                         controller: _passwordClt,
                         enabled: !isLoginProcessing && tempToken.isEmpty,
                         // Disable during login

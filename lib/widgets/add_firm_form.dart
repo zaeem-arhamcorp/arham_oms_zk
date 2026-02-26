@@ -722,7 +722,8 @@ class _AddFirmFormState extends State<AddFirmForm>
                                 upi,
                                 (value) => upi = value,
                                 focusNode: upiFocusNode,
-                                textInputAction: TextInputAction.done,
+                                textInputAction: TextInputAction.next,
+                                nextFocusNode: address1FocusNode
                               ),
                             ],
                           ),
@@ -778,7 +779,8 @@ class _AddFirmFormState extends State<AddFirmForm>
                                       city,
                                       (value) => city = value,
                                       focusNode: cityFocusNode,
-                                      nextFocusNode: stateFocusNode,
+                                      nextFocusNode: zoneFocusNode,
+                                      textInputAction: TextInputAction.next,
                                     ),
                                     SizedBox(
                                       height: 5,
@@ -964,6 +966,7 @@ class _AddFirmFormState extends State<AddFirmForm>
                                       (value) => zone = value,
                                       focusNode: zoneFocusNode,
                                       nextFocusNode: pinCodeFocusNode,
+                                      textInputAction: TextInputAction.next,
                                     ),
                                     _buildTextField(
                                         'Pin Code',
@@ -1010,7 +1013,7 @@ class _AddFirmFormState extends State<AddFirmForm>
                                             //length: 10,
                                             validator: _validatePAN,
                                             focusNode: panNoFocusNode,
-                                            nextFocusNode: fssaiNoFocusNode,
+                                            nextFocusNode: gstNoFocusNode,
                                             inputFormatters: [
                                               LengthLimitingTextInputFormatter(
                                                   10),
@@ -1030,7 +1033,7 @@ class _AddFirmFormState extends State<AddFirmForm>
                                       validator: (value) =>
                                           _validateGST(gstType, value),
                                       focusNode: gstNoFocusNode,
-                                      nextFocusNode: panNoFocusNode,
+                                      nextFocusNode: fssaiNoFocusNode,
                                       inputFormatters: [
                                         LengthLimitingTextInputFormatter(15),
                                         UpperCaseTextFormatter()
@@ -1061,7 +1064,7 @@ class _AddFirmFormState extends State<AddFirmForm>
                                       registrationNo2,
                                       (value) => registrationNo2 = value,
                                       focusNode: registrationNo2FocusNode,
-                                      nextFocusNode: tcsWithPanFocusNode,
+                                      nextFocusNode: tcsAboveFocusNode,
                                       inputFormatters: [
                                         UpperCaseTextFormatter()
                                       ],
@@ -1091,7 +1094,7 @@ class _AddFirmFormState extends State<AddFirmForm>
                                                 LengthLimitingTextInputFormatter(
                                                     15)
                                               ],
-                                              nextFocusNode: footer1FocusNode),
+                                              nextFocusNode: tcsWithPanFocusNode),
                                         ),
                                       ],
                                     ),
@@ -1115,7 +1118,7 @@ class _AddFirmFormState extends State<AddFirmForm>
                                               tcsWithoutPan,
                                               (value) => tcsWithoutPan = value,
                                               focusNode: tcsWithoutPanFocusNode,
-                                              nextFocusNode: tcsAboveFocusNode,
+                                              nextFocusNode: footer1FocusNode,
                                               keyboardType:
                                                   TextInputType.number),
                                         ),

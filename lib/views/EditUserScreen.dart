@@ -224,6 +224,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 children: [
                   if (widget.screenId == 0)
                     UserTextField(
+                      action: TextInputAction.next,
                       clt: userCdClt,
                       hint: "User Code",
                       type: TextInputType.number,
@@ -236,6 +237,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                     height: 5.h,
                   ),
                   UserTextField(
+                    action: TextInputAction.next,
                     clt: passwordClt,
                     hint: "Reset Password",
                     maxLength: 10,
@@ -244,6 +246,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                     height: 5.h,
                   ),
                   UserTextField(
+                    action: TextInputAction.next,
                     clt: userNameClt,
                     hint: "User Name",
                     maxLength: 40,
@@ -255,6 +258,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                     height: 5.h,
                   ),
                   UserTextField(
+                    action: TextInputAction.done,
                     clt: mobileNumberClt,
                     hint: "Mobile No",
                     type: TextInputType.number,
@@ -1126,6 +1130,7 @@ class UserTextField extends StatefulWidget {
     required this.clt,
     required this.hint,
     this.type,
+    this.action,
     this.maxLength,
     this.inputFormatters, // <--- added
   });
@@ -1133,6 +1138,7 @@ class UserTextField extends StatefulWidget {
   final TextEditingController clt;
   final String hint;
   final TextInputType? type;
+  final TextInputAction? action;
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters; // <--- added
 
@@ -1163,6 +1169,7 @@ class _UserTextFieldState extends State<UserTextField> {
       children: [
         SizedBox(height: 5.h),
         TextField(
+          textInputAction: widget.action,
           controller: widget.clt,
           keyboardType: widget.type,
 

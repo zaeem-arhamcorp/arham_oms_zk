@@ -714,7 +714,8 @@ class _EditFirmFormState extends State<EditFirmForm>
                                 upi,
                                 (value) => upi = value,
                                 focusNode: upiFocusNode,
-                                textInputAction: TextInputAction.done,
+                                textInputAction: TextInputAction.next,
+                                nextFocusNode: address1FocusNode
                               ),
                             ],
                           ),
@@ -770,7 +771,8 @@ class _EditFirmFormState extends State<EditFirmForm>
                                       city,
                                       (value) => city = value,
                                       focusNode: cityFocusNode,
-                                      nextFocusNode: stateFocusNode,
+                                      nextFocusNode: zoneFocusNode,
+                                      textInputAction: TextInputAction.next,
                                     ),
                                     SizedBox(
                                       height: 5,
@@ -1029,7 +1031,8 @@ class _EditFirmFormState extends State<EditFirmForm>
                                     _buildTextField(
                                         'Zone', zone, (value) => zone = value,
                                         focusNode: zoneFocusNode,
-                                        nextFocusNode: pinCodeFocusNode),
+                                        nextFocusNode: pinCodeFocusNode,
+                                    textInputAction: TextInputAction.next),
                                     _buildTextField(
                                         'Pin Code',
                                         pinCode,
@@ -1075,7 +1078,7 @@ class _EditFirmFormState extends State<EditFirmForm>
                                             //length: 10,
                                             validator: _validatePAN,
                                             focusNode: panNoFocusNode,
-                                            nextFocusNode: fssaiNoFocusNode,
+                                            nextFocusNode: gstNoFocusNode,
                                             inputFormatters: [
                                               LengthLimitingTextInputFormatter(
                                                   10),
@@ -1095,7 +1098,7 @@ class _EditFirmFormState extends State<EditFirmForm>
                                       validator: (value) =>
                                           _validateGST(gstType, value),
                                       focusNode: gstNoFocusNode,
-                                      nextFocusNode: panNoFocusNode,
+                                      nextFocusNode: fssaiNoFocusNode,
                                       inputFormatters: [
                                         LengthLimitingTextInputFormatter(15),
                                         UpperCaseTextFormatter()
@@ -1126,7 +1129,7 @@ class _EditFirmFormState extends State<EditFirmForm>
                                       registrationNo2,
                                       (value) => registrationNo2 = value,
                                       focusNode: registrationNo2FocusNode,
-                                      nextFocusNode: tcsWithPanFocusNode,
+                                      nextFocusNode: tcsAboveFocusNode,
                                       inputFormatters: [
                                         UpperCaseTextFormatter()
                                       ],
@@ -1156,7 +1159,7 @@ class _EditFirmFormState extends State<EditFirmForm>
                                                 LengthLimitingTextInputFormatter(
                                                     15)
                                               ],
-                                              nextFocusNode: footer1FocusNode),
+                                              nextFocusNode: tcsWithPanFocusNode),
                                         ),
                                       ],
                                     ),
@@ -1180,7 +1183,7 @@ class _EditFirmFormState extends State<EditFirmForm>
                                               tcsWithoutPan,
                                               (value) => tcsWithoutPan = value,
                                               focusNode: tcsWithoutPanFocusNode,
-                                              nextFocusNode: tcsAboveFocusNode,
+                                              nextFocusNode: footer1FocusNode,
                                               keyboardType:
                                                   TextInputType.number),
                                         ),
