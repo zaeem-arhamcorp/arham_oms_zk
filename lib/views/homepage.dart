@@ -322,9 +322,11 @@ class _HomePageState extends State<HomePage> {
                             .then((value) {
                           ub.setSignIn().then((value) {
                             final locationProvider =
-                            Provider.of<LocationProvider>(context, listen: false);
-                            final userProvider =
-                            Provider.of<UserProvider>(context, listen: false);
+                                Provider.of<LocationProvider>(context,
+                                    listen: false);
+                            final userProvider = Provider.of<UserProvider>(
+                                context,
+                                listen: false);
                             locationProvider.start(userProvider);
                             //context.read<LocationProvider>().start(context);
                             context.read<PartyProvider>().getpartyname(context);
@@ -978,8 +980,8 @@ class _HomePageState extends State<HomePage> {
                       width: double.infinity,
                       height: 450.0,
                       child: Padding(
-                        padding:
-                            const EdgeInsets.only(top: 0, left: 8, right: 8,bottom: 0),
+                        padding: const EdgeInsets.only(
+                            top: 0, left: 8, right: 8, bottom: 0),
                         child: Card(
                           elevation: 20,
                           shape: RoundedRectangleBorder(
@@ -1142,12 +1144,12 @@ class _HomePageState extends State<HomePage> {
                                     //         'Y' &&
                                     //     location.isLoading == false)
 
-                                      if ((p.data?.profileSettings.any(
-                                              (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
-                                          false) &&
-                                          location.isLoading == false)
-
-                                        ElevatedButton(
+                                    if ((p.data?.profileSettings.any((e) =>
+                                                e.variable == 'punchInOut' &&
+                                                e.value == 'Y') ??
+                                            false) &&
+                                        location.isLoading == false)
+                                      ElevatedButton(
                                         child: Text(
                                             "${p.data?.isPunchIn == true ? "Punch Out" : "Punch IN"}"),
                                         onPressed: () {
@@ -1159,8 +1161,10 @@ class _HomePageState extends State<HomePage> {
                                           }
 
                                           final userProvider =
-                                          Provider.of<UserProvider>(context, listen: false);
-                                          location.checkServiceEnable(userProvider);
+                                              Provider.of<UserProvider>(context,
+                                                  listen: false);
+                                          location
+                                              .checkServiceEnable(userProvider);
                                           //location.checkServiceEnable(context);
                                         },
                                         style: ElevatedButton.styleFrom(
@@ -1178,10 +1182,11 @@ class _HomePageState extends State<HomePage> {
                                     //         'Y' &&
                                     //     location.isLoading == true)
 
-                                      if ((p.data?.profileSettings.any(
-                                              (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
-                                          false) &&
-                                          location.isLoading == true)
+                                    if ((p.data?.profileSettings.any((e) =>
+                                                e.variable == 'punchInOut' &&
+                                                e.value == 'Y') ??
+                                            false) &&
+                                        location.isLoading == true)
                                       Padding(
                                         padding:
                                             const EdgeInsets.only(right: 15.0),
@@ -1205,116 +1210,186 @@ class _HomePageState extends State<HomePage> {
                                                   CircularProgressIndicator(),
                                             )
                                           : ListView.builder(
-                                    itemCount: data!.data.labelData.transaction.length,
-                                    itemBuilder: (context, index) {
-                                      final item = data!.data.labelData.transaction[index];
+                                              itemCount: data!.data.labelData
+                                                  .transaction.length,
+                                              itemBuilder: (context, index) {
+                                                final item = data!
+                                                    .data
+                                                    .labelData
+                                                    .transaction[index];
 
-                                      return GestureDetector(
-                                        onTap: () async {
-                                          if (p.data != null &&
-                                              p.data!.modulesList!.any((m) => m.mODULENO == "304")) {
+                                                return GestureDetector(
+                                                  onTap: () async {
+                                                    if (p.data != null &&
+                                                        p.data!.modulesList!
+                                                            .any((module) =>
+                                                                module.mODULENO ==
+                                                                    "304" &&
+                                                                module.rEADRIGHT ==
+                                                                    true)) {
+                                                      await global
+                                                          .changePartyname(
+                                                              item.name);
+                                                      await party.changeParty(
+                                                          item.name,
+                                                          item.accCd,
+                                                          context);
 
-                                            await global.changePartyname(item.name);
-                                            await party.changeParty(item.name, item.accCd, context);
+                                                      Get.to(() =>
+                                                              OrderReportScreen())
+                                                          ?.then((result) {
+                                                        if (result == true) {
+                                                          final party = Provider
+                                                              .of<PartyProvider>(
+                                                                  context,
+                                                                  listen:
+                                                                      false);
+                                                          if (party.partyid
+                                                              .isNotEmpty) {
+                                                            getDashboarddata();
+                                                          }
+                                                        }
+                                                      });
+                                                    } else {
+                                                      AppSnackBar
+                                                          .showGetXCustomSnackBar(
+                                                              message:
+                                                                  'There is nothing to do.');
+                                                    }
+                                                  },
+                                                  child: Card(
+                                                    elevation: 4,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              6),
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              10),
+                                                      child: Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          /// INDEX CIRCLE (CENTER LEFT)
+                                                          Container(
+                                                            width: 24,
+                                                            height: 24,
+                                                            alignment: Alignment
+                                                                .center,
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              color: Color(
+                                                                  0XFF2c9ed9),
+                                                            ),
+                                                            child: Text(
+                                                              "${index + 1}",
+                                                              style:
+                                                                  const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                          ),
 
-                                            Get.to(() => OrderReportScreen())?.then((result) {
-                                              if (result == true) {
-                                                final party =
-                                                Provider.of<PartyProvider>(context, listen: false);
-                                                if (party.partyid.isNotEmpty) {
-                                                  getDashboarddata();
-                                                }
-                                              }
-                                            });
-                                          }
-                                        },
-                                        child: Card(
-                                          elevation: 4,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(10),
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.center,
-                                              children: [
+                                                          const SizedBox(
+                                                              width: 16),
 
-                                                /// INDEX CIRCLE (CENTER LEFT)
-                                                Container(
-                                                  width: 24,
-                                                  height: 24,
-                                                  alignment: Alignment.center,
-                                                  decoration: const BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    color: Color(0XFF2c9ed9),
-                                                  ),
-                                                  child: Text(
-                                                    "${index + 1}",
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.bold,
+                                                          /// NAME + MOBILE
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                Text(
+                                                                  item.name
+                                                                      .toTitleCase(),
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        14,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
+                                                                  ),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                                const SizedBox(
+                                                                    height: 4),
+                                                                Text(
+                                                                  item.mobile,
+                                                                  style: const TextStyle(
+                                                                      fontSize:
+                                                                          12),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+
+                                                          const SizedBox(
+                                                              width: 10),
+
+                                                          /// AMOUNT + DATE
+                                                          Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .end,
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              Text(
+                                                                "₹ ${Helper.parseNumericValue(item.amount.toString())}",
+                                                                style:
+                                                                    const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 14,
+                                                                  color: Colors
+                                                                      .green,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 4),
+                                                              Text(
+                                                                Helper
+                                                                    .convertToFormat(
+                                                                  item.orderDate
+                                                                      .toString(),
+                                                                  'dd-MM-yyyy',
+                                                                ),
+                                                                style:
+                                                                    const TextStyle(
+                                                                        fontSize:
+                                                                            12),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-
-                                                const SizedBox(width: 16),
-
-                                                /// NAME + MOBILE
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        item.name.toTitleCase(),
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        item.mobile,
-                                                        style: const TextStyle(fontSize: 12),
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-
-                                                const SizedBox(width: 10),
-
-                                                /// AMOUNT + DATE
-                                                Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      "₹ ${Helper.parseNumericValue(item.amount.toString())}",
-                                                      style: const TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 14,
-                                                        color: Colors.green,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      Helper.convertToFormat(
-                                                        item.orderDate.toString(),
-                                                        'dd-MM-yyyy',
-                                                      ),
-                                                      style: const TextStyle(fontSize: 12),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  )
+                                                );
+                                              },
+                                            )
 
                                   // ListView.builder(
                                   //             itemCount: data!.data.labelData

@@ -2,6 +2,7 @@ import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/accountLeagerReportModal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/models/userWiseOutStandingModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/item_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/services.dart';
@@ -1012,8 +1013,9 @@ class _UserWiseOutStandingReportScreenState
                             return GestureDetector(
                               onTap: () async {
                                 if (p.data != null &&
-                                    p.data!.modulesList!.any(
-                                        (module) => module.mODULENO == "310")) {
+                                    p.data!.modulesList!.any((module) =>
+                                        module.mODULENO == "310" &&
+                                        module.rEADRIGHT == true)) {
                                   await global
                                       .changePartyname(data[index].accName);
                                   await party.changeParty(data[index].accName,
@@ -1022,6 +1024,9 @@ class _UserWiseOutStandingReportScreenState
                                       PartyWiseOutStandingReportReceivableScreen(
                                         toDate: toDateController.text,
                                       ));
+                                } else {
+                                  AppSnackBar.showGetXCustomSnackBar(
+                                      message: 'There is nothing to do.');
                                 }
                               },
                               child: Card(

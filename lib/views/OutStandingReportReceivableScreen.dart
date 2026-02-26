@@ -4,6 +4,7 @@ import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/OutstandingReportModal.dart';
 import 'package:arham_corporation/models/accountLeagerReportModal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/item_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/services.dart';
@@ -25,7 +26,7 @@ import '../providers/global.dart';
 import '../providers/party_provider.dart';
 
 class OutStandingReportReceivableScreen extends StatefulWidget {
-  const OutStandingReportReceivableScreen({Key? key}) : super(key: key);
+  const OutStandingReportReceivableScreen({super.key});
 
   @override
   State<OutStandingReportReceivableScreen> createState() =>
@@ -158,21 +159,13 @@ class _OutStandingReportReceivableScreenState
       updateRight = moduleEntryAccess.uPDATERIGHT!;
       deleteRight = moduleEntryAccess.dELETERIGHT!;
       printRight = moduleEntryAccess.pRINTRIGHT!;
-
-      print('View Rights $viewRight');
-      print('Add Rights $addRight');
-      print('Update Rights $updateRight');
-      print('Delete Rights $deleteRight');
-      print('Print Rights $printRight');
     } else {
-      print("Module with MODULE_NO '307' not found.");
     }
 
     //toDateController.text = DateFormat("yyyy-MM-dd").format(DateTime.now());
     toDateController.text =
         Helper.toUi(DateFormat("yyyy-MM-dd").format(DateTime.now()));
 
-    print("To Date : ${toDateController.text}");
     getFilterData();
     getDate();
     checkWhatsappInstalled();
@@ -433,6 +426,7 @@ class _OutStandingReportReceivableScreenState
 
   @override
   Widget build(BuildContext context) {
+    final ProfileProvider p = context.watch<ProfileProvider>();
     final PartyProvider party = context.watch<PartyProvider>();
     final Global global = context.watch<Global>();
     return Scaffold(
@@ -543,7 +537,6 @@ class _OutStandingReportReceivableScreenState
                                       filePath: [value],
                                       package: Package.whatsapp)
                                   .catchError((err) {
-                                print(err);
                                 return false;
                               });
                             }
@@ -587,7 +580,6 @@ class _OutStandingReportReceivableScreenState
                                       filePath: [value],
                                       package: Package.businessWhatsapp)
                                   .catchError((err) {
-                                print(err);
                                 return false;
                               });
                           });
@@ -846,7 +838,6 @@ class _OutStandingReportReceivableScreenState
                                 );
                               },
                               validator: (val) {
-                                print(val);
                                 return null;
                               },
                             )
@@ -873,17 +864,25 @@ class _OutStandingReportReceivableScreenState
                                       BoxDecoration(color: Colors.white),
                                   child: GestureDetector(
                                     onTap: () async {
-                                      await global
-                                          .changePartyname(data[index].accName);
-                                      await party.changeParty(
-                                          data[index].accName,
-                                          data[index].accCd,
-                                          context);
+                                      if (p.data != null &&
+                                          p.data!.modulesList!.any((module) =>
+                                              module.mODULENO == "310" &&
+                                              module.rEADRIGHT == true)) {
+                                        await global.changePartyname(
+                                            data[index].accName);
+                                        await party.changeParty(
+                                            data[index].accName,
+                                            data[index].accCd,
+                                            context);
 
-                                      Get.to(() =>
-                                          PartyWiseOutStandingReportReceivableScreen(
-                                            toDate: toDateController.text,
-                                          ));
+                                        Get.to(() =>
+                                            PartyWiseOutStandingReportReceivableScreen(
+                                              toDate: toDateController.text,
+                                            ));
+                                      } else {
+                                        AppSnackBar.showGetXCustomSnackBar(
+                                            message: 'There is nothing to do.');
+                                      }
                                     },
                                     child: Card(
                                       elevation: 2,
@@ -929,7 +928,7 @@ class _OutStandingReportReceivableScreenState
                                                         ),
                                                       ),
                                                       Text(
-                                                        "${Helper.parseNumericValue(data[index].sumVouchAmt.toString())}",
+                                                        Helper.parseNumericValue(data[index].sumVouchAmt.toString()),
                                                         style: TextStyle(
                                                             fontSize: 12,
                                                             color: Colors.grey),
@@ -1026,7 +1025,7 @@ class _OutStandingReportReceivableScreenState
                   height: MediaQuery.of(context).size.height,
                   width: MediaQuery.of(context).size.width,
                   decoration:
-                      BoxDecoration(color: Colors.grey.withOpacity(0.5)),
+                      BoxDecoration(color: Colors.grey.withValues(alpha: 0.5)),
                   child: Center(
                     child: CircularProgressIndicator(),
                   ),

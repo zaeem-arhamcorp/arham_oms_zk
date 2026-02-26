@@ -2,6 +2,7 @@ import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/OutstandingReportModal.dart';
 import 'package:arham_corporation/models/accountLeagerReportModal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/item_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/services.dart';
@@ -422,6 +423,7 @@ class _OutStandingReportPayableScreenState
 
   @override
   Widget build(BuildContext context) {
+    final ProfileProvider p = context.watch<ProfileProvider>();
     final PartyProvider party = context.watch<PartyProvider>();
     final Global global = context.watch<Global>();
     return Scaffold(
@@ -864,17 +866,26 @@ class _OutStandingReportPayableScreenState
                                         BoxDecoration(color: Colors.white),
                                     child: GestureDetector(
                                       onTap: () async {
-                                        await global.changePartyname(
-                                            data[index].accName);
-                                        await party.changeParty(
-                                            data[index].accName,
-                                            data[index].accCd,
-                                            context);
+                                        if (p.data != null &&
+                                            p.data!.modulesList!.any((module) =>
+                                                module.mODULENO == "315" &&
+                                                module.rEADRIGHT == true)) {
+                                          await global.changePartyname(
+                                              data[index].accName);
+                                          await party.changeParty(
+                                              data[index].accName,
+                                              data[index].accCd,
+                                              context);
 
-                                        Get.to(() =>
-                                            PartyWiseOutStandingReportPayableScreen(
-                                              toDate: toDateController.text,
-                                            ));
+                                          Get.to(() =>
+                                              PartyWiseOutStandingReportPayableScreen(
+                                                toDate: toDateController.text,
+                                              ));
+                                        } else {
+                                          AppSnackBar.showGetXCustomSnackBar(
+                                              message:
+                                                  'There is nothing to do.');
+                                        }
                                       },
                                       child: ListTile(
                                         title: Column(

@@ -3,6 +3,7 @@ import 'package:arham_corporation/models/deptmentListModal.dart';
 import 'package:arham_corporation/models/itemListModal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/models/stockReportModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/item_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/services.dart';
@@ -917,17 +918,26 @@ class DetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ProfileProvider p = context.watch<ProfileProvider>();
+
     return Card(
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.only(top: 5.0),
         child: GestureDetector(
           onTap: () {
-            Get.to(() => ItemLedgerReportScreen(
-                item: DatumItemList(
-                    itemCd: data[index].itemCd,
-                    itemName: data[index].itemName,
-                    deptCd: data[index].deptment?.deptCd ?? "")));
+            if (p.data != null &&
+                p.data!.modulesList!.any((module) =>
+                    module.mODULENO == "303" && module.rEADRIGHT == true)) {
+              Get.to(() => ItemLedgerReportScreen(
+                  item: DatumItemList(
+                      itemCd: data[index].itemCd,
+                      itemName: data[index].itemName,
+                      deptCd: data[index].deptment?.deptCd ?? "")));
+            } else {
+              AppSnackBar.showGetXCustomSnackBar(
+                  message: 'There is nothing to do.');
+            }
           },
           child: Container(
             decoration: BoxDecoration(color: Colors.white),
