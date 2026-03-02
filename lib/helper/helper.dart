@@ -1,4 +1,4 @@
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+﻿import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class Helper {
   static String maskMobileNumber(String mobile) {
@@ -245,7 +246,8 @@ class Helper {
             message: 'Please provide storage Permission from the settings.');
       }
       return saveFileUrl.path;
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       return null;
     }
   }
@@ -322,7 +324,8 @@ class Helper {
       }
 
       return saveFileUrl.path;
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       return null;
     }
   }

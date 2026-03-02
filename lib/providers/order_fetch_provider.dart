@@ -1,4 +1,4 @@
-//import 'package:fluttertoast/fluttertoast.dart';
+﻿//import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
@@ -13,6 +13,7 @@ import '../models/orderlistModal.dart';
 import 'package:http/http.dart' as http;
 
 import '../views/loginpage.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class OrderFetchProvider extends DisposableProvider {
   List<DatumOrderList> _data = [];
@@ -53,7 +54,8 @@ class OrderFetchProvider extends DisposableProvider {
       } else {
         _data.addAll(orderfetchHive.values.cast());
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in orderfetchProvider getOrders data ${e.toString()}");

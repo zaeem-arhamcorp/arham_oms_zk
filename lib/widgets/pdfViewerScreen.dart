@@ -1,4 +1,4 @@
-//
+﻿//
 // import 'dart:io';
 // import 'dart:math';
 //
@@ -196,7 +196,7 @@
 //             message: "Pdf Downloaded to FusionCrop Directory",backgroundColor: Colors.green);
 //       }
 //       return true;
-//     } catch (e) {
+//     } catch (e, stack) {
 //       setState(() {
 //         showLoading = false;
 //       });
@@ -325,7 +325,7 @@
 //       setState(() {
 //         showLoading = false;
 //       });
-//     } catch (e) {
+//     } catch (e, stack) {
 //       print("Error: $e");
 //       AppSnackBar.showGetXCustomSnackBar(message: "PDF sharing failed");
 //       setState(() {
@@ -357,6 +357,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../config/app_config.dart';
 import '../helper/notification_services.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
@@ -481,7 +482,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         [XFile(savePath)],
         text: "Here's your PDF: ${widget.fileName}",
       );
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       if (kDebugMode) {
         print("Error sharing PDF: $e");
       }
@@ -539,7 +541,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         return true;
       }
       return false;
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       return false;
     } finally {
       if (mounted) {

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
@@ -16,6 +16,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../config/app_config.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class LocationProvider extends ChangeNotifier {
   Timer? timer;
@@ -209,7 +210,8 @@ class LocationProvider extends ChangeNotifier {
         }
         return json.decode(response.body)["data"];
       } else {}
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       print("Error in LocationProvider sendlocation ${e.toString()}");
     }
   }

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:arham_corporation/models/receipt_confim_model.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
@@ -22,6 +22,7 @@ import '../providers/party_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/services.dart';
 import '../widgets/custom_app_bar.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class ReceivableReportReceiptPage extends StatefulWidget {
   @override
@@ -1588,7 +1589,8 @@ class _ReceivableReportReceiptPageState
         //Fluttertoast.showToast(msg: message);
         AppSnackBar.showGetXCustomSnackBar(message: message);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong: $e");
       //Fluttertoast.showToast(msg: "Something went wrong: $e");
     }

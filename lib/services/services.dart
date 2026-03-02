@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/product_response.dart';
@@ -34,6 +34,7 @@ import '../models/productModal.dart';
 import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
 import '../providers/user_provider.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class Services {
   Future<DashboardModal?> getDashboarddata(BuildContext context) async {
@@ -56,7 +57,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       print("Error in Services getDashboard data Dashboard ${e.toString()}");
     }
@@ -99,7 +101,8 @@ class Services {
     } on httpc.CancelledException {
       getProduct(page, search, deptCd, context, null);
       print("cancelled Expeption");
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       // Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getProduct data ${e.toString()}");
     }
@@ -139,7 +142,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       print("Error in API Call: ${e.toString()}");
     }
 
@@ -165,7 +169,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       // Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getDeptment data ${e.toString()}");
     }
@@ -219,7 +224,8 @@ class Services {
           "statusCode": response.statusCode
         };
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addItemtoCart data ${e.toString()}");
@@ -267,7 +273,8 @@ class Services {
           "statusCode": response.statusCode
         };
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addItemtoCart data ${e.toString()}");
@@ -294,7 +301,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services bulkUpdateCartItem data ${e.toString()}");
@@ -320,7 +328,7 @@ class Services {
         "qty": qty,
         "cId": cId,
         //"lrate": rate,// Fazal Changes 14-02-2025
-        "moduleNo":"205",
+        "moduleNo": "205",
       };
       if (lrate != null) {
         requestBody["lrate"] = lrate;
@@ -355,7 +363,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services getDashboard data add to cart ${e.toString()}");
@@ -382,7 +391,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services getDashboard data delete cart ${e.toString()}");
@@ -402,7 +412,7 @@ class Services {
         "lat": lat ?? '0',
         "longi": longi ?? '0',
         "narration": orderRemarks,
-        "moduleNo":"205"
+        "moduleNo": "205"
       };
       print(requestBody);
 
@@ -434,7 +444,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addOrder data ${e.toString()}");
@@ -464,7 +475,8 @@ class Services {
         //   Get.offAll(() => LoginPage());
         // });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services updateOrder  ${e.toString()}");
@@ -492,7 +504,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services deleteOrder  ${e.toString()}");
@@ -532,7 +545,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -568,7 +582,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -605,7 +620,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -644,7 +660,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getAccountLeagerReport data ${e.toString()}");
@@ -680,7 +697,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getAccountLeagerReport data ${e.toString()}");
@@ -701,7 +719,6 @@ class Services {
       queryString = "$queryString&partyCd=$partycd";
     }
 
-
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURLReport}account-ledger?$queryString"),
@@ -720,7 +737,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -757,7 +775,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -771,13 +790,15 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}daily-report?fromDate=$fromdate&toDate=$toDate"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}daily-report?fromDate=$fromdate&toDate=$toDate"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}daily-report?fromDate=$fromdate&toDate=$toDate");
+      print(
+          "${AppConfig.baseURLReport}daily-report?fromDate=$fromdate&toDate=$toDate");
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
@@ -788,7 +809,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getDailyReport data ${e.toString()}");
@@ -802,13 +824,15 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}item-ledger-report?itemCd=$itemCd&fromDate=$fromdate&toDate=$toDate"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}item-ledger-report?itemCd=$itemCd&fromDate=$fromdate&toDate=$toDate"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}item-ledger-report?itemCd=$itemCd&fromDate=$fromdate&toDate=$toDate");
+      print(
+          "${AppConfig.baseURLReport}item-ledger-report?itemCd=$itemCd&fromDate=$fromdate&toDate=$toDate");
       print(response.body);
       if (response.statusCode == 200) {
         return itemLeadgerReportModalFromJson(response.body);
@@ -818,7 +842,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemLeagerReport data ${e.toString()}");
@@ -835,8 +860,7 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse(
-            "${AppConfig.baseURLReport}item-ledger-report?$queryString"),
+        Uri.parse("${AppConfig.baseURLReport}item-ledger-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -851,7 +875,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -896,7 +921,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getStockReport data ${e.toString()}");
@@ -938,7 +964,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -963,13 +990,15 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}outstanding-payable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return OutstandingReportModalFromJson(response.body);
@@ -979,7 +1008,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1003,13 +1033,15 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}outstanding-receivable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}outstanding-receivable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}outstanding-receivable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}outstanding-receivable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return OutstandingReportModalFromJson(response.body);
@@ -1019,7 +1051,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1030,7 +1063,8 @@ class Services {
   Future<String?> getOutStandingExportFileReceivable(
       context, toDate, partyCd, city, type) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString = "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+    var queryString =
+        "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
 
     if (partyCd != null) {
       queryString = "$queryString&partyCd=$partyCd";
@@ -1042,7 +1076,8 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}outstanding-receivable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}outstanding-receivable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1057,7 +1092,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1069,7 +1105,8 @@ class Services {
   Future<String?> getOutStandingExportFilePayable(
       context, toDate, partyCd, city, type) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString = "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+    var queryString =
+        "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
 
     if (partyCd != null) {
       queryString = "$queryString&partyCd=$partyCd";
@@ -1081,7 +1118,8 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1096,7 +1134,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1108,7 +1147,8 @@ class Services {
   Future<String?> getOutStandingExportFile(
       context, toDate, partyCd, city, type) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString = "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+    var queryString =
+        "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
 
     if (partyCd != null) {
       queryString = "$queryString&partyCd=$partyCd";
@@ -1120,8 +1160,7 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse(
-            "${AppConfig.baseURLReport}outstanding-report?$queryString"),
+        Uri.parse("${AppConfig.baseURLReport}outstanding-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1136,7 +1175,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1161,7 +1201,8 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}user-wise-outstanding-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}user-wise-outstanding-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1176,7 +1217,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1198,25 +1240,24 @@ class Services {
     }
 
     //try {
-      final http.Response response = await http.get(
-        Uri.parse(
-            "${AppConfig.baseURLReport}sales-register-report?$queryString"),
-        headers: {
-          "Authorization": "Bearer ${ub.token}",
-          'x-app-type': 'oms',
-        },
-      );
-      print("${AppConfig.baseURLReport}sales-register-report?$queryString");
-      print(response.body);
-      if (response.statusCode == 200) {
-        return salesRegisterReportModalFromJson(response.body);
-      } else {
-        print('print 30');
-        ub.userSignout(context).then((value) {
-          Get.offAll(() => LoginPage());
-        });
-      }
-    // } catch (e) {
+    final http.Response response = await http.get(
+      Uri.parse("${AppConfig.baseURLReport}sales-register-report?$queryString"),
+      headers: {
+        "Authorization": "Bearer ${ub.token}",
+        'x-app-type': 'oms',
+      },
+    );
+    print("${AppConfig.baseURLReport}sales-register-report?$queryString");
+    print(response.body);
+    if (response.statusCode == 200) {
+      return salesRegisterReportModalFromJson(response.body);
+    } else {
+      print('print 30');
+      ub.userSignout(context).then((value) {
+        Get.offAll(() => LoginPage());
+      });
+    }
+    // } catch (e, stack) {
     //   AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
     //   //Fluttertoast.showToast(msg: "Something went wrong");
     //   print("Error in Services getSalesRegisterReport data ${e.toString()}");
@@ -1257,7 +1298,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1298,7 +1340,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1323,7 +1366,8 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}user-wise-outstanding-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}user-wise-outstanding-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1338,7 +1382,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1358,13 +1403,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerDetailReportModalFromJson(response.body);
@@ -1374,7 +1421,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1390,16 +1438,19 @@ class Services {
     // var queryString =
     //     "toDate=$toDate&type=full&bookCd=$bookCd&vouchDt=${vouchDt.split("-")[2]}-${vouchDt.split("-")[1]}-${vouchDt.split("-")[0]}&partyCd=$partyCd";
 
-    try {var queryString =
-        "toDate=$toDate&type=full&bookCd=$bookCd&vouchDt=$vouchDt&partyCd=$partyCd";
+    try {
+      var queryString =
+          "toDate=$toDate&type=full&bookCd=$bookCd&vouchDt=$vouchDt&partyCd=$partyCd";
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerDetailReportModalFromJson(response.body);
@@ -1409,7 +1460,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1430,13 +1482,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerDetailReportModalFromJson(response.body);
@@ -1447,7 +1501,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1467,13 +1522,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerBillWiseDetailReportModalFromJson(response.body);
@@ -1483,7 +1540,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1504,13 +1562,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerBillWiseDetailReportModalFromJson(response.body);
@@ -1520,7 +1580,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1541,13 +1602,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return accountLEadgerBillWiseDetailReportModalFromJson(response.body);
@@ -1557,7 +1620,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1577,13 +1641,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
       print("API Data ${response.body}");
 
       if (response.statusCode == 200) {
@@ -1594,7 +1660,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1613,13 +1680,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString");
       print("API Data ${response.body}");
 
       if (response.statusCode == 200) {
@@ -1631,7 +1700,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1664,7 +1734,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -1697,7 +1768,8 @@ class Services {
       }
 
       // Construct the full URL with query parameters
-      final url = Uri.parse("${AppConfig.baseURL}receipt-entry${queryString.isNotEmpty ? "?$queryString" : ""}");
+      final url = Uri.parse(
+          "${AppConfig.baseURL}receipt-entry${queryString.isNotEmpty ? "?$queryString" : ""}");
 
       final http.Response response = await http.get(
         url,
@@ -1720,7 +1792,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -1751,7 +1824,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -1784,7 +1858,8 @@ class Services {
       }
 
       // Construct the full URL with query parameters
-      final url = Uri.parse("${AppConfig.baseURL}payment-entry${queryString.isNotEmpty ? "?$queryString" : ""}");
+      final url = Uri.parse(
+          "${AppConfig.baseURL}payment-entry${queryString.isNotEmpty ? "?$queryString" : ""}");
 
       final http.Response response = await http.get(
         url,
@@ -1807,7 +1882,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -1825,13 +1901,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString");
       print("API Data ${response.body}");
 
       if (response.statusCode == 200) {
@@ -1843,7 +1921,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1854,7 +1933,8 @@ class Services {
   Future<String?> getPartyWiseOutStandingExportFileReceivable(
       context, toDate, partyCd, type) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString = "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+    var queryString =
+        "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
 
     if (partyCd != null) {
       queryString = "$queryString&partyCd=$partyCd";
@@ -1862,7 +1942,8 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-receivable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1878,7 +1959,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1890,7 +1972,8 @@ class Services {
   Future<String?> getPartyWiseOutStandingExportFilePayble(
       context, toDate, partyCd, type) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString = "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+    var queryString =
+        "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
 
     if (partyCd != null) {
       queryString = "$queryString&partyCd=$partyCd";
@@ -1898,7 +1981,8 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-payable-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1914,7 +1998,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1926,7 +2011,8 @@ class Services {
   Future<String?> getPartyWiseOutStandingExportFile(
       context, toDate, partyCd, type) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString = "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+    var queryString =
+        "toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
 
     if (partyCd != null) {
       queryString = "$queryString&partyCd=$partyCd";
@@ -1934,7 +2020,8 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-outstanding-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-outstanding-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -1950,7 +2037,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1992,7 +2080,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemWiseReport data ${e.toString()}");
@@ -2023,7 +2112,8 @@ class Services {
           'x-app-type': 'oms',
         },
       );
-      print(Uri.parse("${AppConfig.baseURLReport}items-wise-report?$queryString"));
+      print(Uri.parse(
+          "${AppConfig.baseURLReport}items-wise-report?$queryString"));
 
       if (response.statusCode == 200) {
         return json.decode(response.body)["data"];
@@ -2034,7 +2124,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2072,7 +2163,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemWiseReport data ${e.toString()}");
@@ -2110,7 +2202,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getPartyWiseReport data ${e.toString()}");
@@ -2146,7 +2239,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2182,7 +2276,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getPartyWiseDetailReport data ${e.toString()}");
@@ -2193,8 +2288,7 @@ class Services {
   Future<PartyWiseItemWiseSaleReportModal?> getPartyWiseItemSaleReport(
       context, fromdate, toDate, partyCd, deptCd) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString =
-        "fromDate=$fromdate&toDate=$toDate&partyCd=$partyCd";
+    var queryString = "fromDate=$fromdate&toDate=$toDate&partyCd=$partyCd";
 
     if (deptCd != null) {
       queryString = "$queryString&deptCd=$deptCd";
@@ -2202,13 +2296,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString");
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
@@ -2220,7 +2316,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2232,8 +2329,7 @@ class Services {
   Future<PartyWiseItemWiseSaleReportModal?> getPartyWiseItemPurchaseReport(
       context, fromdate, toDate, partyCd, deptCd) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    var queryString =
-        "fromDate=$fromdate&toDate=$toDate&partyCd=$partyCd";
+    var queryString = "fromDate=$fromdate&toDate=$toDate&partyCd=$partyCd";
 
     if (deptCd != null) {
       queryString = "$queryString&deptCd=$deptCd";
@@ -2241,13 +2337,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString");
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
@@ -2259,7 +2357,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2281,13 +2380,15 @@ class Services {
 
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print(Uri.parse("${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"));
+      print(Uri.parse(
+          "${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"));
 
       if (response.statusCode == 200) {
         return json.decode(response.body)["data"];
@@ -2298,7 +2399,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2319,7 +2421,8 @@ class Services {
     }
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -2335,10 +2438,12 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
-      print("Error in Services party wise iem wise purchase export report data ${e.toString()}");
+      print(
+          "Error in Services party wise iem wise purchase export report data ${e.toString()}");
       return null;
     }
     return null;
@@ -2358,13 +2463,15 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString");
+      print(
+          "${AppConfig.baseURLReport}party-wise-item-sale-report?$queryString");
       print(response.body);
       if (response.statusCode == 200) {
         return partyWiseItemWiseSaleDetailReportModalFromJson(response.body);
@@ -2375,7 +2482,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2384,10 +2492,9 @@ class Services {
     return null;
   }
 
-
   Future<PartyWiseItemWiseSaleDetailReportModal?>
-  getPartyWiseItemPurchaseDetailReport(
-      context, fromdate, toDate, partyCd, deptCd, itemCd) async {
+      getPartyWiseItemPurchaseDetailReport(
+          context, fromdate, toDate, partyCd, deptCd, itemCd) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     var queryString =
         "fromDate=$fromdate&toDate=$toDate&partyCd=$partyCd&itemCd=$itemCd&type=full";
@@ -2399,7 +2506,8 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString"),
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-purchase-report?$queryString"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -2415,7 +2523,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2448,7 +2557,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getSettings data ${e.toString()}");
@@ -2456,21 +2566,23 @@ class Services {
     return null;
   }
 
-  Future updateSetting(context, sid, val,amt) async {
+  Future updateSetting(context, sid, val, amt) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
     try {
       Map<String, dynamic> payload = {
         "sId": sid,
         "value": val,
-        "valueAmt" : amt
+        "valueAmt": amt
       };
 
-      final http.Response response = await http
-          .post(Uri.parse("${AppConfig.baseURL}update-settings"), headers: {
-        "Authorization": "Bearer ${ub.token}",
-        'x-app-type': 'oms',
-      }, body: payload);
+      final http.Response response =
+          await http.post(Uri.parse("${AppConfig.baseURL}update-settings"),
+              headers: {
+                "Authorization": "Bearer ${ub.token}",
+                'x-app-type': 'oms',
+              },
+              body: payload);
 
       print("Update Setting Body $payload");
       print(response.body);
@@ -2486,7 +2598,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services updateSetting data ${e.toString()}");
@@ -2512,7 +2625,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services syncSetting  ${e.toString()}");
@@ -2540,7 +2654,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services syncSetting  ${e.toString()}");
@@ -2566,9 +2681,9 @@ class Services {
         return modulesModalFromJson(response.body);
       } else {
         print('print 63');
-
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getUtlity data ${e.toString()}");
@@ -2593,7 +2708,8 @@ class Services {
         ub.changeShowSignUp(utlityModalFromJson(response.body).data.isSignUp);
         return utlityModalFromJson(response.body);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getUtlity data ${e.toString()}");
@@ -2607,13 +2723,15 @@ class Services {
     print(ub.token);
     try {
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURL}master-entry/narration?narrType=$narrationType"),
+        Uri.parse(
+            "${AppConfig.baseURL}master-entry/narration?narrType=$narrationType"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
-      print("Narration URL: ${AppConfig.baseURL}master-entry/narration?narrType=$narrationType");
+      print(
+          "Narration URL: ${AppConfig.baseURL}master-entry/narration?narrType=$narrationType");
       print("Narration API: ${response.body}");
       if (response.statusCode == 200) {
         return narrationModalFromJson(response.body).data;
@@ -2623,7 +2741,8 @@ class Services {
         //   Get.offAll(() => LoginPage());
         // });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getNarration data ${e.toString()}");
@@ -2663,7 +2782,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2697,7 +2817,8 @@ class Services {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getPartyExportFile data ${e.toString()}");
@@ -2721,7 +2842,8 @@ class Services {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services logout data ${e.toString()}");
@@ -2754,7 +2876,7 @@ class Services {
       "type": type,
       //"bookCd": bookCd,
       "billWise": billWise,
-      "moduleNo":"214"
+      "moduleNo": "214"
     };
 
     print(payload);
@@ -2794,7 +2916,8 @@ class Services {
         AppSnackBar.showGetXCustomSnackBar(
             message: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -2827,7 +2950,7 @@ class Services {
       "type": type,
       //"bookCd": bookCd,
       "billWise": billWise,
-      "moduleNo":"215"
+      "moduleNo": "215"
     };
 
     print(payload);
@@ -2860,7 +2983,8 @@ class Services {
           message: json.decode(response.body)["message"],
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -2893,9 +3017,8 @@ class Services {
       "type": type,
       //"bookCd": bookCd,
       "billWise": billWise,
-      "moduleNo":"214"
+      "moduleNo": "214"
     };
-
 
     try {
       // Make HTTP POST request
@@ -2927,7 +3050,8 @@ class Services {
         AppSnackBar.showGetXCustomSnackBar(
             message: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -2960,7 +3084,7 @@ class Services {
       "type": type,
       //"bookCd": bookCd,
       "billWise": billWise,
-      "moduleNo":"215"
+      "moduleNo": "215"
     };
 
     print(payload);
@@ -2992,7 +3116,8 @@ class Services {
         AppSnackBar.showGetXCustomSnackBar(
             message: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3037,7 +3162,8 @@ class Services {
         AppSnackBar.showGetXCustomSnackBar(
             message: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3082,7 +3208,8 @@ class Services {
         AppSnackBar.showGetXCustomSnackBar(
             message: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");

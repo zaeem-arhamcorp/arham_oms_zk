@@ -1,4 +1,4 @@
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+﻿import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +10,7 @@ import '../models/cartListModal.dart';
 import 'package:http/http.dart' as http;
 
 import '../views/loginpage.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class CartListProvider extends DisposableProvider {
   final List<DatumCartList> _data = [];
@@ -45,7 +46,8 @@ class CartListProvider extends DisposableProvider {
             Get.offAll(() => LoginPage());
           });
         }
-      } catch (e) {
+      } catch (e, stack) {
+        FirebaseCrashlytics.instance.recordError(e, stack);
         //Fluttertoast.showToast(msg: "Something went wrong");
         AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       }

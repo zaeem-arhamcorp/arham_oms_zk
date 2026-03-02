@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
@@ -31,6 +31,7 @@ import '../providers/item_list_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/party_provider.dart';
 import '../providers/user_provider.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -956,7 +957,8 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         throw Exception('Failed to load data');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       print("Error fetching data: $e");
       setState(() {
         isLoading = false;

@@ -6,6 +6,7 @@ import 'package:arham_corporation/models/signupresponse.dart';
 import 'package:arham_corporation/network.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/global.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -46,11 +47,12 @@ class AuthServices {
         AppSnackBar.showGetXCustomSnackBar(message: errorMessage);
         return null;
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingfetchlogin(false);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       print("Error: $e");
+      FirebaseCrashlytics.instance.recordError(e, stack);
       return null;
     }
   }
@@ -88,11 +90,12 @@ class AuthServices {
             message: json.decode(response.body)["message"]);
         //Fluttertoast.showToast(msg: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadinglogin(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices login ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -135,11 +138,12 @@ class AuthServices {
             message: json.decode(response.body)["message"]);
         return false;
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices login ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
     return null;
   }
@@ -184,7 +188,8 @@ class AuthServices {
           message: decoded['message'] ?? "Signup failed",
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       return SignupResponse(
         status: false,
         message: "Something went wrong",
@@ -220,11 +225,12 @@ class AuthServices {
       // } else {
       //   AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       // }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Verify OTP ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -257,11 +263,12 @@ class AuthServices {
       // } else {
       //   AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       // }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Resend OTP ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -295,11 +302,12 @@ class AuthServices {
       } else {
         AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Is Verified Mobile OTP ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -334,12 +342,13 @@ class AuthServices {
           message: Constants.networkMsg,
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(
         message: "Something went wrong",
       );
       print("Error in AuthServices Is Verified USER CODE ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
     return null;
   }
@@ -374,11 +383,12 @@ class AuthServices {
       // } else {
       //   AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       // }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Login With Number ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -414,11 +424,12 @@ class AuthServices {
       // } else {
       //   AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       // }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Login With Number & OTP ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -451,11 +462,12 @@ class AuthServices {
       } else {
         AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Forgot Password ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 
@@ -490,12 +502,13 @@ class AuthServices {
           message: Constants.networkMsg,
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadingsignup(false);
       AppSnackBar.showGetXCustomSnackBar(
         message: "Something went wrong",
       );
       print("Error in AuthServices Is Verified MOBILE NUMBER ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
     return null;
   }
@@ -537,11 +550,12 @@ class AuthServices {
       } else {
         AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
       }
-    } catch (e) {
+    } catch (e, stack) {
       global.loadinglogin(false);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Reset Password ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
   }
 }

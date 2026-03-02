@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
@@ -25,6 +25,7 @@ import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
 import '../providers/global.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -656,7 +657,8 @@ class _SignUpPageState extends State<SignUpPage> {
           firmResponse.message == "User does not exist") {
         userErrorMsg.value = '';
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       userErrorMsg.value = '';
     } finally {
       isUserExitsLoading(false);

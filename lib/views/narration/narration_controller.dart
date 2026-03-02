@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/views/narration/narration_model.dart';
@@ -16,6 +16,7 @@ import '../../config/app_config.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/common_button.dart';
 import '../loginpage.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class NarrationController extends GetxController {
   var isLoading = false.obs;
@@ -201,7 +202,8 @@ class NarrationController extends GetxController {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       ScaffoldMessenger.of(Get.context!).showSnackBar(
         SnackBar(
             backgroundColor: Colors.red,
@@ -263,7 +265,8 @@ class NarrationController extends GetxController {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       ScaffoldMessenger.of(Get.context!).showSnackBar(
         SnackBar(
             backgroundColor: Colors.red,
@@ -317,7 +320,8 @@ class NarrationController extends GetxController {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       print(e);
       AppSnackBar.showGetXCustomSnackBar(
           message: "Error fetching narration: $e");
@@ -684,7 +688,8 @@ class NarrationController extends GetxController {
         AppSnackBar.showGetXCustomSnackBar(message: message);
         //Fluttertoast.showToast(msg: message);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong: $e");
       //Fluttertoast.showToast(msg: "Something went wrong: $e");
     }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:arham_corporation/models/orderlistModal.dart';
 import 'package:arham_corporation/models/ordermodal.dart';
@@ -13,6 +14,8 @@ import 'package:arham_corporation/providers/person_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/splashScreen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -29,6 +32,18 @@ void main() async {
       SystemUiOverlayStyle(statusBarColor: Color(0XFF2c9ed9)));
 
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
+  // Pass all uncaught "fatal" errors from the framework to Crashlytics
+  // FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
       .then((_) {

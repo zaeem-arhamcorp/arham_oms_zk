@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "529342707700",
+    "project_id": "arham-oms",
+    "storage_bucket": "arham-oms.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:529342707700:android:2e4915f0c6696d98feeba1",
+        "android_client_info": {
+          "package_name": "com.arhamerp.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3eSlHgerSqQciLN49htQwLbZ4838bfxE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

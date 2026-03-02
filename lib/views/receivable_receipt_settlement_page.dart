@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/views/receivable_confirm_receipt_settlement_page.dart';
@@ -24,6 +24,7 @@ import '../widgets/common_button.dart';
 import '../widgets/common_text.dart';
 import '../widgets/custom_app_bar.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class ReceivableReceiptSettlementPage extends StatefulWidget {
   @override
@@ -1001,7 +1002,8 @@ class _ReceivableReceiptSettlementPageState
       } else {
         throw Exception('Failed to load data');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       print("Error fetching data: $e");
       setState(() {
         isLoading = false;

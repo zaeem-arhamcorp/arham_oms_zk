@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 
@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/personModal.dart';
 import '../views/loginpage.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class PersonProvider extends DisposableProvider {
   PersonModal? person;
@@ -46,7 +47,8 @@ class PersonProvider extends DisposableProvider {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PersonProvider getPersonalList  ${e.toString()}");
@@ -110,7 +112,8 @@ class PersonProvider extends DisposableProvider {
         AppSnackBar.showGetXCustomSnackBar(
             message: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -167,7 +170,8 @@ class PersonProvider extends DisposableProvider {
             message: json.decode(response.body)["message"]);
         //Fluttertoast.showToast(msg: json.decode(response.body)["message"]);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       changeLoading(false);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       //Fluttertoast.showToast(msg: "Something went wrong");
@@ -203,7 +207,8 @@ class PersonProvider extends DisposableProvider {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
       changeLoading(false);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       //Fluttertoast.showToast(msg: "Something went wrong");

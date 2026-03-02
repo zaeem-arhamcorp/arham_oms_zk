@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/views/loginpage.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/cupertino.dart';
 
 import 'package:get/get.dart';
@@ -30,8 +31,9 @@ class ApiServices {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
       print("Error in getData ${uri} ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
     }
     return null;
   }
@@ -64,8 +66,9 @@ class ApiServices {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
       print("Error in postData ${uri} ${e.toString()}");
+      FirebaseCrashlytics.instance.recordError(e, stack);
       return null;
     }
     return null;
