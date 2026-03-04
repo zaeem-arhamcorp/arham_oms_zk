@@ -431,6 +431,15 @@ class DatabaseHelper {
     );
   }
 
+  /// Get all orders that are pending or failed (for UI display)
+  Future<List<Map<String, dynamic>>> getPendingOrFailedOrders() async {
+    final db = await database;
+    return await db.query(
+      'offline_orders',
+      where: "sync_status IN ('pending', 'failed')",
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getOrderItems(int orderId) async {
     final db = await database;
 

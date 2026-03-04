@@ -2,84 +2,229 @@ import 'database_helper.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 
 class SyncService {
   final DatabaseHelper db = DatabaseHelper();
 
-  Future<void> syncOrders(String token) async {
+  /// Main entry point: validate → repair → sync all pending orders.
+  /// Returns a summary: {synced, failed, skipped}
+  Future<Map<String, int>> syncOrders(String token) async {
+    int synced = 0, failed = 0, skipped = 0;
+
+    // Pre-check: make sure we actually have internet before attempting sync
+    final hasNet = await NetworkHelper.hasInternet();
+    if (!hasNet) {
+      print('[SyncService] No internet — skipping sync');
+      return {'synced': 0, 'failed': 0, 'skipped': 0};
+    }
+
+    // Step 0: try to auto-repair broken order items (missing item_cd)
+    await _repairOrderItems();
+
     final pendingOrders = await db.getPendingOrders();
+    print('[SyncService] Found ${pendingOrders.length} pending order(s)');
 
     for (var order in pendingOrders) {
-      await _syncOrderWithRetry(order, token);
+      // Validate order items before attempting sync
+      final items = await db.getOrderItems(order['id']);
+      final hasValidItems =
+          items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
+
+      if (items.isEmpty || !hasValidItems) {
+        // Unrecoverable: no items or all items lack item_cd even after repair
+        print(
+            '[SyncService] Order ${order['id']} has no valid items — marking failed');
+        await db.updateOrderStatus(order['id'], 'failed', null);
+        skipped++;
+        continue;
+      }
+
+      final ok = await _syncOrderWithRetry(order, token);
+      if (ok) {
+        synced++;
+      } else {
+        failed++;
+      }
+    }
+
+    print(
+        '[SyncService] Sync complete: synced=$synced, failed=$failed, skipped=$skipped');
+    return {'synced': synced, 'failed': failed, 'skipped': skipped};
+  }
+
+  /// Try to fill in missing item_cd values from products_cache or cart_items.
+  Future<void> _repairOrderItems() async {
+    final dbInst = await db.database;
+    final broken = await dbInst.query(
+      'offline_order_items',
+      where: "item_cd IS NULL OR item_cd = ''",
+    );
+
+    if (broken.isEmpty) return;
+    print(
+        '[SyncService] Repairing ${broken.length} order item(s) with empty item_cd');
+
+    for (var row in broken) {
+      final id = row['id'];
+      final itemName = (row['item_name'] ?? '').toString().trim();
+      String recoveredCd = '';
+
+      // Strategy 1: match by item_name in products_cache
+      if (itemName.isNotEmpty) {
+        final candidates = await dbInst.query(
+          'products_cache',
+          where: 'item_name = ?',
+          whereArgs: [itemName],
+          limit: 2,
+        );
+        if (candidates.length == 1) {
+          recoveredCd = candidates.first['item_cd']?.toString() ?? '';
+        }
+
+        // Strategy 2: match via product_json ITEM_NAME (case-insensitive)
+        if (recoveredCd.isEmpty) {
+          final all = await dbInst.query('products_cache');
+          for (var p in all) {
+            try {
+              final json = jsonDecode(p['product_json'].toString())
+                  as Map<String, dynamic>;
+              final pName = (json['ITEM_NAME'] ?? json['itemName'] ?? '')
+                  .toString()
+                  .trim();
+              if (pName.isNotEmpty &&
+                  pName.toLowerCase() == itemName.toLowerCase()) {
+                recoveredCd =
+                    (json['ITEM_CD'] ?? json['itemCd'] ?? p['item_cd'])
+                            ?.toString() ??
+                        '';
+                if (recoveredCd.isNotEmpty) break;
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      // Strategy 3: look in cart_items for same order's party + matching fields
+      if (recoveredCd.isEmpty) {
+        final orderId = row['order_id'];
+        final orders = await dbInst
+            .query('offline_orders', where: 'id = ?', whereArgs: [orderId]);
+        if (orders.isNotEmpty) {
+          final partyCd = orders.first['server_party_id']?.toString() ?? '';
+          if (partyCd.isNotEmpty) {
+            final cartRows = await dbInst.query('cart_items',
+                where: "party_cd = ? AND item_cd != '' AND item_cd IS NOT NULL",
+                whereArgs: [partyCd]);
+            // Try matching by quantity + rate
+            for (var c in cartRows) {
+              if (c['quantity'] == row['quantity'] &&
+                  c['rate'] == row['rate']) {
+                recoveredCd = c['item_cd']?.toString() ?? '';
+                if (recoveredCd.isNotEmpty) break;
+              }
+            }
+          }
+        }
+      }
+
+      if (recoveredCd.isNotEmpty) {
+        await dbInst.update(
+          'offline_order_items',
+          {'item_cd': recoveredCd},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        print('[SyncService] Repaired item $id → item_cd=$recoveredCd');
+      } else {
+        print('[SyncService] Could not repair item $id (name="$itemName")');
+      }
     }
   }
 
-  Future<void> _syncOrderWithRetry(Map<String, dynamic> order, String token,
+  /// Attempt sync with retries. Returns true on success, false on failure.
+  Future<bool> _syncOrderWithRetry(Map<String, dynamic> order, String token,
       {int maxRetries = 3}) async {
     int attempt = 0;
-    int delaySeconds = 1; // Start with 1 second delay
+    int delaySeconds = 1;
 
     while (attempt < maxRetries) {
       try {
         await _syncSingleOrder(order, token);
-        return; // Success, exit retry loop
+        return true;
       } catch (e) {
         attempt++;
+        await db.updateRetry(order['id'], e.toString());
+
         if (attempt >= maxRetries) {
-          // Max retries reached, update with final error
-          await db.updateRetry(order['id'], "Max retries exceeded: $e");
           print(
-              "Failed to sync order ${order['id']} after $maxRetries attempts: $e");
-          return;
+              '[SyncService] Order ${order['id']} failed after $maxRetries attempts: $e');
+          return false;
         }
 
-        // Wait before retry with exponential backoff
-        await Future.delayed(Duration(seconds: delaySeconds));
-        delaySeconds *= 2; // Double the delay for next attempt
         print(
-            "Retrying order ${order['id']} in ${delaySeconds}s (attempt $attempt/$maxRetries)");
+            '[SyncService] Retrying order ${order['id']} in ${delaySeconds}s (attempt $attempt/$maxRetries)');
+        await Future.delayed(Duration(seconds: delaySeconds));
+        delaySeconds *= 2;
       }
     }
+    return false;
   }
 
   Future<void> _syncSingleOrder(
       Map<String, dynamic> order, String token) async {
     final items = await db.getOrderItems(order['id']);
 
-    // Step 1: Add each item to the server cart (mirrors online add-to-cart flow)
-    for (var item in items) {
-      // Ensure item code is present. If missing, try to recover from local product cache
-      String itemCd = item["item_cd"]?.toString() ?? '';
-      final itemName = item['item_name']?.toString() ?? '';
+    // Filter to only valid items (skip items with empty item_cd)
+    final validItems = items
+        .where((i) => (i['item_cd']?.toString() ?? '').isNotEmpty)
+        .toList();
 
-      if (itemCd.isEmpty && itemName.isNotEmpty) {
-        try {
-          final cached = await db.getCachedProducts();
-          for (var p in cached) {
-            final name = (p['item_name'] ?? '').toString();
-            if (name.isNotEmpty && name == itemName) {
-              try {
-                final prodJson = p['product_json'] as String?;
-                if (prodJson != null && prodJson.isNotEmpty) {
-                  final parsed = jsonDecode(prodJson) as Map<String, dynamic>;
-                  // Try common keys
-                  itemCd = (parsed['ITEM_CD'] ??
-                              parsed['itemCd'] ??
-                              parsed['item_cd'])
-                          ?.toString() ??
-                      '';
-                  if (itemCd.isNotEmpty) break;
-                }
-              } catch (_) {}
-            }
+    if (validItems.isEmpty) {
+      throw Exception('No valid items with item_cd for order ${order['id']}');
+    }
+
+    final partyCd = order["server_party_id"]?.toString() ?? '';
+
+    // Step 0: CLEAR existing server cart for this party to avoid qty doubling
+    // (Items may already exist from when user added them online)
+    try {
+      final cartResponse = await http.get(
+        Uri.parse("${AppConfig.baseURL}cart?partyCd=$partyCd"),
+        headers: {
+          "Authorization": "Bearer $token",
+          'x-app-type': 'oms',
+        },
+      );
+      if (cartResponse.statusCode == 200) {
+        final cartData = jsonDecode(cartResponse.body);
+        final existingItems = cartData['data'] as List? ?? [];
+        for (var existingItem in existingItems) {
+          final cId = existingItem['cId'];
+          if (cId != null) {
+            await http.delete(
+              Uri.parse("${AppConfig.baseURL}cart/$cId"),
+              headers: {
+                "Authorization": "Bearer $token",
+                'x-app-type': 'oms',
+              },
+            );
+            print('[SyncService] Deleted existing server cart item cId=$cId');
           }
-        } catch (e) {
-          print('Error while trying to recover itemCd from cache: $e');
         }
       }
+    } catch (e) {
+      print(
+          '[SyncService] Warning: Could not clear server cart before sync: $e');
+      // Continue anyway — better to have duplicates than skip the order
+    }
+
+    // Step 1: Add each item to the server cart
+    for (var item in validItems) {
+      final itemCd = item['item_cd'].toString();
 
       var cartPayload = {
-        "partyCd": order["server_party_id"],
+        "partyCd": partyCd,
         "itemCd": itemCd,
         "qty": item["quantity"]?.toString() ?? '0',
         "rate": item["rate"]?.toString() ?? '0',
@@ -95,8 +240,7 @@ class SyncService {
         cartPayload["fld5"] = item["fld5"].toString();
       }
 
-      print(
-          "Syncing cart item ${cartPayload['itemCd']} for order ${order['id']}: $cartPayload");
+      print('[SyncService] POST cart: $cartPayload');
 
       var cartResponse = await http.post(
         Uri.parse("${AppConfig.baseURL}cart"),
@@ -108,27 +252,27 @@ class SyncService {
       );
 
       print(
-          "Cart sync response for ${cartPayload['itemCd']}: ${cartResponse.statusCode}");
+          '[SyncService] Cart response ${cartResponse.statusCode}: ${cartResponse.body}');
 
       if (cartResponse.statusCode == 401) {
         throw Exception("Authentication expired");
       }
-      if (cartResponse.statusCode != 200) {
+      if (cartResponse.statusCode != 200 && cartResponse.statusCode != 201) {
         throw Exception(
-            "Failed to add item ${cartPayload['itemCd']} to cart: HTTP ${cartResponse.statusCode}");
+            "Failed to add item $itemCd to cart: HTTP ${cartResponse.statusCode} — ${cartResponse.body}");
       }
     }
 
-    // Step 2: Place the order (server reads items from its own cart)
+    // Step 2: Place the order
     var orderPayload = {
-      "partyCd": order["server_party_id"],
+      "partyCd": order["server_party_id"]?.toString() ?? '',
       "lat": order["latitude"]?.toString() ?? '0',
       "longi": order["longitude"]?.toString() ?? '0',
-      "narration": order["remarks"] ?? "",
+      "narration": order["remarks"]?.toString() ?? "",
       "moduleNo": "205",
     };
 
-    print("Syncing order ${order['id']} with payload: $orderPayload");
+    print('[SyncService] POST orders: $orderPayload');
 
     var response = await http.post(
       Uri.parse("${AppConfig.baseURL}orders"),
@@ -139,65 +283,125 @@ class SyncService {
       body: orderPayload,
     );
 
-    print("Order sync response: ${response.statusCode} - ${response.body}");
+    print(
+        '[SyncService] Order response ${response.statusCode}: ${response.body}');
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final serverOrderId = data["data"]["oId"];
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      int? serverOrderId;
+      try {
+        final data = jsonDecode(response.body);
+        serverOrderId = data["data"]?["oId"] ?? data["oId"];
+      } catch (_) {}
 
-      await db.updateOrderStatus(
-        order['id'],
-        'synced',
-        serverOrderId,
-      );
+      await db.updateOrderStatus(order['id'], 'synced', serverOrderId);
       print(
-          "Order ${order['id']} synced successfully with server ID: $serverOrderId");
-      // Clean up local offline order and any related cart items for the party
+          '[SyncService] Order ${order['id']} synced → server ID: $serverOrderId');
+
+      // Clean up local data
       try {
         await db.deleteOfflineOrder(order['id']);
-        // Also clear any leftover cart items for this party
         if (order['server_party_id'] != null) {
           await db.clearCartForParty(order['server_party_id'].toString());
         }
-        print('Local offline order ${order["id"]} deleted after sync');
       } catch (e) {
-        print('Error cleaning up local order ${order["id"]}: $e');
+        print('[SyncService] Cleanup error for order ${order['id']}: $e');
       }
     } else {
       throw Exception("HTTP ${response.statusCode}: ${response.body}");
     }
   }
 
-  // Method to check for data inconsistencies between local and server
-  Future<List<String>> checkDataInconsistencies(String token) async {
-    List<String> inconsistencies = [];
+  /// Remove orders that are permanently unrecoverable (no items or all items lack item_cd).
+  Future<int> cleanupBrokenOrders() async {
+    final pendingOrders = await db.getPendingOrders();
+    int cleaned = 0;
 
-    try {
-      // Check for orders that exist locally but not on server
-      final localOrders = await db.getPendingOrders();
-      // This would require fetching server orders and comparing
-      // For now, just check sync status
-      for (var order in localOrders) {
-        if (order['sync_attempts'] > 5) {
-          inconsistencies.add(
-              "Order ${order['id']} has failed sync ${order['sync_attempts']} times");
-        }
-      }
+    for (var order in pendingOrders) {
+      final items = await db.getOrderItems(order['id']);
+      final hasValid =
+          items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
 
-      // Check for orders marked as synced but no server_order_id
-      final allOrders =
-          await db.database.then((db) => db.query('offline_orders'));
-      for (var order in allOrders) {
-        if (order['sync_status'] == 'synced' &&
-            order['server_order_id'] == null) {
-          inconsistencies.add(
-              "Order ${order['id']} marked as synced but missing server ID");
-        }
+      if (items.isEmpty || !hasValid) {
+        await db.deleteOfflineOrder(order['id']);
+        print('[SyncService] Deleted broken order ${order['id']}');
+        cleaned++;
       }
-    } catch (e) {
-      inconsistencies.add("Error checking inconsistencies: $e");
+    }
+    return cleaned;
+  }
+
+  /// Sync local cart items to server.
+  /// Called on reconnection to push any items added while offline.
+  Future<int> syncCartToServer(String token) async {
+    final hasNet = await NetworkHelper.hasInternet();
+    if (!hasNet) return 0;
+
+    final dbInst = await db.database;
+    // Get all local cart items that were added while offline (sync_status = 'pending')
+    final pendingItems = await dbInst.query(
+      'cart_items',
+      where: "sync_status = 'pending'",
+    );
+
+    if (pendingItems.isEmpty) {
+      print('[SyncService] No pending cart items to sync');
+      return 0;
     }
 
-    return inconsistencies;
+    int synced = 0;
+    print(
+        '[SyncService] Syncing ${pendingItems.length} pending cart item(s) to server');
+
+    for (var item in pendingItems) {
+      try {
+        final itemCd = item['item_cd']?.toString() ?? '';
+        if (itemCd.isEmpty) continue;
+
+        var cartPayload = {
+          "partyCd": item['party_cd']?.toString() ?? '',
+          "itemCd": itemCd,
+          "qty": item['quantity']?.toString() ?? '0',
+          "rate": item['rate']?.toString() ?? '0',
+          "lrate": item['lrate']?.toString() ?? '0',
+          "moduleNo": "205",
+        };
+
+        final otherDesc = item['other_desc']?.toString() ?? '';
+        if (otherDesc.isNotEmpty) cartPayload["otherDesc"] = otherDesc;
+
+        final fld5 = item['fld5']?.toString() ?? '';
+        if (fld5.isNotEmpty) cartPayload["fld5"] = fld5;
+
+        final response = await http.post(
+          Uri.parse("${AppConfig.baseURL}cart"),
+          headers: {
+            "Authorization": "Bearer $token",
+            'x-app-type': 'oms',
+          },
+          body: cartPayload,
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Mark as synced
+          await dbInst.update(
+            'cart_items',
+            {'sync_status': 'synced'},
+            where: 'id = ?',
+            whereArgs: [item['id']],
+          );
+          synced++;
+          print('[SyncService] Cart item $itemCd synced to server');
+        } else if (response.statusCode == 401) {
+          print('[SyncService] Auth expired during cart sync');
+          break;
+        }
+      } catch (e) {
+        print('[SyncService] Error syncing cart item: $e');
+      }
+    }
+
+    print(
+        '[SyncService] Cart sync complete: $synced/${pendingItems.length} items');
+    return synced;
   }
 }

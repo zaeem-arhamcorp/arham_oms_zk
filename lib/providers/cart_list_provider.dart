@@ -129,7 +129,32 @@ class CartListProvider extends DisposableProvider {
 
       if (response.statusCode == 200) {
         _data.clear();
-        _data.addAll(cartListModalFromJson(response.body).data);
+        final serverItems = cartListModalFromJson(response.body).data;
+        _data.addAll(serverItems);
+
+        // Sync server cart → local SQLite so data persists if we go offline
+        try {
+          final dbHelper = DatabaseHelper();
+          await dbHelper.clearCartForParty(partyId!);
+          for (var item in serverItems) {
+            await CartService().addToCart(
+              partyCd: partyId,
+              itemCd: item.itemCd?.toString() ?? '',
+              quantity: double.tryParse(item.quantity?.toString() ?? '0') ?? 0,
+              rate: double.tryParse(item.rate?.toString() ?? '0') ?? 0,
+              nrate: double.tryParse(item.item?.nrate?.toString() ?? '0') ?? 0,
+              lrate: double.tryParse(item.lrate?.toString() ?? '0') ?? 0,
+              amount: item.amount ?? 0,
+              otherDesc: item.otherDesc?.toString() ?? '',
+              fld5: item.fld5?.toString() ?? '',
+              itemName: item.item?.itemName?.toString() ?? '',
+            );
+          }
+          print("Synced ${serverItems.length} server cart items → local DB");
+        } catch (syncErr) {
+          print("Error syncing server cart to local: $syncErr");
+        }
+
         notifyListeners();
       } else {
         ub.userSignout(context).then((value) {
@@ -138,6 +163,22 @@ class CartListProvider extends DisposableProvider {
       }
     } catch (e, stack) {
       FirebaseCrashlytics.instance.recordError(e, stack);
+      // If server fails, try loading from local DB as fallback
+      try {
+        final localCart =
+            await DatabaseHelper().getCartItems(partyId: partyId ?? '');
+        if (localCart.isNotEmpty) {
+          _data.clear();
+          for (var item in localCart) {
+            try {
+              _data.add(DatumCartList.fromLocal(item));
+            } catch (_) {}
+          }
+          print("Loaded ${_data.length} items from local fallback");
+          notifyListeners();
+          return;
+        }
+      } catch (_) {}
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
     }
   }

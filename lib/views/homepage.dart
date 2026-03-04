@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
@@ -47,25 +49,64 @@ class _HomePageState extends State<HomePage> {
   DashboardModal? data;
   bool nolist = false;
 
-  getDashboarddata() {
+  getDashboarddata() async {
     setState(() {
       data = null;
       nolist = false;
     });
-    Services().getDashboarddata(context).then((value) {
-      if (value != null) {
-        setState(() {
-          data = value;
-          if (data!.data.labelData.transaction.isEmpty) {
-            nolist = true;
+
+    bool online = await NetworkHelper.hasInternet();
+
+    if (online) {
+      Services().getDashboarddata(context).then((value) async {
+        if (value != null) {
+          setState(() {
+            data = value;
+            if (data!.data.labelData.transaction.isEmpty) {
+              nolist = true;
+            }
+          });
+
+          // Cache dashboard data for offline use (always cache valid data)
+          try {
+            await DatabaseHelper().cacheHomeData(
+              'dashboard',
+              dashboardModalToJson(value),
+            );
+            print("Dashboard cached successfully");
+          } catch (e) {
+            print("Error caching dashboard data: $e");
           }
-        });
-      } else {
+        } else {
+          setState(() {
+            nolist = true;
+          });
+        }
+      });
+    } else {
+      // Offline: load from cache
+      try {
+        final cached = await DatabaseHelper().getCachedHomeData('dashboard');
+        if (cached != null && cached.isNotEmpty && cached != 'null') {
+          final cachedData = dashboardModalFromJson(cached);
+          setState(() {
+            data = cachedData;
+            if (data!.data.labelData.transaction.isEmpty) {
+              nolist = true;
+            }
+          });
+        } else {
+          setState(() {
+            nolist = true;
+          });
+        }
+      } catch (e) {
+        print("Error loading cached dashboard: $e");
         setState(() {
           nolist = true;
         });
       }
-    });
+    }
   }
 
   List<Map<String, dynamic>> firmList = [];

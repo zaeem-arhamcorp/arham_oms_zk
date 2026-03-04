@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/constants/constants.dart';
 import 'package:arham_corporation/helper/helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/models/settingmodal.dart';
 import 'package:arham_corporation/network.dart';
@@ -13,6 +14,7 @@ import 'package:arham_corporation/product/ui/product_page.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/widgets/app_dimensions.dart';
 import 'package:arham_corporation/widgets/app_font_weight.dart';
@@ -88,7 +90,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     return null;
   }
 
-  getDate() {
+  getDate() async {
     final PartyProvider party =
         Provider.of<PartyProvider>(context, listen: false);
     setState(() {
@@ -96,27 +98,68 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       noList = false;
     });
 
-    print(party.partyid);
-    Services()
-        .getOrderReport(
-            context,
-            party.partyid,
-            Helper.toApi(fromdateController.text),
-            Helper.toApi(toDateController.text),
-            userController.text,
-            radiocheck)
-        .then((value) {
-      setState(() {
-        if (value != null) {
-          data.addAll(value.data);
-          if (data.isEmpty) {
+    bool online = await NetworkHelper.hasInternet();
+
+    if (online) {
+      print(party.partyid);
+      Services()
+          .getOrderReport(
+              context,
+              party.partyid,
+              Helper.toApi(fromdateController.text),
+              Helper.toApi(toDateController.text),
+              userController.text,
+              radiocheck)
+          .then((value) async {
+        setState(() {
+          if (value != null) {
+            data.addAll(value.data);
+            if (data.isEmpty) {
+              noList = true;
+            }
+          } else {
             noList = true;
           }
-        } else {
-          noList = true;
+        });
+
+        // Cache the order report for offline use (always cache)
+        if (value != null) {
+          try {
+            await DatabaseHelper().cacheHomeData(
+              'order_report',
+              orderReportModalToJson(value),
+            );
+            print(
+                "Order report cached successfully (${value.data.length} items)");
+          } catch (e) {
+            print("Error caching order report: $e");
+          }
         }
       });
-    });
+    } else {
+      // Offline: load from cache
+      try {
+        final cached = await DatabaseHelper().getCachedHomeData('order_report');
+        if (cached != null && cached.isNotEmpty && cached != 'null') {
+          final cachedReport = orderReportModalFromJson(cached);
+          setState(() {
+            data.addAll(cachedReport.data);
+            if (data.isEmpty) {
+              noList = true;
+            }
+          });
+        } else {
+          setState(() {
+            noList = true;
+          });
+        }
+      } catch (e) {
+        print("Error loading cached order report: $e");
+        setState(() {
+          noList = true;
+        });
+      }
+    }
   }
 
   void dispose() {
@@ -1424,13 +1467,14 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                         .spaceBetween,
                                                 children: [
                                                   if (data[index].imgUrl !=
-                                                          null &&
-                                                      data[index].imgUrl !=
-                                                          '' /*&&
+                                                              null &&
+                                                          data[index].imgUrl !=
+                                                              '' /*&&
                                                       profile.userCode ==
                                                           data[index]
                                                               .user
-                                                              .userCd*/)
+                                                              .userCd*/
+                                                      )
                                                     IconButton(
                                                         onPressed: () {
                                                           showImagePreviewDialog(
@@ -1626,18 +1670,17 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                         // );
 
                                                         if (data[index]
-                                                            .imgUrl
-                                                            .toString()
-                                                            .isNotEmpty &&
+                                                                .imgUrl
+                                                                .toString()
+                                                                .isNotEmpty &&
                                                             data[index]
-                                                                .imgUrl !=
+                                                                    .imgUrl !=
                                                                 null) {
                                                           showDialog(
-                                                            context:
-                                                            context,
+                                                            context: context,
                                                             builder:
                                                                 (BuildContext
-                                                            context) {
+                                                                    context) {
                                                               return AlertDialog(
                                                                 title: Text(
                                                                     'Replace Image'),
@@ -1649,31 +1692,45 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                         () {
                                                                       Get.back();
                                                                     },
-                                                                    child:
-                                                                    Text('No'),
+                                                                    child: Text(
+                                                                        'No'),
                                                                   ),
                                                                   TextButton(
                                                                     onPressed:
                                                                         () {
                                                                       Get.back();
                                                                       final TextEditingController
-                                                                      remarksController =
-                                                                      TextEditingController();
+                                                                          remarksController =
+                                                                          TextEditingController();
 
                                                                       showDialog(
-                                                                        context: context,
-                                                                        barrierDismissible: false,
-                                                                        builder: (_) => CommonUploadInputDialog(
-                                                                          title: "Upload Proof",
-                                                                          message: "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                                          controllerValue: remarksController,
-                                                                          isLoading: false.obs,
-                                                                          fileRx: proofOfDelivery,
-                                                                          webFileRx: proofOfDeliveryWeb,
-                                                                          onUploadTap: () => pickImage('proofOfDelivery'),
-                                                                          onDeleteTap: () => removeImage('proofOfDelivery'),
-                                                                          onSubmit: () async {
-                                                                            if (proofOfDelivery.value == null && proofOfDeliveryWeb.value == null) {
+                                                                        context:
+                                                                            context,
+                                                                        barrierDismissible:
+                                                                            false,
+                                                                        builder:
+                                                                            (_) =>
+                                                                                CommonUploadInputDialog(
+                                                                          title:
+                                                                              "Upload Proof",
+                                                                          message:
+                                                                              "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                                          controllerValue:
+                                                                              remarksController,
+                                                                          isLoading:
+                                                                              false.obs,
+                                                                          fileRx:
+                                                                              proofOfDelivery,
+                                                                          webFileRx:
+                                                                              proofOfDeliveryWeb,
+                                                                          onUploadTap: () =>
+                                                                              pickImage('proofOfDelivery'),
+                                                                          onDeleteTap: () =>
+                                                                              removeImage('proofOfDelivery'),
+                                                                          onSubmit:
+                                                                              () async {
+                                                                            if (proofOfDelivery.value == null &&
+                                                                                proofOfDeliveryWeb.value == null) {
                                                                               AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
                                                                               return;
                                                                             }
@@ -1688,7 +1745,8 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                               Get.back();
                                                                             });
                                                                           },
-                                                                          onCancel: () {
+                                                                          onCancel:
+                                                                              () {
                                                                             removeImage('proofOfDelivery');
                                                                             remarksController.clear();
                                                                             Get.back();
@@ -1696,8 +1754,8 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                         ),
                                                                       );
                                                                     },
-                                                                    child:
-                                                                    Text('Yes'),
+                                                                    child: Text(
+                                                                        'Yes'),
                                                                   ),
                                                                 ],
                                                               );
@@ -1705,76 +1763,75 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                           );
                                                         } else {
                                                           final TextEditingController
-                                                          remarksController =
-                                                          TextEditingController();
+                                                              remarksController =
+                                                              TextEditingController();
 
                                                           showDialog(
-                                                            context:
-                                                            context,
+                                                            context: context,
                                                             barrierDismissible:
-                                                            false,
+                                                                false,
                                                             builder: (_) =>
                                                                 CommonUploadInputDialog(
-                                                                  title:
+                                                              title:
                                                                   "Upload Proof",
-                                                                  message:
+                                                              message:
                                                                   "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                                  controllerValue:
+                                                              controllerValue:
                                                                   remarksController,
-                                                                  isLoading:
-                                                                  false
-                                                                      .obs,
-                                                                  fileRx:
+                                                              isLoading:
+                                                                  false.obs,
+                                                              fileRx:
                                                                   proofOfDelivery,
-                                                                  webFileRx:
+                                                              webFileRx:
                                                                   proofOfDeliveryWeb,
-                                                                  onUploadTap: () =>
-                                                                      pickImage(
-                                                                          'proofOfDelivery'),
-                                                                  onDeleteTap: () =>
-                                                                      removeImage(
-                                                                          'proofOfDelivery'),
-                                                                  onSubmit:
-                                                                      () async {
-                                                                    if (proofOfDelivery.value ==
+                                                              onUploadTap: () =>
+                                                                  pickImage(
+                                                                      'proofOfDelivery'),
+                                                              onDeleteTap: () =>
+                                                                  removeImage(
+                                                                      'proofOfDelivery'),
+                                                              onSubmit:
+                                                                  () async {
+                                                                if (proofOfDelivery
+                                                                            .value ==
                                                                         null &&
-                                                                        proofOfDeliveryWeb.value ==
-                                                                            null) {
-                                                                      AppSnackBar.showGetXCustomSnackBar(
+                                                                    proofOfDeliveryWeb
+                                                                            .value ==
+                                                                        null) {
+                                                                  AppSnackBar
+                                                                      .showGetXCustomSnackBar(
                                                                           message:
-                                                                          "Please upload image");
-                                                                      return;
-                                                                    }
+                                                                              "Please upload image");
+                                                                  return;
+                                                                }
 
-                                                                    await insertOrUpdateOrder(
-                                                                      data[index]
-                                                                          .oId
-                                                                          .toString(),
-                                                                      "",
-                                                                      remarksController
-                                                                          .text,
-                                                                    ).then(
-                                                                            (_) {
-                                                                          removeImage(
-                                                                              'proofOfDelivery');
+                                                                await insertOrUpdateOrder(
+                                                                  data[index]
+                                                                      .oId
+                                                                      .toString(),
+                                                                  "",
+                                                                  remarksController
+                                                                      .text,
+                                                                ).then((_) {
+                                                                  removeImage(
+                                                                      'proofOfDelivery');
 
-                                                                          Get.back();
-                                                                        });
-                                                                  },
-                                                                  onCancel:
-                                                                      () {
-                                                                    removeImage(
-                                                                        'proofOfDelivery');
-                                                                    remarksController
-                                                                        .clear();
-                                                                    Get.back();
-                                                                  },
-                                                                ),
+                                                                  Get.back();
+                                                                });
+                                                              },
+                                                              onCancel: () {
+                                                                removeImage(
+                                                                    'proofOfDelivery');
+                                                                remarksController
+                                                                    .clear();
+                                                                Get.back();
+                                                              },
+                                                            ),
                                                           );
                                                         }
                                                       },
-                                                      icon: Icon(Icons
-                                                          .attach_file)),
+                                                      icon: Icon(
+                                                          Icons.attach_file)),
                                                   // if (data[index].imgUrl ==
                                                   //     null &&
                                                   //     data[index].imgUrl ==

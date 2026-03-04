@@ -50,19 +50,32 @@ class CartController extends GetxController {
         double nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
         double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
         // If rate not provided or zero, try to recover from cached products
-        if ((rateVal == 0 || rateVal.isNaN) && (itemName == null || itemName.isEmpty)) {
+        if ((rateVal == 0 || rateVal.isNaN) &&
+            (itemName == null || itemName.isEmpty)) {
           try {
             final cached = await DatabaseHelper().getCachedProducts();
             final prod = cached.firstWhere(
-                (p) => (p['item_cd']?.toString() ?? p['ITEM_CD']?.toString() ?? '') == itemCd,
+                (p) =>
+                    (p['item_cd']?.toString() ??
+                        p['ITEM_CD']?.toString() ??
+                        '') ==
+                    itemCd,
                 orElse: () => {});
             if (prod.isNotEmpty) {
               // Prefer NRATE if available, else SRATE3, else rate
               double recovered = 0;
-              final v1 = prod['nrate'] ?? prod['NRATE'] ?? prod['N.RATE'] ?? prod['nRATE'];
-              final v2 = prod['srate3'] ?? prod['SRATE3'] ?? prod['sRATE3'] ?? prod['srate'];
-              if (v1 != null) recovered = double.tryParse(v1.toString()) ?? recovered;
-              if (recovered == 0 && v2 != null) recovered = double.tryParse(v2.toString()) ?? recovered;
+              final v1 = prod['nrate'] ??
+                  prod['NRATE'] ??
+                  prod['N.RATE'] ??
+                  prod['nRATE'];
+              final v2 = prod['srate3'] ??
+                  prod['SRATE3'] ??
+                  prod['sRATE3'] ??
+                  prod['srate'];
+              if (v1 != null)
+                recovered = double.tryParse(v1.toString()) ?? recovered;
+              if (recovered == 0 && v2 != null)
+                recovered = double.tryParse(v2.toString()) ?? recovered;
               if (recovered > 0) {
                 rateVal = recovered;
                 nrateVal = recovered;
@@ -101,11 +114,33 @@ class CartController extends GetxController {
       return;
     }
 
-    // ONLINE: Call server API
+    // ONLINE: Save to local DB first, then POST to server
     final UserProvider userProvider =
         Provider.of<UserProvider>(Get.context!, listen: false);
 
     try {
+      // Always save locally first (ensures cart survives connectivity loss)
+      double rateVal = double.tryParse(rate ?? '0') ?? 0;
+      double qtyVal = double.tryParse(qty) ?? 0;
+      double nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
+      double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
+      double amount = rateVal * qtyVal;
+
+      await CartService().addToCart(
+        partyCd: partyid,
+        itemCd: itemCd,
+        quantity: qtyVal,
+        rate: rateVal,
+        nrate: nrateVal,
+        lrate: lrateVal,
+        amount: amount,
+        otherDesc: otherDesc ?? '',
+        fld5: remarks ?? '',
+        itemName: itemName ?? '',
+      );
+      log("Item $itemCd saved to local cart (online+local)");
+
+      // Now POST to server
       final requestBody = {
         "partyCd": partyid,
         "itemCd": itemCd,
@@ -144,6 +179,8 @@ class CartController extends GetxController {
       }
     } catch (e) {
       log("Error in addItemToCart: $e");
+      // Item is still saved locally even if server fails
+      productAddedStates[itemCd] = true;
     } finally {
       productLoadingStates[itemCd] = false;
     }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'database_helper.dart';
 import 'cart_service.dart';
 
@@ -19,6 +20,50 @@ class OfflineOrderService {
       throw Exception('Cart is empty');
     }
 
+    // Validate & enrich: ensure every item has item_cd before saving
+    final productsCache = await db.getCachedProducts();
+    List<Map<String, dynamic>> validatedItems = [];
+
+    for (var item in cartItems) {
+      String itemCd = (item['item_cd'] ?? '').toString().trim();
+      String itemName = (item['item_name'] ?? '').toString().trim();
+
+      // If item_cd is missing, try to recover from products_cache
+      if (itemCd.isEmpty && itemName.isNotEmpty) {
+        for (var p in productsCache) {
+          final cacheName = (p['item_name'] ?? '').toString().trim();
+          if (cacheName.isNotEmpty &&
+              cacheName.toLowerCase() == itemName.toLowerCase()) {
+            itemCd = (p['item_cd'] ?? '').toString();
+            break;
+          }
+          // Also try parsing product_json
+          try {
+            final json = jsonDecode(p['product_json'].toString())
+                as Map<String, dynamic>;
+            final jsonName = (json['ITEM_NAME'] ?? '').toString().trim();
+            if (jsonName.isNotEmpty &&
+                jsonName.toLowerCase() == itemName.toLowerCase()) {
+              itemCd = (json['ITEM_CD'] ?? p['item_cd'] ?? '').toString();
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // If still empty, try to get item_cd from products_cache by item_cd match
+      if (itemCd.isEmpty) {
+        print(
+            '[OfflineOrderService] WARNING: item_cd empty for "${itemName}" — order item will be saved but may fail sync');
+      }
+
+      validatedItems.add({
+        ...item,
+        'item_cd': itemCd,
+        'item_name': itemName,
+      });
+    }
+
     // Insert the offline order header
     int orderId = await db.insertOfflineOrder({
       'server_party_id': partyId,
@@ -34,10 +79,10 @@ class OfflineOrderService {
     });
 
     // Insert order items matching server `ordritm` structure
-    List<Map<String, dynamic>> orderItems = cartItems.map((item) {
+    List<Map<String, dynamic>> orderItems = validatedItems.map((item) {
       return {
         'order_id': orderId,
-        'item_cd': item['item_cd'],
+        'item_cd': item['item_cd'] ?? '',
         'item_name': item['item_name'] ?? '',
         'quantity': item['quantity'],
         'rate': item['rate'],
@@ -54,6 +99,8 @@ class OfflineOrderService {
     // Clear the local cart after saving order
     await cartService.clearCart();
 
+    print(
+        '[OfflineOrderService] Saved offline order $orderId with ${orderItems.length} item(s)');
     return orderId;
   }
 

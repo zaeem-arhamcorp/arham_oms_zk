@@ -2,6 +2,7 @@
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/generated/assets.dart';
 import 'package:arham_corporation/helper/helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/models/narrationModal.dart';
 import 'package:arham_corporation/product/controller/cart_controller.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
@@ -9,6 +10,7 @@ import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/cart_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -69,30 +71,82 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   bool loading = false;
 
-  deleteCartItem(cartid, itemCd) {
+  deleteCartItem(cartid, itemCd) async {
     setState(() {
       loading = true;
     });
-    Services().deleteItemtoCart(cartid.toString(), context).then((value) {
-      if (value != null) {
-        //Fluttertoast.showToast(msg: value);
+
+    bool online = await NetworkHelper.hasInternet();
+
+    if (online) {
+      // Online: delete from server + local
+      Services()
+          .deleteItemtoCart(cartid.toString(), context)
+          .then((value) async {
+        if (value != null) {
+          AppSnackBar.showGetXCustomSnackBar(
+              message: value, backgroundColor: Colors.green);
+
+          // Also delete from local DB
+          try {
+            final PartyProvider party =
+                Provider.of<PartyProvider>(context, listen: false);
+            final ProfileProvider profile =
+                Provider.of<ProfileProvider>(context, listen: false);
+            String partyId = (profile.data?.profileSettings.any(
+                        (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                    false)
+                ? party.punchInOutPartyId
+                : party.partyid;
+            await DatabaseHelper()
+                .deleteCartItemByItemCd(itemCd.toString(), partyId);
+          } catch (e) {
+            print("Error deleting local cart item: $e");
+          }
+
+          setState(() {
+            loading = false;
+          });
+          getCart();
+          CartController controller = Get.put(CartController());
+          controller.removeProductLocally(itemCd);
+        } else {
+          setState(() {
+            loading = false;
+          });
+          AppSnackBar.showGetXCustomSnackBar(message: "Something Went Wong");
+        }
+      });
+    } else {
+      // Offline: delete from local DB only
+      try {
+        final PartyProvider party =
+            Provider.of<PartyProvider>(context, listen: false);
+        final ProfileProvider profile =
+            Provider.of<ProfileProvider>(context, listen: false);
+        String partyId = (profile.data?.profileSettings
+                    .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                false)
+            ? party.punchInOutPartyId
+            : party.partyid;
+        await DatabaseHelper()
+            .deleteCartItemByItemCd(itemCd.toString(), partyId);
+
         AppSnackBar.showGetXCustomSnackBar(
-            message: value, backgroundColor: Colors.green);
+            message: "Item removed (offline)", backgroundColor: Colors.orange);
         setState(() {
           loading = false;
         });
         getCart();
-
         CartController controller = Get.put(CartController());
         controller.removeProductLocally(itemCd);
-      } else {
+      } catch (e) {
         setState(() {
           loading = false;
         });
-        AppSnackBar.showGetXCustomSnackBar(message: "Something Went Wong");
-        //Fluttertoast.showToast(msg: "Something Went Wong");
+        AppSnackBar.showGetXCustomSnackBar(message: "Failed to remove item");
       }
-    });
+    }
   }
 
   getOptions() {

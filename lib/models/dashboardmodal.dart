@@ -45,7 +45,7 @@ class DashboardData {
 
   Map<String, dynamic> toJson() => {
         "label": label,
-        "labelData": labelData.toJson(),
+        "label_data": labelData.toJson(),
       };
 }
 
@@ -85,14 +85,12 @@ class LabelData {
 }
 
 class Transaction {
-
-
   Transaction(
       {required this.name,
       required this.amount,
       required this.orderNo,
       required this.mobile,
-        required this.orderDate,
+      required this.orderDate,
       required this.accCd});
 
   String name;
@@ -108,16 +106,14 @@ class Transaction {
       amount: json["amount"] ?? 0,
       orderNo: json["orderNo"] ?? "",
       mobile: json['mobile'] ?? "",
-      orderDate: json['orderDate']??""
-  );
-
-
+      orderDate: json['orderDate'] ?? "");
 
   Map<String, dynamic> toJson() => {
         "name": name,
         "amount": amount,
         "orderNo": orderNo,
         "mobile": mobile,
-        "accCd": accCd
+        "accCd": accCd,
+        "orderDate": orderDate
       };
 }
