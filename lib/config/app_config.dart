@@ -19,11 +19,11 @@ class AppConfig {
 
   //static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
-  // static const String baseURL =
-  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
-
   static const String baseURL =
-      "https://api.arhamcorp.in/api/"; //TODO: Production
+      "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+
+  // static const String baseURL =
+  //     "https://api.arhamcorp.in/api/"; //TODO: Production
 
   //static const String baseURL = "https://pharma.skyhubs.in/api/";
   static const String baseURLReport = "${baseURL}reports/";

@@ -69,7 +69,7 @@ dependencies:
   cancellation_token_http: ^2.0.0
   device_info_plus: ^12.1.0
   url_launcher: ^6.3.0
-  connectivity_plus: ^6.0.3
+  connectivity_plus: ^6.1.5
   flutter_typeahead: ^5.2.0
   win32: ^5.5.1
   number_paginator: ^1.1.1
@@ -79,6 +79,7 @@ dependencies:
   firebase_crashlytics: ^5.0.7
   firebase_core: ^4.4.0
   firebase_analytics: ^12.1.2
+  sqflite: ^2.4.2
 
 dev_dependencies:
   flutter_test:

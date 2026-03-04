@@ -51,9 +51,7 @@ class _ProductCardState extends State<ProductCard> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery
-        .of(context)
-        .size;
+    final size = MediaQuery.of(context).size;
     final controller = Get.find<ProductController>();
     final profile = context.watch<ProfileProvider>();
     final cartController = Get.put(CartController());
@@ -197,8 +195,8 @@ class _ProductCardState extends State<ProductCard> {
   }
 
   // ignore: unused_element
-  Widget _buildRow1(List<String?> data1, List<String?> data2,
-      List<String?> data3) {
+  Widget _buildRow1(
+      List<String?> data1, List<String?> data2, List<String?> data3) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -216,7 +214,8 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-  Widget _buildRow(List<String?> data1, [
+  Widget _buildRow(
+    List<String?> data1, [
     List<String?>? data2,
     List<String?>? data3,
     Color? labelColor,
@@ -264,14 +263,16 @@ class _ProductCardState extends State<ProductCard> {
   }
 
   // ignore: unused_element
-  Widget _buildInputFieldsAndDropdowns1(Size size,
-      ProfileProvider profile,
-      ProductController controller,
-      CartController cartController,
-      CartListProvider cart,) {
+  Widget _buildInputFieldsAndDropdowns1(
+    Size size,
+    ProfileProvider profile,
+    ProductController controller,
+    CartController cartController,
+    CartListProvider cart,
+  ) {
     final quantityController = TextEditingController();
     final rateController =
-    TextEditingController(text: widget.product.srate1.toString());
+        TextEditingController(text: widget.product.srate1.toString());
 
     String? selectedFreeDescription;
     String? selectedRemark;
@@ -286,19 +287,17 @@ class _ProductCardState extends State<ProductCard> {
       //     cart.data.any((element) => element.itemCd == widget.product.itemCd);
 
       final otherDescEntries = controller.otherDescOptions
-          .map((e) =>
-          DropdownMenuEntry<String>(
-            value: e.NARR_NAME,
-            label: e.NARR_NAME,
-          ))
+          .map((e) => DropdownMenuEntry<String>(
+                value: e.NARR_NAME,
+                label: e.NARR_NAME,
+              ))
           .toList();
 
       final remarkEntries = controller.fld5DescOptions
-          .map((e) =>
-          DropdownMenuEntry<String>(
-            value: e.NARR_NAME,
-            label: e.NARR_NAME,
-          ))
+          .map((e) => DropdownMenuEntry<String>(
+                value: e.NARR_NAME,
+                label: e.NARR_NAME,
+              ))
           .toList();
 
       final isAdded =
@@ -408,7 +407,7 @@ class _ProductCardState extends State<ProductCard> {
                 ),
                 const SizedBox(height: 5),
                 if (_shouldShowRemarks(profile))
-                // Option 1: Using TextFormField with DropdownMenu
+                  // Option 1: Using TextFormField with DropdownMenu
 
                   TextFormField(
                     decoration: InputDecoration(
@@ -454,7 +453,7 @@ class _ProductCardState extends State<ProductCard> {
 
               // Check if product is already added or loading
               if (cartController.productAddedStates[widget.product.itemCd] ==
-                  true ||
+                      true ||
                   cartController.productLoadingStates[widget.product.itemCd] ==
                       true) {
                 return;
@@ -463,31 +462,30 @@ class _ProductCardState extends State<ProductCard> {
               // Set loading state to true
               cartController.productLoadingStates[widget.product.itemCd] = true;
 
-              final itemQty = quantityController.text
-                  .trim()
-                  .isEmpty
+              final itemQty = quantityController.text.trim().isEmpty
                   ? "1"
                   : quantityController.text.trim();
 
               try {
                 await cartController
                     .addItemToCart(
-                  itemCd: widget.product.itemCd,
-                  partyid: controller.selectedPartyId.value,
-                  qty: itemQty,
-                  otherDesc: selectedFreeDescription,
-                  lrate: rateController.text.trim(),
-                  rate: rateController.text.trim(),
-                  remarks: selectedRemark,
-                )
-                    .then((value) =>
-                {
-                  quantityController.clear(),
-                  rateController.clear(),
-                  qtyController.clear(),
-                  freeQtyController.clear(),
-                  remarkController.clear(),
-                });
+                      itemCd: widget.product.itemCd,
+                      partyid: controller.selectedPartyId.value,
+                      qty: itemQty,
+                      otherDesc: selectedFreeDescription,
+                      lrate: rateController.text.trim(),
+                      rate: rateController.text.trim(),
+                      remarks: selectedRemark,
+                      nrate: widget.product.nrate?.toString(),
+                      itemName: widget.product.itemName.toString(),
+                    )
+                    .then((value) => {
+                          quantityController.clear(),
+                          rateController.clear(),
+                          qtyController.clear(),
+                          freeQtyController.clear(),
+                          remarkController.clear(),
+                        });
 
                 // Set product as added
                 cartController.productAddedStates[widget.product.itemCd] = true;
@@ -499,7 +497,7 @@ class _ProductCardState extends State<ProductCard> {
                 if (controller.selectedPartyId.isNotEmpty) {
                   cart
                       .getCartItem(
-                      Get.context!, controller.selectedPartyId.value)
+                          Get.context!, controller.selectedPartyId.value)
                       .then((_) {
                     // Silently update states without triggering rebuild
                     for (var item in cart.data) {
@@ -520,7 +518,8 @@ class _ProductCardState extends State<ProductCard> {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       Future.delayed(const Duration(milliseconds: 100), () {
                         if (Get.context != null) {
-                          FocusScope.of(Get.context!).requestFocus(controller.focusNode);
+                          FocusScope.of(Get.context!)
+                              .requestFocus(controller.focusNode);
                         }
                       });
                     });
@@ -533,7 +532,7 @@ class _ProductCardState extends State<ProductCard> {
               } finally {
                 // Set loading state to false
                 cartController.productLoadingStates[widget.product.itemCd] =
-                false;
+                    false;
               }
             },
             child: Obx(() {
@@ -549,20 +548,20 @@ class _ProductCardState extends State<ProductCard> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color:
-                  isAdded ? Colors.green.shade600 : Colors.orange.shade600,
+                      isAdded ? Colors.green.shade600 : Colors.orange.shade600,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: isLoading
                       ? CircularProgressIndicator(
-                    valueColor:
-                    AlwaysStoppedAnimation<Color>(Colors.white),
-                  )
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        )
                       : Text(
-                    isAdded ? 'Product Added' : 'Add To Cart',
-                    style:
-                    TextStyle(fontSize: 14.sp, color: Colors.white),
-                  ),
+                          isAdded ? 'Product Added' : 'Add To Cart',
+                          style:
+                              TextStyle(fontSize: 14.sp, color: Colors.white),
+                        ),
                 ),
               );
             }),
@@ -572,11 +571,13 @@ class _ProductCardState extends State<ProductCard> {
     });
   }
 
-  Widget _buildInputFieldsAndDropdowns(Size size,
-      ProfileProvider profile,
-      ProductController controller,
-      CartController cartController,
-      CartListProvider cart,) {
+  Widget _buildInputFieldsAndDropdowns(
+    Size size,
+    ProfileProvider profile,
+    ProductController controller,
+    CartController cartController,
+    CartListProvider cart,
+  ) {
     // Initialize controllers with stored values from CartController
     final quantityController = TextEditingController(
       text: cartController.getQuantity(widget.product.itemCd),
@@ -588,7 +589,7 @@ class _ProductCardState extends State<ProductCard> {
     );
 
     String? selectedFreeDescription =
-    cartController.getFreeQuantity(widget.product.itemCd);
+        cartController.getFreeQuantity(widget.product.itemCd);
     String? selectedRemark = cartController.getRemark(widget.product.itemCd);
 
     return Obx(() {
@@ -598,19 +599,17 @@ class _ProductCardState extends State<ProductCard> {
           cartController.productAddedStates[widget.product.itemCd] == true;
 
       final otherDescEntries = controller.otherDescOptions
-          .map((e) =>
-          DropdownMenuEntry<String>(
-            value: e.NARR_NAME,
-            label: e.NARR_NAME,
-          ))
+          .map((e) => DropdownMenuEntry<String>(
+                value: e.NARR_NAME,
+                label: e.NARR_NAME,
+              ))
           .toList();
 
       final remarkEntries = controller.fld5DescOptions
-          .map((e) =>
-          DropdownMenuEntry<String>(
-            value: e.NARR_NAME,
-            label: e.NARR_NAME,
-          ))
+          .map((e) => DropdownMenuEntry<String>(
+                value: e.NARR_NAME,
+                label: e.NARR_NAME,
+              ))
           .toList();
 
       return Column(
@@ -741,10 +740,10 @@ class _ProductCardState extends State<ProductCard> {
 
                         // Prevent multiple clicks
                         if (cartController.productAddedStates[
-                        widget.product.itemCd] ==
-                            true ||
+                                    widget.product.itemCd] ==
+                                true ||
                             cartController.productLoadingStates[
-                            widget.product.itemCd] ==
+                                    widget.product.itemCd] ==
                                 true) {
                           return;
                         }
@@ -757,7 +756,7 @@ class _ProductCardState extends State<ProductCard> {
                         // 1️⃣ GET Qty using logic
                         // -----------------------------------
                         final itemQty =
-                        _getItemQty(profile, quantityController);
+                            _getItemQty(profile, quantityController);
 
                         // -----------------------------------
                         // 2️⃣ VALIDATION WHEN SETTING OFF
@@ -796,25 +795,26 @@ class _ProductCardState extends State<ProductCard> {
                         try {
                           await cartController
                               .addItemToCart(
-                            itemCd: widget.product.itemCd,
-                            partyid: controller.selectedPartyId.value,
-                            qty: finalQty,
-                            otherDesc: selectedFreeDescription,
-                            lrate: rateController.text.trim(),
-                            rate: rateController.text.trim(),
-                            remarks: selectedRemark,
-                          )
-                              .then((value) =>
-                          {
-                            quantityController.clear(),
-                            rateController.clear(),
-                            qtyController.clear(),
-                            freeQtyController.clear(),
-                            remarkController.clear(),
-                            // Clear stored values in CartController
-                            cartController.clearProductInputs(
-                                widget.product.itemCd),
-                          });
+                                itemCd: widget.product.itemCd,
+                                partyid: controller.selectedPartyId.value,
+                                qty: finalQty,
+                                otherDesc: selectedFreeDescription,
+                                lrate: rateController.text.trim(),
+                                rate: rateController.text.trim(),
+                                remarks: selectedRemark,
+                                nrate: widget.product.nrate?.toString(),
+                                itemName: widget.product.itemName.toString(),
+                              )
+                              .then((value) => {
+                                    quantityController.clear(),
+                                    rateController.clear(),
+                                    qtyController.clear(),
+                                    freeQtyController.clear(),
+                                    remarkController.clear(),
+                                    // Clear stored values in CartController
+                                    cartController.clearProductInputs(
+                                        widget.product.itemCd),
+                                  });
 
                           // Mark this product as added immediately
                           cartController
@@ -827,7 +827,7 @@ class _ProductCardState extends State<ProductCard> {
                           if (controller.selectedPartyId.isNotEmpty) {
                             cart
                                 .getCartItem(Get.context!,
-                                controller.selectedPartyId.value)
+                                    controller.selectedPartyId.value)
                                 .then((_) {
                               // Silently update states without triggering rebuild
                               for (var item in cart.data) {
@@ -845,9 +845,11 @@ class _ProductCardState extends State<ProductCard> {
                               FocusManager.instance.primaryFocus?.unfocus();
 
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                Future.delayed(const Duration(milliseconds: 100), () {
+                                Future.delayed(
+                                    const Duration(milliseconds: 100), () {
                                   if (Get.context != null) {
-                                    FocusScope.of(Get.context!).requestFocus(controller.focusNode);
+                                    FocusScope.of(Get.context!)
+                                        .requestFocus(controller.focusNode);
                                   }
                                 });
                               });
@@ -858,8 +860,8 @@ class _ProductCardState extends State<ProductCard> {
                               message: "Error adding product: $e");
                         } finally {
                           cartController
-                              .productLoadingStates[widget.product.itemCd] =
-                          false;
+                                  .productLoadingStates[widget.product.itemCd] =
+                              false;
                         }
                       },
 
@@ -953,14 +955,14 @@ class _ProductCardState extends State<ProductCard> {
                         child: Center(
                           child: isLoading
                               ? CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white),
-                          )
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                )
                               : Text(
-                            isAdded ? 'Product Added' : 'Add To Cart',
-                            style: TextStyle(
-                                fontSize: 14.sp, color: Colors.white),
-                          ),
+                                  isAdded ? 'Product Added' : 'Add To Cart',
+                                  style: TextStyle(
+                                      fontSize: 14.sp, color: Colors.white),
+                                ),
                         ),
                       ),
                     ),
@@ -1003,7 +1005,7 @@ class _ProductCardState extends State<ProductCard> {
             const SizedBox(height: 5),
             Builder(builder: (_) {
               final matchedItem = cart.data.firstWhere(
-                    (element) => element.itemCd == widget.product.itemCd,
+                (element) => element.itemCd == widget.product.itemCd,
                 orElse: () => DatumCartList(itemCd: ''),
               );
 
@@ -1079,9 +1081,7 @@ class _ProductCardState extends State<ProductCard> {
 
   Widget _infoRow(String label, String? value,
       {Color? labelColor, Color? valueColor}) {
-    if (value == null || value
-        .trim()
-        .isEmpty) return SizedBox.shrink();
+    if (value == null || value.trim().isEmpty) return SizedBox.shrink();
 
     return Flexible(
       child: Row(
@@ -1114,30 +1114,30 @@ class _ProductCardState extends State<ProductCard> {
 
   bool _canEditRate(ProfileProvider profile) {
     return profile.data?.profileSettings.any((element) =>
-    (element.variable == 'editMasterRateSettings' &&
-        element.value == 'Y') ||
-        (element.variable == 'editOperatorRateSettings' &&
-            element.value == 'Y')) ??
+            (element.variable == 'editMasterRateSettings' &&
+                element.value == 'Y') ||
+            (element.variable == 'editOperatorRateSettings' &&
+                element.value == 'Y')) ??
         false;
   }
 
   bool _shouldShowRemarks(ProfileProvider profile) {
     return profile.data?.profileSettings.any((element) =>
-    element.variable == 'showItemWiseRemarks' &&
-        element.value == 'Y') ??
+            element.variable == 'showItemWiseRemarks' &&
+            element.value == 'Y') ??
         false;
   }
 
   bool _shouldShowQty1(ProfileProvider profile) {
     return profile.data?.profileSettings.any((element) =>
-    element.variable == 'addtocartdef1' && element.value == 'Y') ??
+            element.variable == 'addtocartdef1' && element.value == 'Y') ??
         false;
   }
 
-  String _getItemQty(ProfileProvider profile,
-      TextEditingController qtyController) {
+  String _getItemQty(
+      ProfileProvider profile, TextEditingController qtyController) {
     final useDefaultQty =
-    _shouldShowQty1(profile); // true when addtocartdef1 = ‘Y’
+        _shouldShowQty1(profile); // true when addtocartdef1 = ‘Y’
 
     print('defult qty setting $useDefaultQty');
 

@@ -6,6 +6,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:get/get.dart';
+import '../services/database_helper.dart';
+import '../helper/network_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -75,8 +77,43 @@ class ProfileProvider extends DisposableProvider {
     notifyListeners();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
+    final bool online = await NetworkHelper.hasInternet();
+    if (!online) {
+      // Load cached profile if available
+      try {
+        final cached = await DatabaseHelper().getCachedProfileJson();
+        if (cached != null && cached.isNotEmpty) {
+          _data = profileModalFromJson(cached).data;
+          // populate simple fields
+          YN = (data?.profileSettings.any(
+                      (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                  false)
+              ? 'Y'
+              : 'N';
 
-    //try {
+          ACC_NAME = data!.orderStartParty == null
+              ? ""
+              : data!.orderStartParty!.accName.toString();
+          ACC_CD = data!.orderStartParty == null
+              ? ""
+              : data!.orderStartParty!.accCd.toString();
+
+          if (id == null) {
+            if (YN == "Y") {
+              pp.changePunchInOutParty(ACC_NAME, ACC_CD, context, id: 5);
+            }
+          }
+          notifyListeners();
+          return;
+        }
+      } catch (e) {
+        print('Failed to load cached profile: $e');
+      }
+      // No cache available; bail out
+      return;
+    }
+
+    try {
       final http.Response response = await http.get(
         Uri.parse(AppConfig.baseURL + "profile"),
         headers: {
@@ -91,6 +128,14 @@ class ProfileProvider extends DisposableProvider {
 
       if (response.statusCode == 200) {
         _data = profileModalFromJson(response.body).data;
+
+        // Cache profile for offline
+        try {
+          await DatabaseHelper().cacheProfileJson(response.body);
+        } catch (e) {
+          print('Failed to cache profile: $e');
+        }
+
         saveUserCode(_data!.userCd.toString());
         saveUserName(_data!.userName.toString());
         print('Profile Data :' + response.body);
@@ -98,12 +143,9 @@ class ProfileProvider extends DisposableProvider {
         getUserCode();
         getUserName();
 
-        // YN = data?.profileSettings
-        //     .firstWhere((element) => element.variable == 'punchInOut')
-        //     .value;
-        YN = (data?.profileSettings.any(
-                (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
-            false)
+        YN = (data?.profileSettings
+                    .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                false)
             ? 'Y'
             : 'N';
 
@@ -126,11 +168,10 @@ class ProfileProvider extends DisposableProvider {
           print("Profile Page Call After Logout");
         });
       }
-    // } catch (e) {
-    //   //Fluttertoast.showToast(msg: "Something went wrong");
-    //   AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
-    //   print("Error in PerofileProvider getProfile  ${e.toString()}");
-    // }
+    } catch (e) {
+      AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
+      print("Error in PerofileProvider getProfile  ${e.toString()}");
+    }
     notifyListeners();
   }
 

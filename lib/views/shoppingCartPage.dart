@@ -12,15 +12,18 @@ import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
+import 'package:arham_corporation/widgets/offline_banner.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
+import 'package:arham_corporation/services/offline_order_service.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:provider/provider.dart';
 
+import 'package:hive/hive.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../constants/constants.dart';
 import '../models/cartListModal.dart';
 import '../models/ordermodal.dart';
@@ -153,7 +156,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     });
     final PartyProvider party =
         Provider.of<PartyProvider>(context, listen: false);
-    final CartListProvider cart = Provider.of<CartListProvider>(context, listen: false);
+    final CartListProvider cart =
+        Provider.of<CartListProvider>(context, listen: false);
 
     final ProfileProvider profile =
         Provider.of<ProfileProvider>(context, listen: false);
@@ -164,8 +168,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       //             .value ==
       //         'N' &&
       //     party.party == "")
-      if((profile.data?.profileSettings
-          .any((e) => e.variable == 'punchInOut' && e.value == 'N') ?? false) && (party.party.isEmpty)){
+      if ((profile.data?.profileSettings
+                  .any((e) => e.variable == 'punchInOut' && e.value == 'N') ??
+              false) &&
+          (party.party.isEmpty)) {
         print("55555555");
         noPartyName = true;
       }
@@ -175,7 +181,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       //         'Y' &&
       //     party.punchInOutParty == "")
       else if ((profile.data?.profileSettings
-          .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ?? false) && (party.punchInOutParty.isEmpty) ) {
+                  .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+              false) &&
+          (party.punchInOutParty.isEmpty)) {
         print("llllllll");
         noPartyName = true;
       } else {
@@ -189,8 +197,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                 //                 (element) => element.variable == 'punchInOut')
                 //             .value ==
                 //         'Y'
-            profile.data?.profileSettings
-                .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ?? false
+                profile.data?.profileSettings.any((e) =>
+                            e.variable == 'punchInOut' && e.value == 'Y') ??
+                        false
                     ? party.punchInOutPartyId
                     : party.partyid)
             .then((value) {
@@ -231,22 +240,22 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             var editMasterRate = profile.data?.profileSettings
                 .firstWhere(
                   (e) => e.variable == 'editMasterRateSettings',
-              orElse: () => DatumSettings(), // Return null if not found
-            )
+                  orElse: () => DatumSettings(), // Return null if not found
+                )
                 .value;
 
             var editOperatorRate = profile.data?.profileSettings
                 .firstWhere(
                   (e) => e.variable == 'editOperatorRateSettings',
-              orElse: () => DatumSettings(),
-            )
+                  orElse: () => DatumSettings(),
+                )
                 .value;
 
             var showItemRemarks = profile.data?.profileSettings
                 .firstWhere(
                   (e) => e.variable == 'showItemWiseRemarks',
-              orElse: () => DatumSettings(),
-            )
+                  orElse: () => DatumSettings(),
+                )
                 .value;
 
             for (var element in datacart) {
@@ -324,12 +333,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             //         (previousValue, element) =>
             //             previousValue + int.parse(element.otherDesc.toString()))
             //     .toString();
-            totalQty = datacart
-                .fold(
-                    0,
-                    (previousValue, element) =>
-                        previousValue + int.parse(element.quantity.toString()))
-                .toString();
+            totalQty = datacart.fold(0, (previousValue, element) {
+              // Safely parse quantity - handle both "15" and "15.0"
+              final qtyStr = element.quantity.toString().trim();
+              final qtyDouble = double.tryParse(qtyStr) ?? 0.0;
+              return previousValue + qtyDouble.toInt();
+            }).toString();
           });
           if (datacart.isEmpty) {
             setState(() {
@@ -607,16 +616,18 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     // }
 
     if ((p.data?.profileSettings
-        .any((e) => e.variable == 'punchInOut' && e.value == 'N') ?? false) &&
+                .any((e) => e.variable == 'punchInOut' && e.value == 'N') ??
+            false) &&
         (party.party.isNotEmpty)) {
       getCart();
       getOptions();
     } else if ((p.data?.profileSettings
-        .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ?? false) &&
+                .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+            false) &&
         (party.punchInOutParty.isNotEmpty)) {
       getCart();
       getOptions();
-    }else {
+    } else {
       print('call this way');
       getCart();
       getOptions();
@@ -645,7 +656,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         if (controller.selectedPartyId.isNotEmpty) {
           cartController.productAddedStates.clear(); // Clear previous state
 
-          await cart.getCartItem(Get.context!, controller.selectedPartyId.value);
+          await cart.getCartItem(
+              Get.context!, controller.selectedPartyId.value);
 
           // Update state based on fetched cart data
           for (var item in cart.data) {
@@ -663,12 +675,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         return true; // Allows back navigation
       },
       child: Scaffold(
-        bottomNavigationBar:
-        SafeArea(
+        bottomNavigationBar: SafeArea(
           top: false,
           //bottom: true,
           child: Container(
-            padding: EdgeInsets.only(top: 10.h, left: 15.h, bottom: 10.h,right: 15.h),
+            padding: EdgeInsets.only(
+                top: 10.h, left: 15.h, bottom: 10.h, right: 15.h),
             height: 120.h,
             width: size.width,
             decoration: BoxDecoration(
@@ -681,7 +693,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
               //Additional add
               // 🔹 Top border only
-              border:  Border(
+              border: Border(
                 top: BorderSide(
                   color: Color(0xFFE0E0E0), // light grey
                   width: 1,
@@ -699,15 +711,14 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
               //   ),
               // ],
             ),
-
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   "Approx Value (${datacart.length} item) ($totalQty Qty)",
-                  style: TextStyle(
-                      fontSize: 15.sp, fontWeight: FontWeight.w500),
+                  style:
+                      TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500),
                 ),
                 SizedBox(
                   height: 5.h,
@@ -886,6 +897,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                   width: size.width,
                   child: Column(
                     children: [
+                      OfflineBanner(), // Add offline banner at the top
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 0.0),
                         child: Row(
@@ -900,11 +912,14 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                               child: Text(
                                 'Party: ${Helper.trimValue(
                                   profile.data?.profileSettings
-                                      .firstWhere(
-                                        (e) => e.variable == 'punchInOut',
-                                    orElse: () => DatumSettings(variable: '', value: ''),
-                                  )
-                                      .value == 'Y'
+                                              .firstWhere(
+                                                (e) =>
+                                                    e.variable == 'punchInOut',
+                                                orElse: () => DatumSettings(
+                                                    variable: '', value: ''),
+                                              )
+                                              .value ==
+                                          'Y'
                                       ? party.punchInOutParty
                                       : party.party,
                                   25,
@@ -998,8 +1013,11 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                               .value ==
                                           'Y' &&
                                       party.punchInOutParty == ""*/
-                                  (profile.data?.profileSettings
-                                      .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ?? false) && (party.punchInOutParty.isEmpty))
+                                      (profile.data?.profileSettings.any((e) =>
+                                                  e.variable == 'punchInOut' &&
+                                                  e.value == 'Y') ??
+                                              false) &&
+                                          (party.punchInOutParty.isEmpty))
                                   ? Center(
                                       child: Text("Please Select Party First"),
                                     )
@@ -1010,8 +1028,13 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                   .value ==
                                               'N' &&
                                           party.party == ""*/
-                                  (profile.data?.profileSettings
-                                      .any((e) => e.variable == 'punchInOut' && e.value == 'N') ?? false) && (party.party.isEmpty))
+                                          (profile.data?.profileSettings.any(
+                                                      (e) =>
+                                                          e.variable ==
+                                                              'punchInOut' &&
+                                                          e.value == 'N') ??
+                                                  false) &&
+                                              (party.party.isEmpty))
                                       ? Center(
                                           child:
                                               Text("Please Select Party First"),
@@ -1028,7 +1051,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                   padding:
                                                       const EdgeInsets.only(
                                                           bottom: 0.0),
-                                                          //bottom: 35.0),
+                                                  //bottom: 35.0),
                                                   child: ListView.builder(
                                                     keyboardDismissBehavior:
                                                         ScrollViewKeyboardDismissBehavior
@@ -1106,11 +1129,15 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                       //     product?.itemImage;
                                                       // var itemImg = itemImage
                                                       //     ?.itemImg.first;
-                                                      var itemImage = product?.itemImage;
+                                                      var itemImage =
+                                                          product?.itemImage;
 
-                                                      var itemImg = (itemImage != null &&
-                                                          itemImage.itemImg.isNotEmpty)
-                                                          ? itemImage.itemImg.first
+                                                      var itemImg = (itemImage !=
+                                                                  null &&
+                                                              itemImage.itemImg
+                                                                  .isNotEmpty)
+                                                          ? itemImage
+                                                              .itemImg.first
                                                           : null;
 
                                                       return Padding(
@@ -1578,15 +1605,15 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                         ? lat
                         : '0'
                     : lat.isNotEmpty
-                    ? lat
-                    : '0',
+                        ? lat
+                        : '0',
                 ub.role == AppConfig.masteruser
                     ? long.isNotEmpty
                         ? long
                         : '0'
                     : long.isNotEmpty
-                    ? long
-                    : '0',
+                        ? long
+                        : '0',
                 context,
                 orderRemarks.text)
             .then((value) {
@@ -1608,9 +1635,67 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         });
       });
     } else {
-      orderAddHive1.add(ordermodalFromJson(items));
-      //Fluttertoast.showToast(msg: "Data Add In Storage");
-      AppSnackBar.showGetXCustomSnackBar(message: "Data Add In Storage");
+      // OFFLINE ORDER HANDLING - NEW FUNCTIONALITY
+      try {
+        var lat = "0";
+        var long = "0";
+
+        // Try to get location even offline (might work with GPS)
+        try {
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ).then((Position position) {
+            lat = position.latitude.toString();
+            long = position.longitude.toString();
+          });
+        } catch (e) {
+          print("Could not get location offline: $e");
+          // Continue with default coordinates
+        }
+
+        // Calculate total amount from cart
+        double totalAmount = double.parse(netAmount);
+
+        // Get party ID
+        String partyId =
+            profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+
+        // Save order offline
+        OfflineOrderService offlineService = OfflineOrderService();
+        int orderId = await offlineService.saveOrderOffline(
+          partyId: partyId,
+          totalAmount: totalAmount,
+          latitude: double.parse(lat),
+          longitude: double.parse(long),
+          remarks: orderRemarks.text,
+        );
+
+        AppSnackBar.showGetXCustomSnackBar(
+          message: "Order saved offline! Will sync when online.",
+          backgroundColor: Colors.orange,
+        );
+
+        // Clear cart UI
+        getCart();
+
+        setState(() {
+          loading = false;
+        });
+
+        // Navigate to confirmation page with offline flag
+        Get.to(() => OrderConformationPage(),
+            arguments: {'offline': true, 'orderId': orderId});
+      } catch (e, stack) {
+        FirebaseCrashlytics.instance.recordError(e, stack);
+        AppSnackBar.showGetXCustomSnackBar(
+          message: "Failed to save offline order: ${e.toString()}",
+          backgroundColor: Colors.red,
+        );
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 }

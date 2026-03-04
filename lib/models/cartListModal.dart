@@ -84,6 +84,84 @@ class DatumCartList {
         item: DatumProduct.fromJson(json["item"]),
       );
 
+  factory DatumCartList.fromLocal(Map<String, dynamic> json) {
+    try {
+      // Safe value extraction
+      final quantity = json['quantity'] ?? 0;
+      final rate = json['rate'] ?? 0;
+      final lrate = json['lrate'] ?? 0.0;
+      final amount = json['amount'] ?? 0;
+
+      // Since DatumProduct requires many fields, provide safe defaults
+      return DatumCartList(
+        cId: json['id'],
+        partyCd: json['party_cd'] ?? '',
+        userCd: null,
+        itemCd: json['item_cd'] ?? '',
+        quantity: quantity,
+        rate: rate,
+        lrate: (lrate is String)
+            ? double.tryParse(lrate) ?? 0.0
+            : (lrate as num?)?.toDouble() ?? 0.0,
+        amount: (amount is String)
+            ? double.tryParse(amount) ?? 0.0
+            : (amount as num?)?.toDouble() ?? 0.0,
+        syncId: null,
+        otherDesc: json['other_desc'] ?? '',
+        fld5: json['fld5'] ?? '',
+        // Create minimal DatumProduct for offline display
+        item: DatumProduct(
+          nrate: json['nrate'] ?? 0,
+          itemCd: json['item_cd'] ?? 'UNKNOWN',
+          itemName: json['item_name'] ?? 'Unknown Product',
+          itemSname: 'Unknown',
+          itemLname: '',
+          deptCd: '',
+          srate1: 0,
+          srate3: json['rate'] ?? 0,
+          cStk: 0,
+          syncId: 0,
+          frmlSrt1: '',
+          sdisc: 0,
+          sdisc1: 0,
+          deptment: null,
+        ),
+      );
+    } catch (e) {
+      print("Fatal error in DatumCartList.fromLocal: $e. Input: $json");
+      // Return a safe default instead of crashing
+      return DatumCartList(
+        cId: null,
+        partyCd: '',
+        userCd: null,
+        itemCd: json['item_cd'] ?? 'ERROR',
+        quantity: 0,
+        rate: 0,
+        lrate: 0,
+        amount: 0,
+        syncId: null,
+        otherDesc: '',
+        fld5: '',
+        item: DatumProduct(
+          nrate: 0,
+          itemCd: json['item_cd'] ?? 'ERROR',
+          itemName: 'Error: ${e.toString()}',
+          itemSname: 'ERROR',
+          itemLname: '',
+          deptCd: '',
+          srate1: 0,
+          srate3: 0,
+          cStk: 0,
+          syncId: 0,
+          frmlSrt1: '',
+          sdisc: 0,
+          sdisc1: 0,
+          deptment: null,
+        ),
+      );
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         "cId": cId,
         "PARTY_CD": partyCd,

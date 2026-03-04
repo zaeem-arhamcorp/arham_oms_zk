@@ -13,8 +13,17 @@ class OrderConformationPage extends StatefulWidget {
 }
 
 class _OrderConformationPageState extends State<OrderConformationPage> {
+  bool _isOfflineOrder = false;
+  int? _orderId;
+
   @override
   void initState() {
+    final args = Get.arguments;
+    if (args != null && args is Map) {
+      _isOfflineOrder = args['offline'] == true;
+      _orderId = args['orderId'];
+    }
+
     Future.delayed(Duration(seconds: 3)).then((value) {
       Get.offAll(() => BottomnavigationBarScreen());
     });
@@ -42,14 +51,16 @@ class _OrderConformationPageState extends State<OrderConformationPage> {
               height: 15,
             ),
             Text(
-              "ThankYou!",
+              _isOfflineOrder ? "Order Saved Offline!" : "ThankYou!",
               style: TextStyle(fontSize: 20, color: Colors.white),
             ),
             SizedBox(
               height: 15,
             ),
             Text(
-              "Your order has been placed.",
+              _isOfflineOrder
+                  ? "Your order will be synced when you're back online."
+                  : "Your order has been placed.",
               style: TextStyle(fontSize: 18, color: Colors.white),
             ),
           ],

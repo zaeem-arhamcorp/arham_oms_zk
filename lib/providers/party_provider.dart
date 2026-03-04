@@ -9,6 +9,8 @@ import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/apiServices.dart';
+import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -84,7 +86,8 @@ class PartyProvider extends DisposableProvider {
   changeOrderParty(partyname, partyID, context) {
     _orderParty = partyname;
     _orderPartyId = partyID;
-    final CartListProvider cart = Provider.of<CartListProvider>(context, listen: false);
+    final CartListProvider cart =
+        Provider.of<CartListProvider>(context, listen: false);
     cart.getCartItem(context, partyID);
     notifyListeners();
   }
@@ -93,6 +96,29 @@ class PartyProvider extends DisposableProvider {
     _data.clear();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
+
+    final bool online = await NetworkHelper.hasInternet();
+    if (!online) {
+      // Load from cache
+      try {
+        final cached = await DatabaseHelper().getCachedParties();
+        for (var row in cached) {
+          _data.add(DatumPartyname(
+            accCd: row['acc_cd']?.toString() ?? '',
+            accName: row['name'] ?? '',
+            accAddress: row['address'] ?? '',
+            mobile: row['phone'] ?? '',
+            accCartItem: '',
+          ));
+        }
+        nolistParty = _data.isEmpty;
+        notifyListeners();
+        return null;
+      } catch (e) {
+        print('Failed to load parties from cache: $e');
+      }
+    }
+
     try {
       final http.Response response = await http.get(
         Uri.parse(AppConfig.baseURL + "products/party"),
@@ -107,11 +133,36 @@ class PartyProvider extends DisposableProvider {
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
-        data.addAll(partynameModalFromJson(response.body).data);
+        final parsed = partynameModalFromJson(response.body).data;
+        data.addAll(parsed);
         if (data.isEmpty) {
           nolistParty = true;
         } else {
           nolistParty = false;
+        }
+
+        // Cache to DB for offline use
+        try {
+          List<Map<String, dynamic>> toCache = parsed.map((p) {
+            int? sid;
+            try {
+              sid = int.tryParse(p.accCd);
+            } catch (_) {
+              sid = null;
+            }
+            return {
+              'server_id': sid,
+              'acc_cd': p.accCd,
+              'name': p.accName,
+              'address': p.accAddress,
+              'phone': p.mobile,
+              'last_updated': DateTime.now().millisecondsSinceEpoch,
+            };
+          }).toList();
+          await DatabaseHelper().cachePartiesJson(toCache);
+          print('Cached ${toCache.length} parties');
+        } catch (cacheErr) {
+          print('Failed to cache parties: $cacheErr');
         }
       } else {
         ub.userSignout(context).then((value) {
@@ -120,7 +171,6 @@ class PartyProvider extends DisposableProvider {
       }
     } catch (e, stack) {
       FirebaseCrashlytics.instance.recordError(e, stack);
-      //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
     }
@@ -170,6 +220,28 @@ class PartyProvider extends DisposableProvider {
     nolistParty = false; // Reset before fetching
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
+
+    final bool online = await NetworkHelper.hasInternet();
+    if (!online) {
+      try {
+        final cached = await DatabaseHelper().getCachedParties();
+        for (var row in cached) {
+          _data.add(DatumPartyname(
+            accCd: row['acc_cd']?.toString() ?? '',
+            accName: row['name'] ?? '',
+            accAddress: row['address'] ?? '',
+            mobile: row['phone'] ?? '',
+            accCartItem: '',
+          ));
+        }
+        nolistParty = _data.isEmpty;
+        notifyListeners();
+        return null;
+      } catch (e) {
+        print('Failed to load parties from cache: $e');
+      }
+    }
+
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURL}report/party"),
@@ -183,13 +255,37 @@ class PartyProvider extends DisposableProvider {
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
-        data.addAll(partynameModalFromJson(response.body).data);
+        final parsed = partynameModalFromJson(response.body).data;
+        data.addAll(parsed);
         if (data.isEmpty) {
           nolistParty = true;
           print('call 1 1');
         } else {
           nolistParty = false;
           print('call 2 2');
+        }
+
+        // Cache parties
+        try {
+          List<Map<String, dynamic>> toCache = parsed.map((p) {
+            int? sid;
+            try {
+              sid = int.tryParse(p.accCd);
+            } catch (_) {
+              sid = null;
+            }
+            return {
+              'server_id': sid,
+              'acc_cd': p.accCd,
+              'name': p.accName,
+              'address': p.accAddress,
+              'phone': p.mobile,
+              'last_updated': DateTime.now().millisecondsSinceEpoch,
+            };
+          }).toList();
+          await DatabaseHelper().cachePartiesJson(toCache);
+        } catch (cacheErr) {
+          print('Failed to cache parties: $cacheErr');
         }
       } else {
         ub.userSignout(context).then((value) {
@@ -260,7 +356,8 @@ class PartyProvider extends DisposableProvider {
     return null;
   }
 
-  Future<PartynameModal?> getpartynameForReceivableWithoutFilter(context) async {
+  Future<PartynameModal?> getpartynameForReceivableWithoutFilter(
+      context) async {
     _data.clear();
     nolistParty = false; // Reset before fetching
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
@@ -448,15 +545,15 @@ class PartyProvider extends DisposableProvider {
                           ? location.latitude.toString()
                           : '0'
                       : location.latitude.toString().isNotEmpty
-                      ? location.latitude.toString()
-                      : '0',
+                          ? location.latitude.toString()
+                          : '0',
                   "longi": ub.role == AppConfig.masteruser
                       ? location.longitude.toString().isNotEmpty
                           ? location.longitude.toString()
                           : '0'
                       : location.longitude.toString().isNotEmpty
-                      ? location.longitude.toString()
-                      : '0',
+                          ? location.longitude.toString()
+                          : '0',
                   "oId": oID ?? "",
                   "type": type,
                   "moduleNo": "205"

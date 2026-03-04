@@ -26,6 +26,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'constants/constants.dart';
+import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/connectivity_service.dart';
 
 void main() async {
   SystemChrome.setSystemUIOverlayStyle(
@@ -59,6 +61,9 @@ void main() async {
   Hive.registerAdapter(DataOrdritmAdapter());
   await Hive.openBox<Ordermodal>(Constants.addOrder);
   await Hive.openBox<DatumOrderList>(Constants.orderFetch);
+
+  // Initialize SQLite database
+  await DatabaseHelper().database;
 }
 
 class MyApp extends StatelessWidget {
@@ -93,6 +98,11 @@ class MyApp extends StatelessWidget {
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {
+          // Initialize connectivity service
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ConnectivityService().initialize(context);
+          });
+
           return GetMaterialApp(
             title: 'Arham OMS',
             theme: ThemeData(
