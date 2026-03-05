@@ -889,6 +889,9 @@ class _LoginPageState extends State<LoginPage> {
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);
               context.read<ProfileProvider>().getProfile(context).then((value) {
+                // Load settings after profile is loaded
+                context.read<ProfileProvider>().loadSettings(context);
+
                 global.loadinglogin(false);
                 global.loadingfetchlogin(false);
 

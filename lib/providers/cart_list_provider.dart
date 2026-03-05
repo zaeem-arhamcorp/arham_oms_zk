@@ -151,6 +151,7 @@ class CartListProvider extends DisposableProvider {
             );
           }
           print("Synced ${serverItems.length} server cart items → local DB");
+          print("SYNCED ITEMS TO LOCAL DB: \n$serverItems");
         } catch (syncErr) {
           print("Error syncing server cart to local: $syncErr");
         }

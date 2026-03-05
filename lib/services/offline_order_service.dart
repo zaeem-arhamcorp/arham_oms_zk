@@ -65,6 +65,12 @@ class OfflineOrderService {
     }
 
     // Insert the offline order header
+    // Log coordinates to confirm they're captured at offline-order time
+    try {
+      print(
+          '[OfflineOrderService] Saving offline order — party:$partyId lat:$latitude long:$longitude total:$totalAmount');
+    } catch (_) {}
+
     int orderId = await db.insertOfflineOrder({
       'server_party_id': partyId,
       'total_amount': totalAmount,

@@ -1,6 +1,7 @@
 ﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:arham_corporation/helper/helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/models/product_response.dart';
 import 'package:arham_corporation/models/receipt_confim_model.dart';
 import 'package:arham_corporation/models/salesRegisterReportModal.dart';
@@ -35,6 +36,7 @@ import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
 import '../providers/user_provider.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'database_helper.dart';
 
 class Services {
   Future<DashboardModal?> getDashboarddata(BuildContext context) async {
@@ -153,26 +155,93 @@ class Services {
   Future<List<DeptmentModal>?> getDeptment(context) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     try {
-      final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURL}deptment"),
-        headers: {
-          "Authorization": "Bearer ${ub.token}",
-          'x-app-type': 'oms',
-        },
-      );
-      print(response.body);
-      if (response.statusCode == 200) {
-        return deptmentModalFromJson(response.body).data;
+      final bool online = await NetworkHelper.hasInternet();
+      print('[DEPARTMENTS] Checking online status: $online');
+
+      if (online) {
+        // ONLINE: Fetch from API
+        final http.Response response = await http.get(
+          Uri.parse("${AppConfig.baseURL}deptment"),
+          headers: {
+            "Authorization": "Bearer ${ub.token}",
+            'x-app-type': 'oms',
+          },
+        );
+        print('[DEPARTMENTS] API Response: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final deptList = deptmentModalFromJson(response.body).data;
+
+          // Cache departments for offline use
+          if (deptList.isNotEmpty) {
+            try {
+              final List<Map<String, dynamic>> deptMaps = deptList
+                  .map((d) => {
+                        'DEPT_CD': d.DEPT_CD,
+                        'DEPT_NAME': d.DEPT_NAME,
+                        'SYNC_ID': d.SYNC_ID,
+                      })
+                  .toList();
+              await DatabaseHelper().cacheDepartments(deptMaps);
+              print('[DEPARTMENTS] Cached ${deptMaps.length} departments');
+            } catch (e) {
+              print('[DEPARTMENTS] Failed to cache departments: $e');
+            }
+          }
+
+          return deptList;
+        } else {
+          print('[DEPARTMENTS] API returned status ${response.statusCode}');
+          ub.userSignout(context).then((value) {
+            Get.offAll(() => LoginPage());
+          });
+          return null;
+        }
       } else {
-        print('print 4');
-        ub.userSignout(context).then((value) {
-          Get.offAll(() => LoginPage());
-        });
+        // OFFLINE: Load from cache
+        print('[DEPARTMENTS] Offline mode - loading from cache');
+        try {
+          final cachedDepts = await DatabaseHelper().getAllDepartments();
+          if (cachedDepts.isNotEmpty) {
+            final deptList = cachedDepts
+                .map((d) => DeptmentModal(
+                      DEPT_CD: d['DEPT_CD'],
+                      DEPT_NAME: d['DEPT_NAME'],
+                      SYNC_ID: d['SYNC_ID'],
+                    ))
+                .toList();
+            print(
+                '[DEPARTMENTS] Loaded ${deptList.length} departments from cache');
+            return deptList;
+          } else {
+            print('[DEPARTMENTS] No cached departments available');
+            return null;
+          }
+        } catch (e) {
+          print('[DEPARTMENTS] Error loading cached departments: $e');
+          return null;
+        }
       }
     } catch (e, stack) {
       FirebaseCrashlytics.instance.recordError(e, stack);
-      // Fluttertoast.showToast(msg: "Something went wrong");
-      print("Error in Services getDeptment data ${e.toString()}");
+      print('[DEPARTMENTS] Error in getDeptment: $e');
+
+      // Fallback: try to load from cache even if error occurs
+      try {
+        final cachedDepts = await DatabaseHelper().getAllDepartments();
+        if (cachedDepts.isNotEmpty) {
+          final deptList = cachedDepts
+              .map((d) => DeptmentModal(
+                    DEPT_CD: d['DEPT_CD'],
+                    DEPT_NAME: d['DEPT_NAME'],
+                    SYNC_ID: d['SYNC_ID'],
+                  ))
+              .toList();
+          return deptList;
+        }
+      } catch (e2) {
+        print('[DEPARTMENTS] Fallback cache load also failed: $e2');
+      }
     }
     return null;
   }
@@ -428,16 +497,29 @@ class Services {
       print(requestBody);
       print(response.body);
       if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+
+        // Check for an order-limit warning from the backend and persist it
+        // so the homescreen can display it as a snackbar after navigation.
+        final warning = decoded['warning']?.toString();
+        if (warning != null && warning.isNotEmpty) {
+          pb.setPendingWarning(warning);
+          print('[ORDER] Warning received from API: $warning');
+        }
+
         if (pb.YN == "Y") {
           pp
               .startEndOrder(
                   pb.YN == "Y" ? pp.punchInOutParty : "", partyCd, context, "2",
-                  oID: json.decode(response.body)["data"]["oId"].toString())
+                  oID: decoded["data"]["oId"].toString())
               .then((value) {
-            pb.getProfile(context);
+            pb.getProfile(context).then((v) {
+              // Load settings after profile is loaded
+              pb.loadSettings(context);
+            });
           });
         }
-        return json.decode(response.body)["message"];
+        return decoded["message"];
       } else {
         print('print 10');
         ub.userSignout(context).then((value) {

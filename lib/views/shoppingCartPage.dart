@@ -589,8 +589,13 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   late CartListProvider cart;
 
-  ProductController controller = Get.put(ProductController());
-  CartController cartController = Get.put(CartController());
+  late final ProductController controller =
+      Get.isRegistered<ProductController>()
+          ? Get.find<ProductController>()
+          : Get.put(ProductController());
+  late final CartController cartController = Get.isRegistered<CartController>()
+      ? Get.find<CartController>()
+      : Get.put(CartController());
 
   void calculateNetAmount() {
     // Ensure all amounts are summed up correctly as doubles

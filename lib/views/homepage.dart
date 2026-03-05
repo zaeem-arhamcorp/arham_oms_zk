@@ -32,6 +32,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../providers/item_list_provider.dart';
 import '../services/authservices.dart';
 import '../services/services.dart';
+import '../services/offline_caching_service.dart';
 import 'package:http/http.dart' as http;
 
 import '../widgets/bottomnavebar.dart';
@@ -128,6 +129,19 @@ class _HomePageState extends State<HomePage> {
 
     loadData();
     getDashboarddata();
+
+    // Show any pending order-limit warning received from the last order API call.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final profile = Provider.of<ProfileProvider>(context, listen: false);
+      if (profile.pendingWarning != null &&
+          profile.pendingWarning!.isNotEmpty) {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: profile.pendingWarning!,
+          backgroundColor: Colors.orange,
+        );
+        profile.clearPendingWarning();
+      }
+    });
 
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
@@ -376,6 +390,11 @@ class _HomePageState extends State<HomePage> {
                                 .read<ProfileProvider>()
                                 .getProfile(context)
                                 .then((value) {
+                              // Load settings after profile is loaded
+                              context
+                                  .read<ProfileProvider>()
+                                  .loadSettings(context);
+
                               Get.offAll(() => BottomnavigationBarScreen());
                             });
                           });
@@ -397,33 +416,70 @@ class _HomePageState extends State<HomePage> {
                 },
               )),
           centerTitle: false,
-          actions: [
-            // Logout Icon (Hidden by Visibility)
-            Visibility(
-              visible: false, // Change to true if needed
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: GestureDetector(
-                  onTap: () {
-                    ub.userSignout(context).then((value) {
-                      Get.offAll(() => LoginPage());
-                    });
-                  },
-                  child: Icon(Icons.logout),
-                ),
-              ),
-            ),
-
-            // Show a Loading Spinner (While Fetching Data)
-            isLoading
-                ? CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.0,
-                  )
-                : SizedBox(
-                    width: 0.1,
-                  ),
-          ],
+          // actions: [
+          //   // GO OFFLINE Button - Cache all data manually
+          //   Padding(
+          //     padding: const EdgeInsets.only(right: 8.0),
+          //     child: Tooltip(
+          //       message: 'Download data for offline use',
+          //       child: GestureDetector(
+          //         onTap: () {
+          //           _showOfflineCachingDialog();
+          //         },
+          //         child: Container(
+          //           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          //           decoration: BoxDecoration(
+          //             color: Colors.white.withOpacity(0.2),
+          //             borderRadius: BorderRadius.circular(6),
+          //             border: Border.all(color: Colors.white, width: 1),
+          //           ),
+          //           child: Row(
+          //             mainAxisSize: MainAxisSize.min,
+          //             children: [
+          //               Icon(Icons.cloud_download,
+          //                   color: Colors.white, size: 18),
+          //               SizedBox(width: 6),
+          //               Text(
+          //                 'GO OFFLINE',
+          //                 style: TextStyle(
+          //                   color: Colors.white,
+          //                   fontSize: 12,
+          //                   fontWeight: FontWeight.w600,
+          //                 ),
+          //               ),
+          //             ],
+          //           ),
+          //         ),
+          //       ),
+          //     ),
+          //   ),
+          //
+          //   // Logout Icon (Hidden by Visibility)
+          //   Visibility(
+          //     visible: false, // Change to true if needed
+          //     child: Padding(
+          //       padding: const EdgeInsets.only(right: 12.0),
+          //       child: GestureDetector(
+          //         onTap: () {
+          //           ub.userSignout(context).then((value) {
+          //             Get.offAll(() => LoginPage());
+          //           });
+          //         },
+          //         child: Icon(Icons.logout),
+          //       ),
+          //     ),
+          //   ),
+          //
+          //   // Show a Loading Spinner (While Fetching Data)
+          //   isLoading
+          //       ? CircularProgressIndicator(
+          //           color: Colors.white,
+          //           strokeWidth: 2.0,
+          //         )
+          //       : SizedBox(
+          //           width: 0.1,
+          //         ),
+          // ],
         ),
         drawer: Drawer(
           backgroundColor: Colors.white,
@@ -608,6 +664,21 @@ class _HomePageState extends State<HomePage> {
                     Get.to(() => SettingScreen());
                   },
                 ),
+              ListTile(
+                leading: Icon(
+                  Icons.cloud_download,
+                  size: 30,
+                ),
+                title: Text(
+                  'Go Offline',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  _showOfflineCachingDialog();
+                },
+              ),
               ListTile(
                 leading: Icon(
                   Icons.key,
@@ -1733,6 +1804,135 @@ class _HomePageState extends State<HomePage> {
     } else {
       return 'Good Evening,';
     }
+  }
+
+  /// Show offline caching dialog with progress
+  void _showOfflineCachingDialog() {
+    bool isCaching = false;
+    String cachingStatus = '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.cloud_download, color: Color(0xFF2c9ed9)),
+                  SizedBox(width: 8),
+                  Text('Go Offline'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isCaching)
+                    Text(
+                      'Download all masters for offline use?',
+                      style: TextStyle(fontSize: 14),
+                    )
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Color(0xFF2c9ed9),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              cachingStatus.isNotEmpty
+                                  ? cachingStatus
+                                  : 'Preparing...',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[700]),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              actions: [
+                if (!isCaching)
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text('CANCEL'),
+                  ),
+                if (!isCaching)
+                  ElevatedButton(
+                    onPressed: () async {
+                      setDialogState(() {
+                        isCaching = true;
+                        cachingStatus = 'Caching profile...';
+                      });
+
+                      try {
+                        final bool success =
+                            await OfflineCachingService.cacheAllDataForOffline(
+                                context);
+
+                        if (mounted) {
+                          setDialogState(() {
+                            isCaching = false;
+                            cachingStatus =
+                                success ? 'Cache completed!' : 'Cache failed!';
+                          });
+
+                          // Show final result
+                          await Future.delayed(Duration(milliseconds: 500));
+
+                          if (mounted) {
+                            Navigator.of(dialogContext).pop();
+                            AppSnackBar.showGetXCustomSnackBar(
+                              message: success
+                                  ? 'All data cached successfully! You can now work offline.'
+                                  : 'Some data failed to cache. Check logs.',
+                              backgroundColor:
+                                  success ? Colors.green : Colors.orange,
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        print('Error during offline caching: $e');
+                        if (mounted) {
+                          setDialogState(() {
+                            isCaching = false;
+                          });
+                          Navigator.of(dialogContext).pop();
+                          AppSnackBar.showGetXCustomSnackBar(
+                            message: 'Error caching data: $e',
+                            backgroundColor: Colors.red,
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF2c9ed9),
+                    ),
+                    child: Text(
+                      'START',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                if (isCaching)
+                  TextButton(
+                    onPressed: null, // Disabled while caching
+                    child: Text('Please wait...'),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
 

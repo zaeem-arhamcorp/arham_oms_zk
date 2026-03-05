@@ -31,8 +31,12 @@ class ProductsPage extends StatefulWidget {
 }
 
 class _ProductsPageState extends State<ProductsPage> {
-  final ProductController controller = Get.put(ProductController());
-  final CartController cartController = Get.put(CartController());
+  final ProductController controller = Get.isRegistered<ProductController>()
+      ? Get.find<ProductController>()
+      : Get.put(ProductController());
+  final CartController cartController = Get.isRegistered<CartController>()
+      ? Get.find<CartController>()
+      : Get.put(CartController());
 
   String? deptCd;
 
@@ -74,9 +78,7 @@ class _ProductsPageState extends State<ProductsPage> {
       updateRight = moduleEntryAccess.uPDATERIGHT!;
       deleteRight = moduleEntryAccess.dELETERIGHT!;
       printRight = moduleEntryAccess.pRINTRIGHT!;
-
-    } else {
-    }
+    } else {}
 
     super.initState();
 
@@ -110,12 +112,11 @@ class _ProductsPageState extends State<ProductsPage> {
 
         cartController.cartCount.value =
             cartController.productAddedStates.length;
-
       }
     });
 
-    controller.filteredDepartments.value =
-        controller.deptment; // Initialize filtered list with all departments
+    // Initialize filteredDepartments by copying contents from deptment
+    controller.filteredDepartments.assignAll(controller.deptment);
   }
 
   Timer? timer;
@@ -174,12 +175,7 @@ class _ProductsPageState extends State<ProductsPage> {
               onTap: () async {
                 setState(() {
                   controller.searchController.clear();
-                  if (controller.showDeptSearch.value == true) {
-                    setState(() {
-                      controller.deptment.clear();
-                      //controller.deptment.addAll(maindeptData);
-                    });
-                  }
+                  // Toggle department search without clearing the loaded departments
                   controller.showDeptSearch.value =
                       !controller.showDeptSearch.value;
                   controller.showSearch.value = false;
@@ -259,15 +255,15 @@ class _ProductsPageState extends State<ProductsPage> {
         // Party name with reactive updates
         Obx(() {
           final punchValue = profile.data?.profileSettings
-              .firstWhereOrNull((e) => e.variable == 'punchInOut')
-              ?.value ??
+                  .firstWhereOrNull((e) => e.variable == 'punchInOut')
+                  ?.value ??
               'N';
 
           String partyName = controller.selectedPartyName.value.isNotEmpty
               ? controller.selectedPartyName.value
               : punchValue == 'Y'
-              ? party.punchInOutParty
-              : party.party;
+                  ? party.punchInOutParty
+                  : party.party;
 
           // String partyName = controller.selectedPartyName.value.isNotEmpty
           //     ? controller.selectedPartyName.value
@@ -309,17 +305,15 @@ class _ProductsPageState extends State<ProductsPage> {
           //     25);
 
           final isPunchEnabled = profile.data?.profileSettings
-              .firstWhereOrNull((e) => e.variable == 'punchInOut')
-              ?.value ==
+                  .firstWhereOrNull((e) => e.variable == 'punchInOut')
+                  ?.value ==
               'Y';
 
           controller.selectedPartyName.value = Helper.trimValue(
-              isPunchEnabled ? party.punchInOutParty : party.party,
-              25);
+              isPunchEnabled ? party.punchInOutParty : party.party, 25);
 
           controller.selectedPartyId.value = Helper.trimValue(
-              isPunchEnabled ? party.punchInOutPartyId : party.partyid,
-              25);
+              isPunchEnabled ? party.punchInOutPartyId : party.partyid, 25);
 
           return Flexible(
             child: Text(
@@ -393,7 +387,6 @@ class _ProductsPageState extends State<ProductsPage> {
 
                         cartController.cartCount.value =
                             cartController.productAddedStates.length;
-
                       } else {
                         cartController.cartCount.value = 0;
                       }
@@ -587,7 +580,8 @@ class _ProductsPageState extends State<ProductsPage> {
 
   void showMenu() {
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
-    final CartListProvider cart = Provider.of<CartListProvider>(context, listen: false);
+    final CartListProvider cart =
+        Provider.of<CartListProvider>(context, listen: false);
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
     pp.getPartyNameProductPage(context);
@@ -662,9 +656,12 @@ class _ProductsPageState extends State<ProductsPage> {
                                             //         .value ==
                                             //     'Y')
 
-                                            if (p.data?.profileSettings
-                                                .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ==
-                                                true){
+                                            if (p.data?.profileSettings.any(
+                                                    (e) =>
+                                                        e.variable ==
+                                                            'punchInOut' &&
+                                                        e.value == 'Y') ==
+                                                true) {
                                               final LocationProvider lp =
                                                   Provider.of<LocationProvider>(
                                                       context,
@@ -783,7 +780,6 @@ class _ProductsPageState extends State<ProductsPage> {
                                                   cartController
                                                       .productAddedStates
                                                       .length;
-
                                             }
                                           },
                                           child: (_tempParty.isNotEmpty)

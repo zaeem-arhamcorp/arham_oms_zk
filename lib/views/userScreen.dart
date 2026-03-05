@@ -82,6 +82,9 @@ class _UserScreenState extends State<UserScreen> {
       final ProfileProvider p =
           Provider.of<ProfileProvider>(context, listen: false);
       p.getProfile(context).then((value) {
+        // Load settings after profile is loaded
+        p.loadSettings(context);
+
         setState(() {
           maxUsers = p.data?.license?.maxUsers ?? 0; // Safely access maxUsers
           print("Max Users : $maxUsers");
@@ -295,10 +298,10 @@ class _UserScreenState extends State<UserScreen> {
                         Text('No Record Found', style: TextStyle(fontSize: 18)),
                   )
                 : ListView.builder(
-          padding: const EdgeInsets.only(
-            bottom: 55, // ⭐ IMPORTANT: prevents last item cut
-            top: 10,
-          ),
+                    padding: const EdgeInsets.only(
+                      bottom: 55, // ⭐ IMPORTANT: prevents last item cut
+                      top: 10,
+                    ),
                     itemCount: personData.length,
                     shrinkWrap: true,
                     itemBuilder: (context, index) {
@@ -349,8 +352,9 @@ class _UserScreenState extends State<UserScreen> {
                                     // });
 
                                     Get.to(() => EditUserScreen(
-                                        screenId: 1,
-                                        data: personData[index]))?.then((value) {
+                                            screenId: 1,
+                                            data: personData[index]))
+                                        ?.then((value) {
                                       if (value != null && value == 1) {
                                         getPersonList();
                                       }
@@ -383,7 +387,8 @@ class _UserScreenState extends State<UserScreen> {
                                                 personProvider
                                                     .deletePerson(
                                                         context,
-                                                        personData[index].userCd,
+                                                        personData[index]
+                                                            .userCd,
                                                         personData[index]
                                                             .userName)
                                                     .then((value) {
@@ -415,7 +420,7 @@ class _UserScreenState extends State<UserScreen> {
       bottomNavigationBar: person == null
           ? null
           : SafeArea(
-            child: Visibility(
+              child: Visibility(
                 visible: personData.length >= 10 || selectedPage > 1,
                 child: Container(
                   height: 50.h,
@@ -450,7 +455,8 @@ class _UserScreenState extends State<UserScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                     activeBtnStyle: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(Color(0XFF1C22C3)),
+                      backgroundColor:
+                          WidgetStateProperty.all(Color(0XFF1C22C3)),
                       shape: WidgetStateProperty.all(
                         RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(38),
@@ -470,7 +476,7 @@ class _UserScreenState extends State<UserScreen> {
                   ),
                 ),
               ),
-          ),
+            ),
 
       // bottomNavigationBar: person == null
       //     ? null

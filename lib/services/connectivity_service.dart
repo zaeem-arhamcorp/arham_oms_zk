@@ -57,9 +57,13 @@ class ConnectivityService {
         print(
             "[ConnectivityService] Cart sync result: $cartResult items synced");
 
-        // Then sync pending orders
+        // Sync pending orders
         final result = await _syncService.syncOrders(userProvider.token!);
-        print("[ConnectivityService] Auto-sync result: $result");
+        print("[ConnectivityService] Orders sync result: $result");
+
+        // Sync pending location data (punch-in/punch-out)
+        final locationResult = await _syncService.syncLocations(userProvider.token!);
+        print("[ConnectivityService] Locations sync result: $locationResult");
       }
     } catch (e) {
       print("[ConnectivityService] Failed to auto-sync: $e");

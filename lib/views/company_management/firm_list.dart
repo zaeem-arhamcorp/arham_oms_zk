@@ -30,8 +30,11 @@ class _FirmListPageState extends State<FirmListPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ProfileProvider p =
-      Provider.of<ProfileProvider>(context, listen: false);
+          Provider.of<ProfileProvider>(context, listen: false);
       p.getProfile(context).then((value) {
+        // Load settings after profile is loaded
+        p.loadSettings(context);
+
         setState(() {
           maxFirms = p.data?.license?.maxFirms ?? 0; // Safely access maxFirms
         });
@@ -52,7 +55,9 @@ class _FirmListPageState extends State<FirmListPage> {
                 // Fluttertoast.showToast(
                 //     msg:
                 //         'Firm limit reached! You cannot add more than $maxFirms firms.');
-                AppSnackBar.showGetXCustomSnackBar(message: 'Firm limit reached! You cannot add more than $maxFirms firms.');
+                AppSnackBar.showGetXCustomSnackBar(
+                    message:
+                        'Firm limit reached! You cannot add more than $maxFirms firms.');
               } else {
                 Navigator.push(
                   context,
@@ -86,7 +91,8 @@ class _FirmListPageState extends State<FirmListPage> {
                           firm['FIRM_NAME'],
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text("${firm['MOBILE1']}, ${firm['MOBILE2']}"),
+                        subtitle:
+                            Text("${firm['MOBILE1']}, ${firm['MOBILE2']}"),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -107,7 +113,7 @@ class _FirmListPageState extends State<FirmListPage> {
                                 firmMobile1: firm['MOBILE1'] ?? '',
                                 firmMobile2: firm['MOBILE2'] ?? '',
                                 firmPersonName: firm['PERSON_NM'] ?? '',
-        
+
                                 firmEmailId: firm['EMAIL_ID'] ?? '',
                                 firmUpi: firm['UPI'] ?? '',
                                 firmGstNo: firm['GST_NO'] ?? '',
@@ -127,10 +133,11 @@ class _FirmListPageState extends State<FirmListPage> {
                                         0.0,
                                 // Convert back to double
                                 tcsWithoutPan: firm['TCS_WITHOUT_PAN'] is int
-                                    ? (firm['TCS_WITHOUT_PAN'] as int).toDouble()
-                                    : double.tryParse(
-                                            firm['TCS_WITHOUT_PAN']?.toString() ??
-                                                '') ??
+                                    ? (firm['TCS_WITHOUT_PAN'] as int)
+                                        .toDouble()
+                                    : double.tryParse(firm['TCS_WITHOUT_PAN']
+                                                ?.toString() ??
+                                            '') ??
                                         0.0,
                                 // Convert back to double
                                 tcsAuto: firm['TCS_AUTO'] ?? '',
@@ -185,7 +192,7 @@ class _FirmListPageState extends State<FirmListPage> {
                                             firmMobile2: firm['MOBILE2'] ?? '',
                                             firmPersonName:
                                                 firm['PERSON_NM'] ?? '',
-        
+
                                             firmEmailId: firm['EMAIL_ID'] ?? '',
                                             firmUpi: firm['UPI'] ?? '',
                                             firmGstNo: firm['GST_NO'] ?? '',
@@ -209,9 +216,10 @@ class _FirmListPageState extends State<FirmListPage> {
                                                             '') ??
                                                     0.0,
                                             // Convert back to double
-                                            tcsWithoutPan: firm['TCS_WITHOUT_PAN']
-                                                    is int
-                                                ? (firm['TCS_WITHOUT_PAN'] as int)
+                                            tcsWithoutPan: firm[
+                                                    'TCS_WITHOUT_PAN'] is int
+                                                ? (firm['TCS_WITHOUT_PAN']
+                                                        as int)
                                                     .toDouble()
                                                 : double.tryParse(
                                                         firm['TCS_WITHOUT_PAN']
@@ -282,18 +290,20 @@ class _FirmListPageState extends State<FirmListPage> {
                                                 'CUST_ID']; // Corrected to match the key name
                                             final firmId = firm[
                                                 'FIRM_ID']; // Corrected to match the key name
-        
+
                                             if (custId == null ||
                                                 custId.isEmpty) {
                                               // Fluttertoast.showToast(
                                               //   msg:
                                               //       "Customer ID is missing for this firm.",
                                               // );
-                                              AppSnackBar.showGetXCustomSnackBar(message: 'Customer ID is missing for this firm.');
-        
+                                              AppSnackBar.showGetXCustomSnackBar(
+                                                  message:
+                                                      'Customer ID is missing for this firm.');
+
                                               return; // Prevent deletion if custId is missing
                                             }
-        
+
                                             deleteFirm(
                                               context,
                                               firmId, // Pass firmId
@@ -358,8 +368,7 @@ class _FirmListPageState extends State<FirmListPage> {
   }
 
   // Delete a firm
-  Future<void> deleteFirm(
-      BuildContext context, String firmId) async {
+  Future<void> deleteFirm(BuildContext context, String firmId) async {
     /*if (custId.isEmpty) {
       return;
     }*/
@@ -385,7 +394,9 @@ class _FirmListPageState extends State<FirmListPage> {
       if (response.statusCode == 200 || response.statusCode == 204) {
         Navigator.of(context).pop();
         //Fluttertoast.showToast(msg: "Firm deleted successfully!");
-        AppSnackBar.showGetXCustomSnackBar(message: "Firm deleted successfully!",backgroundColor: Colors.green);
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Firm deleted successfully!",
+            backgroundColor: Colors.green);
         fetchFirmData();
       } else {
         final Map<String, dynamic> responseBody = json.decode(response.body);

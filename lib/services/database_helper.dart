@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 9,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -106,6 +106,28 @@ class DatabaseHelper {
         // ignore if column already exists or alter not supported
       }
     }
+    if (oldVersion < 7) {
+      // v6 to v7: Add settings table
+      await _createSettingsTable(db);
+      await db.execute(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_sync_var ON settings(SYNC_ID, VARIABLE)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_settings_variable ON settings(VARIABLE)');
+    }
+    if (oldVersion < 8) {
+      // v7 to v8: Add departments cache table
+      await _createDepartmentsTable(db);
+      await db.execute(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_departments_code ON departments(DEPT_CD)');
+    }
+    if (oldVersion < 9) {
+      // v8 to v9: Add locations table for punch-in/punch-out and order tracking
+      await _createLocationsTable(db);
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_locations_user_date ON locations(SYNC_ID, USER_CD, VOUCH_DT)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_locations_module ON locations(MODULE_NO)');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -152,6 +174,7 @@ class DatabaseHelper {
     await _createCartItemsTable(db);
     await _createOfflineOrdersTable(db);
     await _createOfflineOrderItemsTable(db);
+    await _createLocationsTable(db);
 
     // PROFILE & HOME & ORDERS CACHE
     await db.execute('''
@@ -179,7 +202,7 @@ class DatabaseHelper {
     )
     ''');
 
-    // INDEXES FOR PERFORMANCE
+    // SETTINGS CACHE - stores application settings for offline access\n    await _createSettingsTable(db);\n\n    // INDEXES FOR PERFORMANCE
     await db
         .execute('CREATE INDEX idx_products_server_id ON products(server_id)');
     await db
@@ -190,6 +213,10 @@ class DatabaseHelper {
         'CREATE INDEX idx_orders_sync_status ON offline_orders(sync_status)');
     await db.execute(
         'CREATE INDEX idx_cart_items_item ON cart_items(item_cd, party_cd)');
+    await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_sync_var ON settings(SYNC_ID, VARIABLE)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_settings_variable ON settings(VARIABLE)');
   }
 
   // -------------------------------------------------------
@@ -253,6 +280,30 @@ class DatabaseHelper {
       other_desc TEXT DEFAULT '',
       fld5 TEXT DEFAULT '',
       FOREIGN KEY (order_id) REFERENCES offline_orders(id)
+    )
+    ''');
+  }
+
+  Future<void> _createSettingsTable(Database db) async {
+    // Mirrors server `settings` table columns for offline access
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS settings (
+      sId INTEGER PRIMARY KEY AUTOINCREMENT,
+      SETTING_NAME TEXT NOT NULL DEFAULT '',
+      DESCRI TEXT NOT NULL DEFAULT '',
+      VARIABLE TEXT NOT NULL DEFAULT '',
+      MODULE_TYPE TEXT,
+      VALUE TEXT NOT NULL,
+      VALUE_AMT INTEGER DEFAULT 0,
+      SHOW_USER INTEGER DEFAULT 0,
+      SYNC_ID INTEGER NOT NULL,
+      CREATED_BY TEXT NOT NULL DEFAULT '',
+      CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UPDATED_BY TEXT NOT NULL DEFAULT '',
+      UPDATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CREATED_APP_TYPE TEXT NOT NULL DEFAULT '',
+      CATEGORY TEXT,
+      UNIQUE(SYNC_ID, VARIABLE)
     )
     ''');
   }
@@ -722,5 +773,233 @@ class DatabaseHelper {
   Future<void> clearProductsCache() async {
     final db = await database;
     await db.delete('products_cache');
+  }
+
+  /*
+  ==============================
+  SETTINGS CACHE
+  ==============================
+  */
+
+  /// Cache all settings from server
+  Future<void> cacheSettings(List<Map<String, dynamic>> settings) async {
+    final db = await database;
+    // Clear old settings
+    await db.delete('settings');
+
+    Batch batch = db.batch();
+    for (var setting in settings) {
+      batch.insert('settings', setting,
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    print('[DATABASE] Cached ${settings.length} settings');
+  }
+
+  /// Get all cached settings
+  Future<List<Map<String, dynamic>>> getAllSettings() async {
+    final db = await database;
+    return await db.query('settings', orderBy: 'VARIABLE');
+  }
+
+  /// Get setting by variable name
+  Future<Map<String, dynamic>?> getSetting(String variable) async {
+    final db = await database;
+    final result = await db.query(
+      'settings',
+      where: 'VARIABLE = ?',
+      whereArgs: [variable],
+      limit: 1,
+    );
+    return result.isNotEmpty ? result.first : null;
+  }
+
+  /// Get settings by module type
+  Future<List<Map<String, dynamic>>> getSettingsByModule(
+      String moduleType) async {
+    final db = await database;
+    return await db.query(
+      'settings',
+      where: 'MODULE_TYPE = ?',
+      whereArgs: [moduleType],
+      orderBy: 'VARIABLE',
+    );
+  }
+
+  /// Get settings by SYNC_ID (firm)
+  Future<List<Map<String, dynamic>>> getSettingsByFirm(int syncId) async {
+    final db = await database;
+    return await db.query(
+      'settings',
+      where: 'SYNC_ID = ?',
+      whereArgs: [syncId],
+      orderBy: 'VARIABLE',
+    );
+  }
+
+  /// Update a single setting
+  Future<int> updateSetting(int sId, Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.update(
+      'settings',
+      data,
+      where: 'sId = ?',
+      whereArgs: [sId],
+    );
+  }
+
+  /// Clear all cached settings
+  Future<void> clearSettingsCache() async {
+    final db = await database;
+    await db.delete('settings');
+    print('[DATABASE] Cleared settings cache');
+  }
+
+  /// Create departments cache table
+  Future<void> _createDepartmentsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS departments (
+        DEPT_CD TEXT PRIMARY KEY,
+        DEPT_NAME TEXT NOT NULL,
+        SYNC_ID TEXT,
+        cached_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  /// Cache departments for offline use
+  Future<void> cacheDepartments(List<Map<String, dynamic>> departments) async {
+    final db = await database;
+    // Clear old departments
+    await db.delete('departments');
+
+    Batch batch = db.batch();
+    for (var dept in departments) {
+      // Add cached_at timestamp if not present
+      if (!dept.containsKey('cached_at')) {
+        dept['cached_at'] = DateTime.now().millisecondsSinceEpoch;
+      }
+      batch.insert('departments', dept,
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    print('[DATABASE] Cached ${departments.length} departments');
+  }
+
+  /// Get all cached departments
+  Future<List<Map<String, dynamic>>> getAllDepartments() async {
+    final db = await database;
+    return await db.query('departments', orderBy: 'DEPT_NAME');
+  }
+
+  /// Get specific department by code
+  Future<Map<String, dynamic>?> getDepartment(String deptCd) async {
+    final db = await database;
+    final result = await db.query(
+      'departments',
+      where: 'DEPT_CD = ?',
+      whereArgs: [deptCd],
+      limit: 1,
+    );
+    return result.isNotEmpty ? result.first : null;
+  }
+
+  /// Clear departments cache
+  Future<void> clearDepartmentsCache() async {
+    final db = await database;
+    await db.delete('departments');
+    print('[DATABASE] Cleared departments cache');
+  }
+
+  /*
+  ==============================
+  LOCATIONS (Punch-in/out & tracking)
+  ==============================
+  */
+
+  Future<void> _createLocationsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS locations (
+        locId INTEGER PRIMARY KEY AUTOINCREMENT,
+        USER_CD TEXT,
+        VOUCH_DT TEXT NOT NULL,
+        VOUCH_TIME TEXT NOT NULL DEFAULT '00:00:00',
+        LAT REAL NOT NULL DEFAULT 0.0,
+        LONGI REAL NOT NULL DEFAULT 0.0,
+        REMARK TEXT NOT NULL DEFAULT '',
+        SYNC_ID INTEGER NOT NULL,
+        CREATED_BY TEXT NOT NULL DEFAULT '',
+        CREATED_AT INTEGER NOT NULL,
+        UPDATED_BY TEXT NOT NULL DEFAULT '',
+        UPDATED_AT INTEGER NOT NULL,
+        CREATED_APP_TYPE TEXT NOT NULL DEFAULT '',
+        MODULE_NO TEXT NOT NULL,
+        sync_status TEXT DEFAULT 'pending'
+      )
+    ''');
+  }
+
+  /// Insert a new location record (punch-in/punch-out)
+  Future<int> insertLocation(Map<String, dynamic> locationData) async {
+    final db = await database;
+    return await db.insert('locations', locationData);
+  }
+
+  /// Get all pending location records (not synced)
+  Future<List<Map<String, dynamic>>> getPendingLocations() async {
+    final db = await database;
+    return await db.query('locations', where: "sync_status = 'pending'");
+  }
+
+  /// Get locations for a specific user and date
+  Future<List<Map<String, dynamic>>> getLocationsByUserAndDate(
+      String userCd, String vouchDt) async {
+    final db = await database;
+    return await db.query(
+      'locations',
+      where: 'USER_CD = ? AND VOUCH_DT = ?',
+      whereArgs: [userCd, vouchDt],
+      orderBy: 'VOUCH_TIME',
+    );
+  }
+
+  /// Get all locations within a date range
+  Future<List<Map<String, dynamic>>> getLocationsByDateRange(
+      String startDate, String endDate) async {
+    final db = await database;
+    return await db.query(
+      'locations',
+      where: 'VOUCH_DT >= ? AND VOUCH_DT <= ?',
+      whereArgs: [startDate, endDate],
+      orderBy: 'VOUCH_DT DESC, VOUCH_TIME DESC',
+    );
+  }
+
+  /// Update location sync status
+  Future<void> updateLocationSyncStatus(
+      int locId, String status, int? serverId) async {
+    final db = await database;
+    await db.update(
+      'locations',
+      {
+        'sync_status': status,
+        'UPDATED_AT': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'locId = ?',
+      whereArgs: [locId],
+    );
+  }
+
+  /// Clear all synced locations
+  Future<void> clearSyncedLocations() async {
+    final db = await database;
+    await db.delete('locations', where: "sync_status = 'synced'");
+    print('[DATABASE] Cleared synced locations');
+  }
+
+  /// Delete a specific location
+  Future<void> deleteLocation(int locId) async {
+    final db = await database;
+    await db.delete('locations', where: 'locId = ?', whereArgs: [locId]);
   }
 }

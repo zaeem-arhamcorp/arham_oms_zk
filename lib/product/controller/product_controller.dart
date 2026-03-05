@@ -157,6 +157,11 @@ class ProductController extends GetxController {
             'ITEM_BRAND': product.itemBrand,
             'ITEM_CAT': product.itemCat,
             'ITEM_IMAGES': product.itemImages,
+            'C_STK': product.cStk,
+            'OR_STK': product.orStk,
+            'AVL_STK': product.avlStk,
+            'SDISC': product.sdisc,
+            'SDISC1': product.sdisc1,
             'deptment': product.deptment.toJson(),
           };
 
@@ -522,8 +527,41 @@ class ProductController extends GetxController {
   Future<void> fetchDepartments() async {
     isDpLoading.value = true;
     try {
-      final response = await _getRequest(endpoint: 'export/deptment');
-      if (response != null) {
+      print('[Departments] Delegating to Services().getDeptment()');
+
+      final serviceResult = await Services().getDeptment(Get.context);
+      print('[Departments] Service returned count: ${serviceResult?.length}');
+      print(
+          '[Departments] Service sample: ${serviceResult != null && serviceResult.isNotEmpty ? serviceResult.take(3).toList() : serviceResult}');
+
+      // Quick double-check: read DB directly if service returned null/empty
+      if (serviceResult == null || serviceResult.isEmpty) {
+        try {
+          final cached = await DatabaseHelper().getAllDepartments();
+          print('[Departments] Direct DB read count: ${cached.length}');
+          if (cached.isNotEmpty)
+            print('[Departments] Direct DB sample: ${cached.take(3).toList()}');
+        } catch (dbErr) {
+          print('[Departments] Direct DB read failed: $dbErr');
+        }
+      }
+
+      if (serviceResult != null && serviceResult.isNotEmpty) {
+        final mapped = serviceResult
+            .map((d) => Department.fromJson({
+                  'DEPT_CD': d.DEPT_CD?.toString() ?? '',
+                  'DEPT_NAME': d.DEPT_NAME?.toString() ?? '',
+                  'GROUPING': '',
+                  'SYNC_ID': d.SYNC_ID?.toString() ?? '',
+                  'UPDATED_AT': '',
+                  'CREATED_AT': ''
+                }))
+            .toList();
+
+        print('[Departments] Mapped departments count: ${mapped.length}');
+        print(
+            '[Departments] Mapped sample names: ${mapped.take(5).map((e) => e.deptName).toList()}');
+
         final departments = <Department>[
           Department(
             deptCd: '',
@@ -533,19 +571,51 @@ class ProductController extends GetxController {
             updatedAt: '',
             createdAt: '',
           ),
-          ...List<Department>.from(
-            (response['data'] as List<dynamic>)
-                .map((dept) => Department.fromJson(dept)),
-          ),
+          ...mapped
         ];
 
-        deptment.value = departments;
+        print(
+            '[Departments] Final departments count (with All Item): ${departments.length}');
+
+        deptment.assignAll(departments);
+        filteredDepartments.assignAll(departments);
+
+        // Verify assignment
+        print(
+            '[Departments] After assignment - deptment.length: ${deptment.length}, filteredDepartments.length: ${filteredDepartments.length}');
+      } else {
+        print(
+            '[Departments] Services returned no departments, loading default');
+        _loadDefaultDepartments();
       }
     } catch (e) {
+      print('[Departments] Error in fetchDepartments: $e');
       log("Failed to fetch departments: $e");
-      _handleError('Failed to fetch departments: $e');
+      // On error, still load default
+      _loadDefaultDepartments();
     } finally {
       isDpLoading.value = false;
+    }
+  }
+
+  /// Load default departments (at minimum "All Item")
+  void _loadDefaultDepartments() {
+    try {
+      final departments = <Department>[
+        Department(
+          deptCd: '',
+          deptName: 'All Item',
+          grouping: '',
+          syncId: '0',
+          updatedAt: '',
+          createdAt: '',
+        ),
+      ];
+      deptment.value = departments;
+      filteredDepartments.assignAll(departments);
+      print('[Departments] Loaded default departments');
+    } catch (e) {
+      print('[Departments] Error loading default: $e');
     }
   }
 

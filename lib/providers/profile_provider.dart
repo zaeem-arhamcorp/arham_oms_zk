@@ -13,6 +13,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/profileModal.dart';
+import '../models/settingmodal.dart';
+import '../services/services.dart';
 import '../views/loginpage.dart';
 
 class ProfileProvider extends DisposableProvider {
@@ -23,6 +25,21 @@ class ProfileProvider extends DisposableProvider {
   String YN = "";
   String ACC_NAME = "";
   String ACC_CD = "";
+
+  // Holds a warning message from the order placement API (e.g. order limit warnings).
+  // Displayed as a snackbar on the homescreen after the order success flow.
+  String? _pendingWarning;
+  String? get pendingWarning => _pendingWarning;
+
+  void setPendingWarning(String warning) {
+    _pendingWarning = warning;
+    notifyListeners();
+  }
+
+  void clearPendingWarning() {
+    _pendingWarning = null;
+    notifyListeners();
+  }
 
   String? _userCode;
 
@@ -97,6 +114,10 @@ class ProfileProvider extends DisposableProvider {
           ACC_CD = data!.orderStartParty == null
               ? ""
               : data!.orderStartParty!.accCd.toString();
+
+          // Restore username and user code from SharedPreferences
+          await getUserCode();
+          await getUserName();
 
           if (id == null) {
             if (YN == "Y") {
@@ -173,6 +194,69 @@ class ProfileProvider extends DisposableProvider {
       print("Error in PerofileProvider getProfile  ${e.toString()}");
     }
     notifyListeners();
+  }
+
+  /// Load settings from API (online) or local cache (offline)
+  /// Updates _data.profileSettings with the loaded settings
+  Future loadSettings(BuildContext context) async {
+    try {
+      final bool online = await NetworkHelper.hasInternet();
+
+      if (online) {
+        // Fetch settings from API when online
+        print('[SETTINGS] Loading settings from API (online)');
+        final SettingModal? settingResponse =
+            await Services().getSettings(context);
+
+        if (settingResponse != null && settingResponse.data.isNotEmpty) {
+          // Update profile settings
+          if (_data != null) {
+            _data!.profileSettings = settingResponse.data;
+          }
+
+          // Cache settings for offline use
+          try {
+            final List<Map<String, dynamic>> settingsMaps =
+                settingResponse.data.map((s) => s.toJson()).toList();
+            await DatabaseHelper().cacheSettings(settingsMaps);
+            print(
+                '[SETTINGS] Cached ${settingsMaps.length} settings for offline');
+          } catch (e) {
+            print('[SETTINGS] Failed to cache settings: $e');
+          }
+        } else {
+          print('[SETTINGS] No settings data received from API');
+        }
+      } else {
+        // Load settings from local cache when offline
+        print('[SETTINGS] Loading settings from local cache (offline)');
+        try {
+          final List<Map<String, dynamic>> cachedSettings =
+              await DatabaseHelper().getAllSettings();
+
+          if (cachedSettings.isNotEmpty) {
+            // Convert cached maps to DatumSettings objects
+            final List<DatumSettings> settingsList =
+                cachedSettings.map((s) => DatumSettings.fromJson(s)).toList();
+
+            // Update profile settings
+            if (_data != null) {
+              _data!.profileSettings = settingsList;
+            }
+            print(
+                '[SETTINGS] Loaded ${settingsList.length} settings from cache');
+          } else {
+            print('[SETTINGS] No cached settings available');
+          }
+        } catch (e) {
+          print('[SETTINGS] Failed to load cached settings: $e');
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      print('[SETTINGS] Error in loadSettings: $e');
+    }
   }
 
   @override

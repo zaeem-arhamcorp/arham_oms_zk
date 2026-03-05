@@ -53,8 +53,14 @@ class _SplashScreenState extends State<SplashScreen> {
                 .read<ProfileProvider>()
                 .getProfile(context)
                 .timeout(const Duration(seconds: 2));
+
+            // Load settings (cached or from API)
+            await context
+                .read<ProfileProvider>()
+                .loadSettings(context)
+                .timeout(const Duration(seconds: 2));
           } catch (e) {
-            print('Loading cached profile timed out or failed: $e');
+            print('Loading cached profile or settings timed out or failed: $e');
           }
 
           try {
@@ -103,8 +109,14 @@ class _SplashScreenState extends State<SplashScreen> {
                 .read<ProfileProvider>()
                 .getProfile(context)
                 .timeout(const Duration(seconds: 6));
+
+            // Load settings (cached or from API)
+            await context
+                .read<ProfileProvider>()
+                .loadSettings(context)
+                .timeout(const Duration(seconds: 5));
           } catch (e) {
-            print('Profile fetch failed or timed out: $e');
+            print('Profile fetch or settings load failed or timed out: $e');
           }
 
           // Fire-and-forget other initial fetches (do not await long-running calls)

@@ -182,13 +182,41 @@ class _ProductPageState extends State<ProductPage> {
   getDeptment() {
     Services().getDeptment(context).then((value) {
       setState(() {
+        // Clear existing data
+        deptData.clear();
+
+        // Always add "All Item" as the first option
         deptData.add(DeptmentModal(
             DEPT_CD: "All Item",
             DEPT_NAME: "All Item",
-            SYNC_ID: value!.length != 0 ? value[0].SYNC_ID : ""));
-        value.forEach((e) => deptData.add(DeptmentModal(
-            DEPT_CD: e.DEPT_CD, DEPT_NAME: e.DEPT_NAME, SYNC_ID: e.SYNC_ID)));
+            SYNC_ID:
+                value != null && value.isNotEmpty ? value[0].SYNC_ID : "0"));
+
+        // Add the rest of the departments if value is not null or empty
+        if (value != null && value.isNotEmpty) {
+          value.forEach((e) => deptData.add(DeptmentModal(
+              DEPT_CD: e.DEPT_CD, DEPT_NAME: e.DEPT_NAME, SYNC_ID: e.SYNC_ID)));
+          print(
+              '[PRODUCTS] Loaded ${deptData.length} departments (including All Item)');
+        } else {
+          print(
+              '[PRODUCTS] No departments received, using only All Item as default');
+        }
+
+        // Update main list for filtering
+        maindeptData.clear();
         maindeptData.addAll(deptData);
+      });
+    }).catchError((error) {
+      // Error handling: ensure at least "All Item" is available
+      print('[PRODUCTS] Error loading departments: $error');
+      setState(() {
+        deptData.clear();
+        deptData.add(DeptmentModal(
+            DEPT_CD: "All Item", DEPT_NAME: "All Item", SYNC_ID: "0"));
+        maindeptData.clear();
+        maindeptData.addAll(deptData);
+        print('[PRODUCTS] Using default All Item department due to error');
       });
     });
   }
@@ -299,7 +327,8 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   additemtoCart(itemCd, qty, freeQty, rate, remarks) {
-    final CartListProvider cart = Provider.of<CartListProvider>(context, listen: false);
+    final CartListProvider cart =
+        Provider.of<CartListProvider>(context, listen: false);
     final PartyProvider party =
         Provider.of<PartyProvider>(context, listen: false);
     final ProfileProvider profile =
@@ -313,7 +342,7 @@ class _ProductPageState extends State<ProductPage> {
       //Fluttertoast.showToast(msg: "Please select party first");
       // showAnimatedToast(
       //     message: "Please select party first", color: Colors.red);
-      AppSnackBar.showGetXCustomSnackBar(message:   "Please select party first");
+      AppSnackBar.showGetXCustomSnackBar(message: "Please select party first");
     } else if (profile.data?.profileSettings
                 .firstWhere((element) => element.variable == 'punchInOut')
                 .value ==
@@ -323,7 +352,7 @@ class _ProductPageState extends State<ProductPage> {
       // Fluttertoast.showToast(msg: "Please select party first");
       // showAnimatedToast(
       //     message: "Please select party first", color: Colors.red);
-      AppSnackBar.showGetXCustomSnackBar(message:   "Please select party first");
+      AppSnackBar.showGetXCustomSnackBar(message: "Please select party first");
     } else {
       setState(() {
         isCardItemLoading.add(itemCd);
@@ -347,7 +376,8 @@ class _ProductPageState extends State<ProductPage> {
             isCardItemLoading.where((element) => element != itemCd).toList();
         setState(() {});
         //showAnimatedToast(message: value['message'], color: Colors.green);
-        AppSnackBar.showGetXCustomSnackBar(message:   value['message'],backgroundColor: Colors.green);
+        AppSnackBar.showGetXCustomSnackBar(
+            message: value['message'], backgroundColor: Colors.green);
 
         //Fluttertoast.showToast(msg: value['message']);
       });
@@ -404,7 +434,8 @@ class _ProductPageState extends State<ProductPage> {
             top: false,
             child: Consumer<PartyProvider>(
               builder: (context, party, child) {
-                return StatefulBuilder(builder: (context, StateSetter setStatee) {
+                return StatefulBuilder(
+                    builder: (context, StateSetter setStatee) {
                   return Padding(
                     padding: MediaQuery.of(context).viewInsets,
                     child: Container(
@@ -432,8 +463,8 @@ class _ProductPageState extends State<ProductPage> {
                                     onChanged: (value) {
                                       //4
                                       setStatee(() {
-                                        _tempParty =
-                                            Helper.buildSearchList(value, party);
+                                        _tempParty = Helper.buildSearchList(
+                                            value, party);
                                       });
                                     }),
                               ),
@@ -462,24 +493,33 @@ class _ProductPageState extends State<ProductPage> {
                                                       .value ==
                                                   'Y') {
                                                 final LocationProvider lp =
-                                                    Provider.of<LocationProvider>(
+                                                    Provider.of<
+                                                            LocationProvider>(
                                                         context,
                                                         listen: false);
-                                                print(
-                                                    lp.enebleLocationPermission);
+                                                print(lp
+                                                    .enebleLocationPermission);
                                                 if (lp.enebleLocationPermission ==
                                                     true) {
                                                   await party
                                                       .changePunchInOutParty(
-                                                          (_tempParty.length > 0)
-                                                              ? _tempParty[index]
+                                                          (_tempParty
+                                                                      .length >
+                                                                  0)
+                                                              ? _tempParty[
+                                                                      index]
                                                                   .accName
-                                                              : party.data[index]
+                                                              : party
+                                                                  .data[index]
                                                                   .accName,
-                                                          (_tempParty.length > 0)
-                                                              ? _tempParty[index]
+                                                          (_tempParty
+                                                                      .length >
+                                                                  0)
+                                                              ? _tempParty[
+                                                                      index]
                                                                   .accCd
-                                                              : party.data[index]
+                                                              : party
+                                                                  .data[index]
                                                                   .accCd,
                                                           isProductPage: true,
                                                           type: "1",
@@ -494,22 +534,26 @@ class _ProductPageState extends State<ProductPage> {
                                                   //     message:
                                                   //         "Please Enable Location Permission",
                                                   //     color: Colors.red);
-                                                  AppSnackBar.showGetXCustomSnackBar(message:   "Please Enable Location Permission");
-            
+                                                  AppSnackBar
+                                                      .showGetXCustomSnackBar(
+                                                          message:
+                                                              "Please Enable Location Permission");
                                                 }
                                               } else {
                                                 await party.changeParty(
                                                     (_tempParty.length > 0)
                                                         ? _tempParty[index]
                                                             .accName
-                                                        : party
-                                                            .data[index].accName,
+                                                        : party.data[index]
+                                                            .accName,
                                                     (_tempParty.length > 0)
-                                                        ? _tempParty[index].accCd
-                                                        : party.data[index].accCd,
+                                                        ? _tempParty[index]
+                                                            .accCd
+                                                        : party
+                                                            .data[index].accCd,
                                                     context);
                                               }
-            
+
                                               Get.back();
                                               setState(() {
                                                 dataProduct.clear();
@@ -641,8 +685,7 @@ class _ProductPageState extends State<ProductPage> {
                         });
                       }
                     } else if (showSearch == true) {
-                      if (val.isNotEmpty && val.length.isGreaterThan(3)) {
-                      }
+                      if (val.isNotEmpty && val.length.isGreaterThan(3)) {}
                       isLoading = true;
                       _debouncer.run(() {
                         setState(() {
@@ -783,7 +826,7 @@ class _ProductPageState extends State<ProductPage> {
                                   setState(() {
                                     isDownloadingExportPdf = false;
                                   });
-                                  Get.to(() =>() =>PdfViewerScreen(
+                                  Get.to(() => () => PdfViewerScreen(
                                       pdfUrl: value,
                                       fileName: DateTime.now().toString()));
                                 } else {
@@ -839,7 +882,7 @@ class _ProductPageState extends State<ProductPage> {
                                   setState(() {
                                     isDownloadingPartyExportPdf = false;
                                   });
-                                  Get.to(() =>PdfViewerScreen(
+                                  Get.to(() => PdfViewerScreen(
                                       pdfUrl: value,
                                       fileName: DateTime.now().toString()));
                                 } else {
@@ -857,860 +900,862 @@ class _ProductPageState extends State<ProductPage> {
         ),
         body: //profile.data != null && profile.data!.moduleNos.contains("205")
             SafeArea(
-              child: profile.data != null &&
-                      profile.data!.modulesList!
-                          .any((module) => module.mODULENO == "205")
-                  ? Stack(
+          child: profile.data != null &&
+                  profile.data!.modulesList!
+                      .any((module) => module.mODULENO == "205")
+              ? Stack(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Card(
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(5),
-                                  side: BorderSide(color: Colors.grey)),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: TextButton.icon(
-                                      onPressed: showMenu,
-                                      icon: Icon(
-                                        Icons.search,
-                                        color: Colors.black,
-                                      ),
-                                      label: Text(
-                                        Provider.of<PartyProvider>(context)
-                                                .party
-                                                .isEmpty
-                                            ? 'Search Party (Name, Phone Number, City, Area)' // Default text when no party is selected
-                                            : ' ${Helper.trimValue(profile.YN == 'Y' ? party.punchInOutParty : party.party, 80)} ',
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                        style: TextStyle(color: Colors.black),
-                                      ),
-                                    ),
+                        Card(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(5),
+                              side: BorderSide(color: Colors.grey)),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: TextButton.icon(
+                                  onPressed: showMenu,
+                                  icon: Icon(
+                                    Icons.search,
+                                    color: Colors.black,
                                   ),
-              
-                                  profile.YN == "Y"
-                                      ? profile.ACC_NAME == "" &&
-                                              profile.ACC_CD == ""
-                                          ? TextButton(
-                                              onPressed: profile
-                                                          .data?.isPunchIn ==
-                                                      true
+                                  label: Text(
+                                    Provider.of<PartyProvider>(context)
+                                            .party
+                                            .isEmpty
+                                        ? 'Search Party (Name, Phone Number, City, Area)' // Default text when no party is selected
+                                        : ' ${Helper.trimValue(profile.YN == 'Y' ? party.punchInOutParty : party.party, 80)} ',
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                ),
+                              ),
+
+                              profile.YN == "Y"
+                                  ? profile.ACC_NAME == "" &&
+                                          profile.ACC_CD == ""
+                                      ? TextButton(
+                                          onPressed:
+                                              profile.data?.isPunchIn == true
                                                   ? showMenu
                                                   : () {
                                                       /*Fluttertoast.showToast(
                                                           msg: "Please Punch In");*/
                                                       // showAnimatedToast(
-                                                          //     message:
-                                                          //         "Please Punch In",
-                                                          //     color: Colors.red);
-              
-                                                          AppSnackBar.showGetXCustomSnackBar(message:   "Please Punch In");
-              
-                                              },
-                                              child: Text("Start Order"))
-                                          : TextButton(
-                                              onPressed: () async {
-                                                await party.startEndOrder(
-                                                    profile.ACC_NAME,
-                                                    profile.ACC_CD,
-                                                    context,
-                                                    "3",
-                                                    id: 1);
-              
-                                                setState(() {
-                                                  dataProduct.clear();
-                                                  isLoading = true;
-                                                  qty.clear();
-                                                  freeQty.clear();
-                                                  _page = 1;
-                                                  _hasNextPage = false;
-                                                });
-                                                getProduct();
-                                              },
-                                              child: Text("End Order"))
+                                                      //     message:
+                                                      //         "Please Punch In",
+                                                      //     color: Colors.red);
+
+                                                      AppSnackBar
+                                                          .showGetXCustomSnackBar(
+                                                              message:
+                                                                  "Please Punch In");
+                                                    },
+                                          child: Text("Start Order"))
                                       : TextButton(
-                                          onPressed: showMenu, child: Text("")),
-                                  if (Provider.of<PartyProvider>(context)
-                                      .party
-                                      .isNotEmpty)
-                                    Row(
-                                      children: [
-                                        GestureDetector(
-                                            onTap: () {
-                                              party.clearParty();
-                                              party.clearPunchInOutParty();
-                                            },
-                                            child: Icon(
-                                              Icons.cancel,
-                                              size: 24,
-                                            )),
-                                      ],
-                                    ), //Start Order  End Order
-                                ],
-                              ),
-                            ),
-                            Container(
-                              height: 40,
-                              child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: deptData.length,
-                                  shrinkWrap: true,
-                                  primary: false,
-                                  itemBuilder: (context, index) {
-                                    return Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 4.h),
-                                      child: InkWell(
+                                          onPressed: () async {
+                                            await party.startEndOrder(
+                                                profile.ACC_NAME,
+                                                profile.ACC_CD,
+                                                context,
+                                                "3",
+                                                id: 1);
+
+                                            setState(() {
+                                              dataProduct.clear();
+                                              isLoading = true;
+                                              qty.clear();
+                                              freeQty.clear();
+                                              _page = 1;
+                                              _hasNextPage = false;
+                                            });
+                                            getProduct();
+                                          },
+                                          child: Text("End Order"))
+                                  : TextButton(
+                                      onPressed: showMenu, child: Text("")),
+                              if (Provider.of<PartyProvider>(context)
+                                  .party
+                                  .isNotEmpty)
+                                Row(
+                                  children: [
+                                    GestureDetector(
                                         onTap: () {
-                                          if (deptCd == deptData[index].DEPT_CD ||
-                                              deptData[index].DEPT_CD ==
-                                                  "All Item") {
-                                            setState(() {
-                                              if (deptData[index].DEPT_CD ==
-                                                  "All Item")
-                                                deptCd = 'All Item';
-                                              else
-                                                deptCd = null;
-                                              isLoading = true;
-                                              dataProduct.clear();
-                                              _page = 1;
-                                              qty.clear();
-                                              rate.clear();
-                                              freeQty.clear();
-                                              _hasNextPage = false;
-                                            });
-                                            getProduct();
-                                          } else {
-                                            setState(() {
-                                              deptCd = deptData[index].DEPT_CD;
-                                              isLoading = true;
-                                              dataProduct.clear();
-                                              _page = 1;
-                                              qty.clear();
-                                              freeQty.clear();
-                                              rate.clear();
-                                              _hasNextPage = false;
-                                            });
-                                            getProduct();
-                                          }
+                                          party.clearParty();
+                                          party.clearPunchInOutParty();
                                         },
-                                        child: Chip(
-                                          label: Text(
-                                              '${deptData[index].DEPT_NAME}'),
-                                          backgroundColor:
-                                              deptCd == deptData[index].DEPT_CD
-                                                  ? Color(0XFF1C22C3)
-                                                  : null,
-                                          labelStyle:
-                                              deptCd == deptData[index].DEPT_CD
-                                                  ? TextStyle(color: Colors.white)
-                                                  : null,
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                            ),
-                            Expanded(
-                              child: dataProduct.isEmpty == true && !isLoading
-                                  ? Center(
-                                      child: Text("No Product Available"),
-                                    )
-                                  : ListView(
-                                      keyboardDismissBehavior:
-                                          ScrollViewKeyboardDismissBehavior
-                                              .onDrag,
-                                      children: [
-                                        ListView.builder(
-                                            padding: EdgeInsets.zero,
-                                            itemCount: dataProduct.length,
-                                            shrinkWrap: true,
-                                            physics:
-                                                NeverScrollableScrollPhysics(),
-                                            itemBuilder: (context, index) {
-                                              var isadd = cart.data.any(
-                                                  (element) =>
-                                                      element.itemCd ==
-                                                      dataProduct[index].itemCd);
-                                              return Padding(
-                                                padding:
-                                                    const EdgeInsets.all(8.0),
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    Get.to(
-                                                      () => ProductDetailPage(
-                                                        data: dataProduct[index],
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: Container(
-                                                    padding: EdgeInsets.only(
-                                                        top: 10,
-                                                        left: 10,
-                                                        right: 10,
-                                                        bottom: 10),
-                                                    width: size.width,
-                                                    decoration: BoxDecoration(
-                                                        color: (double.parse(dataProduct[index].cStk !=
-                                                                            null
-                                                                        ? dataProduct[index]
-                                                                            .cStk
-                                                                            .toString()
-                                                                        : "0.0") -
-                                                                    double.parse(dataProduct[index]
-                                                                                .orStk !=
-                                                                            null
-                                                                        ? dataProduct[index]
-                                                                            .orStk
-                                                                            .toString()
-                                                                        : "0.0")) >
-                                                                0.0
-                                                            ? Colors.grey[300]
-                                                            : Color(0XFFFF6263)
-                                                                .withOpacity(0.2),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                                10)),
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
+                                        child: Icon(
+                                          Icons.cancel,
+                                          size: 24,
+                                        )),
+                                  ],
+                                ), //Start Order  End Order
+                            ],
+                          ),
+                        ),
+                        Container(
+                          height: 40,
+                          child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: deptData.length,
+                              shrinkWrap: true,
+                              primary: false,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: 4.h),
+                                  child: InkWell(
+                                    onTap: () {
+                                      if (deptCd == deptData[index].DEPT_CD ||
+                                          deptData[index].DEPT_CD ==
+                                              "All Item") {
+                                        setState(() {
+                                          if (deptData[index].DEPT_CD ==
+                                              "All Item")
+                                            deptCd = 'All Item';
+                                          else
+                                            deptCd = null;
+                                          isLoading = true;
+                                          dataProduct.clear();
+                                          _page = 1;
+                                          qty.clear();
+                                          rate.clear();
+                                          freeQty.clear();
+                                          _hasNextPage = false;
+                                        });
+                                        getProduct();
+                                      } else {
+                                        setState(() {
+                                          deptCd = deptData[index].DEPT_CD;
+                                          isLoading = true;
+                                          dataProduct.clear();
+                                          _page = 1;
+                                          qty.clear();
+                                          freeQty.clear();
+                                          rate.clear();
+                                          _hasNextPage = false;
+                                        });
+                                        getProduct();
+                                      }
+                                    },
+                                    child: Chip(
+                                      label:
+                                          Text('${deptData[index].DEPT_NAME}'),
+                                      backgroundColor:
+                                          deptCd == deptData[index].DEPT_CD
+                                              ? Color(0XFF1C22C3)
+                                              : null,
+                                      labelStyle:
+                                          deptCd == deptData[index].DEPT_CD
+                                              ? TextStyle(color: Colors.white)
+                                              : null,
+                                    ),
+                                  ),
+                                );
+                              }),
+                        ),
+                        Expanded(
+                          child: dataProduct.isEmpty == true && !isLoading
+                              ? Center(
+                                  child: Text("No Product Available"),
+                                )
+                              : ListView(
+                                  keyboardDismissBehavior:
+                                      ScrollViewKeyboardDismissBehavior.onDrag,
+                                  children: [
+                                    ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        itemCount: dataProduct.length,
+                                        shrinkWrap: true,
+                                        physics: NeverScrollableScrollPhysics(),
+                                        itemBuilder: (context, index) {
+                                          var isadd = cart.data.any((element) =>
+                                              element.itemCd ==
+                                              dataProduct[index].itemCd);
+                                          return Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                Get.to(
+                                                  () => ProductDetailPage(
+                                                    data: dataProduct[index],
+                                                  ),
+                                                );
+                                              },
+                                              child: Container(
+                                                padding: EdgeInsets.only(
+                                                    top: 10,
+                                                    left: 10,
+                                                    right: 10,
+                                                    bottom: 10),
+                                                width: size.width,
+                                                decoration: BoxDecoration(
+                                                    color: (double.parse(dataProduct[index]
+                                                                            .cStk !=
+                                                                        null
+                                                                    ? dataProduct[index]
+                                                                        .cStk
+                                                                        .toString()
+                                                                    : "0.0") -
+                                                                double.parse(dataProduct[index]
+                                                                            .orStk !=
+                                                                        null
+                                                                    ? dataProduct[index]
+                                                                        .orStk
+                                                                        .toString()
+                                                                    : "0.0")) >
+                                                            0.0
+                                                        ? Colors.grey[300]
+                                                        : Color(0XFFFF6263)
+                                                            .withOpacity(0.2),
+                                                    borderRadius:
+                                                        BorderRadius.circular(10)),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      "${dataProduct[index].itemName}",
+                                                      style: TextStyle(
+                                                          fontSize: 13.sp,
+                                                          color: Colors.black,
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                    ),
+                                                    SizedBox(
+                                                      height: 5.h,
+                                                    ),
+                                                    Wrap(
+                                                      runSpacing: 3.0,
+                                                      spacing: 9.0,
+                                                      children: [
+                                                        if (dataProduct[index]
+                                                                .srate3 !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "MRP: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].srate3}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .srate1 !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Rate: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].srate1}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .cStk !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Closing Stock: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].cStk}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .nrate !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Net RATE: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].nrate}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .frmlSrt1 !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Margin: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].frmlSrt1}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .sdisc !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Disc: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].sdisc}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .sdisc1 !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Cd%: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].sdisc1}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .orStk !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Pending Order: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .red,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].orStk}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .cStk !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Avl Stk: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].avlStk}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (dataProduct[index]
+                                                                .exDt !=
+                                                            null)
+                                                          Wrap(
+                                                            children: [
+                                                              Text(
+                                                                "Exp Dt: ",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .black,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              SizedBox(
+                                                                width: 1.w,
+                                                              ),
+                                                              Text(
+                                                                "${dataProduct[index].exDt}",
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        13.sp,
+                                                                    color: Colors
+                                                                        .green,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                      ],
+                                                    ),
+                                                    SizedBox(
+                                                      height: 3.h,
+                                                    ),
+                                                    Row(
                                                       children: [
                                                         Text(
-                                                          "${dataProduct[index].itemName}",
+                                                          "(${dataProduct[index].deptment?.DEPT_NAME})"
+                                                          " (${dataProduct[index].itemCd}) ${dataProduct[index].itemCd2 != null ? "(${dataProduct[index].itemCd2})" : ""} ",
                                                           style: TextStyle(
-                                                              fontSize: 13.sp,
-                                                              color: Colors.black,
+                                                              fontSize: 10.sp,
+                                                              color:
+                                                                  Colors.grey,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold),
                                                         ),
-                                                        SizedBox(
-                                                          height: 5.h,
-                                                        ),
-                                                        Wrap(
-                                                          runSpacing: 3.0,
-                                                          spacing: 9.0,
-                                                          children: [
-                                                            if (dataProduct[index]
-                                                                    .srate3 !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "MRP: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].srate3}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .srate1 !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Rate: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].srate1}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .cStk !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Closing Stock: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].cStk}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .nrate !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Net RATE: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].nrate}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .frmlSrt1 !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Margin: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].frmlSrt1}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .sdisc !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Disc: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].sdisc}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .sdisc1 !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Cd%: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].sdisc1}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .orStk !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Pending Order: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .red,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].orStk}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .cStk !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Avl Stk: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].avlStk}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            if (dataProduct[index]
-                                                                    .exDt !=
-                                                                null)
-                                                              Wrap(
-                                                                children: [
-                                                                  Text(
-                                                                    "Exp Dt: ",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .black,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 1.w,
-                                                                  ),
-                                                                  Text(
-                                                                    "${dataProduct[index].exDt}",
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            13.sp,
-                                                                        color: Colors
-                                                                            .green,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .bold),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                          ],
-                                                        ),
-                                                        SizedBox(
-                                                          height: 3.h,
-                                                        ),
-                                                        Row(
-                                                          children: [
-                                                            Text(
-                                                              "(${dataProduct[index].deptment?.DEPT_NAME})"
-                                                                  " (${dataProduct[index].itemCd}) ${dataProduct[index].itemCd2 != null ? "(${dataProduct[index].itemCd2})" : ""} ",
-                                                              style: TextStyle(
-                                                                  fontSize: 10.sp,
-                                                                  color:
-                                                                      Colors.grey,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold),
-                                                            ),
-                                                            if (dataProduct[index]
-                                                                    .itemGrade !=
-                                                                null)
-                                                              Text(
-                                                                "   ${dataProduct[index].itemGrade}",
-                                                                style: TextStyle(
-                                                                    color: Colors
-                                                                        .blue),
-                                                              )
-                                                          ],
-                                                        ),
-                                                        isCardItemLoading
-                                                                .contains(
-                                                                    dataProduct[
-                                                                            index]
-                                                                        .itemCd)
-                                                            ? Row(
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .end,
-                                                                mainAxisAlignment:
-                                                                    MainAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  Padding(
-                                                                    padding: EdgeInsets
-                                                                        .all(12.0
-                                                                            .w),
-                                                                    child:
-                                                                        SizedBox(
-                                                                      height:
-                                                                          25.0,
-                                                                      width: 25.0,
-                                                                      child:
-                                                                          CircularProgressIndicator(),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              )
-                                                            : isadd
-                                                                ? Padding(
-                                                                    padding: const EdgeInsets
-                                                                            .only(
-                                                                        top:
-                                                                            10.0),
-                                                                    child:
-                                                                        SizedBox(
-                                                                      child: Text(
-                                                                          "Item Already In Cart"),
-                                                                    ),
-                                                                  )
-                                                                : Padding(
-                                                                    padding: const EdgeInsets
-                                                                            .only(
-                                                                        top:
-                                                                            10.0),
-                                                                    child: Column(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .start,
-                                                                      crossAxisAlignment:
-                                                                          CrossAxisAlignment
-                                                                              .start,
-                                                                      children: [
-                                                                        Row(
-                                                                          children: [
-                                                                            Expanded(
-                                                                              child: Container(
-                                                                                  child: TextFormField(
-                                                                                keyboardType: TextInputType.number,
-                                                                                decoration: InputDecoration(
-                                                                                  hintText: "Enter Qty",
-                                                                                  label: Text("Enter Qty"),
-                                                                                  isDense: true,
-                                                                                ),
-                                                                                controller: qty[index],
-                                                                              )),
-                                                                            ),
-                                                                            SizedBox(
-                                                                              width:
-                                                                                  10.w,
-                                                                            ),
-                                                                            Expanded(
-                                                                              child:
-                                                                                  Padding(
-                                                                                padding: EdgeInsets.only(bottom: 4.h),
-                                                                                child: DropdownMenu<dynamic>(
-                                                                                  width: 90.w,
-                                                                                  controller: freeQty[index],
-                                                                                  requestFocusOnTap: true,
-                                                                                  enableFilter: true,
-                                                                                  label: const Text('Free'),
-                                                                                  dropdownMenuEntries: otherDescOptions.map((e) => DropdownMenuEntry<dynamic>(value: e.NARR_NAME, label: e.NARR_NAME)).toList(),
-                                                                                  inputDecorationTheme: const InputDecorationTheme(
-                                                                                    isDense: true,
-                                                                                  ),
-                                                                                  enableSearch: true,
-                                                                                ),
-                                                                              ),
-                                                                            ),
-                                                                            if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value == 'Y' ||
-                                                                                profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value == 'Y')
-                                                                              SizedBox(
-                                                                                width: 40.w,
-                                                                              ),
-                                                                            if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value == 'Y' ||
-                                                                                profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value == 'Y')
-                                                                              Expanded(
-                                                                                child: Container(
-                                                                                    child: TextFormField(
-                                                                                  keyboardType: TextInputType.number,
-                                                                                  decoration: InputDecoration(
-                                                                                    hintText: "Rate",
-                                                                                    label: Text("Rate"),
-                                                                                    isDense: true,
-                                                                                  ),
-                                                                                  controller: rate[index],
-                                                                                )),
-                                                                              ),
-                                                                            isadd
-                                                                                ? Container()
-                                                                                : GestureDetector(
-                                                                                    onTap: () {
-                                                                                      var tempRate;
-                                                                                      var tempRemarks;
-                                                                                      if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value == 'Y' || profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value == 'Y') {
-                                                                                        tempRate = rate[index].text;
-                                                                                      }
-              
-                                                                                      if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'showItemWiseRemarks').value == 'Y') {
-                                                                                        tempRemarks = remarks[index].text;
-                                                                                      }
-              
-                                                                                      if (qty[index].text == "0" || qty[index].text.isEmpty) {
-                                                                                        additemtoCart(dataProduct[index].itemCd, "1", freeQty[index].text, tempRate, tempRemarks);
-                                                                                      } else {
-                                                                                        additemtoCart(dataProduct[index].itemCd, qty[index].text, freeQty[index].text, tempRate, tempRemarks);
-                                                                                      }
-                                                                                    },
-                                                                                    child: Container(
-                                                                                        decoration: BoxDecoration(color: Color(0xffFFAE37), borderRadius: BorderRadius.circular(8)),
-                                                                                        child: Text(
-                                                                                          "Add To Cart",
-                                                                                          style: TextStyle(color: Colors.white, fontSize: 12),
-                                                                                        ),
-                                                                                        alignment: Alignment.center,
-                                                                                        padding: EdgeInsets.only(left: 18, right: 18, top: 8, bottom: 8)),
-                                                                                  ),
-                                                                          ],
-                                                                        ),
-                                                                        if (profile
-                                                                                .data
-                                                                                ?.profileSettings
-                                                                                .firstWhere((element) =>
-                                                                                    element.variable ==
-                                                                                    'showItemWiseRemarks')
-                                                                                .value ==
-                                                                            'Y')
-                                                                          DropdownMenu<
-                                                                              dynamic>(
-                                                                            width:
-                                                                                size.width - 50,
-                                                                            controller:
-                                                                                remarks[index],
-                                                                            requestFocusOnTap:
-                                                                                true,
-                                                                            enableFilter:
-                                                                                true,
-                                                                            label:
-                                                                                const Text('Remarks'),
-                                                                            dropdownMenuEntries: fld5DescOptions
-                                                                                .map((e) => DropdownMenuEntry<dynamic>(value: e.NARR_NAME, label: e.NARR_NAME))
-                                                                                .toList(),
-                                                                            inputDecorationTheme:
-                                                                                const InputDecorationTheme(
-                                                                              isDense:
-                                                                                  true,
-                                                                            ),
-                                                                            enableSearch:
-                                                                                true,
-                                                                          )
-                                                                      ],
-                                                                    ),
-                                                                  ),
+                                                        if (dataProduct[index]
+                                                                .itemGrade !=
+                                                            null)
+                                                          Text(
+                                                            "   ${dataProduct[index].itemGrade}",
+                                                            style: TextStyle(
+                                                                color: Colors
+                                                                    .blue),
+                                                          )
                                                       ],
                                                     ),
-                                                  ),
+                                                    isCardItemLoading.contains(
+                                                            dataProduct[index]
+                                                                .itemCd)
+                                                        ? Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .end,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Padding(
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .all(12.0
+                                                                            .w),
+                                                                child: SizedBox(
+                                                                  height: 25.0,
+                                                                  width: 25.0,
+                                                                  child:
+                                                                      CircularProgressIndicator(),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          )
+                                                        : isadd
+                                                            ? Padding(
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            10.0),
+                                                                child: SizedBox(
+                                                                  child: Text(
+                                                                      "Item Already In Cart"),
+                                                                ),
+                                                              )
+                                                            : Padding(
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            10.0),
+                                                                child: Column(
+                                                                  mainAxisAlignment:
+                                                                      MainAxisAlignment
+                                                                          .start,
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Row(
+                                                                      children: [
+                                                                        Expanded(
+                                                                          child: Container(
+                                                                              child: TextFormField(
+                                                                            keyboardType:
+                                                                                TextInputType.number,
+                                                                            decoration:
+                                                                                InputDecoration(
+                                                                              hintText: "Enter Qty",
+                                                                              label: Text("Enter Qty"),
+                                                                              isDense: true,
+                                                                            ),
+                                                                            controller:
+                                                                                qty[index],
+                                                                          )),
+                                                                        ),
+                                                                        SizedBox(
+                                                                          width:
+                                                                              10.w,
+                                                                        ),
+                                                                        Expanded(
+                                                                          child:
+                                                                              Padding(
+                                                                            padding:
+                                                                                EdgeInsets.only(bottom: 4.h),
+                                                                            child:
+                                                                                DropdownMenu<dynamic>(
+                                                                              width: 90.w,
+                                                                              controller: freeQty[index],
+                                                                              requestFocusOnTap: true,
+                                                                              enableFilter: true,
+                                                                              label: const Text('Free'),
+                                                                              dropdownMenuEntries: otherDescOptions.map((e) => DropdownMenuEntry<dynamic>(value: e.NARR_NAME, label: e.NARR_NAME)).toList(),
+                                                                              inputDecorationTheme: const InputDecorationTheme(
+                                                                                isDense: true,
+                                                                              ),
+                                                                              enableSearch: true,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value ==
+                                                                                'Y' ||
+                                                                            profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value ==
+                                                                                'Y')
+                                                                          SizedBox(
+                                                                            width:
+                                                                                40.w,
+                                                                          ),
+                                                                        if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value ==
+                                                                                'Y' ||
+                                                                            profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value ==
+                                                                                'Y')
+                                                                          Expanded(
+                                                                            child: Container(
+                                                                                child: TextFormField(
+                                                                              keyboardType: TextInputType.number,
+                                                                              decoration: InputDecoration(
+                                                                                hintText: "Rate",
+                                                                                label: Text("Rate"),
+                                                                                isDense: true,
+                                                                              ),
+                                                                              controller: rate[index],
+                                                                            )),
+                                                                          ),
+                                                                        isadd
+                                                                            ? Container()
+                                                                            : GestureDetector(
+                                                                                onTap: () {
+                                                                                  var tempRate;
+                                                                                  var tempRemarks;
+                                                                                  if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value == 'Y' || profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value == 'Y') {
+                                                                                    tempRate = rate[index].text;
+                                                                                  }
+
+                                                                                  if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'showItemWiseRemarks').value == 'Y') {
+                                                                                    tempRemarks = remarks[index].text;
+                                                                                  }
+
+                                                                                  if (qty[index].text == "0" || qty[index].text.isEmpty) {
+                                                                                    additemtoCart(dataProduct[index].itemCd, "1", freeQty[index].text, tempRate, tempRemarks);
+                                                                                  } else {
+                                                                                    additemtoCart(dataProduct[index].itemCd, qty[index].text, freeQty[index].text, tempRate, tempRemarks);
+                                                                                  }
+                                                                                },
+                                                                                child: Container(
+                                                                                    decoration: BoxDecoration(color: Color(0xffFFAE37), borderRadius: BorderRadius.circular(8)),
+                                                                                    child: Text(
+                                                                                      "Add To Cart",
+                                                                                      style: TextStyle(color: Colors.white, fontSize: 12),
+                                                                                    ),
+                                                                                    alignment: Alignment.center,
+                                                                                    padding: EdgeInsets.only(left: 18, right: 18, top: 8, bottom: 8)),
+                                                                              ),
+                                                                      ],
+                                                                    ),
+                                                                    if (profile
+                                                                            .data
+                                                                            ?.profileSettings
+                                                                            .firstWhere((element) =>
+                                                                                element.variable ==
+                                                                                'showItemWiseRemarks')
+                                                                            .value ==
+                                                                        'Y')
+                                                                      DropdownMenu<
+                                                                          dynamic>(
+                                                                        width: size.width -
+                                                                            50,
+                                                                        controller:
+                                                                            remarks[index],
+                                                                        requestFocusOnTap:
+                                                                            true,
+                                                                        enableFilter:
+                                                                            true,
+                                                                        label: const Text(
+                                                                            'Remarks'),
+                                                                        dropdownMenuEntries: fld5DescOptions
+                                                                            .map((e) =>
+                                                                                DropdownMenuEntry<dynamic>(value: e.NARR_NAME, label: e.NARR_NAME))
+                                                                            .toList(),
+                                                                        inputDecorationTheme:
+                                                                            const InputDecorationTheme(
+                                                                          isDense:
+                                                                              true,
+                                                                        ),
+                                                                        enableSearch:
+                                                                            true,
+                                                                      )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                  ],
                                                 ),
-                                              );
-                                            }),
-                                        _hasNextPage == true
-                                            ? Padding(
-                                                padding: EdgeInsets.only(
-                                                    top: 5, bottom: 10),
-                                                child: Center(
-                                                    child: Padding(
-                                                  padding: const EdgeInsets.only(
-                                                      left: 20, right: 20),
-                                                  child: _isLoadMoreRunning ==
-                                                          true
-                                                      ? Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(5.0),
-                                                          child:
-                                                              CircularProgressIndicator(),
-                                                        )
-                                                      : GestureDetector(
-                                                          onTap: () {
-                                                            _loadMore();
-                                                          },
-                                                          child: Container(
-                                                            alignment:
-                                                                Alignment.center,
-                                                            decoration: BoxDecoration(
-                                                                borderRadius:
-                                                                    BorderRadius
-                                                                        .circular(
-                                                                            5),
-                                                                color: AppConfig
-                                                                    .mainColor),
-                                                            height: 40,
-                                                            width: 100,
-                                                            child: Text(
-                                                              "Load More",
-                                                              style: TextStyle(
-                                                                  fontSize: 15.sp,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  color: Colors
-                                                                      .white),
-                                                            ),
-                                                          ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                    _hasNextPage == true
+                                        ? Padding(
+                                            padding: EdgeInsets.only(
+                                                top: 5, bottom: 10),
+                                            child: Center(
+                                                child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                  left: 20, right: 20),
+                                              child: _isLoadMoreRunning == true
+                                                  ? Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              5.0),
+                                                      child:
+                                                          CircularProgressIndicator(),
+                                                    )
+                                                  : GestureDetector(
+                                                      onTap: () {
+                                                        _loadMore();
+                                                      },
+                                                      child: Container(
+                                                        alignment:
+                                                            Alignment.center,
+                                                        decoration: BoxDecoration(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        5),
+                                                            color: AppConfig
+                                                                .mainColor),
+                                                        height: 40,
+                                                        width: 100,
+                                                        child: Text(
+                                                          "Load More",
+                                                          style: TextStyle(
+                                                              fontSize: 15.sp,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  Colors.white),
                                                         ),
-                                                )),
-                                              )
-                                            : SizedBox(),
-                                        // if (_hasNextPage == false)
-                                        //   Container(
-                                        //     padding: const EdgeInsets.only(
-                                        //         top: 30, bottom: 40),
-                                        //     color: Colors.amber,
-                                        //     child: const Center(
-                                        //       child: Text(
-                                        //           'You have fetched all of the Product'),
-                                        //     ),
-                                        //   ),
-                                      ],
-                                    ),
-                            ),
-                          ],
+                                                      ),
+                                                    ),
+                                            )),
+                                          )
+                                        : SizedBox(),
+                                    // if (_hasNextPage == false)
+                                    //   Container(
+                                    //     padding: const EdgeInsets.only(
+                                    //         top: 30, bottom: 40),
+                                    //     color: Colors.amber,
+                                    //     child: const Center(
+                                    //       child: Text(
+                                    //           'You have fetched all of the Product'),
+                                    //     ),
+                                    //   ),
+                                  ],
+                                ),
                         ),
-                        if (party.loading || isLoading)
-                          Container(
-                            decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.5)),
-                            child: Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
                       ],
-                    )
-                  : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Center(
-                            child: Text(
-                                "You do not have permission to access the Order Entry. Please Upgrade your subscription",
-                                textAlign: TextAlign.center),
-                          )
-                        ],
-                      ),
                     ),
-            ),
+                    if (party.loading || isLoading)
+                      Container(
+                        decoration:
+                            BoxDecoration(color: Colors.grey.withOpacity(0.5)),
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                  ],
+                )
+              : Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Center(
+                        child: Text(
+                            "You do not have permission to access the Order Entry. Please Upgrade your subscription",
+                            textAlign: TextAlign.center),
+                      )
+                    ],
+                  ),
+                ),
+        ),
       ),
     );
   }

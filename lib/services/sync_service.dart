@@ -404,4 +404,75 @@ class SyncService {
         '[SyncService] Cart sync complete: $synced/${pendingItems.length} items');
     return synced;
   }
+
+  /// Sync pending location (punch-in/punch-out) records to server.
+  /// Only deletes local records AFTER successful sync to server.
+  Future<Map<String, int>> syncLocations(String token) async {
+    int synced = 0, failed = 0;
+
+    // Pre-check: make sure we have internet
+    final hasNet = await NetworkHelper.hasInternet();
+    if (!hasNet) {
+      print('[SyncService] No internet — skipping location sync');
+      return {'synced': 0, 'failed': 0};
+    }
+
+    final pendingLocations = await db.getPendingLocations();
+    print('[SyncService] Found ${pendingLocations.length} pending location(s)');
+
+    for (var location in pendingLocations) {
+      try {
+        final locId = location['locId'];
+        
+        // Prepare payload for server
+        var payload = {
+          'USER_CD': location['USER_CD']?.toString() ?? '',
+          'VOUCH_DT': location['VOUCH_DT']?.toString() ?? '',
+          'VOUCH_TIME': location['VOUCH_TIME']?.toString() ?? '00:00:00',
+          'LAT': location['LAT']?.toString() ?? '0.0',
+          'LONGI': location['LONGI']?.toString() ?? '0.0',
+          'REMARK': location['REMARK']?.toString() ?? '',
+          'SYNC_ID': location['SYNC_ID']?.toString() ?? '',
+          'MODULE_NO': location['MODULE_NO']?.toString() ?? '205',
+        };
+
+        print('[SyncService] POST location: $payload');
+
+        // Post to server
+        var response = await http.post(
+          Uri.parse("${AppConfig.baseURL}locations"),
+          headers: {
+            "Authorization": "Bearer $token",
+            'x-app-type': 'oms',
+          },
+          body: payload,
+        );
+
+        print('[SyncService] Location response ${response.statusCode}: ${response.body}');
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Success: mark as synced and delete from local DB
+          await db.updateLocationSyncStatus(locId, 'synced', null);
+          await db.deleteLocation(locId);
+          synced++;
+          print('[SyncService] Location $locId synced and deleted locally');
+        } else if (response.statusCode == 401) {
+          print('[SyncService] Auth expired during location sync');
+          break;
+        } else {
+          failed++;
+          print('[SyncService] Location sync failed: HTTP ${response.statusCode}');
+          // Keep local copy for retry
+        }
+      } catch (e) {
+        failed++;
+        print('[SyncService] Error syncing location: $e');
+        // Keep local copy on error
+      }
+    }
+
+    print('[SyncService] Location sync complete: synced=$synced, failed=$failed');
+    return {'synced': synced, 'failed': failed};
+  }
 }
+

@@ -36,7 +36,10 @@ class _ProductCardState extends State<ProductCard> {
   // List<TextEditingController> remarks = [];
 
   late CartListProvider cart;
-  ProductController controller = Get.put(ProductController());
+  late final ProductController controller =
+      Get.isRegistered<ProductController>()
+          ? Get.find<ProductController>()
+          : Get.put(ProductController());
 
   @override
   void initState() {
