@@ -500,14 +500,27 @@ class Services {
         final decoded = json.decode(response.body);
         print('[ORDER] 🔍 Full /orders response: ${decoded["data"]}');
         final extractedOId = decoded["data"]?["oId"];
-        print('[ORDER] 🔍 Extracted oId: $extractedOId (type: ${extractedOId.runtimeType})');
+        print(
+            '[ORDER] 🔍 Extracted oId: $extractedOId (type: ${extractedOId.runtimeType})');
 
         // Check for an order-limit warning from the backend and persist it
         // so the homescreen can display it as a snackbar after navigation.
-        final warning = decoded['warning']?.toString();
+        String? warning;
+
+        // Try to get warnings array (plural) first
+        final warnings = decoded['warnings'];
+        if (warnings is List && warnings.isNotEmpty) {
+          // Combine multiple warnings into a single message
+          warning = warnings.join('\n');
+          print('[ORDER] Warnings received from API: $warnings');
+        } else {
+          // Fallback to single warning field
+          warning = decoded['warning']?.toString();
+        }
+
         if (warning != null && warning.isNotEmpty) {
           pb.setPendingWarning(warning);
-          print('[ORDER] Warning received from API: $warning');
+          print('[ORDER] Warning to display: $warning');
         }
 
         if (pb.YN == "Y") {

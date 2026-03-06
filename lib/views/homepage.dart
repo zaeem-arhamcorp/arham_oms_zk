@@ -130,17 +130,15 @@ class _HomePageState extends State<HomePage> {
     loadData();
     getDashboarddata();
 
-    // Show any pending order-limit warning received from the last order API call.
+    final ProfileProvider profile =
+        Provider.of<ProfileProvider>(context, listen: false);
+
+    // Add listener to show warning snackbar whenever it's set by the API
+    profile.addListener(_handlePendingWarning);
+
+    // Check for any existing warning at init time
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final profile = Provider.of<ProfileProvider>(context, listen: false);
-      if (profile.pendingWarning != null &&
-          profile.pendingWarning!.isNotEmpty) {
-        AppSnackBar.showGetXCustomSnackBar(
-          message: profile.pendingWarning!,
-          backgroundColor: Colors.orange,
-        );
-        profile.clearPendingWarning();
-      }
+      _handlePendingWarning();
     });
 
     final ProfileProvider p =
@@ -166,8 +164,32 @@ class _HomePageState extends State<HomePage> {
     super.initState();
   }
 
+  /// Handles showing the pending warning snackbar when it's set by the API.
+  /// This listener is called whenever ProfileProvider notifies listeners of changes.
+  void _handlePendingWarning() {
+    // Safety check: ensure widget is still mounted before accessing context
+    if (!mounted) return;
+
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    if (profile.pendingWarning != null && profile.pendingWarning!.isNotEmpty) {
+      AppSnackBar.showGetXCustomSnackBar(
+        message: profile.pendingWarning!,
+        backgroundColor: Colors.orange,
+      );
+      profile.clearPendingWarning();
+    }
+  }
+
   void notification() async {
     await NotificationService().requestNotificationPermission();
+  }
+
+  @override
+  void dispose() {
+    // Remove listener to prevent memory leaks
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    profile.removeListener(_handlePendingWarning);
+    super.dispose();
   }
 
   @override
@@ -1289,7 +1311,11 @@ class _HomePageState extends State<HomePage> {
                                                   : Colors.green,
                                         ),
                                         child: Text(
-                                            p.data?.isPunchIn == true ? "Punch Out" : "Punch IN", style: TextStyle(color: Colors.white),),
+                                          p.data?.isPunchIn == true
+                                              ? "Punch Out"
+                                              : "Punch IN",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
                                       ),
                                     // if (p.data?.profileSettings
                                     //             .firstWhere((element) =>
