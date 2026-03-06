@@ -175,7 +175,11 @@ class LocationProvider extends ChangeNotifier {
       final vouchDt = now.toString().split(' ')[0]; // YYYY-MM-DD format
       final vouchTime = now.toString().split(' ')[1]; // HH:MM:SS format
 
-      const result = await locationService.punchInOut(
+      print('[LocationProvider] 🔵 PUNCH REQUEST - Remark: ${remarks}');
+      print(
+          '[LocationProvider]   User: ${ub.syncId} | DateTime: $vouchDt $vouchTime');
+
+      final result = await locationService.punchInOut(
         userCd: ub.syncId ?? '',
         vouchDt: vouchDt,
         vouchTime: vouchTime,
@@ -189,52 +193,51 @@ class LocationProvider extends ChangeNotifier {
       if (result['success'] == true) {
         if (result['synced'] == true) {
           // Successful online sync
+          print(
+              '[LocationProvider] 🟢 RESULT: SYNCED | locId=${result['locId']} | Lat=${result['lat']}, Lng=${result['longi']}');
           AppSnackBar.showGetXCustomSnackBar(
             message: '${remarks} successful',
             backgroundColor: Colors.green,
           );
-          if (kDebugMode) {
-            print('[LocationProvider] ${remarks} synced (ID: ${result['locId']})');
-          }
         } else {
           // Saved locally, will sync when online
+          print(
+              '[LocationProvider] 🟠 RESULT: OFFLINE | locId=${result['locId']} | Lat=${result['lat']}, Lng=${result['longi']}');
           AppSnackBar.showGetXCustomSnackBar(
             message: '${remarks} saved offline (will sync when online)',
             backgroundColor: Colors.orange,
           );
-          if (kDebugMode) {
-            print('[LocationProvider] ${remarks} saved offline (ID: ${result['locId']})');
-          }
         }
 
-        // Refresh profile/settings after punch
-        remarks = null;
+        // Toggle punch state immediately so button updates right away
+        final bool wasIn = remarks == 'PUNCH IN';
+        remarks = null; // clear after capturing
         if (Get.context != null) {
           final ProfileProvider p =
               Provider.of<ProfileProvider>(Get.context!, listen: false);
-          await p.getProfile(Get.context!).then((value) {
-            p.loadSettings(Get.context!);
-          });
+          p.setPunchState(wasIn); // true if just punched in → show Punch Out
+          // Refresh profile/settings in background
+          p.getProfile(Get.context!);
+          // p.getProfile(Get.context!).then((value) {
+          //   p.loadSettings(Get.context!);
+          // });
         }
       } else {
         // Failed to punch
+        print(
+            '[LocationProvider] 🔴 RESULT: FAILED | Error: ${result['error']}');
         AppSnackBar.showGetXCustomSnackBar(
           message: result['error'] ?? 'Failed to punch. Please try again.',
           backgroundColor: Colors.red,
         );
-        if (kDebugMode) {
-          print('[LocationProvider] Error: ${result['error']}');
-        }
       }
     } catch (e, stack) {
+      print('[LocationProvider] 🔴 EXCEPTION: ${e.toString()} | Stack: $stack');
       FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(
         message: 'Error during punch: ${e.toString()}',
         backgroundColor: Colors.red,
       );
-      if (kDebugMode) {
-        print("Error in LocationProvider sendlocation: ${e.toString()}");
-      }
     } finally {
       isLoading = false;
       notifyListeners();

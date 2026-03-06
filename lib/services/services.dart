@@ -498,6 +498,9 @@ class Services {
       print(response.body);
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
+        print('[ORDER] 🔍 Full /orders response: ${decoded["data"]}');
+        final extractedOId = decoded["data"]?["oId"];
+        print('[ORDER] 🔍 Extracted oId: $extractedOId (type: ${extractedOId.runtimeType})');
 
         // Check for an order-limit warning from the backend and persist it
         // so the homescreen can display it as a snackbar after navigation.
@@ -508,10 +511,12 @@ class Services {
         }
 
         if (pb.YN == "Y") {
+          final orderId = extractedOId != null ? extractedOId.toString() : '';
+          print('[ORDER] ✅ Sending END order with oId=$orderId');
           pp
               .startEndOrder(
                   pb.YN == "Y" ? pp.punchInOutParty : "", partyCd, context, "2",
-                  oID: decoded["data"]["oId"].toString())
+                  oID: orderId.isNotEmpty ? orderId : null)
               .then((value) {
             pb.getProfile(context).then((v) {
               // Load settings after profile is loaded

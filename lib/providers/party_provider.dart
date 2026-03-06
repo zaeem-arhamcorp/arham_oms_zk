@@ -10,6 +10,7 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/apiServices.dart';
 import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/order_tracking_service.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -531,65 +532,61 @@ class PartyProvider extends DisposableProvider {
     loading = true;
     notifyListeners();
     try {
-      await lp.determinePosition().then((location) async {
-        ApiServices()
-            .postData(
-                "orders-tracking",
-                {
-                  "accCd": acc_cd,
+      final location = await lp.determinePosition();
 
-                  // "lat": location.latitude.toString(),
-                  // "longi": location.longitude.toString(),
-                  "lat": ub.role == AppConfig.masteruser
-                      ? location.latitude.toString().isNotEmpty
-                          ? location.latitude.toString()
-                          : '0'
-                      : location.latitude.toString().isNotEmpty
-                          ? location.latitude.toString()
-                          : '0',
-                  "longi": ub.role == AppConfig.masteruser
-                      ? location.longitude.toString().isNotEmpty
-                          ? location.longitude.toString()
-                          : '0'
-                      : location.longitude.toString().isNotEmpty
-                          ? location.longitude.toString()
-                          : '0',
-                  "oId": oID ?? "",
-                  "type": type,
-                  "moduleNo": "205"
-                },
-                context: context,
-                header: true,
-                he: ub.token.toString())
-            .then((value) {
-          if (value != null) {
-            print(
-                "...........////////////...............////////////......./////");
-            //Fluttertoast.showToast(msg: json.decode(value.body)["message"]);
-            AppSnackBar.showGetXCustomSnackBar(
-                message: json.decode(value.body)["message"],
-                backgroundColor: Colors.green);
-            if (id != null) {
-              pp.change("", "");
-              punchInOutParty = "";
-              punchInOutPartyId = "";
-              notifyListeners();
-            } else {
-              pp.change(accName, acc_cd);
-            }
-            loading = false;
-            notifyListeners();
-          } else {
-            loading = false;
-            notifyListeners();
-          }
-        });
-      });
+      // Use OrderTrackingService for offline-first start/end order
+      final OrderTrackingService orderSvc = OrderTrackingService();
+      final result = await orderSvc.startEndOrder(
+        accCd: acc_cd,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        type: type,
+        oId: oID,
+        token: ub.token.toString(),
+        moduleNo: "205",
+        syncId: int.tryParse(ub.syncId ?? "0") ?? 0,
+        userCd: ub.syncId ?? "",
+        isEndOrder: id != null, // true if END order, false if START order
+      );
+
+      if (result['success'] == true) {
+        if (result['synced'] == true) {
+          // Successful online sync
+          print('[PartyProvider] 🟢 RESULT: SYNCED');
+          AppSnackBar.showGetXCustomSnackBar(
+              message: 'Order updated successfully',
+              backgroundColor: Colors.green);
+        } else {
+          // Saved locally, will sync when online
+          print('[PartyProvider] 🟠 RESULT: OFFLINE');
+          AppSnackBar.showGetXCustomSnackBar(
+              message: 'Order saved offline (will sync when online)',
+              backgroundColor: Colors.orange);
+        }
+
+        // Update local state based on START or END
+        if (id != null) {
+          // END ORDER
+          pp.change("", "");
+          punchInOutParty = "";
+          punchInOutPartyId = "";
+          notifyListeners();
+        } else {
+          // START ORDER
+          pp.change(accName, acc_cd);
+        }
+        loading = false;
+        notifyListeners();
+      } else {
+        // Failed to process order
+        print('[PartyProvider] 🔴 RESULT: FAILED | Error: ${result['error']}');
+        AppSnackBar.showGetXCustomSnackBar(
+            message: result['error'] ?? 'Failed to process order');
+        loading = false;
+        notifyListeners();
+      }
     } catch (e, stack) {
       FirebaseCrashlytics.instance.recordError(e, stack);
-      // Fluttertoast.showToast(
-      //     msg: "Please Enable Location Permission",
-      //     toastLength: Toast.LENGTH_LONG);
       AppSnackBar.showGetXCustomSnackBar(
           message: 'Please Enable Location Permission');
 

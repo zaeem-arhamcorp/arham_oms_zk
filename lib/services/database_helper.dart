@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -127,6 +127,12 @@ class DatabaseHelper {
           'CREATE INDEX IF NOT EXISTS idx_locations_user_date ON locations(SYNC_ID, USER_CD, VOUCH_DT)');
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_locations_module ON locations(MODULE_NO)');
+    }
+    if (oldVersion < 10) {
+      // v9 to v10: Add order_tracking table for offline start/end order
+      await _createOrderTrackingTable(db);
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_order_tracking_sync_status ON order_tracking(sync_status)');
     }
   }
 
@@ -927,7 +933,7 @@ class DatabaseHelper {
         LAT REAL NOT NULL DEFAULT 0.0,
         LONGI REAL NOT NULL DEFAULT 0.0,
         REMARK TEXT NOT NULL DEFAULT '',
-        SYNC_ID INTEGER NOT NULL,
+        SYNC_ID INTEGER NOT NULL, 
         CREATED_BY TEXT NOT NULL DEFAULT '',
         CREATED_AT INTEGER NOT NULL,
         UPDATED_BY TEXT NOT NULL DEFAULT '',
@@ -937,6 +943,34 @@ class DatabaseHelper {
         sync_status TEXT DEFAULT 'pending'
       )
     ''');
+  }
+
+  Future<void> _createOrderTrackingTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS order_tracking (
+        locId INTEGER PRIMARY KEY AUTOINCREMENT,
+        oId INTEGER DEFAULT NULL,
+        USER_CD TEXT DEFAULT NULL,
+        ACC_CD TEXT NOT NULL,
+        VOUCH_DT TEXT NOT NULL,
+        VOUCH_TIME TEXT NOT NULL DEFAULT '00:00:00',
+        LAT REAL NOT NULL DEFAULT 0.0,
+        LONGI REAL NOT NULL DEFAULT 0.0,
+        REMARK TEXT NOT NULL DEFAULT '',
+        SYNC_ID INTEGER NOT NULL,
+        CREATED_BY TEXT NOT NULL DEFAULT '',
+        CREATED_AT INTEGER NOT NULL,
+        UPDATED_BY TEXT NOT NULL DEFAULT '',
+        UPDATED_AT INTEGER NOT NULL,
+        CREATED_APP_TYPE TEXT NOT NULL DEFAULT '',
+        MODULE_NO TEXT NOT NULL DEFAULT '205',
+        sync_status TEXT DEFAULT 'pending'
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_tracking_order ON order_tracking(SYNC_ID, oId)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_ordertrack_account ON order_tracking(SYNC_ID, ACC_CD)');
   }
 
   /// Insert a new location record (punch-in/punch-out)
@@ -1001,5 +1035,36 @@ class DatabaseHelper {
   Future<void> deleteLocation(int locId) async {
     final db = await database;
     await db.delete('locations', where: 'locId = ?', whereArgs: [locId]);
+  }
+
+  /// Insert order tracking record (start/end order)
+  Future<int> insertOrderTracking(Map<String, dynamic> trackingData) async {
+    final db = await database;
+    return await db.insert('order_tracking', trackingData);
+  }
+
+  /// Get all pending order tracking records
+  Future<List<Map<String, dynamic>>> getPendingOrderTrackings() async {
+    final db = await database;
+    return await db.query('order_tracking', where: "sync_status = 'pending'");
+  }
+
+  /// Update order tracking sync status
+  Future<void> updateOrderTrackingStatus(
+      int trackingId, String status, String? error) async {
+    final db = await database;
+    await db.update(
+      'order_tracking',
+      {'sync_status': status},
+      where: 'locId = ?',
+      whereArgs: [trackingId],
+    );
+  }
+
+  /// Delete order tracking record
+  Future<void> deleteOrderTracking(int trackingId) async {
+    final db = await database;
+    await db
+        .delete('order_tracking', where: 'locId = ?', whereArgs: [trackingId]);
   }
 }

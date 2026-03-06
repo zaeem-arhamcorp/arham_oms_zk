@@ -53,32 +53,54 @@ class LocationService {
         'UPDATED_AT': now,
         'CREATED_APP_TYPE': createdAppType,
         'MODULE_NO': moduleNo,
-        'sync_status': 'pending', // Will be changed to 'synced' after online upload
+        'sync_status':
+            'pending', // Will be changed to 'synced' after online upload
       };
 
       // Always save to local DB first
       int locId = await db.insertLocation(locationData);
-      print('[LocationService] Saved punch $punchType locally: locId=$locId, user=$userCd');
+      print('[LocationService] ✅ PUNCH SAVED TO LOCAL DB');
+      print(
+          '[LocationService]   locId=$locId | user=$userCd | punch=$punchType');
+      print(
+          '[LocationService]   date=$vouchDt | time=$vouchTime | gps=($lat, $longi)');
+      print(
+          '[LocationService]   remark=$remark | syncId=$syncId | moduleNo=$moduleNo');
+      print('[LocationService]   status=pending (waiting for sync)');
 
       // If online, immediately push to server
       final isOnline = await NetworkHelper.hasInternet();
       if (isOnline) {
         try {
           // Prepare payload for server
+          // Format time without microseconds for server compatibility
+          final formattedVouchTime = vouchTime.split('.').first;
+
+          // Server historically expects lowercase keys like `lat`, `long`, `moduleNo`, `remarks`.
+          // Include both forms to be compatible with either server variant.
           final body = {
+            // legacy / expected keys
+            'lat': lat.toString(),
+            'long': longi.toString(),
+            'moduleNo': moduleNo.toString(),
+            'remarks': remark,
+
+            // detailed keys (kept for compatibility / audit)
             'USER_CD': userCd,
             'VOUCH_DT': vouchDt,
-            'VOUCH_TIME': vouchTime,
+            'VOUCH_TIME': formattedVouchTime,
             'LAT': lat.toString(),
             'LONGI': longi.toString(),
             'REMARK': remark,
             'SYNC_ID': syncId.toString(),
-            'MODULE_NO': moduleNo,
+            'MODULE_NO': moduleNo.toString(),
             'CREATED_BY': createdBy,
             'CREATED_APP_TYPE': createdAppType,
           };
 
-          print('[LocationService] POSTing to server: $body');
+          print('[LocationService] 📤 ONLINE DETECTED - Pushing to server...');
+          print('[LocationService]   POST URL: ${AppConfig.baseURL}locations');
+          print('[LocationService]   Payload (sent): $body');
 
           final http.Response response = await http.post(
             Uri.parse("${AppConfig.baseURL}locations"),
@@ -89,12 +111,17 @@ class LocationService {
             },
           );
 
-          print('[LocationService] Server response: ${response.statusCode}');
+          print('[LocationService] 📥 Server response: ${response.statusCode}');
+          print('[LocationService]   Response body: ${response.body}');
 
           if (response.statusCode == 200 || response.statusCode == 201) {
             // Success: mark as synced in local DB
             await db.updateLocationSyncStatus(locId, 'synced', null);
-            print('[LocationService] Punch $punchType synced to server: locId=$locId');
+            print('[LocationService] ✅ SYNC SUCCESSFUL');
+            print(
+                '[LocationService]   locId=$locId | Marked as synced in local DB');
+            print(
+                '[LocationService]   user=$userCd | punch=$punchType | Local record kept for history');
             return {
               'success': true,
               'locId': locId,
@@ -105,7 +132,11 @@ class LocationService {
             };
           } else {
             // Server error: keep as pending for later sync
-            print('[LocationService] Server error (${response.statusCode}), keeping pending');
+            print('[LocationService] ⚠️ SERVER ERROR ${response.statusCode}');
+            print(
+                '[LocationService]   locId=$locId | Status: PENDING (will retry on next sync)');
+            print(
+                '[LocationService]   Local data preserved for automatic retry');
             return {
               'success': true,
               'locId': locId,
@@ -118,7 +149,10 @@ class LocationService {
           }
         } catch (e) {
           // Network/POST error: keep locally as pending
-          print('[LocationService] Server sync failed (keeping local): $e');
+          print('[LocationService] ⚠️ POST FAILED');
+          print('[LocationService]   locId=$locId | Error: $e');
+          print(
+              '[LocationService]   Status: PENDING (will retry when online returns)');
           return {
             'success': true,
             'locId': locId,
@@ -131,6 +165,12 @@ class LocationService {
         }
       } else {
         // Offline: just local save, will sync later
+        print('[LocationService] 📵 OFFLINE MODE - Saved locally only');
+        print(
+            '[LocationService]   locId=$locId | user=$userCd | punch=$punchType');
+        print(
+            '[LocationService]   date=$vouchDt | time=$vouchTime | gps=($lat, $longi)');
+        print('[LocationService]   Status: PENDING (will sync when online)');
         return {
           'success': true,
           'locId': locId,

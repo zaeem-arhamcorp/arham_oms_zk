@@ -321,22 +321,27 @@ class _HomePageState extends State<HomePage> {
                       SizedBox(
                         width: 10,
                       ),
-                      Container(
-                          width: 20,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.lightBlue.shade100,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.keyboard_double_arrow_down_rounded,
-                                color: Color(0XFF2c9ed9),
-                                size: 20,
-                              )
-                            ],
-                          ))
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                      // Container(
+                      //     width: 20,
+                      //     height: 30,
+                      //     decoration: BoxDecoration(
+                      //       borderRadius: BorderRadius.circular(8),
+                      //       color: Colors.lightBlue.shade100,
+                      //     ),
+                      //     child: Row(
+                      //       children: [
+                      //         Icon(
+                      //           Icons.keyboard_double_arrow_down_rounded,
+                      //           color: Color(0XFF2c9ed9),
+                      //           size: 20,
+                      //         )
+                      //       ],
+                      //     ))
                     ],
                   ),
                 ),
@@ -1262,8 +1267,6 @@ class _HomePageState extends State<HomePage> {
                                             false) &&
                                         location.isLoading == false)
                                       ElevatedButton(
-                                        child: Text(
-                                            "${p.data?.isPunchIn == true ? "Punch Out" : "Punch IN"}"),
                                         onPressed: () {
                                           if (p.data?.isPunchIn == true) {
                                             // setState(() {});
@@ -1285,6 +1288,8 @@ class _HomePageState extends State<HomePage> {
                                                   ? Colors.red
                                                   : Colors.green,
                                         ),
+                                        child: Text(
+                                            p.data?.isPunchIn == true ? "Punch Out" : "Punch IN", style: TextStyle(color: Colors.white),),
                                       ),
                                     // if (p.data?.profileSettings
                                     //             .firstWhere((element) =>

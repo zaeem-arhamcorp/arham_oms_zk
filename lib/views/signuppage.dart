@@ -331,7 +331,8 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
         TextButton(
           onPressed: () {
-            Get.to(() => LoginPage());
+            // Get.to(() => LoginPage());
+            Get.back();
           },
           child: Text("Login", style: TextStyle(color: Color(0XFF2c9ed9))),
         ),

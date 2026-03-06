@@ -40,6 +40,16 @@ class SyncService {
         continue;
       }
 
+      // Skip orders with empty partyCd — they can never sync successfully
+      final partyCd = order['server_party_id']?.toString() ?? '';
+      if (partyCd.isEmpty) {
+        print(
+            '[SyncService] ⚠️ Order ${order['id']} has empty partyCd — marking failed');
+        await db.updateOrderStatus(order['id'], 'failed', null);
+        skipped++;
+        continue;
+      }
+
       final ok = await _syncOrderWithRetry(order, token);
       if (ok) {
         synced++;
@@ -290,8 +300,12 @@ class SyncService {
       int? serverOrderId;
       try {
         final data = jsonDecode(response.body);
+        print('[SyncService] 🔍 Full response data: ${data["data"]}');
         serverOrderId = data["data"]?["oId"] ?? data["oId"];
-      } catch (_) {}
+        print('[SyncService] 🔍 Extracted serverOrderId: $serverOrderId');
+      } catch (e) {
+        print('[SyncService] ⚠️ Failed to parse oId: $e');
+      }
 
       await db.updateOrderStatus(order['id'], 'synced', serverOrderId);
       print(
@@ -413,30 +427,49 @@ class SyncService {
     // Pre-check: make sure we have internet
     final hasNet = await NetworkHelper.hasInternet();
     if (!hasNet) {
-      print('[SyncService] No internet — skipping location sync');
+      print('[SyncService] 📵 No internet — skipping location sync');
       return {'synced': 0, 'failed': 0};
     }
 
     final pendingLocations = await db.getPendingLocations();
-    print('[SyncService] Found ${pendingLocations.length} pending location(s)');
+    print('[SyncService] 📍 LOCATION SYNC STARTED');
+    print(
+        '[SyncService] Found ${pendingLocations.length} pending punch(es) to sync');
 
     for (var location in pendingLocations) {
+      var locId;
       try {
-        final locId = location['locId'];
-        
+        locId = location['locId'];
+
         // Prepare payload for server
+        final rawTime = location['VOUCH_TIME']?.toString() ?? '00:00:00';
+        final cleanTime = rawTime.split('.').first; // strip microseconds
+        final latStr = location['LAT']?.toString() ?? '0.0';
+        final longiStr = location['LONGI']?.toString() ?? '0.0';
+        final remarkStr = location['REMARK']?.toString() ?? '';
+        final moduleNoStr = location['MODULE_NO']?.toString() ?? '205';
+
         var payload = {
           'USER_CD': location['USER_CD']?.toString() ?? '',
           'VOUCH_DT': location['VOUCH_DT']?.toString() ?? '',
-          'VOUCH_TIME': location['VOUCH_TIME']?.toString() ?? '00:00:00',
-          'LAT': location['LAT']?.toString() ?? '0.0',
-          'LONGI': location['LONGI']?.toString() ?? '0.0',
-          'REMARK': location['REMARK']?.toString() ?? '',
+          'VOUCH_TIME': cleanTime,
+          'LAT': latStr,
+          'LONGI': longiStr,
+          'REMARK': remarkStr,
           'SYNC_ID': location['SYNC_ID']?.toString() ?? '',
-          'MODULE_NO': location['MODULE_NO']?.toString() ?? '205',
+          'MODULE_NO': moduleNoStr,
+          'lat': latStr,
+          'long': longiStr,
+          'moduleNo': moduleNoStr,
+          'remarks': remarkStr,
         };
 
-        print('[SyncService] POST location: $payload');
+        print('[SyncService] 📤 Syncing location #${locId ?? 'unknown'}');
+        print(
+            '[SyncService]   User: ${payload['USER_CD']} | Punch: ${payload['REMARK']}');
+        print(
+            '[SyncService]   Date: ${payload['VOUCH_DT']} | Time: ${payload['VOUCH_TIME']}');
+        print('[SyncService]   GPS: (${payload['LAT']}, ${payload['LONGI']})');
 
         // Post to server
         var response = await http.post(
@@ -448,31 +481,145 @@ class SyncService {
           body: payload,
         );
 
-        print('[SyncService] Location response ${response.statusCode}: ${response.body}');
+        print(
+            '[SyncService] 📥 Response ${response.statusCode}: ${response.body}');
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           // Success: mark as synced and delete from local DB
           await db.updateLocationSyncStatus(locId, 'synced', null);
           await db.deleteLocation(locId);
           synced++;
-          print('[SyncService] Location $locId synced and deleted locally');
+          print(
+              '[SyncService] ✅ Success! Location #${locId ?? 'unknown'} synced & deleted from local DB');
+          print(
+              '[SyncService]    (Synced: $synced/${pendingLocations.length})');
         } else if (response.statusCode == 401) {
-          print('[SyncService] Auth expired during location sync');
+          print('[SyncService] ⚠️ Auth expired during location sync');
           break;
         } else {
           failed++;
-          print('[SyncService] Location sync failed: HTTP ${response.statusCode}');
+          print(
+              '[SyncService] ❌ Failed: HTTP ${response.statusCode} for location #${locId ?? 'unknown'}');
+          print('[SyncService]    Local copy kept for retry (Failed: $failed)');
           // Keep local copy for retry
         }
       } catch (e) {
         failed++;
-        print('[SyncService] Error syncing location: $e');
+        print(
+            '[SyncService] ❌ Error syncing location #${locId ?? 'unknown'}: $e');
+        print('[SyncService]    Local copy kept for retry');
         // Keep local copy on error
       }
     }
 
-    print('[SyncService] Location sync complete: synced=$synced, failed=$failed');
+    print(
+        '[SyncService] 📍 Location sync complete: $synced synced, $failed failed');
+    return {'synced': synced, 'failed': failed};
+  }
+
+  /// Sync order tracking events (start/end order)
+  Future<Map<String, int>> syncOrderTrackings(String token) async {
+    int synced = 0, failed = 0;
+
+    // Pre-check: make sure we have internet
+    final hasNet = await NetworkHelper.hasInternet();
+    if (!hasNet) {
+      print('[SyncService] 📵 No internet — skipping order tracking sync');
+      return {'synced': 0, 'failed': 0};
+    }
+
+    final pendingTrackings = await db.getPendingOrderTrackings();
+    print('[SyncService] 🎯 ORDER TRACKING SYNC STARTED');
+    print(
+        '[SyncService] Found ${pendingTrackings.length} pending tracking(s) to sync');
+    
+    // Debug: show local DB state before sync
+    for (var t in pendingTrackings) {
+      print('[SyncService] 📋 LOCAL DB: trackingId=${t['locId']} | REMARK=${t['REMARK']} | oId=${t['oId']} | ACC_CD=${t['ACC_CD']}');
+    }
+
+    for (var tracking in pendingTrackings) {
+      var trackingId;
+      try {
+        trackingId = tracking['locId'];
+
+        final remarkVal = tracking['REMARK']?.toString() ?? '';
+        final vouchDt = tracking['VOUCH_DT']?.toString() ?? '';
+        final rawTime = tracking['VOUCH_TIME']?.toString() ?? '00:00:00';
+        final cleanTime = rawTime.split('.').first;
+        
+        // Determine if this is START (IN) or END (OUT) order
+        final isOut = remarkVal.toUpperCase() == 'OUT';
+        
+        final payload = {
+          'accCd': tracking['ACC_CD']?.toString() ?? '',
+          'lat': tracking['LAT']?.toString() ?? '0.0',
+          'longi': tracking['LONGI']?.toString() ?? '0.0',
+          'oId': tracking['oId']?.toString() ?? '',
+          'type': '3',  // Keep original type value
+          'moduleNo': tracking['MODULE_NO']?.toString() ?? '205',
+          'remark': remarkVal,
+          'REMARK': remarkVal,
+          'remarks': remarkVal,
+          'VOUCH_DT': vouchDt,
+          'VOUCH_TIME': cleanTime,
+          'USER_CD': tracking['USER_CD']?.toString() ?? '',
+          'SYNC_ID': tracking['SYNC_ID']?.toString() ?? '',
+        };
+
+        print('[SyncService] 📤 Syncing order tracking #$trackingId');
+        print(
+            '[SyncService]   Party: ${payload['accCd']} | oId: ${payload['oId']}');
+        print('[SyncService]   GPS: (${payload['lat']}, ${payload['longi']})');
+        print('[SyncService]   REMARK: $remarkVal | type: ${payload['type']}');
+        print('[SyncService]   Full payload: $payload');
+
+        var response = await http.post(
+          Uri.parse("${AppConfig.baseURL}orders-tracking"),
+          headers: {
+            "Authorization": "Bearer $token",
+            'x-app-type': 'oms',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(payload),
+        );
+
+        print('[SyncService] 📥 Server response: ${response.statusCode}');
+        print('[SyncService]   Body: ${response.body}');
+        
+        // Parse response to show what server stored
+        try {
+          final respData = jsonDecode(response.body);
+          final serverRemark = respData['data']?['REMARK']?.toString() ?? 'N/A';
+          final serverOId = respData['data']?['oId']?.toString() ?? 'null';
+          final serverLocId = respData['data']?['locId']?.toString() ?? 'N/A';
+          print('[SyncService] ✅ Server stored: locId=$serverLocId, REMARK=$serverRemark, oId=$serverOId');
+        } catch (e) {
+          print('[SyncService] Could not parse response: $e');
+        }
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Success: mark as synced and delete local copy
+          await db.updateOrderTrackingStatus(trackingId, 'synced', null);
+          await db.deleteOrderTracking(trackingId);
+          synced++;
+          print('[SyncService] ✅ Synced order tracking #$trackingId');
+        } else {
+          // Server error: keep local copy for retry
+          failed++;
+          print(
+              '[SyncService] ❌ Failed: HTTP ${response.statusCode} for tracking #$trackingId');
+          print('[SyncService]    Local copy kept for retry');
+        }
+      } catch (e) {
+        failed++;
+        print('[SyncService] ❌ Error syncing order tracking #$trackingId: $e');
+        print('[SyncService]    Local copy kept for retry');
+      }
+    }
+
+    print(
+        '[SyncService] 🎯 Order tracking sync complete: $synced synced, $failed failed');
     return {'synced': synced, 'failed': failed};
   }
 }
-

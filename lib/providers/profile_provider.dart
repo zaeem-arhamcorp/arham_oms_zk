@@ -85,13 +85,10 @@ class ProfileProvider extends DisposableProvider {
   }
 
   Future getProfile(BuildContext context, {id}) async {
-    YN = "";
-    ACC_NAME = "";
-    ACC_CD = "";
-    if (_data != null) {
-      _data = null;
-    }
-    notifyListeners();
+    // NOTE: Do NOT clear _data, YN, ACC_NAME, ACC_CD or call notifyListeners()
+    // before the network response. Doing so causes the UI to lose all state
+    // (punch button disappears, Start/End Order breaks, partyCd becomes empty).
+    // These values will be overwritten once the response arrives.
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
     final bool online = await NetworkHelper.hasInternet();
@@ -107,13 +104,6 @@ class ProfileProvider extends DisposableProvider {
                   false)
               ? 'Y'
               : 'N';
-
-          ACC_NAME = data!.orderStartParty == null
-              ? ""
-              : data!.orderStartParty!.accName.toString();
-          ACC_CD = data!.orderStartParty == null
-              ? ""
-              : data!.orderStartParty!.accCd.toString();
 
           // Restore username and user code from SharedPreferences
           await getUserCode();
@@ -170,17 +160,9 @@ class ProfileProvider extends DisposableProvider {
             ? 'Y'
             : 'N';
 
-        ACC_NAME = data!.orderStartParty == null
-            ? ""
-            : data!.orderStartParty!.accName.toString();
-        ACC_CD = data!.orderStartParty == null
-            ? ""
-            : data!.orderStartParty!.accCd.toString();
-        if (id == null) {
-          if (YN == "Y") {
-            pp.changePunchInOutParty(ACC_NAME, ACC_CD, context, id: 5);
-          }
-        }
+        getUserCode();
+        getUserName();
+
         notifyListeners();
       } else {
         ub.userSignout(context).then((value) {
@@ -209,9 +191,13 @@ class ProfileProvider extends DisposableProvider {
             await Services().getSettings(context);
 
         if (settingResponse != null && settingResponse.data.isNotEmpty) {
-          // Update profile settings
+          // Update profile settings (MERGE instead of replace to preserve punchInOut)
           if (_data != null) {
-            _data!.profileSettings = settingResponse.data;
+            // Remove old settings that conflict with new ones (same 'variable' name)
+            _data!.profileSettings.removeWhere((old) => settingResponse.data
+                .any((new_) => new_.variable == old.variable));
+            // Add new settings alongside existing ones
+            _data!.profileSettings.addAll(settingResponse.data);
           }
 
           // Cache settings for offline use
@@ -239,12 +225,16 @@ class ProfileProvider extends DisposableProvider {
             final List<DatumSettings> settingsList =
                 cachedSettings.map((s) => DatumSettings.fromJson(s)).toList();
 
-            // Update profile settings
+            // Update profile settings (MERGE instead of replace to preserve punchInOut)
             if (_data != null) {
-              _data!.profileSettings = settingsList;
+              // Remove old settings that conflict with cached ones (same 'variable' name)
+              _data!.profileSettings.removeWhere((old) =>
+                  settingsList.any((new_) => new_.variable == old.variable));
+              // Add cached settings alongside existing ones
+              _data!.profileSettings.addAll(settingsList);
             }
             print(
-                '[SETTINGS] Loaded ${settingsList.length} settings from cache');
+                '[SETTINGS] Loaded ${settingsList.length} settings from cache (merged)');
           } else {
             print('[SETTINGS] No cached settings available');
           }
@@ -256,6 +246,15 @@ class ProfileProvider extends DisposableProvider {
       notifyListeners();
     } catch (e) {
       print('[SETTINGS] Error in loadSettings: $e');
+    }
+  }
+
+  /// Update local punch-in state and notify listeners.
+  /// Used by UI to reflect punch-in/out immediately.
+  void setPunchState(bool isIn) {
+    if (_data != null) {
+      _data!.isPunchIn = isIn;
+      notifyListeners();
     }
   }
 
