@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 
+import 'order_tracking_service.dart';
+
 class SyncService {
   final DatabaseHelper db = DatabaseHelper();
 
@@ -229,16 +231,64 @@ class SyncService {
       // Continue anyway — better to have duplicates than skip the order
     }
 
+    // // Step 1: Add each item to the server cart
+    // for (var item in validItems) {
+    //   final itemCd = item['item_cd'].toString();
+    //
+    //   var cartPayload = {
+    //     "partyCd": partyCd,
+    //     "itemCd": itemCd,
+    //     "qty": item["quantity"]?.toString() ?? '0',
+    //     "rate": item["rate"]?.toString() ?? '0',
+    //     "lrate": item["lrate"]?.toString() ?? '0',
+    //     "moduleNo": "205",
+    //   };
+
     // Step 1: Add each item to the server cart
+    // Get products cache to recover missing rates
+    final productsCache = await db.getCachedProducts();
+
     for (var item in validItems) {
       final itemCd = item['item_cd'].toString();
+
+      // Handle missing rates: if rate is 0, try to recover from products_cache
+      var rate = item["rate"] ?? 0.0;
+      var lrate = item["lrate"] ?? 0.0;
+      var nrate = item["nrate"] ?? 0.0;
+
+      if ((rate == 0.0 || rate.toString() == '0') && productsCache.isNotEmpty) {
+        // Try to find this item in products_cache and get its rate
+        try {
+          final cachedProduct = productsCache.firstWhere(
+                (p) => p['item_cd']?.toString() == itemCd,
+            orElse: () => {},
+          );
+
+          if (cachedProduct.isNotEmpty) {
+            final productJson = jsonDecode(cachedProduct['product_json'].toString())
+            as Map<String, dynamic>;
+            // Try different rate field names from product JSON
+            final srate = productJson['SRATE1'] ??
+                productJson['SRATE3'] ??
+                productJson['PRATE'] ??
+                0;
+            if (srate != 0 && srate.toString() != '0') {
+              rate = double.tryParse(srate.toString()) ?? rate;
+              print(
+                  '[SyncService] ✅ Recovered rate for item $itemCd: $rate (was 0.0)');
+            }
+          }
+        } catch (e) {
+          print('[SyncService] ⚠️ Could not recover rate for item $itemCd: $e');
+        }
+      }
 
       var cartPayload = {
         "partyCd": partyCd,
         "itemCd": itemCd,
         "qty": item["quantity"]?.toString() ?? '0',
-        "rate": item["rate"]?.toString() ?? '0',
-        "lrate": item["lrate"]?.toString() ?? '0',
+        "rate": rate.toString(),
+        "lrate": lrate.toString(),
         "moduleNo": "205",
       };
 
@@ -310,6 +360,39 @@ class SyncService {
       await db.updateOrderStatus(order['id'], 'synced', serverOrderId);
       print(
           '[SyncService] Order ${order['id']} synced → server ID: $serverOrderId');
+
+      // Step 3: Create order tracking record for "Order Placed" (type=2)
+      // This reflects that an order was placed during the punch-in session
+      try {
+        if (serverOrderId != null) {
+          final orderSvc = OrderTrackingService();
+          final latitude = order["latitude"]?.toString() ?? '0';
+          final longitude = order["longitude"]?.toString() ?? '0';
+
+          print(
+              '[SyncService] 📍 Creating order placement tracking for order $serverOrderId');
+
+          await orderSvc.startEndOrder(
+            accCd: order["server_party_id"]?.toString() ?? '',
+            latitude: double.parse(latitude),
+            longitude: double.parse(longitude),
+            type: "2", // Type 2 = Order placed (matches online flow)
+            oId: serverOrderId.toString(),
+            token: token,
+            moduleNo: "205",
+            syncId: 0,
+            userCd: "",
+            isEndOrder: null, // Neutral for order placement
+          );
+
+          print(
+              '[SyncService] ✅ Order placement tracking created for order $serverOrderId');
+        }
+      } catch (e) {
+        print(
+            '[SyncService] ⚠️ Warning: Could not create order placement tracking: $e');
+        // Continue anyway - order was synced, tracking is optional
+      }
 
       // Clean up local data
       try {
