@@ -142,6 +142,8 @@ class OrderTrackingService {
         print('[OrderTrackingService] 📵 OFFLINE MODE - Saved locally only');
         print(
             '[OrderTrackingService]   trackingId=$trackingId | party=$accCd | type=$type');
+        print('[OrderTrackingService]   REMARK=$remark | isEndOrder=$isEndOrder');
+        print('[OrderTrackingService]   📅 LOCAL TIME STORED: VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
         print(
             '[OrderTrackingService]   Status: PENDING (will sync when online)');
         return {

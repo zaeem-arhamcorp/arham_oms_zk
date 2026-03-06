@@ -550,13 +550,15 @@ class SyncService {
         
         // Determine if this is START (IN) or END (OUT) order
         final isOut = remarkVal.toUpperCase() == 'OUT';
+
+        final trackingType = isOut ? '3' : '1';
         
         final payload = {
           'accCd': tracking['ACC_CD']?.toString() ?? '',
           'lat': tracking['LAT']?.toString() ?? '0.0',
           'longi': tracking['LONGI']?.toString() ?? '0.0',
           'oId': tracking['oId']?.toString() ?? '',
-          'type': '3',  // Keep original type value
+          'type': trackingType,  // Keep original type value
           'moduleNo': tracking['MODULE_NO']?.toString() ?? '205',
           'remark': remarkVal,
           'REMARK': remarkVal,
