@@ -523,6 +523,46 @@ class Services {
           print('[ORDER] Warning to display: $warning');
         }
 
+        // Cache license info from API response for offline license checking
+        try {
+          final licenseInfo = decoded['licenseInfo'];
+          if (licenseInfo != null) {
+            // Get syncId from profile or UserProvider (profile.data might be null)
+            int syncId = 0;
+            final profileSyncId = pb.data?.syncId;
+            if (profileSyncId is int) {
+              syncId = profileSyncId;
+            } else if (profileSyncId is String) {
+              syncId = int.tryParse(profileSyncId) ?? 0;
+            }
+
+            // Fallback to UserProvider if profile didn't have it
+            if (syncId == 0 && ub.syncId != null) {
+              syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
+            }
+
+            print(
+                '[ORDER] Debug - profileSyncId=$profileSyncId, userSyncId=${ub.syncId}, parsed syncId=$syncId');
+
+            if (syncId > 0) {
+              await DatabaseHelper().cacheLicenseInfo(
+                syncId: syncId,
+                orderCount: licenseInfo['orderCount'] as int? ?? 0,
+                maxOrders: licenseInfo['maxOrders'] as int? ?? 0,
+                autoBlacklisted: licenseInfo['autoBlacklisted'] == true,
+                renewalTriggered: licenseInfo['renewalTriggered'] == true,
+              );
+              print(
+                  '[ORDER] ✅ Cached license info from API: syncId=$syncId, orders=${licenseInfo['orderCount']}/${licenseInfo['maxOrders']}, blacklisted=${licenseInfo['autoBlacklisted']}');
+            } else {
+              print(
+                  '[ORDER] ⚠️ Could not retrieve SYNC_ID for license caching (syncId=$syncId)');
+            }
+          }
+        } catch (e) {
+          print('[ORDER] ⚠️ Error caching license info: $e');
+        }
+
         if (pb.YN == "Y") {
           final orderId = extractedOId != null ? extractedOId.toString() : '';
           print('[ORDER] ✅ Sending END order with oId=$orderId');

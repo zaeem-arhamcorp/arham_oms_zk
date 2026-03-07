@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'database_helper.dart';
 import 'cart_service.dart';
+import 'offline_order_service.dart' as db;
 
 class OfflineOrderService {
   final DatabaseHelper db = DatabaseHelper();
@@ -11,9 +12,66 @@ class OfflineOrderService {
     required double totalAmount,
     required double latitude,
     required double longitude,
+    required int syncId,
     String? remarks,
   }) async {
-    // Get current cart items for this party only
+    // CHECK LICENSE LIMITS BEFORE ALLOWING OFFLINE ORDER
+    String? licenseWarning;
+
+    try {
+      final licenseInfo = await db.getLicenseInfo(syncId);
+
+      if (licenseInfo != null) {
+        final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
+        final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
+        final offlineOrderCount =
+            licenseInfo['offline_order_count'] as int? ?? 0;
+        final totalOrders = serverOrderCount + offlineOrderCount;
+
+        print('[OfflineOrder] ╔════════════════════════════════════════════');
+        print('[OfflineOrder] ║ LICENSE CHECK DETAILS');
+        print('[OfflineOrder] ║ Max Orders Limit: $maxOrders');
+        print('[OfflineOrder] ║ Server Order Count: $serverOrderCount');
+        print('[OfflineOrder] ║ Offline Order Count: $offlineOrderCount');
+        print('[OfflineOrder] ║ Total Orders (Server+Offline): $totalOrders');
+        print('[OfflineOrder] ╚════════════════════════════════════════════');
+
+        if (totalOrders >= maxOrders) {
+          // Order limit reached - block the order
+          final msg =
+              'You have reached your order limit ($maxOrders orders). Please sync your pending orders or contact support.';
+          print('[OfflineOrder] ❌ ORDER BLOCKED - Limit Exceeded!');
+          print(
+              '[OfflineOrder] Total Orders ($totalOrders) >= Max Limit ($maxOrders)');
+          print('[OfflineOrder] Error Message: $msg');
+          throw Exception(msg);
+        }
+
+        if (totalOrders == maxOrders - 1) {
+          // Warning: next order will hit the limit
+          licenseWarning =
+              '⚠️ License Limit Warning: You have only 1 order remaining. Current: $totalOrders/${maxOrders} orders';
+          print('[OfflineOrder] ⚠️ WARNING - LIMIT APPROACHING!');
+          print('[OfflineOrder] $licenseWarning');
+        }
+
+        print(
+            '[OfflineOrder] ✅ Order allowed to proceed. Current: $totalOrders/${maxOrders}');
+      } else {
+        print(
+            '[OfflineOrder] ⚠️ No cached license info found for SYNC_ID=$syncId');
+        print(
+            '[OfflineOrder] ℹ️ Allowing order to proceed without offline license validation');
+      }
+    } catch (e) {
+      if (e.toString().contains('reached your order limit')) {
+        rethrow; // Re-throw our own limit exception
+      }
+      print('[OfflineOrder] ⚠️ License check encountered error: $e');
+      print('[OfflineOrder] ℹ️ Allowing order to proceed (graceful fallback)');
+    }
+
+    // GET CURRENT CART - rest of the method proceeds as before
     final cartItems = await cartService.getCartItems(partyId: partyId);
 
     if (cartItems.isEmpty) {
@@ -105,9 +163,48 @@ class OfflineOrderService {
     // Clear the local cart after saving order
     await cartService.clearCart();
 
+    // Increment offline order count for license tracking
+    try {
+      await db.incrementOfflineOrderCount(syncId);
+      print(
+          '[OfflineOrder] ✅ Incremented offline order count for SYNC_ID=$syncId');
+    } catch (e) {
+      print(
+          '[OfflineOrder] Warning: Could not increment offline order count: $e');
+    }
+
     print(
         '[OfflineOrderService] Saved offline order $orderId with ${orderItems.length} item(s)');
     return orderId;
+  }
+
+  /// Check current license status and return warning message if needed
+  Future<String?> getOfflineLicenseWarning(int syncId) async {
+    try {
+      final licenseInfo = await db.getLicenseInfo(syncId);
+
+      if (licenseInfo != null) {
+        final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
+        final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
+        final offlineOrderCount =
+            licenseInfo['offline_order_count'] as int? ?? 0;
+        final totalOrders = serverOrderCount + offlineOrderCount;
+
+        print(
+            '[OfflineOrderService] License check for warning: server=$serverOrderCount, offline=$offlineOrderCount, total=$totalOrders, max=$maxOrders');
+
+        if (totalOrders == maxOrders - 1) {
+          final msg =
+              '⚠️ License Limit Warning\n\nYou have only 1 order remaining. Current: $totalOrders/${maxOrders} orders.\n\nPlease sync your orders or contact support.';
+          print('[OfflineOrderService] Warning message: $msg');
+          return msg;
+        }
+      }
+    } catch (e) {
+      print('[OfflineOrderService] Error getting license warning: $e');
+    }
+
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> getPendingOrders() async {

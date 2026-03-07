@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -144,6 +144,12 @@ class DatabaseHelper {
       } catch (e) {
         print('[DATABASE] ⚠️ tracking_type column may already exist: $e');
       }
+    }
+    if (oldVersion < 12) {
+      // v11 to v12: Add license_info table for caching server license/order-limit data
+      await _createLicenseInfoTable(db);
+      print(
+          '[DATABASE] ✅ Created license_info table for offline license checking');
     }
   }
 
@@ -956,6 +962,23 @@ class DatabaseHelper {
     ''');
   }
 
+  Future<void> _createLicenseInfoTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS license_info (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        SYNC_ID INTEGER NOT NULL UNIQUE,
+        orderCount INTEGER DEFAULT 0,
+        maxOrders INTEGER DEFAULT 0,
+        autoBlacklisted INTEGER DEFAULT 0,
+        renewalTriggered INTEGER DEFAULT 0,
+        offline_order_count INTEGER DEFAULT 0,
+        cached_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_license_sync_id ON license_info(SYNC_ID)');
+  }
+
   Future<void> _createOrderTrackingTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS order_tracking (
@@ -1081,5 +1104,112 @@ class DatabaseHelper {
     final db = await database;
     await db
         .delete('order_tracking', where: 'locId = ?', whereArgs: [trackingId]);
+  }
+
+  /// Cache license info from server response
+  Future<void> cacheLicenseInfo({
+    required int syncId,
+    required int orderCount,
+    required int maxOrders,
+    required bool autoBlacklisted,
+    bool renewalTriggered = false,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await db.insert(
+      'license_info',
+      {
+        'SYNC_ID': syncId,
+        'orderCount': orderCount,
+        'maxOrders': maxOrders,
+        'autoBlacklisted': autoBlacklisted ? 1 : 0,
+        'renewalTriggered': renewalTriggered ? 1 : 0,
+        'offline_order_count': 0,
+        'cached_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    print('[DATABASE] ╔════════════════════════════════════════════');
+    print('[DATABASE] ║ LICENSE INFO CACHED FROM SERVER');
+    print('[DATABASE] ║ SYNC_ID: $syncId');
+    print('[DATABASE] ║ Current Orders: $orderCount');
+    print('[DATABASE] ║ Max Orders Limit: $maxOrders');
+    print('[DATABASE] ║ Auto Blacklisted: $autoBlacklisted');
+    print('[DATABASE] ║ Renewal Triggered: $renewalTriggered');
+    print('[DATABASE] ║ Offline Order Count: 0 (reset)');
+    print('[DATABASE] ╚════════════════════════════════════════════');
+  }
+
+  /// Get cached license info
+  Future<Map<String, dynamic>?> getLicenseInfo(int syncId) async {
+    final db = await database;
+    final results = await db.query(
+      'license_info',
+      where: 'SYNC_ID = ?',
+      whereArgs: [syncId],
+    );
+
+    if (results.isNotEmpty) {
+      final info = results.first;
+      print('[DATABASE] Retrieved license info from cache:');
+      print('[DATABASE]   - SYNC_ID: ${info['SYNC_ID']}');
+      print('[DATABASE]   - Order Count: ${info['orderCount']}');
+      print('[DATABASE]   - Max Orders: ${info['maxOrders']}');
+      print('[DATABASE]   - Offline Count: ${info['offline_order_count']}');
+      print('[DATABASE]   - Blacklisted: ${info['autoBlacklisted']}');
+      return info;
+    }
+
+    print('[DATABASE] No cached license info found for SYNC_ID=$syncId');
+    return null;
+  }
+
+  /// Increment offline order count (used before placing offline order)
+  Future<void> incrementOfflineOrderCount(int syncId) async {
+    final db = await database;
+
+    // Get count before
+    final before = await db.query(
+      'license_info',
+      columns: ['offline_order_count'],
+      where: 'SYNC_ID = ?',
+      whereArgs: [syncId],
+    );
+    final countBefore = before.isNotEmpty
+        ? (before.first['offline_order_count'] ?? 0) as int
+        : 0;
+
+    await db.rawUpdate(
+      'UPDATE license_info SET offline_order_count = offline_order_count + 1 WHERE SYNC_ID = ?',
+      [syncId],
+    );
+
+    print('[DATABASE] Incremented offline order count for SYNC_ID=$syncId');
+    print('[DATABASE] Before: $countBefore → After: ${countBefore + 1}');
+  }
+
+  /// Reset offline order count after successful sync
+  Future<void> resetOfflineOrderCount(int syncId) async {
+    final db = await database;
+
+    // Get count before
+    final before = await db.query(
+      'license_info',
+      columns: ['offline_order_count'],
+      where: 'SYNC_ID = ?',
+      whereArgs: [syncId],
+    );
+    final countBefore = before.isNotEmpty
+        ? (before.first['offline_order_count'] ?? 0) as int
+        : 0;
+
+    await db.rawUpdate(
+      'UPDATE license_info SET offline_order_count = 0 WHERE SYNC_ID = ?',
+      [syncId],
+    );
+
+    print('[DATABASE] Reset offline order count for SYNC_ID=$syncId');
+    print('[DATABASE] Before: $countBefore → After: 0');
   }
 }

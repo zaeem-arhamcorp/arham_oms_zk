@@ -60,7 +60,9 @@ class ConnectivityService {
         print("[ConnectivityService] ✅ Cart: $cartResult items synced");
 
         // Sync pending orders
-        final result = await _syncService.syncOrders(userProvider.token!);
+        final syncId = int.tryParse(userProvider.syncId ?? '0') ?? 0;
+        final result =
+            await _syncService.syncOrders(userProvider.token!, syncId: syncId);
         print(
             "[ConnectivityService] ✅ Orders: ${result['synced']} synced, ${result['failed']} failed");
 

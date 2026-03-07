@@ -10,7 +10,8 @@ class SyncService {
 
   /// Main entry point: validate → repair → sync all pending orders.
   /// Returns a summary: {synced, failed, skipped}
-  Future<Map<String, int>> syncOrders(String token) async {
+  // Future<Map<String, int>> syncOrders(String token) async {
+  Future<Map<String, int>> syncOrders(String token, {int? syncId}) async {
     int synced = 0, failed = 0, skipped = 0;
 
     // Pre-check: make sure we actually have internet before attempting sync
@@ -51,7 +52,8 @@ class SyncService {
         continue;
       }
 
-      final ok = await _syncOrderWithRetry(order, token);
+      // final ok = await _syncOrderWithRetry(order, token);
+      final ok = await _syncOrderWithRetry(order, token, syncId: syncId);
       if (ok) {
         synced++;
       } else {
@@ -155,13 +157,15 @@ class SyncService {
 
   /// Attempt sync with retries. Returns true on success, false on failure.
   Future<bool> _syncOrderWithRetry(Map<String, dynamic> order, String token,
-      {int maxRetries = 3}) async {
+      // {int maxRetries = 3}) async {
+      {int? syncId, int maxRetries = 3}) async {
     int attempt = 0;
     int delaySeconds = 1;
 
     while (attempt < maxRetries) {
       try {
-        await _syncSingleOrder(order, token);
+        // await _syncSingleOrder(order, token);
+        await _syncSingleOrder(order, token, syncId: syncId);
         return true;
       } catch (e) {
         attempt++;
@@ -183,7 +187,8 @@ class SyncService {
   }
 
   Future<void> _syncSingleOrder(
-      Map<String, dynamic> order, String token) async {
+      // Map<String, dynamic> order, String token) async {
+      Map<String, dynamic> order, String token, {int? syncId}) async {
     final items = await db.getOrderItems(order['id']);
 
     // Filter to only valid items (skip items with empty item_cd)
@@ -340,6 +345,24 @@ class SyncService {
         print('[SyncService] 🔍 Full response data: ${data["data"]}');
         serverOrderId = data["data"]?["oId"] ?? data["oId"];
         print('[SyncService] 🔍 Extracted serverOrderId: $serverOrderId');
+
+        // Extract and cache updated licenseInfo from sync response (if available)
+        try {
+          final licenseInfoFromResponse = data["licenseInfo"];
+          if (licenseInfoFromResponse != null && syncId != null && syncId > 0) {
+            print('[SyncService] 📋 Found licenseInfo in sync response: $licenseInfoFromResponse');
+            await db.cacheLicenseInfo(
+              syncId: syncId,
+              orderCount: licenseInfoFromResponse['orderCount'] as int? ?? 0,
+              maxOrders: licenseInfoFromResponse['maxOrders'] as int? ?? 0,
+              autoBlacklisted: licenseInfoFromResponse['autoBlacklisted'] == true,
+              renewalTriggered: licenseInfoFromResponse['renewalTriggered'] == true,
+            );
+            print('[SyncService] ✅ Updated license info cache after order sync');
+          }
+        } catch (e) {
+          print('[SyncService] ℹ️ No licenseInfo in sync response or error updating: $e');
+        }
       } catch (e) {
         print('[SyncService] ⚠️ Failed to parse oId: $e');
       }
@@ -347,6 +370,17 @@ class SyncService {
       await db.updateOrderStatus(order['id'], 'synced', serverOrderId);
       print(
           '[SyncService] Order ${order['id']} synced → server ID: $serverOrderId');
+
+      // Reset offline license order count after successful order sync
+      if (syncId != null && syncId > 0) {
+        try {
+          await db.resetOfflineOrderCount(syncId);
+          print('[SyncService] ✅ Reset offline order count for SYNC_ID=$syncId');
+        } catch (e) {
+          print('[SyncService] ⚠️ Warning: Could not reset offline order count: $e');
+        }
+      }
+
 
       // Step 3: Create order tracking record for "Order Placed" (type=2)
       // This reflects that an order was placed during the punch-in session

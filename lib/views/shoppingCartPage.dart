@@ -13,6 +13,7 @@ import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
+import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:arham_corporation/widgets/offline_banner.dart';
 import 'package:flutter/cupertino.dart';
@@ -1720,6 +1721,18 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         String partyId =
             profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
 
+        // Get syncId from profile or UserProvider (profile.data might be null offline)
+        int syncId = 0;
+        final profileSyncId = profile.data?.syncId;
+        if (profileSyncId is int) {
+          syncId = profileSyncId;
+        } else if (profileSyncId is String) {
+          syncId = int.tryParse(profileSyncId) ?? 0;
+        }
+        if (syncId == 0 && ub.syncId != null) {
+          syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
+        }
+
         // Save order offline
         OfflineOrderService offlineService = OfflineOrderService();
         int orderId = await offlineService.saveOrderOffline(
@@ -1727,6 +1740,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           totalAmount: totalAmount,
           latitude: double.parse(lat),
           longitude: double.parse(long),
+          syncId: syncId,
           remarks: orderRemarks.text,
         );
 
@@ -1734,6 +1748,22 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           message: "Order saved offline! Will sync when online.",
           backgroundColor: Colors.orange,
         );
+
+        // Check for license limit warning and store it for home screen display (like online behavior)
+        try {
+          final offlineService = OfflineOrderService();
+          final warningMsg =
+              await offlineService.getOfflineLicenseWarning(syncId);
+
+          if (warningMsg != null && warningMsg.isNotEmpty) {
+            print(
+                '[OFFLINE_ORDER] Setting pending warning to display on home screen: $warningMsg');
+            // Store warning to be displayed on home screen after navigation
+            profile.setPendingWarning(warningMsg);
+          }
+        } catch (e) {
+          print('[OFFLINE_ORDER] Error checking license warning: $e');
+        }
 
         // Clear cart UI
         getCart();
@@ -1747,13 +1777,46 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             arguments: {'offline': true, 'orderId': orderId});
       } catch (e, stack) {
         FirebaseCrashlytics.instance.recordError(e, stack);
-        AppSnackBar.showGetXCustomSnackBar(
-          message: "Failed to save offline order: ${e.toString()}",
-          backgroundColor: Colors.red,
-        );
-        setState(() {
-          loading = false;
-        });
+
+        final errorMsg = e.toString();
+        final isLimitError = errorMsg.contains('reached your order limit');
+
+        if (isLimitError) {
+          // License limit reached - block order and logout
+          print('[OFFLINE_ORDER] ❌ License limit exceeded! Forcing logout...');
+
+          AppSnackBar.showGetXCustomSnackBar(
+            message:
+                '⚠️ You have been blacklisted! You have reached your order limit. Please contact support.',
+            backgroundColor: Colors.red,
+          );
+
+          // Wait for snackbar to show, then logout
+          await Future.delayed(Duration(milliseconds: 500));
+
+          setState(() {
+            loading = false;
+          });
+
+          // Force logout due to license violation
+          try {
+            await ub.userSignout(context);
+          } catch (logoutError) {
+            print('[OFFLINE_ORDER] Logout error: $logoutError');
+          }
+
+          Get.offAll(() => LoginPage());
+        } else {
+          // Regular error
+          AppSnackBar.showGetXCustomSnackBar(
+            message: "Failed to save offline order: $errorMsg",
+            backgroundColor: Colors.red,
+          );
+
+          setState(() {
+            loading = false;
+          });
+        }
       }
     }
   }
