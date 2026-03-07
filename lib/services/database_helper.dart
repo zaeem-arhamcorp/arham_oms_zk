@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -133,6 +133,17 @@ class DatabaseHelper {
       await _createOrderTrackingTable(db);
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_order_tracking_sync_status ON order_tracking(sync_status)');
+    }
+    if (oldVersion < 11) {
+      // v10 to v11: Add tracking_type column to distinguish START (1), ORDER PLACED (2), END (3)
+      try {
+        await db.execute(
+            "ALTER TABLE order_tracking ADD COLUMN tracking_type TEXT DEFAULT 'unknown'");
+        print(
+            '[DATABASE] ✅ Added tracking_type column to order_tracking table');
+      } catch (e) {
+        print('[DATABASE] ⚠️ tracking_type column may already exist: $e');
+      }
     }
   }
 
@@ -1043,10 +1054,14 @@ class DatabaseHelper {
     return await db.insert('order_tracking', trackingData);
   }
 
-  /// Get all pending order tracking records
+  /// Get all pending order tracking records (excluding type=2 order placement which are synced immediately)
   Future<List<Map<String, dynamic>>> getPendingOrderTrackings() async {
     final db = await database;
-    return await db.query('order_tracking', where: "sync_status = 'pending'");
+    return await db.query(
+      'order_tracking',
+      where:
+          "sync_status = 'pending' AND (tracking_type IS NULL OR tracking_type NOT IN ('2', 'order_placed'))",
+    );
   }
 
   /// Update order tracking sync status

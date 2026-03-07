@@ -8,34 +8,38 @@ class OrderTrackingService {
   final DatabaseHelper db = DatabaseHelper();
 
   /// Start or end order: saves locally first, then pushes to server if online.
+  /// For type=2 (ORDER PLACED), pass orderDateTime to use correct order time instead of sync time.
   /// Returns {success: bool, synced: bool, message: string, ...}
   Future<Map<String, dynamic>> startEndOrder({
     required String accCd,
     required double latitude,
     required double longitude,
-    required String type, // "3" for start/end
+    required String type, // "1" for START, "2" for ORDER PLACED, "3" for END
     String? oId,
     required String token,
     String moduleNo = "205",
     String userCd = "",
     int syncId = 0,
     bool? isEndOrder, // true for END, false for START, null for unknown
+    DateTime? orderDateTime, // For type=2, use order's actual creation time
   }) async {
     try {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final vouchDt = DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD
-      final vouchTime = DateTime.now().toString().split(' ')[1]; // HH:MM:SS
+      // Use passed orderDateTime for type=2 (ORDER PLACED), otherwise use current time
+      final baseDateTime = orderDateTime ?? DateTime.now();
+      final now = baseDateTime.millisecondsSinceEpoch;
+      final vouchDt = baseDateTime.toString().split(' ')[0]; // YYYY-MM-DD
+      final vouchTime = baseDateTime.toString().split(' ')[1]; // HH:MM:SS
 
       // Save locally first - map to server schema
       // Set REMARK based on whether it's START or END order
       final remark =
-          isEndOrder == null ? 'Order Tracking' : (isEndOrder ? 'OUT' : 'IN');
+      isEndOrder == null ? 'Order Tracking' : (isEndOrder ? 'OUT' : 'IN');
 
       final orderTrackingData = {
         'ACC_CD': accCd,
         'LAT': latitude,
         'LONGI': longitude,
-        'oId': null,  // Tracking records NEVER have oId
+        'oId': null, // Tracking records NEVER have oId
         'VOUCH_DT': vouchDt,
         'VOUCH_TIME': vouchTime,
         'MODULE_NO': moduleNo,
@@ -47,6 +51,8 @@ class OrderTrackingService {
         'UPDATED_AT': now,
         'CREATED_APP_TYPE': 'oms',
         'REMARK': remark,
+        'tracking_type':
+        type, // Store original type: 1=IN, 2=ORDER PLACED, 3=OUT
         'sync_status': 'pending',
       };
 
@@ -55,6 +61,9 @@ class OrderTrackingService {
       print(
           '[OrderTrackingService]   trackingId=$trackingId | party=$accCd | type=$type');
       print('[OrderTrackingService]   lat=$latitude, lng=$longitude');
+      print('[OrderTrackingService]   REMARK=$remark | isEndOrder=$isEndOrder');
+      print(
+          '[OrderTrackingService]   📅 LOCAL TIME STORED: VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
       print('[OrderTrackingService]   status=pending (waiting for sync)');
 
       // If online, immediately push to server
@@ -65,8 +74,8 @@ class OrderTrackingService {
             'accCd': accCd,
             'lat': latitude.toString(),
             'longi': longitude.toString(),
-            'oId': oId ?? '',  // Include oId if provided (for END/OUT order)
-            'type': type,  // Keep original type value (should be "3")
+            'oId': oId ?? '', // Include oId if provided (for END/OUT order)
+            'type': type, // Keep original type value (should be "3")
             'moduleNo': moduleNo,
             'remark': remark,
             'REMARK': remark,
@@ -142,8 +151,10 @@ class OrderTrackingService {
         print('[OrderTrackingService] 📵 OFFLINE MODE - Saved locally only');
         print(
             '[OrderTrackingService]   trackingId=$trackingId | party=$accCd | type=$type');
-        print('[OrderTrackingService]   REMARK=$remark | isEndOrder=$isEndOrder');
-        print('[OrderTrackingService]   📅 LOCAL TIME STORED: VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
+        print(
+            '[OrderTrackingService]   REMARK=$remark | isEndOrder=$isEndOrder');
+        print(
+            '[OrderTrackingService]   📅 LOCAL TIME STORED: VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
         print(
             '[OrderTrackingService]   Status: PENDING (will sync when online)');
         return {

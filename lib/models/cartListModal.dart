@@ -118,7 +118,9 @@ class DatumCartList {
           itemLname: '',
           deptCd: '',
           srate1: 0,
-          srate3: json['rate'] ?? 0,
+          srate3: (json['nrate'] != null && json['nrate'] != 0)
+              ? json['nrate']
+              : (json['rate'] ?? 0),
           cStk: 0,
           syncId: 0,
           frmlSrt1: '',

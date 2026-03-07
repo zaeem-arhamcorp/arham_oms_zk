@@ -1293,7 +1293,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                             },
                                                                             child:
                                                                                 Text(
-                                                                              "${datacart[index].itemCd} ( MRP : ${datacart[index].item?.srate3 ?? 0.0})",
+                                                                              "${datacart[index].itemCd} ( MRP : ${datacart[index].rate ?? datacart[index].item?.nrate ?? 0.0})",
                                                                               style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
                                                                             ),
                                                                           ),

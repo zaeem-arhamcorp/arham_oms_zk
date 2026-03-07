@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
-
 import 'order_tracking_service.dart';
 
 class SyncService {
@@ -31,7 +30,7 @@ class SyncService {
       // Validate order items before attempting sync
       final items = await db.getOrderItems(order['id']);
       final hasValidItems =
-          items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
+      items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
 
       if (items.isEmpty || !hasValidItems) {
         // Unrecoverable: no items or all items lack item_cd even after repair
@@ -100,7 +99,7 @@ class SyncService {
           for (var p in all) {
             try {
               final json = jsonDecode(p['product_json'].toString())
-                  as Map<String, dynamic>;
+              as Map<String, dynamic>;
               final pName = (json['ITEM_NAME'] ?? json['itemName'] ?? '')
                   .toString()
                   .trim();
@@ -108,7 +107,7 @@ class SyncService {
                   pName.toLowerCase() == itemName.toLowerCase()) {
                 recoveredCd =
                     (json['ITEM_CD'] ?? json['itemCd'] ?? p['item_cd'])
-                            ?.toString() ??
+                        ?.toString() ??
                         '';
                 if (recoveredCd.isNotEmpty) break;
               }
@@ -231,19 +230,6 @@ class SyncService {
       // Continue anyway — better to have duplicates than skip the order
     }
 
-    // // Step 1: Add each item to the server cart
-    // for (var item in validItems) {
-    //   final itemCd = item['item_cd'].toString();
-    //
-    //   var cartPayload = {
-    //     "partyCd": partyCd,
-    //     "itemCd": itemCd,
-    //     "qty": item["quantity"]?.toString() ?? '0',
-    //     "rate": item["rate"]?.toString() ?? '0',
-    //     "lrate": item["lrate"]?.toString() ?? '0',
-    //     "moduleNo": "205",
-    //   };
-
     // Step 1: Add each item to the server cart
     // Get products cache to recover missing rates
     final productsCache = await db.getCachedProducts();
@@ -265,7 +251,8 @@ class SyncService {
           );
 
           if (cachedProduct.isNotEmpty) {
-            final productJson = jsonDecode(cachedProduct['product_json'].toString())
+            final productJson =
+            jsonDecode(cachedProduct['product_json'].toString())
             as Map<String, dynamic>;
             // Try different rate field names from product JSON
             final srate = productJson['SRATE1'] ??
@@ -363,14 +350,23 @@ class SyncService {
 
       // Step 3: Create order tracking record for "Order Placed" (type=2)
       // This reflects that an order was placed during the punch-in session
+      // Use the order's actual creation time (not sync time) to maintain proper sequence
       try {
         if (serverOrderId != null) {
           final orderSvc = OrderTrackingService();
           final latitude = order["latitude"]?.toString() ?? '0';
           final longitude = order["longitude"]?.toString() ?? '0';
 
+          // Convert order_date (milliseconds since epoch) back to DateTime
+          final orderDateMs = order["order_date"] as int?;
+          final orderDateTime = orderDateMs != null
+              ? DateTime.fromMillisecondsSinceEpoch(orderDateMs)
+              : null;
+
           print(
               '[SyncService] 📍 Creating order placement tracking for order $serverOrderId');
+          print(
+              '[SyncService]   Using order time: ${orderDateTime?.toString() ?? "(current time)"}');
 
           await orderSvc.startEndOrder(
             accCd: order["server_party_id"]?.toString() ?? '',
@@ -383,6 +379,7 @@ class SyncService {
             syncId: 0,
             userCd: "",
             isEndOrder: null, // Neutral for order placement
+            orderDateTime: orderDateTime, // Pass order's actual creation time
           );
 
           print(
@@ -416,7 +413,7 @@ class SyncService {
     for (var order in pendingOrders) {
       final items = await db.getOrderItems(order['id']);
       final hasValid =
-          items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
+      items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
 
       if (items.isEmpty || !hasValid) {
         await db.deleteOfflineOrder(order['id']);
@@ -615,10 +612,11 @@ class SyncService {
     print('[SyncService] 🎯 ORDER TRACKING SYNC STARTED');
     print(
         '[SyncService] Found ${pendingTrackings.length} pending tracking(s) to sync');
-    
+
     // Debug: show local DB state before sync
     for (var t in pendingTrackings) {
-      print('[SyncService] 📋 LOCAL DB: trackingId=${t['locId']} | REMARK=${t['REMARK']} | oId=${t['oId']} | ACC_CD=${t['ACC_CD']}');
+      print(
+          '[SyncService] 📋 LOCAL DB: trackingId=${t['locId']} | REMARK=${t['REMARK']} | oId=${t['oId']} | ACC_CD=${t['ACC_CD']}');
     }
 
     for (var tracking in pendingTrackings) {
@@ -630,18 +628,22 @@ class SyncService {
         final vouchDt = tracking['VOUCH_DT']?.toString() ?? '';
         final rawTime = tracking['VOUCH_TIME']?.toString() ?? '00:00:00';
         final cleanTime = rawTime.split('.').first;
-        
-        // Determine if this is START (IN) or END (OUT) order
-        final isOut = remarkVal.toUpperCase() == 'OUT';
 
-        final trackingType = isOut ? '3' : '1';
-        
+        // Use stored tracking_type if available, otherwise derive from REMARK (for backward compatibility)
+        var trackingType = tracking['tracking_type']?.toString() ?? '';
+        if (trackingType.isEmpty) {
+          // Fallback: Determine if this is START (IN) or END (OUT) order from REMARK
+          final isOut = remarkVal.toUpperCase() == 'OUT';
+          trackingType = isOut ? '3' : '1';
+        }
+
+        // Match EXACT same structure as online payload (order_tracking_service.dart)
         final payload = {
           'accCd': tracking['ACC_CD']?.toString() ?? '',
           'lat': tracking['LAT']?.toString() ?? '0.0',
           'longi': tracking['LONGI']?.toString() ?? '0.0',
           'oId': tracking['oId']?.toString() ?? '',
-          'type': trackingType,  // Keep original type value
+          'type': trackingType,
           'moduleNo': tracking['MODULE_NO']?.toString() ?? '205',
           'remark': remarkVal,
           'REMARK': remarkVal,
@@ -657,6 +659,12 @@ class SyncService {
             '[SyncService]   Party: ${payload['accCd']} | oId: ${payload['oId']}');
         print('[SyncService]   GPS: (${payload['lat']}, ${payload['longi']})');
         print('[SyncService]   REMARK: $remarkVal | type: ${payload['type']}');
+        print('[SyncService]   📅 SYNC TIME:');
+        print('[SyncService]      LOCAL DB VOUCH_DT: $vouchDt');
+        print(
+            '[SyncService]      LOCAL DB VOUCH_TIME: $rawTime (cleaned: $cleanTime)');
+        print(
+            '[SyncService]      SENDING TO SERVER: VOUCH_DT=$vouchDt, VOUCH_TIME=$cleanTime');
         print('[SyncService]   Full payload: $payload');
 
         var response = await http.post(
@@ -671,14 +679,21 @@ class SyncService {
 
         print('[SyncService] 📥 Server response: ${response.statusCode}');
         print('[SyncService]   Body: ${response.body}');
-        
+
         // Parse response to show what server stored
         try {
           final respData = jsonDecode(response.body);
           final serverRemark = respData['data']?['REMARK']?.toString() ?? 'N/A';
           final serverOId = respData['data']?['oId']?.toString() ?? 'null';
           final serverLocId = respData['data']?['locId']?.toString() ?? 'N/A';
-          print('[SyncService] ✅ Server stored: locId=$serverLocId, REMARK=$serverRemark, oId=$serverOId');
+          final serverVouchDt =
+              respData['data']?['VOUCH_DT']?.toString() ?? 'N/A';
+          final serverVouchTime =
+              respData['data']?['VOUCH_TIME']?.toString() ?? 'N/A';
+          print(
+              '[SyncService] ✅ Server stored: locId=$serverLocId, REMARK=$serverRemark, oId=$serverOId');
+          print(
+              '[SyncService]   📅 SERVER TIME: VOUCH_DT=$serverVouchDt, VOUCH_TIME=$serverVouchTime');
         } catch (e) {
           print('[SyncService] Could not parse response: $e');
         }

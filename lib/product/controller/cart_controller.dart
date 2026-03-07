@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:convert';
 
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
@@ -47,11 +48,10 @@ class CartController extends GetxController {
       try {
         double rateVal = double.tryParse(rate ?? '0') ?? 0;
         double qtyVal = double.tryParse(qty) ?? 0;
-        double nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
+        var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
         double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
         // If rate not provided or zero, try to recover from cached products
-        if ((rateVal == 0 || rateVal.isNaN) &&
-            (itemName == null || itemName.isEmpty)) {
+        if (rateVal == 0 || rateVal.isNaN) {
           try {
             final cached = await DatabaseHelper().getCachedProducts();
             final prod = cached.firstWhere(
@@ -62,27 +62,43 @@ class CartController extends GetxController {
                     itemCd,
                 orElse: () => {});
             if (prod.isNotEmpty) {
-              // Prefer NRATE if available, else SRATE3, else rate
-              double recovered = 0;
-              final v1 = prod['nrate'] ??
-                  prod['NRATE'] ??
-                  prod['N.RATE'] ??
-                  prod['nRATE'];
-              final v2 = prod['srate3'] ??
-                  prod['SRATE3'] ??
-                  prod['sRATE3'] ??
-                  prod['srate'];
-              if (v1 != null)
-                recovered = double.tryParse(v1.toString()) ?? recovered;
-              if (recovered == 0 && v2 != null)
-                recovered = double.tryParse(v2.toString()) ?? recovered;
-              if (recovered > 0) {
-                rateVal = recovered;
-                nrateVal = recovered;
+              // Parse product_json to get the rates
+              try {
+                final productJsonStr = prod['product_json']?.toString() ?? '';
+                if (productJsonStr.isNotEmpty) {
+                  final productJson =
+                      jsonDecode(productJsonStr) as Map<String, dynamic>;
+                  double recovered = 0;
+                  // Prefer NRATE if available, else SRATE3, else PRATE
+                  final nrateFromJson =
+                      productJson['NRATE'] ?? productJson['nrate'];
+                  final srate3FromJson =
+                      productJson['SRATE3'] ?? productJson['srate3'];
+                  final prateFromJson =
+                      productJson['PRATE'] ?? productJson['prate'];
+
+                  if (nrateFromJson != null) {
+                    recovered = double.tryParse(nrateFromJson.toString()) ?? 0;
+                  }
+                  if (recovered == 0 && srate3FromJson != null) {
+                    recovered = double.tryParse(srate3FromJson.toString()) ?? 0;
+                  }
+                  if (recovered == 0 && prateFromJson != null) {
+                    recovered = double.tryParse(prateFromJson.toString()) ?? 0;
+                  }
+
+                  if (recovered > 0) {
+                    rateVal = recovered;
+                    nrateVal = recovered;
+                    log('[CartController] Recovered rate for item $itemCd: $recovered (was 0)');
+                  }
+                }
+              } catch (jsonErr) {
+                log('[CartController] Error parsing product_json for $itemCd: $jsonErr');
               }
             }
           } catch (e) {
-            // ignore and fallback to 0
+            log('[CartController] Could not recover rate from cache for item $itemCd: $e');
           }
         }
 
@@ -122,8 +138,61 @@ class CartController extends GetxController {
       // Always save locally first (ensures cart survives connectivity loss)
       double rateVal = double.tryParse(rate ?? '0') ?? 0;
       double qtyVal = double.tryParse(qty) ?? 0;
-      double nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
+      var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
       double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
+
+      // If rate is 0, try to recover from cached products (same as offline)
+      if (rateVal == 0 || rateVal.isNaN) {
+        try {
+          final cached = await DatabaseHelper().getCachedProducts();
+          final prod = cached.firstWhere(
+              (p) =>
+                  (p['item_cd']?.toString() ??
+                      p['ITEM_CD']?.toString() ??
+                      '') ==
+                  itemCd,
+              orElse: () => {});
+          if (prod.isNotEmpty) {
+            // Parse product_json to get the rates
+            try {
+              final productJsonStr = prod['product_json']?.toString() ?? '';
+              if (productJsonStr.isNotEmpty) {
+                final productJson =
+                    jsonDecode(productJsonStr) as Map<String, dynamic>;
+                double recovered = 0;
+                // Prefer NRATE if available, else SRATE3, else PRATE
+                final nrateFromJson =
+                    productJson['NRATE'] ?? productJson['nrate'];
+                final srate3FromJson =
+                    productJson['SRATE3'] ?? productJson['srate3'];
+                final prateFromJson =
+                    productJson['PRATE'] ?? productJson['prate'];
+
+                if (nrateFromJson != null) {
+                  recovered = double.tryParse(nrateFromJson.toString()) ?? 0;
+                }
+                if (recovered == 0 && srate3FromJson != null) {
+                  recovered = double.tryParse(srate3FromJson.toString()) ?? 0;
+                }
+                if (recovered == 0 && prateFromJson != null) {
+                  recovered = double.tryParse(prateFromJson.toString()) ?? 0;
+                }
+
+                if (recovered > 0) {
+                  rateVal = recovered;
+                  nrateVal = recovered;
+                  log('[CartController] Recovered rate for item $itemCd: $recovered (was 0)');
+                }
+              }
+            } catch (jsonErr) {
+              log('[CartController] Error parsing product_json for $itemCd: $jsonErr');
+            }
+          }
+        } catch (e) {
+          log('[CartController] Could not recover rate from cache for item $itemCd: $e');
+        }
+      }
+
       double amount = rateVal * qtyVal;
 
       await CartService().addToCart(
