@@ -32,7 +32,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../providers/item_list_provider.dart';
 import '../services/authservices.dart';
 import '../services/services.dart';
-import '../services/offline_caching_service.dart';
+import '../services/offline_caching_service.dart'
+    show OfflineCachingService, CacheItemStatus;
 import 'package:http/http.dart' as http;
 
 import '../widgets/bottomnavebar.dart';
@@ -49,6 +50,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   DashboardModal? data;
   bool nolist = false;
+  late ProfileProvider
+      _profileProvider; // Store provider reference to avoid accessing during dispose
 
   getDashboarddata() async {
     setState(() {
@@ -130,19 +133,17 @@ class _HomePageState extends State<HomePage> {
     loadData();
     getDashboarddata();
 
-    final ProfileProvider profile =
-        Provider.of<ProfileProvider>(context, listen: false);
+    _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
 
     // Add listener to show warning snackbar whenever it's set by the API
-    profile.addListener(_handlePendingWarning);
+    _profileProvider.addListener(_handlePendingWarning);
 
     // Check for any existing warning at init time
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handlePendingWarning();
     });
 
-    final ProfileProvider p =
-        Provider.of<ProfileProvider>(context, listen: false);
+    final ProfileProvider p = _profileProvider;
 
     var narrationEntryModule = p.data?.modulesList?.firstWhere(
           (module) => module.mODULENO == "109",
@@ -167,16 +168,16 @@ class _HomePageState extends State<HomePage> {
   /// Handles showing the pending warning snackbar when it's set by the API.
   /// This listener is called whenever ProfileProvider notifies listeners of changes.
   void _handlePendingWarning() {
-    // Safety check: ensure widget is still mounted before accessing context
+    // Safety check: ensure widget is still mounted before accessing provider
     if (!mounted) return;
 
-    final profile = Provider.of<ProfileProvider>(context, listen: false);
-    if (profile.pendingWarning != null && profile.pendingWarning!.isNotEmpty) {
+    if (_profileProvider.pendingWarning != null &&
+        _profileProvider.pendingWarning!.isNotEmpty) {
       AppSnackBar.showGetXCustomSnackBar(
-        message: profile.pendingWarning!,
+        message: _profileProvider.pendingWarning!,
         backgroundColor: Colors.orange,
       );
-      profile.clearPendingWarning();
+      _profileProvider.clearPendingWarning();
     }
   }
 
@@ -187,8 +188,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     // Remove listener to prevent memory leaks
-    final profile = Provider.of<ProfileProvider>(context, listen: false);
-    profile.removeListener(_handlePendingWarning);
+    _profileProvider.removeListener(_handlePendingWarning);
     super.dispose();
   }
 
@@ -1840,7 +1840,9 @@ class _HomePageState extends State<HomePage> {
   /// Show offline caching dialog with progress
   void _showOfflineCachingDialog() {
     bool isCaching = false;
-    String cachingStatus = '';
+    bool cachingComplete = false;
+    List<CacheItemStatus> cacheItems = [];
+    String? failureMessage;
 
     showDialog(
       context: context,
@@ -1856,92 +1858,132 @@ class _HomePageState extends State<HomePage> {
                   Text('Go Offline'),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!isCaching)
-                    Text(
-                      'Download all masters for offline use?',
-                      style: TextStyle(fontSize: 14),
-                    )
-                  else
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              color: Color(0xFF2c9ed9),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isCaching && !cachingComplete)
+                      Text(
+                        'Download all masters for offline use?',
+                        style: TextStyle(fontSize: 14),
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isCaching
+                                ? 'Caching data...'
+                                : (failureMessage != null
+                                    ? 'Caching failed!'
+                                    : 'Caching complete!'),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: (!isCaching && failureMessage != null)
+                                  ? Colors.red
+                                  : null,
                             ),
+                          ),
+                          SizedBox(height: 16),
+                          ...cacheItems.map((item) => _buildCacheItemRow(item)),
+                          if (failureMessage != null) ...[
                             SizedBox(height: 16),
-                            Text(
-                              cachingStatus.isNotEmpty
-                                  ? cachingStatus
-                                  : 'Preparing...',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[700]),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                border: Border.all(color: Colors.red.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error_outline,
+                                      color: Colors.red, size: 20),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      failureMessage!,
+                                      style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
-                      ],
-                    ),
-                ],
+                        ],
+                      ),
+                  ],
+                ),
               ),
               actions: [
-                if (!isCaching)
+                if (!isCaching && !cachingComplete)
                   TextButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     child: Text('CANCEL'),
                   ),
-                if (!isCaching)
+                if (!isCaching && !cachingComplete)
                   ElevatedButton(
                     onPressed: () async {
+                      // Initialize cache items
+                      cacheItems = [
+                        CacheItemStatus(name: 'Profile'),
+                        CacheItemStatus(name: 'Departments'),
+                        CacheItemStatus(name: 'Products'),
+                        CacheItemStatus(name: 'Party'),
+                        CacheItemStatus(name: 'Cart'),
+                      ];
+                      failureMessage = null;
+                      cachingComplete = false;
+
                       setDialogState(() {
                         isCaching = true;
-                        cachingStatus = 'Caching profile...';
                       });
 
                       try {
-                        final bool success =
-                            await OfflineCachingService.cacheAllDataForOffline(
-                                context);
+                        await OfflineCachingService.cacheAllDataForOffline(
+                          context,
+                          onProgress: (status) {
+                            if (mounted) {
+                              setDialogState(() {
+                                // Find and update the matching item
+                                final index = cacheItems.indexWhere(
+                                    (item) => item.name == status.name);
+                                if (index != -1) {
+                                  cacheItems[index] = status;
+                                }
 
+                                // Check for failure
+                                if (!status.isSuccess && status.isComplete) {
+                                  failureMessage =
+                                      '${status.name} failed: ${status.errorMessage}';
+                                }
+                              });
+                            }
+                          },
+                        );
+                        // Caching finished (success or stopped on failure)
                         if (mounted) {
                           setDialogState(() {
                             isCaching = false;
-                            cachingStatus =
-                                success ? 'Cache completed!' : 'Cache failed!';
+                            cachingComplete = true;
                           });
-
-                          // Show final result
-                          await Future.delayed(Duration(milliseconds: 500));
-
-                          if (mounted) {
-                            Navigator.of(dialogContext).pop();
-                            AppSnackBar.showGetXCustomSnackBar(
-                              message: success
-                                  ? 'All data cached successfully! You can now work offline.'
-                                  : 'Some data failed to cache. Check logs.',
-                              backgroundColor:
-                                  success ? Colors.green : Colors.orange,
-                            );
-                          }
                         }
                       } catch (e) {
                         print('Error during offline caching: $e');
                         if (mounted) {
                           setDialogState(() {
                             isCaching = false;
+                            cachingComplete = true;
+                            failureMessage = 'Error: ${e.toString()}';
                           });
-                          Navigator.of(dialogContext).pop();
-                          AppSnackBar.showGetXCustomSnackBar(
-                            message: 'Error caching data: $e',
-                            backgroundColor: Colors.red,
-                          );
                         }
                       }
                     },
@@ -1953,16 +1995,110 @@ class _HomePageState extends State<HomePage> {
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
-                if (isCaching)
-                  TextButton(
-                    onPressed: null, // Disabled while caching
-                    child: Text('Please wait...'),
+                if (cachingComplete)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      final bool allSuccess =
+                          cacheItems.every((item) => item.isSuccess);
+                      AppSnackBar.showGetXCustomSnackBar(
+                        message: allSuccess
+                            ? 'All data cached successfully! You can now work offline.'
+                            : failureMessage ??
+                                'Caching failed. Please check your internet connection and try again.',
+                        backgroundColor: allSuccess ? Colors.green : Colors.red,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF2c9ed9),
+                    ),
+                    child: Text(
+                      'DONE',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
               ],
             );
           },
         );
       },
+    );
+  }
+
+  /// Build a single cache item row with status icon and progress bar
+  Widget _buildCacheItemRow(CacheItemStatus item) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Status icon - three states: waiting, in-progress, complete
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: item.isComplete
+                    ? (item.isSuccess
+                        ? Icon(Icons.check_circle,
+                            color: Colors.green, size: 24)
+                        : Icon(Icons.cancel, color: Colors.red, size: 24))
+                    : (item.isInProgress
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF2c9ed9)),
+                            ),
+                          )
+                        : Icon(Icons.schedule,
+                            color: Colors.grey, size: 24)), // Waiting icon
+              ),
+              SizedBox(width: 12),
+              // Item name
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              // Percentage/Status text
+              Text(
+                item.isComplete
+                    ? (item.isSuccess ? '100%' : 'Failed')
+                    : (item.isInProgress ? 'Loading...' : 'Waiting'),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: item.isComplete
+                      ? (item.isSuccess ? Colors.green : Colors.red)
+                      : (item.isInProgress ? Color(0xFF2c9ed9) : Colors.grey),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: item.isComplete ? 1.0 : (item.isInProgress ? 0.5 : 0.0),
+              minHeight: 4,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                item.isComplete
+                    ? (item.isSuccess ? Colors.green : Colors.red)
+                    : (item.isInProgress ? Color(0xFF2c9ed9) : Colors.grey),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

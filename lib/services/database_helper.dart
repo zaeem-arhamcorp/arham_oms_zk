@@ -22,13 +22,59 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        // Self-healing: ensure all required columns/tables exist
+        // This runs every time the DB opens, so missed migrations are auto-fixed
+        await _ensureSchema(db);
+      },
     );
+  }
+
+  /// Ensures all required tables and columns exist.
+  /// Runs on every DB open — no version bump needed for schema fixes.
+  Future<void> _ensureSchema(Database db) async {
+    try {
+      // --- Ensure tables exist ---
+      await _ensureTableExists(db, 'order_tracking', _createOrderTrackingTable);
+      await _ensureTableExists(db, 'departments', _createDepartmentsTable);
+      await _ensureTableExists(db, 'license_info', _createLicenseInfoTable);
+      await _ensureTableExists(db, 'settings', _createSettingsTable);
+
+      // --- Ensure columns exist ---
+      await _ensureColumnExists(
+          db, 'order_tracking', 'tracking_type', "TEXT DEFAULT 'unknown'");
+    } catch (e) {
+      print('[DATABASE] ⚠️ Schema check error (non-fatal): $e');
+    }
+  }
+
+  /// Check if a table exists, create it if missing
+  Future<void> _ensureTableExists(Database db, String tableName,
+      Future<void> Function(Database) creator) async {
+    final result = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        [tableName]);
+    if (result.isEmpty) {
+      print('[DATABASE] 🔧 Creating missing table: $tableName');
+      await creator(db);
+    }
+  }
+
+  /// Check if a column exists in a table, add it if missing
+  Future<void> _ensureColumnExists(
+      Database db, String table, String column, String definition) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    final hasColumn = columns.any((c) => c['name'] == column);
+    if (!hasColumn) {
+      print('[DATABASE] 🔧 Adding missing column: $table.$column');
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -151,6 +197,18 @@ class DatabaseHelper {
       print(
           '[DATABASE] ✅ Created license_info table for offline license checking');
     }
+    if (oldVersion < 13) {
+      // v12 to v13: Ensure tracking_type column exists (was missed in some v12 upgrades)
+      try {
+        await db.execute(
+            "ALTER TABLE order_tracking ADD COLUMN tracking_type TEXT DEFAULT 'unknown'");
+        print(
+            '[DATABASE] ✅ Added missing tracking_type column to order_tracking');
+      } catch (e) {
+        // Column already exists — safe to ignore
+        print('[DATABASE] ℹ️ tracking_type column already exists');
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -225,7 +283,19 @@ class DatabaseHelper {
     )
     ''');
 
-    // SETTINGS CACHE - stores application settings for offline access\n    await _createSettingsTable(db);\n\n    // INDEXES FOR PERFORMANCE
+    // SETTINGS CACHE - stores application settings for offline access
+    await _createSettingsTable(db);
+
+    // DEPARTMENTS CACHE
+    await _createDepartmentsTable(db);
+
+    // ORDER TRACKING - for punch-in/punch-out and order tracking
+    await _createOrderTrackingTable(db);
+
+    // LICENSE INFO - for caching server license/order-limit data
+    await _createLicenseInfoTable(db);
+
+    // INDEXES FOR PERFORMANCE
     await db
         .execute('CREATE INDEX idx_products_server_id ON products(server_id)');
     await db
@@ -240,6 +310,14 @@ class DatabaseHelper {
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_sync_var ON settings(SYNC_ID, VARIABLE)');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_settings_variable ON settings(VARIABLE)');
+    await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_departments_code ON departments(DEPT_CD)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_order_tracking_sync_status ON order_tracking(sync_status)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_locations_user_date ON locations(SYNC_ID, USER_CD, VOUCH_DT)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_locations_module ON locations(MODULE_NO)');
   }
 
   // -------------------------------------------------------
@@ -998,13 +1076,16 @@ class DatabaseHelper {
         UPDATED_AT INTEGER NOT NULL,
         CREATED_APP_TYPE TEXT NOT NULL DEFAULT '',
         MODULE_NO TEXT NOT NULL DEFAULT '205',
-        sync_status TEXT DEFAULT 'pending'
+        sync_status TEXT DEFAULT 'pending',
+        tracking_type TEXT DEFAULT 'unknown'
       )
     ''');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_tracking_order ON order_tracking(SYNC_ID, oId)');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_ordertrack_account ON order_tracking(SYNC_ID, ACC_CD)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_order_tracking_sync_type ON order_tracking(sync_status, tracking_type)');
   }
 
   /// Insert a new location record (punch-in/punch-out)
