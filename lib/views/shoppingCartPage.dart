@@ -1765,6 +1765,56 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           print('[OFFLINE_ORDER] Error checking license warning: $e');
         }
 
+        // CHECK IF USER HAS REACHED LIMIT - if so, logout after order is saved
+        try {
+          final licenseInfo = await DatabaseHelper().getLicenseInfo(syncId);
+          if (licenseInfo != null) {
+            final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
+            final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
+            final offlineOrderCount =
+                licenseInfo['offline_order_count'] as int? ?? 0;
+            final totalOrders = serverOrderCount + offlineOrderCount;
+
+            print('[OFFLINE_ORDER] ╔════════════════════════════════════════════');
+            print('[OFFLINE_ORDER] ║ POST-SAVE LICENSE CHECK');
+            print('[OFFLINE_ORDER] ║ Server Orders: $serverOrderCount');
+            print('[OFFLINE_ORDER] ║ Offline Orders: $offlineOrderCount');
+            print('[OFFLINE_ORDER] ║ Total: $totalOrders');
+            print('[OFFLINE_ORDER] ║ Max Limit: $maxOrders');
+            print('[OFFLINE_ORDER] ╚════════════════════════════════════════════');
+
+            if (totalOrders >= maxOrders) {
+              print('[OFFLINE_ORDER] ❌ LIMIT REACHED - User will be logged out');
+
+              // Show confirmation message
+              AppSnackBar.showGetXCustomSnackBar(
+                message:
+                    '⚠️ You have reached your order limit ($maxOrders orders). You will be logged out.',
+                backgroundColor: Colors.red,
+              );
+
+              // Wait for order confirmation to show, then logout
+              await Future.delayed(Duration(milliseconds: 500));
+
+              setState(() {
+                loading = false;
+              });
+
+              // Force logout
+              try {
+                await ub.userSignout(context);
+              } catch (logoutError) {
+                print('[OFFLINE_ORDER] Logout error: $logoutError');
+              }
+
+              Get.offAll(() => LoginPage());
+              return;
+            }
+          }
+        } catch (e) {
+          print('[OFFLINE_ORDER] Error checking post-save limit: $e');
+        }
+
         // Clear cart UI
         getCart();
 
@@ -1779,10 +1829,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         FirebaseCrashlytics.instance.recordError(e, stack);
 
         final errorMsg = e.toString();
-        final isLimitError = errorMsg.contains('reached your order limit');
+        final isLimitError = errorMsg.contains('exceeded your order limit') ||
+            errorMsg.contains('blacklisted') ||
+            errorMsg.contains('reached your order limit');
 
         if (isLimitError) {
-          // License limit reached - block order and logout
+          // License limit exceeded - logout immediately
           print('[OFFLINE_ORDER] ❌ License limit exceeded! Forcing logout...');
 
           AppSnackBar.showGetXCustomSnackBar(

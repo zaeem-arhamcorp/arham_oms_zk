@@ -39,6 +39,7 @@ import 'package:http/http.dart' as http;
 import '../widgets/bottomnavebar.dart';
 import 'company_management/firm_list.dart';
 import 'narration/narration_view.dart';
+import '../services/sync_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -141,6 +142,31 @@ class _HomePageState extends State<HomePage> {
     // Check for any existing warning at init time
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handlePendingWarning();
+    });
+
+    // Sync license info on dashboard initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final UserProvider ub =
+          Provider.of<UserProvider>(context, listen: false);
+      if (ub.token != null && ub.syncId != null) {
+        final syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
+        final isBlacklisted = await SyncService()
+            .syncLicenseInfo(ub.token!, syncId: syncId);
+        
+        // If user is blacklisted, logout immediately
+        if (isBlacklisted && mounted) {
+          print(
+              '[HomePage] User is blacklisted - logging out automatically');
+          // Logout user and redirect to login
+          await ub.userSignout(context);
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => LoginPage()),
+              (route) => false,
+            );
+          }
+        }
+      }
     });
 
     final ProfileProvider p = _profileProvider;

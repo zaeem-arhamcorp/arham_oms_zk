@@ -92,27 +92,28 @@ class OfflineCachingService {
             final db = DatabaseHelper();
 
             // Check cached license info
-            print('[OFFLINE CACHE] Step 1.5: Checking cached license info...');
+            print('[OFFLINE CACHE] Step 1.5: Checking license info...');
             final existingLicense = await db.getLicenseInfo(syncId);
 
             if (existingLicense != null) {
               print(
-                  '[OFFLINE CACHE] ✓ License info cached from previous activity');
+                  '[OFFLINE CACHE] ✅ License info is cached from previous online order');
               print(
                   '[OFFLINE CACHE]   - Orders: ${existingLicense['orderCount']}/${existingLicense['maxOrders']}');
               print(
                   '[OFFLINE CACHE]   - Blacklisted: ${existingLicense['autoBlacklisted']}');
-              print('[OFFLINE CACHE]   ℹ️ Cache updates when you:');
-              print('[OFFLINE CACHE]      • Place an online order');
-              print('[OFFLINE CACHE]      • Sync offline orders to server');
             } else {
               print('[OFFLINE CACHE] ℹ️ No license info cached yet');
               print(
-                  '[OFFLINE CACHE]    (Will be cached when you place your first order)');
+                  '[OFFLINE CACHE] ⚠️ IMPORTANT: You must place at least ONE online order first');
+              print(
+                  '[OFFLINE CACHE]    License info will be cached from that order response');
+              print(
+                  '[OFFLINE CACHE]    Without it, offline order limits cannot be enforced');
             }
           } else {
             print(
-                '[OFFLINE CACHE] ⚠️ Could not retrieve SYNC_ID for license caching (syncId=$syncId)');
+                '[OFFLINE CACHE] ⚠️ Could not retrieve SYNC_ID (syncId=$syncId)');
           }
         } catch (e) {
           print(
