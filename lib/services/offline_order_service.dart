@@ -104,10 +104,21 @@ class OfflineOrderService {
           '[OfflineOrderService] Saving offline order — party:$partyId lat:$latitude long:$longitude total:$totalAmount');
     } catch (_) {}
 
+    // CRITICAL: Capture order creation time PRECISELY
+    final now = DateTime.now();
+    final orderDateMs = now.millisecondsSinceEpoch;
+    final orderDtStr = now.toString().split(' ')[0]; // YYYY-MM-DD
+    final orderTimeStr = now.toString().split(' ')[1].split('.').first; // HH:MM:SS
+    
+    print('[OfflineOrderService] 📅 CAPTURING ORDER TIME:');
+    print('[OfflineOrderService]   DateTime.now(): $now');
+    print('[OfflineOrderService]   millisecondsSinceEpoch: $orderDateMs');
+    print('[OfflineOrderService]   Formatted as: $orderDtStr $orderTimeStr');
+
     int orderId = await db.insertOfflineOrder({
       'server_party_id': partyId,
       'total_amount': totalAmount,
-      'order_date': DateTime.now().millisecondsSinceEpoch,
+      'order_date': orderDateMs,  // Always set with current time - DO NOT let this be NULL
       'latitude': latitude,
       'longitude': longitude,
       'sync_status': 'pending',
@@ -116,6 +127,9 @@ class OfflineOrderService {
       'error_message': null,
       'remarks': remarks,
     });
+    
+    print('[OfflineOrderService] ✅ ORDER SAVED WITH TIMESTAMP:');
+    print('[OfflineOrderService]   orderId=$orderId | order_date=$orderDateMs');
 
     // Insert order items matching server `ordritm` structure
     List<Map<String, dynamic>> orderItems = validatedItems.map((item) {

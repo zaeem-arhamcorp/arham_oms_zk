@@ -1168,6 +1168,16 @@ class DatabaseHelper {
     );
   }
 
+  /// Get pending PLACE ORDER tracking records (type=2) that were created offline
+  Future<List<Map<String, dynamic>>> getPendingOrderPlacementTrackings() async {
+    final db = await database;
+    return await db.query(
+      'order_tracking',
+      where: "sync_status = 'pending' AND tracking_type = '2'",
+      orderBy: 'CREATED_AT ASC',
+    );
+  }
+
   /// Update order tracking sync status
   Future<void> updateOrderTrackingStatus(
       int trackingId, String status, String? error) async {

@@ -400,41 +400,78 @@ class SyncService {
       }
 
       // Step 3: Create order tracking record for "Order Placed" (type=2)
-      // This reflects that an order was placed during the punch-in session
-      // Use the order's actual creation time (not sync time) to maintain proper sequence
+      // NOTE: This is now created immediately when the order is placed in shoppingCartPage
+      // Only create here if it doesn't already exist (as a fallback for older versions/edge cases)
       try {
         if (serverOrderId != null) {
           final orderSvc = OrderTrackingService();
           final latitude = order["latitude"]?.toString() ?? '0';
           final longitude = order["longitude"]?.toString() ?? '0';
 
-          // Convert order_date (milliseconds since epoch) back to DateTime
-          final orderDateMs = order["order_date"] as int?;
-          final orderDateTime = orderDateMs != null
-              ? DateTime.fromMillisecondsSinceEpoch(orderDateMs)
-              : null;
-
-          print(
-              '[SyncService] 📍 Creating order placement tracking for order $serverOrderId');
-          print(
-              '[SyncService]   Using order time: ${orderDateTime?.toString() ?? "(current time)"}');
-
-          await orderSvc.startEndOrder(
-            accCd: order["server_party_id"]?.toString() ?? '',
-            latitude: double.parse(latitude),
-            longitude: double.parse(longitude),
-            type: "2", // Type 2 = Order placed (matches online flow)
-            oId: serverOrderId.toString(),
-            token: token,
-            moduleNo: "205",
-            syncId: 0,
-            userCd: "",
-            isEndOrder: null, // Neutral for order placement
-            orderDateTime: orderDateTime, // Pass order's actual creation time
+          // Check if PLACE ORDER tracking already exists for this order
+          final dbInst = await db.database;
+          final existingTracking = await dbInst.query(
+            'order_tracking',
+            where: "tracking_type = '2' AND ACC_CD = ? AND ABS(CAST(CREATED_AT as INTEGER) - ?) < 5000",
+            whereArgs: [
+              order["server_party_id"]?.toString() ?? '',
+              order["order_date"] ?? DateTime.now().millisecondsSinceEpoch
+            ],
+            limit: 1,
           );
 
-          print(
-              '[SyncService] ✅ Order placement tracking created for order $serverOrderId');
+          if (existingTracking.isNotEmpty) {
+            print('[SyncService] ✅ PLACE ORDER tracking already exists - skipping duplicate creation');
+            print('[SyncService]   Existing trackingId: ${existingTracking.first['locId']}');
+          } else {
+            // Convert order_date (milliseconds since epoch) back to DateTime
+            final orderDateMs = order["order_date"] as int?;
+
+            // DEFENSIVE: Log the order_date value for debugging
+            print('[SyncService] 🔍 ORDER_DATE DEBUG INFO:');
+            print('[SyncService]   Raw order_date from DB: $orderDateMs');
+            print('[SyncService]   Order keys available: ${order.keys.toList()}');
+
+            final orderDateTime = orderDateMs != null
+                ? DateTime.fromMillisecondsSinceEpoch(orderDateMs)
+                : null;
+
+            if (orderDateMs == null) {
+              print('[SyncService] ⚠️ WARNING: order_date is NULL! FALLBACK to current time');
+              print('[SyncService]    This PLACE ORDER will use sync time instead of order creation time');
+              print('[SyncService]    This indicates a database issue or data integrity problem');
+            }
+
+            print(
+                '[SyncService] 📍 Creating order placement tracking for order $serverOrderId (fallback)');
+            print(
+                '[SyncService]   Using order time: ${orderDateTime?.toString() ?? "(current time - FALLBACK)"}' );
+
+            // CRITICAL: ALWAYS pass the orderDateTime, never fall back to current sync time
+            // If order_date is null, we have a data integrity problem that must be investigated
+            final finalDateTime = orderDateTime ?? DateTime.now();
+            print('[SyncService] 📤 PLACE ORDER TRACKING PARAMS:');
+            print('[SyncService]   orderDateTime param: ${orderDateTime?.toString() ?? "NULL (FALLBACK)"}');
+            print('[SyncService]   finalDateTime used: $finalDateTime');
+            print('[SyncService]   IS FALLBACK: ${orderDateTime == null}');
+
+            await orderSvc.startEndOrder(
+              accCd: order["server_party_id"]?.toString() ?? '',
+              latitude: double.parse(latitude),
+              longitude: double.parse(longitude),
+              type: "2", // Type 2 = Order placed (matches online flow)
+              oId: serverOrderId.toString(),
+              token: token,
+              moduleNo: "205",
+              syncId: 0,
+              userCd: "",
+              isEndOrder: null, // Neutral for order placement
+              orderDateTime: orderDateTime, // Pass order's actual creation time IF available
+            );
+
+            print(
+                '[SyncService] ✅ Order placement tracking created for order $serverOrderId');
+          }
         }
       } catch (e) {
         print(
@@ -453,8 +490,9 @@ class SyncService {
       }
     } else if (response.statusCode == 400 || response.statusCode == 429) {
       // Backend rejected order due to limit exceeded or too many requests
-      final errorMsg =
-      response.statusCode == 400 ? 'License limit exceeded' : 'Too many requests';
+      final errorMsg = response.statusCode == 400
+          ? 'License limit exceeded'
+          : 'Too many requests';
       print(
           '[SyncService] ❌ Order ${order['id']} REJECTED by backend: $errorMsg (HTTP ${response.statusCode})');
 
@@ -506,7 +544,8 @@ class SyncService {
   /// - User A/B/C each have 10 pending orders (offline)
   /// - Firm limit = 10 orders: A's orders sync successfully, B/C orders rejected (sync_status='rejected')
   /// - When firmware limit renewed to 50: call retryRejectedOrders() to retry B/C orders
-  Future<Map<String, int>> retryRejectedOrders(String token, {int? syncId}) async {
+  Future<Map<String, int>> retryRejectedOrders(String token,
+      {int? syncId}) async {
     int synced = 0, failed = 0;
 
     // Pre-check: internet connectivity
@@ -537,8 +576,7 @@ class SyncService {
         // Update status back to pending so it gets synced again
         final orderId = order['id'] as int? ?? 0;
         await db.updateOrderStatus(orderId, 'pending', null);
-        print(
-            '[SyncService] ✏️ Marked order ${orderId} as pending for retry');
+        print('[SyncService] ✏️ Marked order ${orderId} as pending for retry');
       } catch (e) {
         print('[SyncService] Error marking order ${order['id']} for retry: $e');
         failed++;
@@ -774,8 +812,8 @@ class SyncService {
           'remark': remarkVal,
           'REMARK': remarkVal,
           'remarks': remarkVal,
-          'VOUCH_DT': vouchDt,
-          'VOUCH_TIME': cleanTime,
+          'vouchDt': vouchDt,
+          'vouchTime': cleanTime,
           'USER_CD': tracking['USER_CD']?.toString() ?? '',
           'SYNC_ID': tracking['SYNC_ID']?.toString() ?? '',
         };
@@ -841,6 +879,68 @@ class SyncService {
         failed++;
         print('[SyncService] ❌ Error syncing order tracking #$trackingId: $e');
         print('[SyncService]    Local copy kept for retry');
+      }
+    }
+
+    // ALSO sync pending PLACE ORDER (type=2) trackings that were created offline
+    print('[SyncService] 🎯 PLACE ORDER TRACKING SYNC (type=2)');
+    final pendingPlaceOrderTrackings = await db.getPendingOrderPlacementTrackings();
+    print('[SyncService] Found ${pendingPlaceOrderTrackings.length} pending PLACE ORDER tracking(s)');
+
+    for (var tracking in pendingPlaceOrderTrackings) {
+      var trackingId;
+      try {
+        trackingId = tracking['locId'];
+
+        final remarkVal = tracking['REMARK']?.toString() ?? '';
+        final vouchDt = tracking['VOUCH_DT']?.toString() ?? '';
+        final rawTime = tracking['VOUCH_TIME']?.toString() ?? '00:00:00';
+        final cleanTime = rawTime.split('.').first;
+        final trackingType = '2'; // PLACE ORDER
+
+        final payload = {
+          'accCd': tracking['ACC_CD']?.toString() ?? '',
+          'lat': tracking['LAT']?.toString() ?? '0.0',
+          'longi': tracking['LONGI']?.toString() ?? '0.0',
+          'oId': tracking['oId']?.toString() ?? '',
+          'type': trackingType,
+          'moduleNo': tracking['MODULE_NO']?.toString() ?? '205',
+          'remark': remarkVal,
+          'REMARK': remarkVal,
+          'remarks': remarkVal,
+          'vouchDt': vouchDt,
+          'vouchTime': cleanTime,
+          'USER_CD': tracking['USER_CD']?.toString() ?? '',
+          'SYNC_ID': tracking['SYNC_ID']?.toString() ?? '',
+        };
+
+        print('[SyncService] 📤 Syncing PLACE ORDER tracking #$trackingId');
+        print('[SyncService]   Party: ${payload['accCd']} | VOUCH_DT=$vouchDt, VOUCH_TIME=$cleanTime');
+
+        var response = await http.post(
+          Uri.parse("${AppConfig.baseURL}orders-tracking"),
+          headers: {
+            "Authorization": "Bearer $token",
+            'x-app-type': 'oms',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(payload),
+        );
+
+        print('[SyncService] 📥 Server response: ${response.statusCode}');
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          await db.updateOrderTrackingStatus(trackingId, 'synced', null);
+          await db.deleteOrderTracking(trackingId);
+          synced++;
+          print('[SyncService] ✅ Synced PLACE ORDER tracking #$trackingId');
+        } else {
+          failed++;
+          print('[SyncService] ❌ Failed: HTTP ${response.statusCode} for PLACE ORDER tracking #$trackingId');
+        }
+      } catch (e) {
+        failed++;
+        print('[SyncService] ❌ Error syncing PLACE ORDER tracking #$trackingId: $e');
       }
     }
 

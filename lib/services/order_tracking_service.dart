@@ -28,7 +28,17 @@ class OrderTrackingService {
       final baseDateTime = orderDateTime ?? DateTime.now();
       final now = baseDateTime.millisecondsSinceEpoch;
       final vouchDt = baseDateTime.toString().split(' ')[0]; // YYYY-MM-DD
-      final vouchTime = baseDateTime.toString().split(' ')[1]; // HH:MM:SS
+      final rawTime = baseDateTime.toString().split(' ')[1]; // HH:MM:SS.sssssss
+      final vouchTime =
+          rawTime.split('.').first; // Strip microseconds: HH:MM:SS
+
+      // DEBUG: Log the timestamp being captured
+      final isUsingPassedTime = orderDateTime != null;
+      print('[OrderTrackingService] ⏰ TIMESTAMP CAPTURE DEBUG:');
+      print('[OrderTrackingService]   Passed orderDateTime: ${orderDateTime?.toString() ?? "NULL"}');
+      print('[OrderTrackingService]   Using passed time: $isUsingPassedTime');
+      print('[OrderTrackingService]   BaseDateTime used: $baseDateTime');
+      print('[OrderTrackingService]   VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
 
       // Save locally first - map to server schema
       // Set REMARK based on whether it's START or END order
@@ -64,6 +74,7 @@ class OrderTrackingService {
       print('[OrderTrackingService]   REMARK=$remark | isEndOrder=$isEndOrder');
       print(
           '[OrderTrackingService]   📅 LOCAL TIME STORED: VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
+      print('[OrderTrackingService]   ⚠️ Using ${isUsingPassedTime ? "PASSED TIME (correct)" : "CURRENT TIME (may not be original)"}');
       print('[OrderTrackingService]   status=pending (waiting for sync)');
 
       // If online, immediately push to server
@@ -80,8 +91,8 @@ class OrderTrackingService {
             'remark': remark,
             'REMARK': remark,
             'remarks': remark,
-            'VOUCH_DT': vouchDt,
-            'VOUCH_TIME': vouchTime,
+            'vouchDt': vouchDt,
+            'vouchTime': vouchTime,
             'USER_CD': userCd,
             'SYNC_ID': syncId.toString(),
           };

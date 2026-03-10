@@ -340,6 +340,7 @@ class _HomePageState extends State<HomePage> {
           '[HomePage] ⚠️ Error fetching license info from license-info endpoint: $e');
     }
   }
+
   @override
   void dispose() {
     // Remove listener to prevent memory leaks

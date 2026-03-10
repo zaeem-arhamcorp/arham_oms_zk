@@ -11,6 +11,7 @@ import 'package:arham_corporation/providers/cart_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/order_tracking_service.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -1635,7 +1636,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   _handelAddOrder(items) async {
     bool result = await InternetConnectionChecker.instance.hasConnection;
-    
+
     // Check if offline license limit is already hit before placing another order
     if (!result) {
       try {
@@ -1648,21 +1649,23 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         } else if (profileSyncId is String) {
           syncId = int.tryParse(profileSyncId) ?? 0;
         }
-        
+
         if (syncId > 0) {
           final db = DatabaseHelper();
           final licenseInfo = await db.getLicenseInfo(syncId);
-          
+
           if (licenseInfo != null) {
             final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
             final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
-            final offlineOrderCount = licenseInfo['offline_order_count'] as int? ?? 0;
+            final offlineOrderCount =
+                licenseInfo['offline_order_count'] as int? ?? 0;
             final totalOrders = serverOrderCount + offlineOrderCount;
-            
+
             // If limit already hit, prevent order placement
             if (totalOrders >= maxOrders && maxOrders > 0) {
               AppSnackBar.showGetXCustomSnackBar(
-                message: 'Order limit reached. Sync your data now to continue placing orders.',
+                message:
+                    'Order limit reached. Sync your data now to continue placing orders.',
                 backgroundColor: Colors.red,
               );
               return;
@@ -1673,7 +1676,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         print('[OFFLINE_ORDER] Error checking limit before order: $e');
       }
     }
-    
+
     setState(() {
       loading = true;
     });
@@ -1787,6 +1790,37 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           backgroundColor: Colors.orange,
         );
 
+        // CRITICAL: Create PLACE ORDER tracking record IMMEDIATELY (type=2)
+        // This ensures the tracking record is created with the order's actual placement time
+        // Instead of waiting for sync (which would create it later with wrong sequence)
+        try {
+          final OrderTrackingService orderTrackSvc = OrderTrackingService();
+          final DateTime orderPlacementTime = DateTime.now();
+          
+          print('[ShoppingCart] 📍 Creating PLACE ORDER tracking (type=2) immediately...');
+          print('[ShoppingCart]   Party: $partyId | Location: ($lat, $long)');
+          print('[ShoppingCart]   Order placement time: $orderPlacementTime');
+          
+          await orderTrackSvc.startEndOrder(
+            accCd: partyId,
+            latitude: double.parse(lat),
+            longitude: double.parse(long),
+            type: "2", // Type 2 = ORDER PLACED
+            oId: null, // We don't have server ID yet, will be null for offline
+            token: ub.token.toString(),
+            moduleNo: "205",
+            syncId: syncId,
+            userCd: ub.syncId ?? "",
+            isEndOrder: null, // Neutral for order placement
+            orderDateTime: orderPlacementTime, // Use current time as placement time
+          );
+          
+          print('[ShoppingCart] ✅ PLACE ORDER tracking created at placement time');
+        } catch (e) {
+          print('[ShoppingCart] ⚠️ Warning: Could not create PLACE ORDER tracking: $e');
+          // Continue anyway - order was saved, tracking is secondary
+        }
+
         // Check for license limit warning and store it for home screen display (like online behavior)
         bool isLimitHit = false;
         try {
@@ -1797,12 +1831,13 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           if (warningMsg != null && warningMsg.isNotEmpty) {
             print(
                 '[OFFLINE_ORDER] Setting pending warning to display on home screen: $warningMsg');
-            
+
             // Check if limit is EXACTLY hit
             if (warningMsg.contains('LIMIT_HIT:')) {
-              print('[OFFLINE_ORDER] ⛔ EXACT LIMIT HIT - showing popup and resetting count');
+              print(
+                  '[OFFLINE_ORDER] ⛔ EXACT LIMIT HIT - showing popup and resetting count');
               isLimitHit = true;
-              
+
               // Show popup immediately
               if (mounted) {
                 showDialog(
@@ -1811,7 +1846,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                   builder: (BuildContext dialogContext) {
                     return AlertDialog(
                       title: Text('Order Limit Reached'),
-                      content: Text('Sync your data now or your order data might be lost'),
+                      content: Text(
+                          'Sync your data now or your order data might be lost'),
                       actions: [
                         TextButton(
                           onPressed: () {
@@ -1824,14 +1860,15 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                   },
                 );
               }
-              
+
               // Reset offline_order_count to 0 for next sync cycle
               try {
                 final db = DatabaseHelper();
                 await db.resetOfflineOrderCount(syncId);
                 print('[OFFLINE_ORDER] ✅ Reset offline_order_count to 0');
               } catch (e) {
-                print('[OFFLINE_ORDER] Warning: Could not reset offline_order_count: $e');
+                print(
+                    '[OFFLINE_ORDER] Warning: Could not reset offline_order_count: $e');
               }
             } else {
               // Store other warnings for home screen display

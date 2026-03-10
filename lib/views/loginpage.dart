@@ -475,10 +475,9 @@ class _LoginPageState extends State<LoginPage> {
                                     setState(() {
                                       selectedSyncId = newValue;
                                       final selectedFirm = firmList.firstWhere(
-                                          (firm) =>
-                                              firm['syncId'] ==
-                                              newValue);
-                                      selectedFirmName = selectedFirm['firmName'];
+                                          (firm) => firm['syncId'] == newValue);
+                                      selectedFirmName =
+                                          selectedFirm['firmName'];
 
                                       final UserProvider ub =
                                           Provider.of<UserProvider>(context,
@@ -487,8 +486,12 @@ class _LoginPageState extends State<LoginPage> {
                                       ub.saveSyncName(
                                           selectedFirmName.toString());
                                       // Save CUST_ID when firm is selected
-                                      if (selectedFirm['custId'] != null && selectedFirm['custId'].toString().isNotEmpty) {
-                                        ub.saveCustId(selectedFirm['custId'].toString());
+                                      if (selectedFirm['custId'] != null &&
+                                          selectedFirm['custId']
+                                              .toString()
+                                              .isNotEmpty) {
+                                        ub.saveCustId(
+                                            selectedFirm['custId'].toString());
                                       }
                                     });
                                   },
