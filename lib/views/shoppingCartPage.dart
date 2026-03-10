@@ -1796,11 +1796,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         try {
           final OrderTrackingService orderTrackSvc = OrderTrackingService();
           final DateTime orderPlacementTime = DateTime.now();
-          
-          print('[ShoppingCart] 📍 Creating PLACE ORDER tracking (type=2) immediately...');
+
+          print(
+              '[ShoppingCart] 📍 Creating PLACE ORDER tracking (type=2) immediately...');
           print('[ShoppingCart]   Party: $partyId | Location: ($lat, $long)');
           print('[ShoppingCart]   Order placement time: $orderPlacementTime');
-          
+
           await orderTrackSvc.startEndOrder(
             accCd: partyId,
             latitude: double.parse(lat),
@@ -1812,12 +1813,15 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             syncId: syncId,
             userCd: ub.syncId ?? "",
             isEndOrder: null, // Neutral for order placement
-            orderDateTime: orderPlacementTime, // Use current time as placement time
+            orderDateTime:
+                orderPlacementTime, // Use current time as placement time
           );
-          
-          print('[ShoppingCart] ✅ PLACE ORDER tracking created at placement time');
+
+          print(
+              '[ShoppingCart] ✅ PLACE ORDER tracking created at placement time');
         } catch (e) {
-          print('[ShoppingCart] ⚠️ Warning: Could not create PLACE ORDER tracking: $e');
+          print(
+              '[ShoppingCart] ⚠️ Warning: Could not create PLACE ORDER tracking: $e');
           // Continue anyway - order was saved, tracking is secondary
         }
 

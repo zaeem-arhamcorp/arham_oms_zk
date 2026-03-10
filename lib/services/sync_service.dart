@@ -23,8 +23,14 @@ class SyncService {
     // Step 0: try to auto-repair broken order items (missing item_cd)
     await _repairOrderItems();
 
-    final pendingOrders = await db.getPendingOrders();
-    print('[SyncService] Found ${pendingOrders.length} pending order(s)');
+    // Only sync orders belonging to the current firm
+    final List<Map<String, dynamic>> pendingOrders;
+    if (syncId != null && syncId > 0) {
+      pendingOrders = await db.getPendingOrdersBySyncId(syncId);
+    } else {
+      pendingOrders = await db.getPendingOrders();
+    }
+    print('[SyncService] Found ${pendingOrders.length} pending order(s) for SYNC_ID=$syncId');
 
     for (var order in pendingOrders) {
       // Validate order items before attempting sync
@@ -412,7 +418,8 @@ class SyncService {
           final dbInst = await db.database;
           final existingTracking = await dbInst.query(
             'order_tracking',
-            where: "tracking_type = '2' AND ACC_CD = ? AND ABS(CAST(CREATED_AT as INTEGER) - ?) < 5000",
+            where:
+            "tracking_type = '2' AND ACC_CD = ? AND ABS(CAST(CREATED_AT as INTEGER) - ?) < 5000",
             whereArgs: [
               order["server_party_id"]?.toString() ?? '',
               order["order_date"] ?? DateTime.now().millisecondsSinceEpoch
@@ -421,8 +428,10 @@ class SyncService {
           );
 
           if (existingTracking.isNotEmpty) {
-            print('[SyncService] ✅ PLACE ORDER tracking already exists - skipping duplicate creation');
-            print('[SyncService]   Existing trackingId: ${existingTracking.first['locId']}');
+            print(
+                '[SyncService] ✅ PLACE ORDER tracking already exists - skipping duplicate creation');
+            print(
+                '[SyncService]   Existing trackingId: ${existingTracking.first['locId']}');
           } else {
             // Convert order_date (milliseconds since epoch) back to DateTime
             final orderDateMs = order["order_date"] as int?;
@@ -430,28 +439,33 @@ class SyncService {
             // DEFENSIVE: Log the order_date value for debugging
             print('[SyncService] 🔍 ORDER_DATE DEBUG INFO:');
             print('[SyncService]   Raw order_date from DB: $orderDateMs');
-            print('[SyncService]   Order keys available: ${order.keys.toList()}');
+            print(
+                '[SyncService]   Order keys available: ${order.keys.toList()}');
 
             final orderDateTime = orderDateMs != null
                 ? DateTime.fromMillisecondsSinceEpoch(orderDateMs)
                 : null;
 
             if (orderDateMs == null) {
-              print('[SyncService] ⚠️ WARNING: order_date is NULL! FALLBACK to current time');
-              print('[SyncService]    This PLACE ORDER will use sync time instead of order creation time');
-              print('[SyncService]    This indicates a database issue or data integrity problem');
+              print(
+                  '[SyncService] ⚠️ WARNING: order_date is NULL! FALLBACK to current time');
+              print(
+                  '[SyncService]    This PLACE ORDER will use sync time instead of order creation time');
+              print(
+                  '[SyncService]    This indicates a database issue or data integrity problem');
             }
 
             print(
                 '[SyncService] 📍 Creating order placement tracking for order $serverOrderId (fallback)');
             print(
-                '[SyncService]   Using order time: ${orderDateTime?.toString() ?? "(current time - FALLBACK)"}' );
+                '[SyncService]   Using order time: ${orderDateTime?.toString() ?? "(current time - FALLBACK)"}');
 
             // CRITICAL: ALWAYS pass the orderDateTime, never fall back to current sync time
             // If order_date is null, we have a data integrity problem that must be investigated
             final finalDateTime = orderDateTime ?? DateTime.now();
             print('[SyncService] 📤 PLACE ORDER TRACKING PARAMS:');
-            print('[SyncService]   orderDateTime param: ${orderDateTime?.toString() ?? "NULL (FALLBACK)"}');
+            print(
+                '[SyncService]   orderDateTime param: ${orderDateTime?.toString() ?? "NULL (FALLBACK)"}');
             print('[SyncService]   finalDateTime used: $finalDateTime');
             print('[SyncService]   IS FALLBACK: ${orderDateTime == null}');
 
@@ -466,7 +480,8 @@ class SyncService {
               syncId: 0,
               userCd: "",
               isEndOrder: null, // Neutral for order placement
-              orderDateTime: orderDateTime, // Pass order's actual creation time IF available
+              orderDateTime:
+              orderDateTime, // Pass order's actual creation time IF available
             );
 
             print(
@@ -788,6 +803,18 @@ class SyncService {
       try {
         trackingId = tracking['locId'];
 
+        // ✅ VALIDATION: Skip if ACC_CD is empty (invalid party)
+        final accCd = tracking['ACC_CD']?.toString().trim() ?? '';
+        if (accCd.isEmpty) {
+          print(
+              '[SyncService] ⚠️ Skipping tracking #$trackingId - empty/invalid ACC_CD');
+          print(
+              '[SyncService]    This tracking has no party reference and cannot be synced');
+          await db.deleteOrderTracking(trackingId);
+          print('[SyncService]    ✅ Deleted invalid tracking record');
+          continue;
+        }
+
         final remarkVal = tracking['REMARK']?.toString() ?? '';
         final vouchDt = tracking['VOUCH_DT']?.toString() ?? '';
         final rawTime = tracking['VOUCH_TIME']?.toString() ?? '00:00:00';
@@ -803,7 +830,7 @@ class SyncService {
 
         // Match EXACT same structure as online payload (order_tracking_service.dart)
         final payload = {
-          'accCd': tracking['ACC_CD']?.toString() ?? '',
+          'accCd': accCd,
           'lat': tracking['LAT']?.toString() ?? '0.0',
           'longi': tracking['LONGI']?.toString() ?? '0.0',
           'oId': tracking['oId']?.toString() ?? '',
@@ -868,6 +895,15 @@ class SyncService {
           await db.deleteOrderTracking(trackingId);
           synced++;
           print('[SyncService] ✅ Synced order tracking #$trackingId');
+        } else if (response.statusCode == 400) {
+          // ✅ 400 = Invalid party for this firm (FK constraint failed)
+          // This tracking cannot be synced - delete it to prevent retry loops
+          print(
+              '[SyncService] ⚠️ HTTP 400: Party ${payload['accCd']} does not exist for this firm');
+          print(
+              '[SyncService]    Deleting tracking #$trackingId (unrecoverable)');
+          await db.deleteOrderTracking(trackingId);
+          synced++; // Count as processed (cleaned up)
         } else {
           // Server error: keep local copy for retry
           failed++;
@@ -884,13 +920,25 @@ class SyncService {
 
     // ALSO sync pending PLACE ORDER (type=2) trackings that were created offline
     print('[SyncService] 🎯 PLACE ORDER TRACKING SYNC (type=2)');
-    final pendingPlaceOrderTrackings = await db.getPendingOrderPlacementTrackings();
-    print('[SyncService] Found ${pendingPlaceOrderTrackings.length} pending PLACE ORDER tracking(s)');
+    final pendingPlaceOrderTrackings =
+    await db.getPendingOrderPlacementTrackings();
+    print(
+        '[SyncService] Found ${pendingPlaceOrderTrackings.length} pending PLACE ORDER tracking(s)');
 
     for (var tracking in pendingPlaceOrderTrackings) {
       var trackingId;
       try {
         trackingId = tracking['locId'];
+
+        // ✅ VALIDATION: Skip if ACC_CD is empty (invalid party)
+        final accCd = tracking['ACC_CD']?.toString().trim() ?? '';
+        if (accCd.isEmpty) {
+          print(
+              '[SyncService] ⚠️ Skipping PLACE ORDER tracking #$trackingId - empty/invalid ACC_CD');
+          await db.deleteOrderTracking(trackingId);
+          print('[SyncService]    ✅ Deleted invalid PLACE ORDER tracking');
+          continue;
+        }
 
         final remarkVal = tracking['REMARK']?.toString() ?? '';
         final vouchDt = tracking['VOUCH_DT']?.toString() ?? '';
@@ -899,7 +947,7 @@ class SyncService {
         final trackingType = '2'; // PLACE ORDER
 
         final payload = {
-          'accCd': tracking['ACC_CD']?.toString() ?? '',
+          'accCd': accCd,
           'lat': tracking['LAT']?.toString() ?? '0.0',
           'longi': tracking['LONGI']?.toString() ?? '0.0',
           'oId': tracking['oId']?.toString() ?? '',
@@ -915,7 +963,8 @@ class SyncService {
         };
 
         print('[SyncService] 📤 Syncing PLACE ORDER tracking #$trackingId');
-        print('[SyncService]   Party: ${payload['accCd']} | VOUCH_DT=$vouchDt, VOUCH_TIME=$cleanTime');
+        print(
+            '[SyncService]   Party: ${payload['accCd']} | VOUCH_DT=$vouchDt, VOUCH_TIME=$cleanTime');
 
         var response = await http.post(
           Uri.parse("${AppConfig.baseURL}orders-tracking"),
@@ -934,13 +983,23 @@ class SyncService {
           await db.deleteOrderTracking(trackingId);
           synced++;
           print('[SyncService] ✅ Synced PLACE ORDER tracking #$trackingId');
+        } else if (response.statusCode == 400) {
+          // ✅ 400 = Invalid party for this firm (FK constraint failed)
+          print(
+              '[SyncService] ⚠️ HTTP 400: Party ${payload['accCd']} does not exist for this firm');
+          print(
+              '[SyncService]    Deleting PLACE ORDER tracking #$trackingId (unrecoverable)');
+          await db.deleteOrderTracking(trackingId);
+          synced++; // Count as processed (cleaned up)
         } else {
           failed++;
-          print('[SyncService] ❌ Failed: HTTP ${response.statusCode} for PLACE ORDER tracking #$trackingId');
+          print(
+              '[SyncService] ❌ Failed: HTTP ${response.statusCode} for PLACE ORDER tracking #$trackingId');
         }
       } catch (e) {
         failed++;
-        print('[SyncService] ❌ Error syncing PLACE ORDER tracking #$trackingId: $e');
+        print(
+            '[SyncService] ❌ Error syncing PLACE ORDER tracking #$trackingId: $e');
       }
     }
 

@@ -108,8 +108,9 @@ class OfflineOrderService {
     final now = DateTime.now();
     final orderDateMs = now.millisecondsSinceEpoch;
     final orderDtStr = now.toString().split(' ')[0]; // YYYY-MM-DD
-    final orderTimeStr = now.toString().split(' ')[1].split('.').first; // HH:MM:SS
-    
+    final orderTimeStr =
+        now.toString().split(' ')[1].split('.').first; // HH:MM:SS
+
     print('[OfflineOrderService] 📅 CAPTURING ORDER TIME:');
     print('[OfflineOrderService]   DateTime.now(): $now');
     print('[OfflineOrderService]   millisecondsSinceEpoch: $orderDateMs');
@@ -118,7 +119,8 @@ class OfflineOrderService {
     int orderId = await db.insertOfflineOrder({
       'server_party_id': partyId,
       'total_amount': totalAmount,
-      'order_date': orderDateMs,  // Always set with current time - DO NOT let this be NULL
+      'order_date':
+          orderDateMs, // Always set with current time - DO NOT let this be NULL
       'latitude': latitude,
       'longitude': longitude,
       'sync_status': 'pending',
@@ -126,8 +128,9 @@ class OfflineOrderService {
       'last_sync_attempt': null,
       'error_message': null,
       'remarks': remarks,
+      'SYNC_ID': syncId,
     });
-    
+
     print('[OfflineOrderService] ✅ ORDER SAVED WITH TIMESTAMP:');
     print('[OfflineOrderService]   orderId=$orderId | order_date=$orderDateMs');
 

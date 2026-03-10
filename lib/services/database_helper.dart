@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -49,6 +49,8 @@ class DatabaseHelper {
       // --- Ensure columns exist ---
       await _ensureColumnExists(
           db, 'order_tracking', 'tracking_type', "TEXT DEFAULT 'unknown'");
+      await _ensureColumnExists(
+          db, 'offline_orders', 'SYNC_ID', 'INTEGER DEFAULT 0');
     } catch (e) {
       print('[DATABASE] ⚠️ Schema check error (non-fatal): $e');
     }
@@ -209,6 +211,17 @@ class DatabaseHelper {
         print('[DATABASE] ℹ️ tracking_type column already exists');
       }
     }
+    if (oldVersion < 14) {
+      // v13 to v14: Add SYNC_ID to offline_orders for firm-specific order isolation
+      try {
+        await db.execute(
+            'ALTER TABLE offline_orders ADD COLUMN SYNC_ID INTEGER DEFAULT 0');
+        print('[DATABASE] ✅ Added SYNC_ID column to offline_orders');
+      } catch (e) {
+        print(
+            '[DATABASE] ℹ️ SYNC_ID column may already exist in offline_orders: $e');
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -360,7 +373,8 @@ class DatabaseHelper {
       sync_status TEXT DEFAULT 'pending',
       sync_attempts INTEGER DEFAULT 0,
       last_sync_attempt INTEGER,
-      error_message TEXT
+      error_message TEXT,
+      SYNC_ID INTEGER DEFAULT 0
     )
     ''');
   }
@@ -648,6 +662,36 @@ class DatabaseHelper {
       whereArgs: [partyId],
     );
   }
+  //
+  // /// Cleanup stale synced orders (removes orders marked as 'synced' that weren't deleted in previous sync)
+  // /// Should be called at app startup to prevent re-sending previously synced orders
+  // Future<int> cleanupSyncedOrders() async {
+  //   final db = await database;
+  //   final syncedOrders = await db.query(
+  //     'offline_orders',
+  //     where: "sync_status = 'synced'",
+  //   );
+  //
+  //   if (syncedOrders.isNotEmpty) {
+  //     print('[DATABASE] 🧹 Cleaning up ${syncedOrders.length} stale synced order(s)');
+  //   }
+  //
+  //   int cleanedCount = 0;
+  //   for (var order in syncedOrders) {
+  //     try {
+  //       await deleteOfflineOrder(order['id'] as int);
+  //       cleanedCount++;
+  //     } catch (e) {
+  //       print('[DATABASE] ⚠️ Error cleaning order ${order['id']}: $e');
+  //     }
+  //   }
+  //
+  //   if (cleanedCount > 0) {
+  //     print('[DATABASE] ✅ Cleaned up $cleanedCount stale order(s)');
+  //   }
+  //
+  //   return cleanedCount;
+  // }
 
   /*
   ==============================
@@ -1302,5 +1346,47 @@ class DatabaseHelper {
 
     print('[DATABASE] Reset offline order count for SYNC_ID=$syncId');
     print('[DATABASE] Before: $countBefore → After: 0');
+  }
+
+  /// Clear all firm-specific cached data.
+  /// Called on logout and firm switch to prevent stale data from being used.
+  Future<void> clearAllFirmData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('products_cache');
+      await txn.delete('cart_items');
+      await txn.delete('departments');
+      await txn.delete('profile_cache');
+      await txn.delete('home_cache');
+      await txn.delete('orders_cache');
+      await txn.delete('parties');
+      await txn.delete('settings');
+      await txn.delete('license_info');
+      // Don't delete pending offline_orders/order_tracking/locations — those need to sync
+    });
+    print('[DATABASE] 🧹 Cleared all firm-specific cached data');
+  }
+
+  /// Get pending orders filtered by SYNC_ID (firm)
+  Future<List<Map<String, dynamic>>> getPendingOrdersBySyncId(
+      int syncId) async {
+    final db = await database;
+    return await db.query(
+      'offline_orders',
+      where: 'sync_status = ? AND SYNC_ID = ?',
+      whereArgs: ['pending', syncId],
+    );
+  }
+
+  /// Clear order tracking data (locations and order_tracking records)
+  /// Called on firm switch to clear transient tracking data from previous firm
+  Future<void> clearOrderTrackingCache() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('locations');
+      await txn.delete('order_tracking');
+    });
+    print(
+        '[DATABASE] Cleared order tracking cache (locations and order_tracking)');
   }
 }

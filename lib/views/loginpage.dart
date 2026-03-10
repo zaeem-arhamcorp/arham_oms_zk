@@ -26,12 +26,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/item_list_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/party_provider.dart';
 import '../providers/user_provider.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -856,6 +858,20 @@ class _LoginPageState extends State<LoginPage> {
                   });
 
                   if (tempToken.isNotEmpty) {
+                    // Clear ALL auto-cache flags from previous sessions on fresh login
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      final keys = prefs.getKeys();
+                      for (String key in keys) {
+                        if (key.startsWith('auto_cached_firm_')) {
+                          await prefs.remove(key);
+                          print('[LoginPage] Cleared cached flag: $key');
+                        }
+                      }
+                    } catch (e) {
+                      print('[LoginPage] Failed to clear cached flags: $e');
+                    }
+
                     _fetchFirmDropdown(tempToken);
                   } else {}
                 }
@@ -877,15 +893,38 @@ class _LoginPageState extends State<LoginPage> {
   changeFirmLoginWithAPI(Global global, LocationProvider lc) {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     if (selectedFirmName == null) {
-      //Fluttertoast.showToast(msg: "Please Select Firm");
       AppSnackBar.showGetXCustomSnackBar(message: 'Please Select Firm');
     } else {
       FocusManager.instance.primaryFocus?.unfocus();
       global.loadingfetchlogin(true);
       AuthServices()
           .changeFirmLogin(selectedSyncId.toString(), tempToken, context)
-          .then((value) {
+          .then((value) async {
         if (value != null) {
+          try {
+            await DatabaseHelper().clearOrderTrackingCache();
+            print('[LoginPage] Cleared order tracking cache');
+          } catch (e) {
+            print('[LoginPage] Failed to clear cache: $e');
+          }
+
+          // Save the new syncId FIRST
+          final firmSyncId = selectedSyncId.toString();
+          await ub.saveSyncId(firmSyncId);
+          print('[LoginPage] Saved new syncId: $firmSyncId');
+
+          // Then clear the auto-cache flag for this firm
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final cacheKey = 'auto_cached_firm_$firmSyncId';
+            await prefs.remove(cacheKey);
+            await Future.delayed(
+                Duration(milliseconds: 100)); // Ensure write completes
+            print('[LoginPage] Cleared auto-cache flag for firm $firmSyncId');
+          } catch (e) {
+            print('[LoginPage] Failed to clear auto-cache flag: $e');
+          }
+
           ub.saveUserData(value["role"] ?? "", value["token"]).then((value) {
             ub.setSignIn().then((value) {
               final locationProvider =
@@ -893,22 +932,17 @@ class _LoginPageState extends State<LoginPage> {
               final userProvider =
                   Provider.of<UserProvider>(context, listen: false);
               locationProvider.start(userProvider);
-              //context.read<LocationProvider>().start(context);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);
               context.read<ProfileProvider>().getProfile(context).then((value) {
-                // Load settings after profile is loaded
                 context.read<ProfileProvider>().loadSettings(context);
-
                 global.loadinglogin(false);
                 global.loadingfetchlogin(false);
-
                 Get.offAll(() => BottomnavigationBarScreen());
-                // Fluttertoast.showToast(msg: "Login Success");
-                // showAnimatedToast(
-                //     message: 'Login Success', color: Colors.green);
                 AppSnackBar.showGetXCustomSnackBar(
-                    message: 'Login Success', backgroundColor: Colors.green);
+                  message: 'Login Success',
+                  backgroundColor: Colors.green,
+                );
               });
             });
           });

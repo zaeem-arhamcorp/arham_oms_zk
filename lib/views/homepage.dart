@@ -35,6 +35,7 @@ import '../services/services.dart';
 import '../services/offline_caching_service.dart'
     show OfflineCachingService, CacheItemStatus;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../widgets/bottomnavebar.dart';
 import 'company_management/firm_list.dart';
@@ -142,6 +143,31 @@ class _HomePageState extends State<HomePage> {
     // Check for any existing warning at init time
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handlePendingWarning();
+    });
+
+    // Auto-cache data on first login or firm switch (checked via SharedPreferences)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+      if (ub.token != null && ub.syncId != null) {
+        final syncId = ub.syncId!;
+        final prefs = await SharedPreferences.getInstance();
+        final cacheKey = 'auto_cached_firm_$syncId';
+        final flagExists = prefs.containsKey(cacheKey);
+
+        print(
+            '[HomePage] Auto-cache check: syncId=$syncId, cacheKey=$cacheKey, flagExists=$flagExists');
+
+        // Check if already cached for this firm
+        if (!flagExists) {
+          print('[HomePage] Triggering auto-cache for firm $syncId');
+          _showAutoOfflineCachingDialog(syncId);
+        } else {
+          print('[HomePage] Auto-cache already done for firm $syncId');
+        }
+      } else {
+        print(
+            '[HomePage] Auto-cache check skipped: token=${ub.token}, syncId=${ub.syncId}');
+      }
     });
 
     // Sync license info on dashboard initialization
@@ -553,8 +579,21 @@ class _HomePageState extends State<HomePage> {
                     AuthServices()
                         .changeFirmLogin(
                             selectedSyncId.toString(), ub.token!, context)
-                        .then((value) {
+                        .then((value) async {
                       if (value != null) {
+                        // Clear auto-cache flag for new firm
+                        try {
+                          final prefs = await SharedPreferences.getInstance();
+                          final cacheKey =
+                              'auto_cached_firm_${selectedSyncId.toString()}';
+                          await prefs.remove(cacheKey);
+                          print(
+                              '[HomePage] Cleared auto-cache flag for firm $selectedSyncId');
+                        } catch (e) {
+                          print(
+                              '[HomePage] Failed to clear auto-cache flag: $e');
+                        }
+
                         ub
                             .saveUserData(value["role"] ?? "", value["token"])
                             .then((value) {
@@ -1991,6 +2030,179 @@ class _HomePageState extends State<HomePage> {
     } else {
       return 'Good Evening,';
     }
+  }
+
+  /// Auto-cache all data on first login without requiring user confirmation
+  /// This runs only once per firm (tracked by SharedPreferences key: auto_cached_firm_SYNCID)
+  /// Caching starts automatically immediately after dialog is shown
+  void _showAutoOfflineCachingDialog(String syncId) {
+    bool isCaching = true; // Start caching immediately
+    bool cachingComplete = false;
+    List<CacheItemStatus> cacheItems = [
+      CacheItemStatus(name: 'Profile'),
+      CacheItemStatus(name: 'Departments'),
+      CacheItemStatus(name: 'Products'),
+      CacheItemStatus(name: 'Party'),
+      CacheItemStatus(name: 'Cart'),
+    ];
+    String? failureMessage;
+    bool _cachingStarted =
+        false; // Track if we've already started the async operation
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Auto-start caching on first build
+            if (!_cachingStarted) {
+              _cachingStarted = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                try {
+                  await OfflineCachingService.cacheAllDataForOffline(
+                    context,
+                    onProgress: (status) {
+                      if (mounted && dialogContext.mounted) {
+                        setDialogState(() {
+                          // Find and update the matching item
+                          final index = cacheItems
+                              .indexWhere((item) => item.name == status.name);
+                          if (index != -1) {
+                            cacheItems[index] = status;
+                          }
+
+                          // Check for failure
+                          if (!status.isSuccess && status.isComplete) {
+                            failureMessage =
+                                '${status.name} failed: ${status.errorMessage}';
+                          }
+                        });
+                      }
+                    },
+                  );
+                  // Caching finished (success or stopped on failure)
+                  if (mounted && dialogContext.mounted) {
+                    setDialogState(() {
+                      isCaching = false;
+                      cachingComplete = true;
+                    });
+
+                    // Auto-close dialog after 1.5 seconds and show snackbar
+                    Future.delayed(Duration(milliseconds: 1500), () async {
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+
+                        // Mark firm as cached
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('auto_cached_firm_$syncId', true);
+                        print('[HomePage] Marked firm $syncId as auto-cached');
+
+                        final bool allSuccess =
+                            cacheItems.every((item) => item.isSuccess);
+                        AppSnackBar.showGetXCustomSnackBar(
+                          message: allSuccess
+                              ? 'All data cached successfully! You can now work offline.'
+                              : failureMessage ??
+                                  'Caching failed. Please check your internet connection and try again.',
+                          backgroundColor:
+                              allSuccess ? Colors.green : Colors.red,
+                        );
+                      }
+                    });
+                  }
+                } catch (e) {
+                  print('Error during offline caching: $e');
+                  if (mounted && dialogContext.mounted) {
+                    setDialogState(() {
+                      isCaching = false;
+                      cachingComplete = true;
+                      failureMessage = 'Error: ${e.toString()}';
+                    });
+
+                    // Auto-close dialog after 2 seconds for errors too
+                    Future.delayed(Duration(seconds: 2), () async {
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+
+                        // Still mark as cached even on error to not repeat attempts
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('auto_cached_firm_$syncId', true);
+
+                        AppSnackBar.showGetXCustomSnackBar(
+                          message: failureMessage ?? 'Offline caching failed',
+                          backgroundColor: Colors.red,
+                        );
+                      }
+                    });
+                  }
+                }
+              });
+            }
+
+            return AlertDialog(
+              title: Text('Preparing Offline Data'),
+              contentPadding: EdgeInsets.all(16),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isCaching && !cachingComplete)
+                        Text(
+                          'Setting up offline access with your latest data...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      if (isCaching || cachingComplete) ...[
+                        SizedBox(height: 12),
+                        ...cacheItems
+                            .map((item) => _buildCacheItemRow(item))
+                            .toList(),
+                        if (failureMessage != null) ...[
+                          SizedBox(height: 12),
+                          Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              border: Border.all(color: Colors.red.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error_outline,
+                                    color: Colors.red, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    failureMessage!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [], // No manual action buttons - caching starts and closes automatically
+            );
+          },
+        );
+      },
+    );
   }
 
   /// Show offline caching dialog with progress
