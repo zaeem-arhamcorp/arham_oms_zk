@@ -13,7 +13,6 @@ import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
-import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:arham_corporation/widgets/offline_banner.dart';
 import 'package:flutter/cupertino.dart';
@@ -1636,6 +1635,45 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   _handelAddOrder(items) async {
     bool result = await InternetConnectionChecker.instance.hasConnection;
+    
+    // Check if offline license limit is already hit before placing another order
+    if (!result) {
+      try {
+        final ProfileProvider profile =
+            Provider.of<ProfileProvider>(context, listen: false);
+        int syncId = 0;
+        final profileSyncId = profile.data?.syncId;
+        if (profileSyncId is int) {
+          syncId = profileSyncId;
+        } else if (profileSyncId is String) {
+          syncId = int.tryParse(profileSyncId) ?? 0;
+        }
+        
+        if (syncId > 0) {
+          final db = DatabaseHelper();
+          final licenseInfo = await db.getLicenseInfo(syncId);
+          
+          if (licenseInfo != null) {
+            final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
+            final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
+            final offlineOrderCount = licenseInfo['offline_order_count'] as int? ?? 0;
+            final totalOrders = serverOrderCount + offlineOrderCount;
+            
+            // If limit already hit, prevent order placement
+            if (totalOrders >= maxOrders && maxOrders > 0) {
+              AppSnackBar.showGetXCustomSnackBar(
+                message: 'Order limit reached. Sync your data now to continue placing orders.',
+                backgroundColor: Colors.red,
+              );
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        print('[OFFLINE_ORDER] Error checking limit before order: $e');
+      }
+    }
+    
     setState(() {
       loading = true;
     });
@@ -1750,6 +1788,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         );
 
         // Check for license limit warning and store it for home screen display (like online behavior)
+        bool isLimitHit = false;
         try {
           final offlineService = OfflineOrderService();
           final warningMsg =
@@ -1758,62 +1797,55 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           if (warningMsg != null && warningMsg.isNotEmpty) {
             print(
                 '[OFFLINE_ORDER] Setting pending warning to display on home screen: $warningMsg');
-            // Store warning to be displayed on home screen after navigation
-            profile.setPendingWarning(warningMsg);
+            
+            // Check if limit is EXACTLY hit
+            if (warningMsg.contains('LIMIT_HIT:')) {
+              print('[OFFLINE_ORDER] ⛔ EXACT LIMIT HIT - showing popup and resetting count');
+              isLimitHit = true;
+              
+              // Show popup immediately
+              if (mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext dialogContext) {
+                    return AlertDialog(
+                      title: Text('Order Limit Reached'),
+                      content: Text('Sync your data now or your order data might be lost'),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(dialogContext).pop();
+                          },
+                          child: Text('OK'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              }
+              
+              // Reset offline_order_count to 0 for next sync cycle
+              try {
+                final db = DatabaseHelper();
+                await db.resetOfflineOrderCount(syncId);
+                print('[OFFLINE_ORDER] ✅ Reset offline_order_count to 0');
+              } catch (e) {
+                print('[OFFLINE_ORDER] Warning: Could not reset offline_order_count: $e');
+              }
+            } else {
+              // Store other warnings for home screen display
+              profile.setPendingWarning(warningMsg);
+            }
           }
         } catch (e) {
           print('[OFFLINE_ORDER] Error checking license warning: $e');
         }
 
-        // CHECK IF USER HAS REACHED LIMIT - if so, logout after order is saved
-        try {
-          final licenseInfo = await DatabaseHelper().getLicenseInfo(syncId);
-          if (licenseInfo != null) {
-            final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
-            final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
-            final offlineOrderCount =
-                licenseInfo['offline_order_count'] as int? ?? 0;
-            final totalOrders = serverOrderCount + offlineOrderCount;
-
-            print('[OFFLINE_ORDER] ╔════════════════════════════════════════════');
-            print('[OFFLINE_ORDER] ║ POST-SAVE LICENSE CHECK');
-            print('[OFFLINE_ORDER] ║ Server Orders: $serverOrderCount');
-            print('[OFFLINE_ORDER] ║ Offline Orders: $offlineOrderCount');
-            print('[OFFLINE_ORDER] ║ Total: $totalOrders');
-            print('[OFFLINE_ORDER] ║ Max Limit: $maxOrders');
-            print('[OFFLINE_ORDER] ╚════════════════════════════════════════════');
-
-            if (totalOrders >= maxOrders) {
-              print('[OFFLINE_ORDER] ❌ LIMIT REACHED - User will be logged out');
-
-              // Show confirmation message
-              AppSnackBar.showGetXCustomSnackBar(
-                message:
-                    '⚠️ You have reached your order limit ($maxOrders orders). You will be logged out.',
-                backgroundColor: Colors.red,
-              );
-
-              // Wait for order confirmation to show, then logout
-              await Future.delayed(Duration(milliseconds: 500));
-
-              setState(() {
-                loading = false;
-              });
-
-              // Force logout
-              try {
-                await ub.userSignout(context);
-              } catch (logoutError) {
-                print('[OFFLINE_ORDER] Logout error: $logoutError');
-              }
-
-              Get.offAll(() => LoginPage());
-              return;
-            }
-          }
-        } catch (e) {
-          print('[OFFLINE_ORDER] Error checking post-save limit: $e');
-        }
+        // Order saved successfully - no post-save license check needed
+        // Blacklisting will be handled AFTER sync when server confirms limit exceeded
+        print(
+            '[OFFLINE_ORDER] ✅ Order saved locally (will be synced when online)');
 
         // Clear cart UI
         getCart();
@@ -1829,46 +1861,18 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         FirebaseCrashlytics.instance.recordError(e, stack);
 
         final errorMsg = e.toString();
-        final isLimitError = errorMsg.contains('exceeded your order limit') ||
-            errorMsg.contains('blacklisted') ||
-            errorMsg.contains('reached your order limit');
 
-        if (isLimitError) {
-          // License limit exceeded - logout immediately
-          print('[OFFLINE_ORDER] ❌ License limit exceeded! Forcing logout...');
+        // Show generic error message
+        print('[OFFLINE_ORDER] ❌ Error saving offline order: $errorMsg');
 
-          AppSnackBar.showGetXCustomSnackBar(
-            message:
-                '⚠️ You have been blacklisted! You have reached your order limit. Please contact support.',
-            backgroundColor: Colors.red,
-          );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Failed to save order. Please try again.',
+          backgroundColor: Colors.red,
+        );
 
-          // Wait for snackbar to show, then logout
-          await Future.delayed(Duration(milliseconds: 500));
-
-          setState(() {
-            loading = false;
-          });
-
-          // Force logout due to license violation
-          try {
-            await ub.userSignout(context);
-          } catch (logoutError) {
-            print('[OFFLINE_ORDER] Logout error: $logoutError');
-          }
-
-          Get.offAll(() => LoginPage());
-        } else {
-          // Regular error
-          AppSnackBar.showGetXCustomSnackBar(
-            message: "Failed to save offline order: $errorMsg",
-            backgroundColor: Colors.red,
-          );
-
-          setState(() {
-            loading = false;
-          });
-        }
+        setState(() {
+          loading = false;
+        });
       }
     }
   }

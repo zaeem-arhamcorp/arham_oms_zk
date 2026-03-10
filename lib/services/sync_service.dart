@@ -451,6 +451,30 @@ class SyncService {
       } catch (e) {
         print('[SyncService] Cleanup error for order ${order['id']}: $e');
       }
+    } else if (response.statusCode == 400 || response.statusCode == 429) {
+      // Backend rejected order due to limit exceeded or too many requests
+      final errorMsg =
+      response.statusCode == 400 ? 'License limit exceeded' : 'Too many requests';
+      print(
+          '[SyncService] ❌ Order ${order['id']} REJECTED by backend: $errorMsg (HTTP ${response.statusCode})');
+
+      // Mark as 'rejected' - do NOT throw exception, do NOT retry
+      // This order will be retried when the license limit is renewed
+      final dbInst = await db.database;
+      await dbInst.update(
+        'offline_orders',
+        {
+          'sync_status': 'rejected',
+          'error_message':
+          '$errorMsg - Waiting for license renewal to retry (HTTP ${response.statusCode})',
+        },
+        where: 'id = ?',
+        whereArgs: [order['id']],
+      );
+
+      // Do NOT delete the order from offline cache - keep it for later retry
+      print(
+          '[SyncService] 💾 Order ${order['id']} kept in offline cache for retry when limit is renewed');
     } else {
       throw Exception("HTTP ${response.statusCode}: ${response.body}");
     }
@@ -473,6 +497,57 @@ class SyncService {
       }
     }
     return cleaned;
+  }
+
+  /// Retry all orders that were rejected due to license limit exceeded.
+  /// Call this method when the license limit is renewed or increased.
+  ///
+  /// Real-world scenario:
+  /// - User A/B/C each have 10 pending orders (offline)
+  /// - Firm limit = 10 orders: A's orders sync successfully, B/C orders rejected (sync_status='rejected')
+  /// - When firmware limit renewed to 50: call retryRejectedOrders() to retry B/C orders
+  Future<Map<String, int>> retryRejectedOrders(String token, {int? syncId}) async {
+    int synced = 0, failed = 0;
+
+    // Pre-check: internet connectivity
+    final hasNet = await NetworkHelper.hasInternet();
+    if (!hasNet) {
+      print('[SyncService] 📵 No internet — skipping retry of rejected orders');
+      return {'synced': 0, 'failed': 0};
+    }
+
+    // Get all orders with status='rejected' (limit exceeded)
+    final dbInst = await db.database;
+    final rejectedOrders = await dbInst.query(
+      'offline_orders',
+      where: 'sync_status = ?',
+      whereArgs: ['rejected'],
+    );
+
+    if (rejectedOrders.isEmpty) {
+      print('[SyncService] ✅ No rejected orders to retry');
+      return {'synced': 0, 'failed': 0};
+    }
+
+    print(
+        '[SyncService] 🔄 RETRYING ${rejectedOrders.length} REJECTED ORDERS (limit was renewed)');
+
+    for (var order in rejectedOrders) {
+      try {
+        // Update status back to pending so it gets synced again
+        final orderId = order['id'] as int? ?? 0;
+        await db.updateOrderStatus(orderId, 'pending', null);
+        print(
+            '[SyncService] ✏️ Marked order ${orderId} as pending for retry');
+      } catch (e) {
+        print('[SyncService] Error marking order ${order['id']} for retry: $e');
+        failed++;
+      }
+    }
+
+    // Now sync all the re-marked pending orders (includes previously rejected ones)
+    final syncResult = await syncOrders(token, syncId: syncId);
+    return syncResult;
   }
 
   /// Sync local cart items to server.
@@ -772,92 +847,5 @@ class SyncService {
     print(
         '[SyncService] 🎯 Order tracking sync complete: $synced synced, $failed failed');
     return {'synced': synced, 'failed': failed};
-  }
-
-  /// Sync only license info from server (lightweight call for dashboard init).
-  /// Fetches current license info and checks if user is blacklisted.
-  /// Returns true if user is blacklisted, false otherwise.
-  Future<bool> syncLicenseInfo(String token, {int? syncId}) async {
-    // Pre-check: make sure we have internet
-    final hasNet = await NetworkHelper.hasInternet();
-    if (!hasNet) {
-      print('[SyncService] 📵 No internet — skipping license sync');
-      return false;
-    }
-
-    if (syncId == null || syncId <= 0) {
-      print('[SyncService] ⚠️ Invalid syncId for license sync: $syncId');
-      return false;
-    }
-
-    try {
-      print('[SyncService] 🔐 SYNCING LICENSE INFO ONLY');
-      print('[SyncService] Fetching latest license info for syncId: $syncId');
-
-      // Call the /orders endpoint to get license info
-      // (This is lightweight because we don't sync actual orders, just get license info)
-      final response = await http.get(
-        Uri.parse("${AppConfig.baseURL}orders"),
-        headers: {
-          "Authorization": "Bearer $token",
-          'x-app-type': 'oms',
-        },
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          final data = jsonDecode(response.body);
-          final licenseInfoFromResponse = data["licenseInfo"];
-
-          if (licenseInfoFromResponse != null) {
-            print(
-                '[SyncService] 📋 Retrieved licenseInfo from server: $licenseInfoFromResponse');
-
-            // Cache the license info locally
-            await db.cacheLicenseInfo(
-              syncId: syncId,
-              orderCount: licenseInfoFromResponse['orderCount'] as int? ?? 0,
-              maxOrders: licenseInfoFromResponse['maxOrders'] as int? ?? 0,
-              autoBlacklisted:
-              licenseInfoFromResponse['autoBlacklisted'] == true,
-              renewalTriggered:
-              licenseInfoFromResponse['renewalTriggered'] == true,
-            );
-
-            print(
-                '[SyncService] ✅ Cached latest license info from server');
-            print('[SyncService]    Orders: ${licenseInfoFromResponse['orderCount']}/${licenseInfoFromResponse['maxOrders']}');
-            print(
-                '[SyncService]    Auto-Blacklisted: ${licenseInfoFromResponse['autoBlacklisted']}');
-
-            // Return whether user is blacklisted
-            final isBlacklisted =
-                licenseInfoFromResponse['autoBlacklisted'] == true;
-            if (isBlacklisted) {
-              print(
-                  '[SyncService] ⚠️ USER IS BLACKLISTED - Should logout and block orders');
-            }
-            return isBlacklisted;
-          } else {
-            print('[SyncService] ℹ️ No licenseInfo in response');
-            return false;
-          }
-        } catch (e) {
-          print(
-              '[SyncService] ⚠️ Error parsing license info from response: $e');
-          return false;
-        }
-      } else if (response.statusCode == 401) {
-        print('[SyncService] ⚠️ Auth expired during license sync');
-        return false;
-      } else {
-        print(
-            '[SyncService] ❌ Failed to sync license info: HTTP ${response.statusCode}');
-        return false;
-      }
-    } catch (e) {
-      print('[SyncService] ❌ Error syncing license info: $e');
-      return false;
-    }
   }
 }

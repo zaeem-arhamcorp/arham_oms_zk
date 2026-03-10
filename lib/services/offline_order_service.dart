@@ -16,10 +16,11 @@ class OfflineOrderService {
     String? remarks,
   }) async {
     // ============================================================================
-    // STEP 1: CHECK LICENSE LIMITS BEFORE ALLOWING OFFLINE ORDER
+    // STEP 1: LOG LICENSE INFO FOR REFERENCE (NO OFFLINE ENFORCEMENT)
     // ============================================================================
-    // Enforce limit immediately while offline to prevent exceeding order quota
-    String? licenseWarning;
+    // NOTE: Multiple users share the same firm license, so we allow ALL offline
+    // orders to be saved. Blacklisting happens only AFTER sync when we know
+    // the total orders from all users in the firm exceed the limit.
 
     try {
       final licenseInfo = await db.getLicenseInfo(syncId);
@@ -27,74 +28,22 @@ class OfflineOrderService {
       if (licenseInfo != null) {
         final serverOrderCount = licenseInfo['orderCount'] as int? ?? 0;
         final maxOrders = licenseInfo['maxOrders'] as int? ?? 0;
-        final currentOfflineOrderCount =
-            licenseInfo['offline_order_count'] as int? ?? 0;
-
-        // Calculate total after this order
-        final totalOrdersAfterThisOrder =
-            serverOrderCount + currentOfflineOrderCount + 1;
 
         print('[OfflineOrder] ╔════════════════════════════════════════════');
-        print('[OfflineOrder] ║ LICENSE CHECK (OFFLINE ENFORCEMENT)');
+        print('[OfflineOrder] ║ LICENSE INFO (FOR REFERENCE)');
         print('[OfflineOrder] ║ Max Orders Limit: $maxOrders');
-        print('[OfflineOrder] ║ Server Order Count: $serverOrderCount');
+        print('[OfflineOrder] ║ Current Server Orders: $serverOrderCount');
+        print('[OfflineOrder] ║ Remaining: ${maxOrders - serverOrderCount}');
         print(
-            '[OfflineOrder] ║ Current Offline Count: $currentOfflineOrderCount');
-        print(
-            '[OfflineOrder] ║ Will BE After This Order: $totalOrdersAfterThisOrder');
+            '[OfflineOrder] ║ NOTE: Allowing offline order (multi-user firm)');
+        print('[OfflineOrder] ║ Blacklisting checked AFTER sync');
         print('[OfflineOrder] ╚════════════════════════════════════════════');
-
-        if (totalOrdersAfterThisOrder > maxOrders) {
-          // EXCEEDED LIMIT - BLOCK THIS ORDER
-          final msg =
-              'You have been blacklisted! You have exceeded your order limit ($maxOrders orders). Current: $serverOrderCount (server) + $currentOfflineOrderCount (offline) = ${serverOrderCount + currentOfflineOrderCount}. Please contact support.';
-          print('[OfflineOrder] ❌ LIMIT EXCEEDED - LOGOUT NOW!');
-          print(
-              '[OfflineOrder] Total After This Order ($totalOrdersAfterThisOrder) > Max Limit ($maxOrders)');
-          throw Exception(msg);
-        }
-
-        if (totalOrdersAfterThisOrder == maxOrders) {
-          // FINAL ORDER: Allow this order but will need logout after save
-          licenseWarning =
-              '⚠️ License Limit: This order brings you to your maximum limit. You will be logged out after this order.';
-          print('[OfflineOrder] ⚠️ WARNING - FINAL ORDER (WILL LOGOUT AFTER SAVE)!');
-          print('[OfflineOrder] $licenseWarning');
-        } else if (totalOrdersAfterThisOrder == maxOrders - 1) {
-          // WARNING: next order will hit the limit
-          licenseWarning =
-              '⚠️ License Limit Warning: Only 1 order remaining after this.';
-          print('[OfflineOrder] ⚠️ WARNING - LIMIT APPROACHING!');
-          print('[OfflineOrder] $licenseWarning');
-        }
-
-        print(
-            '[OfflineOrder] ✅ Order allowed to proceed. Will be: $totalOrdersAfterThisOrder/${maxOrders}');
-
-        // Increment offline count BEFORE saving the order
-        try {
-          await db.incrementOfflineOrderCount(syncId);
-          print(
-              '[OfflineOrder] ✅ PRE-INCREMENTED offline order count for SYNC_ID=$syncId');
-        } catch (e) {
-          print(
-              '[OfflineOrder] ❌ CRITICAL: Could not increment offline order count: $e');
-          rethrow;
-        }
       } else {
         print(
-            '[OfflineOrder] ⚠️ No cached license info found for SYNC_ID=$syncId');
-        print(
-            '[OfflineOrder] ℹ️ Allowing order to proceed without offline license validation');
-        print(
-            '[OfflineOrder] ⚠️ (You must download data via Go Offline button first)');
+            '[OfflineOrder] ℹ️ No cached license info - allowing order to proceed');
       }
     } catch (e) {
-      if (e.toString().contains('exceeded your order limit')) {
-        rethrow; // Re-throw only exceeded exceptions
-      }
-      print('[OfflineOrder] ⚠️ License check error: $e');
-      print('[OfflineOrder] ℹ️ Allowing order (graceful fallback)');
+      print('[OfflineOrder] ℹ️ License check skipped: $e');
     }
 
     // GET CURRENT CART - rest of the method proceeds as before
@@ -189,8 +138,16 @@ class OfflineOrderService {
     // Clear the local cart after saving order
     await cartService.clearCart();
 
-    // Note: offline order count was ALREADY incremented BEFORE saving the order
-    // to ensure the next check includes this order in the total count
+    // Increment offline_order_count for tracking (not for blocking)
+    // This allows us to show accurate count of pending offline orders
+    try {
+      await db.incrementOfflineOrderCount(syncId);
+      print(
+          '[OfflineOrderService] Incremented offline_order_count for tracking');
+    } catch (e) {
+      print(
+          '[OfflineOrderService] Warning: Could not increment offline_order_count: $e');
+    }
 
     print(
         '[OfflineOrderService] Saved offline order $orderId with ${orderItems.length} item(s)');
@@ -212,6 +169,15 @@ class OfflineOrderService {
         print(
             '[OfflineOrderService] License check for warning: server=$serverOrderCount, offline=$offlineOrderCount, total=$totalOrders, max=$maxOrders');
 
+        // EXACT LIMIT HIT - Show urgent popup message
+        if (totalOrders == maxOrders) {
+          final msg =
+              'LIMIT_HIT:Sync your data now or your order data might be lost. Current: $totalOrders/${maxOrders} orders.';
+          print('[OfflineOrderService] ⛔ LIMIT EXACTLY HIT: $msg');
+          return msg;
+        }
+
+        // 1 remaining warning
         if (totalOrders == maxOrders - 1) {
           final msg =
               '⚠️ License Limit Warning\n\nYou have only 1 order remaining. Current: $totalOrders/${maxOrders} orders.\n\nPlease sync your orders or contact support.';

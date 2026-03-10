@@ -8,6 +8,7 @@ class UserProvider extends ChangeNotifier {
     getUserData();
     getSyncId();
     getSyncName();
+    getCustId();
     checkSignIn();
   }
 
@@ -33,8 +34,26 @@ class UserProvider extends ChangeNotifier {
 
   String? get syncName => _syncName;
 
+  String? _custId;
+
+  String? get custId => _custId;
+
   changeShowSignUp(val) {
     showSignUp = val;
+    notifyListeners();
+  }
+
+  Future saveCustId(custId) async {
+    final SharedPreferences sp = await SharedPreferences.getInstance();
+    await sp.setString("CustId", custId);
+    _custId = custId;
+    notifyListeners();
+  }
+
+  Future getCustId() async {
+    final SharedPreferences sp = await SharedPreferences.getInstance();
+    _custId = sp.getString("CustId");
+    print("cust id " + _custId.toString());
     notifyListeners();
   }
 

@@ -146,24 +146,54 @@ class _HomePageState extends State<HomePage> {
 
     // Sync license info on dashboard initialization
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final UserProvider ub =
-          Provider.of<UserProvider>(context, listen: false);
+      final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
       if (ub.token != null && ub.syncId != null) {
         final syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
-        final isBlacklisted = await SyncService()
-            .syncLicenseInfo(ub.token!, syncId: syncId);
-        
-        // If user is blacklisted, logout immediately
-        if (isBlacklisted && mounted) {
-          print(
-              '[HomePage] User is blacklisted - logging out automatically');
-          // Logout user and redirect to login
-          await ub.userSignout(context);
-          if (mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => LoginPage()),
-              (route) => false,
-            );
+
+        // Get CUST_ID for license-info endpoint
+        await ub.getCustId();
+        final custId = ub.custId;
+
+        // Call syncOrders to sync any pending orders and get license info
+        final result =
+            await SyncService().syncOrders(ub.token!, syncId: syncId);
+        print(
+            '[HomePage] Sync result: synced=${result['synced']}, failed=${result['failed']}');
+
+        // Check for renewal and retry rejected orders
+        if (mounted) {
+          try {
+            final licenseInfo = await DatabaseHelper().getLicenseInfo(syncId);
+            if (licenseInfo != null) {
+              final isBlacklisted =
+                  ((licenseInfo['autoBlacklisted'] as int?) ?? 0) == 1;
+              final renewalTriggered = licenseInfo['renewalTriggered'] == 1;
+
+              if (renewalTriggered) {
+                print(
+                    '[HomePage] License renewal detected - retrying rejected orders');
+                await SyncService()
+                    .retryRejectedOrders(ub.token!, syncId: syncId);
+              }
+
+              // If still blacklisted but no pending orders synced, get fresh license info
+              // This handles the case where admin extended the limit but we didn't sync any orders
+              if (isBlacklisted && result['synced'] == 0) {
+                print(
+                    '[HomePage] ⚠️ Still blacklisted but no orders synced - fetching fresh license info');
+                await _fetchFreshLicenseInfoForBlacklist(ub.token!, syncId);
+              }
+            }
+
+            // Also fetch license info from dedicated license-info endpoint if CUST_ID is available
+            if (custId != null && custId.isNotEmpty) {
+              print(
+                  '[HomePage] 📊 Fetching license info from license-info endpoint...');
+              await _fetchLicenseInfoFromLicenseInfoEndpoint(
+                  ub.token!, syncId, custId);
+            }
+          } catch (e) {
+            print('[HomePage] Error checking license status: $e');
           }
         }
       }
@@ -211,6 +241,105 @@ class _HomePageState extends State<HomePage> {
     await NotificationService().requestNotificationPermission();
   }
 
+  /// Fetch fresh license info by making a minimal order request to /api/orders
+  /// This is used when user is blacklisted but there are no pending orders to sync
+  Future<void> _fetchFreshLicenseInfoForBlacklist(
+      String token, int syncId) async {
+    try {
+      print(
+          '[HomePage] 📊 Fetching fresh license info with dummy order request...');
+
+      var dummyPayload = {
+        "partyCd": "",
+        "lat": "0",
+        "longi": "0",
+        "narration": "Blacklist check",
+        "moduleNo": "205",
+      };
+
+      final response = await http.post(
+        Uri.parse("${AppConfig.baseURL}orders"),
+        headers: {
+          "Authorization": "Bearer $token",
+          'x-app-type': 'oms',
+        },
+        body: dummyPayload,
+      );
+
+      print('[HomePage] 📊 /api/orders response: ${response.statusCode}');
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 400) {
+        final data = jsonDecode(response.body);
+        final licenseInfo = data['licenseInfo'];
+
+        if (licenseInfo != null) {
+          print(
+              '[HomePage] 📊 Got fresh license info: orderCount=${licenseInfo['orderCount']}, maxOrders=${licenseInfo['maxOrders']}, blacklisted=${licenseInfo['autoBlacklisted']}');
+
+          // Cache the fresh license info
+          await DatabaseHelper().cacheLicenseInfo(
+            syncId: syncId,
+            orderCount: licenseInfo['orderCount'] as int? ?? 0,
+            maxOrders: licenseInfo['maxOrders'] as int? ?? 0,
+            autoBlacklisted: licenseInfo['autoBlacklisted'] == true,
+            renewalTriggered: false,
+          );
+
+          print('[HomePage] ✅ Fresh license info cached');
+        }
+      }
+    } catch (e) {
+      print('[HomePage] ⚠️ Error fetching fresh license info: $e');
+    }
+  }
+
+  /// Fetch license info from the dedicated license-info endpoint using CUST_ID
+  /// API: GET {baseURL}/license-info/:CUST_ID
+  /// Response: { orderCount, maxOrders }
+  Future<void> _fetchLicenseInfoFromLicenseInfoEndpoint(
+      String token, int syncId, String custId) async {
+    try {
+      print(
+          '[HomePage] 📊 Fetching license info from license-info endpoint with custId=$custId...');
+
+      final response = await http.get(
+        Uri.parse("${AppConfig.baseURL}license-info/$custId"),
+        headers: {
+          "Authorization": "Bearer $token",
+          'x-app-type': 'oms',
+        },
+      );
+
+      print(
+          '[HomePage] 📊 /api/license-info/$custId response: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        print(
+            '[HomePage] 📊 Got license info: orderCount=${data['orderCount']}, maxOrders=${data['maxOrders']}');
+
+        // Cache the license info
+        await DatabaseHelper().cacheLicenseInfo(
+          syncId: syncId,
+          orderCount: data['orderCount'] as int? ?? 0,
+          maxOrders: data['maxOrders'] as int? ?? 0,
+          autoBlacklisted: false,
+          renewalTriggered: false,
+        );
+
+        print('[HomePage] ✅ License info cached from license-info endpoint');
+      } else {
+        print(
+            '[HomePage] ⚠️ Failed to fetch license info: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      print(
+          '[HomePage] ⚠️ Error fetching license info from license-info endpoint: $e');
+    }
+  }
   @override
   void dispose() {
     // Remove listener to prevent memory leaks

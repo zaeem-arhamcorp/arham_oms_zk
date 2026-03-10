@@ -474,10 +474,11 @@ class _LoginPageState extends State<LoginPage> {
                                   onChanged: (int? newValue) {
                                     setState(() {
                                       selectedSyncId = newValue;
-                                      selectedFirmName = firmList.firstWhere(
+                                      final selectedFirm = firmList.firstWhere(
                                           (firm) =>
                                               firm['syncId'] ==
-                                              newValue)['firmName'];
+                                              newValue);
+                                      selectedFirmName = selectedFirm['firmName'];
 
                                       final UserProvider ub =
                                           Provider.of<UserProvider>(context,
@@ -485,6 +486,10 @@ class _LoginPageState extends State<LoginPage> {
                                       ub.saveSyncId(selectedSyncId.toString());
                                       ub.saveSyncName(
                                           selectedFirmName.toString());
+                                      // Save CUST_ID when firm is selected
+                                      if (selectedFirm['custId'] != null && selectedFirm['custId'].toString().isNotEmpty) {
+                                        ub.saveCustId(selectedFirm['custId'].toString());
+                                      }
                                     });
                                   },
                                 ),
@@ -938,6 +943,7 @@ class _LoginPageState extends State<LoginPage> {
                   item['FIRM_NAME']?.replaceAll(RegExp(r'[\r\n]'), '') ??
                       'Unnamed Firm',
               "syncId": item['SYNC_ID'],
+              "custId": item['CUST_ID'] ?? '',
             };
           }).toList();
 
@@ -956,6 +962,13 @@ class _LoginPageState extends State<LoginPage> {
               Provider.of<UserProvider>(context, listen: false);
           ub.saveSyncId(selectedSyncId.toString());
           ub.saveSyncName(selectedFirmName.toString());
+          // Save CUST_ID if available
+          if (firmList.isNotEmpty) {
+            final custId = firmList[0]['custId'];
+            if (custId != null && custId.isNotEmpty) {
+              ub.saveCustId(custId.toString());
+            }
+          }
         }
       } else {
         throw Exception('Failed to load data');
