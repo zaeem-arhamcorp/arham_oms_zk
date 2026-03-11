@@ -47,8 +47,8 @@ class PartyProvider extends DisposableProvider {
   String punchInOutParty = "";
   String punchInOutPartyId = "";
 
-  changePunchInOutParty(partyname, partyID, context,
-      {isProductPage, type, id}) {
+  Future<void> changePunchInOutParty(partyname, partyID, context,
+      {isProductPage, type, id}) async{
     final ProfileProvider pp =
         Provider.of<ProfileProvider>(context, listen: false);
     punchInOutParty = partyname;
@@ -57,7 +57,7 @@ class PartyProvider extends DisposableProvider {
       if (id == null) {
         if (pp.YN == "Y") {
           if (pp.ACC_NAME == "" && pp.ACC_CD == "") {
-            startEndOrder(partyname, partyID, context, type).then((value) {});
+            await startEndOrder(partyname, partyID, context, type);
           }
         }
       }

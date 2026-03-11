@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/product/widget/order_loading_dialog.dart';
 import 'package:arham_corporation/product/widget/product_card.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
@@ -340,6 +341,12 @@ class _ProductsPageState extends State<ProductsPage> {
                 )
               : TextButton(
                   onPressed: () async {
+                    // Show loading dialog
+                    OrderLoadingDialog.show(
+                      context: context,
+                      action: "Ending",
+                    );
+
                     try {
                       await party.startEndOrder(
                         profile.ACC_NAME,
@@ -348,6 +355,9 @@ class _ProductsPageState extends State<ProductsPage> {
                         "3",
                         id: 1,
                       );
+
+                      // Dismiss the loading dialog
+                      OrderLoadingDialog.dismiss(context);
 
                       // Clear the selected party name
                       controller.selectedPartyName.value = '';
@@ -391,6 +401,8 @@ class _ProductsPageState extends State<ProductsPage> {
                         cartController.cartCount.value = 0;
                       }
                     } catch (e) {
+                      // Dismiss the loading dialog even on error
+                      OrderLoadingDialog.dismiss(context);
                       //showToast("Error: $e");
                       AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
                     }
@@ -584,6 +596,8 @@ class _ProductsPageState extends State<ProductsPage> {
         Provider.of<CartListProvider>(context, listen: false);
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
+    // Capture page-level context BEFORE the bottom sheet opens
+    final BuildContext pageContext = context;
     pp.getPartyNameProductPage(context);
     showModalBottomSheet(
         context: context,
@@ -649,137 +663,137 @@ class _ProductsPageState extends State<ProductsPage> {
                                       itemBuilder: (builder, index) {
                                         return InkWell(
                                           onTap: () async {
-                                            // if (p.data?.profileSettings
-                                            //         .firstWhere((element) =>
-                                            //             element.variable ==
-                                            //             'punchInOut')
-                                            //         .value ==
-                                            //     'Y')
+                                            // Close the bottom sheet first
+                                            // Navigator.pop(context);
+                                            //
+                                            // // Wait for bottom sheet to fully close, then show loader
+                                            // await Future.delayed(const Duration(milliseconds: 300));
+                                            // OrderLoadingDialog.show(
+                                            //   context: pageContext,
+                                            //   action: "Starting",
+                                            // );
+                                            Navigator.pop(context);
 
-                                            if (p.data?.profileSettings.any(
-                                                    (e) =>
-                                                        e.variable ==
-                                                            'punchInOut' &&
-                                                        e.value == 'Y') ==
-                                                true) {
-                                              final LocationProvider lp =
-                                                  Provider.of<LocationProvider>(
-                                                      context,
-                                                      listen: false);
-                                              if (lp.enebleLocationPermission ==
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              OrderLoadingDialog.show(
+                                                context: pageContext,
+                                                action: "Starting",
+                                              );
+                                            });
+
+                                            try {
+                                              if (p.data?.profileSettings.any(
+                                                      (e) =>
+                                                          e.variable ==
+                                                              'punchInOut' &&
+                                                          e.value == 'Y') ==
                                                   true) {
-                                                await party
-                                                    .changePunchInOutParty(
-                                                        (_tempParty.isNotEmpty)
-                                                            ? _tempParty[index]
-                                                                .accName
-                                                            : party.data[index]
-                                                                .accName,
-                                                        (_tempParty.isNotEmpty)
-                                                            ? _tempParty[index]
-                                                                .accCd
-                                                            : party.data[index]
-                                                                .accCd,
-                                                        isProductPage: true,
-                                                        type: "1",
-                                                        context);
+                                                final LocationProvider lp =
+                                                    Provider.of<LocationProvider>(
+                                                        pageContext,
+                                                        listen: false);
+                                                if (lp.enebleLocationPermission ==
+                                                    true) {
+                                                  await party
+                                                      .changePunchInOutParty(
+                                                          (_tempParty.isNotEmpty)
+                                                              ? _tempParty[index]
+                                                                  .accName
+                                                              : party.data[index]
+                                                                  .accName,
+                                                          (_tempParty.isNotEmpty)
+                                                              ? _tempParty[index]
+                                                                  .accCd
+                                                              : party.data[index]
+                                                                  .accCd,
+                                                          isProductPage: true,
+                                                          type: "1",
+                                                          pageContext);
+
+                                                  if (_tempParty.isNotEmpty) {
+                                                    controller.selectedPartyName
+                                                            .value =
+                                                        _tempParty[index].accName;
+                                                    controller.selectedPartyId
+                                                            .value =
+                                                        _tempParty[index].accCd;
+                                                  } else {
+                                                    controller.selectedPartyName
+                                                            .value =
+                                                        party.data[index].accName;
+                                                    controller.selectedPartyId
+                                                            .value =
+                                                        party.data[index].accCd;
+                                                  }
+
+                                                  log("Selected Party Name: ${controller.selectedPartyName.value}");
+                                                  log("Selected Party ID: ${controller.selectedPartyId.value}");
+                                                } else {
+                                                  OrderLoadingDialog.dismiss(pageContext);
+                                                  AppSnackBar.showGetXCustomSnackBar(
+                                                      message:
+                                                          "Please Enable Location Permission");
+                                                  return;
+                                                }
+                                              } else {
+                                                await party.changeParty(
+                                                    (_tempParty.isNotEmpty)
+                                                        ? _tempParty[index]
+                                                            .accName
+                                                        : party
+                                                            .data[index].accName,
+                                                    (_tempParty.isNotEmpty)
+                                                        ? _tempParty[index].accCd
+                                                        : party.data[index].accCd,
+                                                    pageContext);
 
                                                 if (_tempParty.isNotEmpty) {
                                                   controller.selectedPartyName
                                                           .value =
                                                       _tempParty[index].accName;
-                                                  controller.selectedPartyId
-                                                          .value =
+                                                  controller
+                                                          .selectedPartyId.value =
                                                       _tempParty[index].accCd;
                                                 } else {
                                                   controller.selectedPartyName
                                                           .value =
                                                       party.data[index].accName;
-                                                  controller.selectedPartyId
-                                                          .value =
+                                                  controller
+                                                          .selectedPartyId.value =
                                                       party.data[index].accCd;
                                                 }
-
-                                                log("Selected Party Name: ${controller.selectedPartyName.value}");
-                                                log("Selected Party ID: ${controller.selectedPartyId.value}");
-                                              } else {
-                                                /*Fluttertoast.showToast(
-                                                    msg:
-                                                        "Please Enable Location Permission",
-                                                    toastLength:
-                                                        Toast.LENGTH_LONG);*/
-                                                // showAnimatedToast(
-                                                //     message:
-                                                //         "Please Enable Location Permission",
-                                                //     color: Colors.red);
-                                                AppSnackBar.showGetXCustomSnackBar(
-                                                    message:
-                                                        "Please Enable Location Permission");
-                                              }
-                                            } else {
-                                              await party.changeParty(
-                                                  (_tempParty.isNotEmpty)
-                                                      ? _tempParty[index]
-                                                          .accName
-                                                      : party
-                                                          .data[index].accName,
-                                                  (_tempParty.isNotEmpty)
-                                                      ? _tempParty[index].accCd
-                                                      : party.data[index].accCd,
-                                                  context);
-
-                                              if (_tempParty.isNotEmpty) {
-                                                controller.selectedPartyName
-                                                        .value =
-                                                    _tempParty[index].accName;
-                                                controller
-                                                        .selectedPartyId.value =
-                                                    _tempParty[index].accCd;
-                                              } else {
-                                                controller.selectedPartyName
-                                                        .value =
-                                                    party.data[index].accName;
-                                                controller
-                                                        .selectedPartyId.value =
-                                                    party.data[index].accCd;
-                                              }
-                                            }
-
-                                            Get.back();
-                                            setState(() {
-                                              dataProduct.clear();
-                                              isLoading = true;
-                                              qty.clear();
-                                              freeQty.clear();
-                                              //_hasNextPage = false;
-                                            });
-                                            //getProduct();
-                                            await controller
-                                                .fetchProductsFromAPI();
-
-                                            if (controller
-                                                .selectedPartyId.isNotEmpty) {
-                                              cartController.productAddedStates
-                                                  .clear(); // Clear previous state
-
-                                              await cart.getCartItem(
-                                                  Get.context!,
-                                                  controller
-                                                      .selectedPartyId.value);
-
-                                              // Update state based on fetched cart data
-                                              for (var item in cart.data) {
-                                                cartController
-                                                        .productAddedStates[
-                                                    item.itemCd] = true;
                                               }
 
-                                              cartController.update();
+                                              setState(() {
+                                                dataProduct.clear();
+                                                isLoading = true;
+                                                qty.clear();
+                                                freeQty.clear();
+                                              });
 
-                                              cartController.cartCount.value =
-                                                  cartController
-                                                      .productAddedStates
-                                                      .length;
+                                              await controller.fetchProductsFromAPI();
+
+                                              if (controller.selectedPartyId.isNotEmpty) {
+                                                cartController.productAddedStates.clear();
+
+                                                await cart.getCartItem(
+                                                    pageContext,
+                                                    controller.selectedPartyId.value);
+
+                                                for (var item in cart.data) {
+                                                  cartController.productAddedStates[item.itemCd] = true;
+                                                }
+
+                                                cartController.update();
+
+                                                cartController.cartCount.value =
+                                                    cartController.productAddedStates.length;
+                                              }
+
+                                              OrderLoadingDialog.dismiss(pageContext);
+                                            } catch (e) {
+                                              OrderLoadingDialog.dismiss(pageContext);
+                                              AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
                                             }
                                           },
                                           child: (_tempParty.isNotEmpty)
@@ -858,40 +872,7 @@ class _ProductsPageState extends State<ProductsPage> {
       ProfileProvider profileProvider, PartyProvider partyProvider, int index) {
     return GestureDetector(
       onTap: () async {
-        final isPunchInOutEnabled = profileProvider.data?.profileSettings.any(
-              (setting) =>
-                  setting.variable == 'punchInOut' && setting.value == 'Y',
-            ) ??
-            false;
-
-        if (isPunchInOutEnabled) {
-          final locationProvider =
-              Provider.of<LocationProvider>(context, listen: false);
-
-          if (locationProvider.enebleLocationPermission) {
-            final selectedParty = _tempParty.isNotEmpty
-                ? _tempParty[index]
-                : partyProvider.data[index];
-
-            await partyProvider.changePunchInOutParty(
-              selectedParty.accName,
-              selectedParty.accCd,
-              isProductPage: true,
-              type: "1",
-              context,
-            );
-
-            controller.selectedPartyName.value = selectedParty.accName;
-            controller.selectedPartyId.value = selectedParty.accCd;
-
-            log("Selected Party Name: ${controller.selectedPartyName.value}");
-            log("Selected Party ID: ${controller.selectedPartyId.value}");
-          } else {
-            //showToast("Please Enable Location Permission");
-            AppSnackBar.showGetXCustomSnackBar(
-                message: "Please Enable Location Permission");
-          }
-        } else {
+        try {
           final selectedParty = _tempParty.isNotEmpty
               ? _tempParty[index]
               : partyProvider.data[index];
@@ -899,16 +880,94 @@ class _ProductsPageState extends State<ProductsPage> {
           controller.selectedPartyName.value = selectedParty.accName;
           controller.selectedPartyId.value = selectedParty.accCd;
 
-          log("Other Selected Party Name: ${controller.selectedPartyName.value}");
+          log("Selected Party Name: ${controller.selectedPartyName.value}");
+          log("Selected Party ID: ${controller.selectedPartyId.value}");
 
-          await partyProvider.changeParty(
-            selectedParty.accName,
-            selectedParty.accCd,
-            context,
-          );
+          // Close the bottom sheet
+          Navigator.pop(context);
+
+          // Wait for bottom sheet to fully close
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          // Show loader - use the main app BuildContext
+          final mainContext = Get.context;
+          if (mainContext != null && mainContext.mounted) {
+            log("📍 About to show loader");
+            OrderLoadingDialog.show(
+              context: mainContext,
+              action: "Starting",
+            );
+            
+            log("✅ Loader show() called");
+          } else {
+            log("❌ Main context is null or not mounted");
+          }
+
+          final isPunchInOutEnabled = profileProvider.data?.profileSettings
+                  .any((setting) =>
+                      setting.variable == 'punchInOut' &&
+                      setting.value == 'Y') ??
+              false;
+
+          if (isPunchInOutEnabled) {
+            final locationProvider =
+                Provider.of<LocationProvider>(context, listen: false);
+
+            if (locationProvider.enebleLocationPermission) {
+              await partyProvider.changePunchInOutParty(
+                selectedParty.accName,
+                selectedParty.accCd,
+                isProductPage: true,
+                type: "1",
+                context,
+              );
+            } else {
+              OrderLoadingDialog.dismiss(Get.context!);
+              AppSnackBar.showGetXCustomSnackBar(
+                  message: "Please Enable Location Permission");
+              return;
+            }
+          } else {
+            await partyProvider.changeParty(
+              selectedParty.accName,
+              selectedParty.accCd,
+              context,
+            );
+          }
+
+          // Fetch products
+          setState(() {
+            dataProduct.clear();
+            isLoading = true;
+            qty.clear();
+            freeQty.clear();
+          });
+
+          await controller.fetchProductsFromAPI();
+
+          // Update cart
+          if (controller.selectedPartyId.isNotEmpty) {
+            cartController.productAddedStates.clear();
+            await cart.getCartItem(
+                Get.context!, controller.selectedPartyId.value);
+
+            for (var item in cart.data) {
+              cartController.productAddedStates[item.itemCd] = true;
+            }
+
+            cartController.update();
+            cartController.cartCount.value =
+                cartController.productAddedStates.length;
+          }
+
+          // Dismiss loader
+          OrderLoadingDialog.dismiss(Get.context!);
+          log("⏹️  Loader dismissed");
+        } catch (e) {
+          log("Error selecting party: $e");
+          OrderLoadingDialog.dismiss(Get.context!);
+          AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
         }
-
-        Get.back();
       },
       child: Helper.showPartyBottomSheetWithSearch(
         index,
