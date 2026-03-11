@@ -215,12 +215,15 @@ class LocationProvider extends ChangeNotifier {
         if (Get.context != null) {
           final ProfileProvider p =
               Provider.of<ProfileProvider>(Get.context!, listen: false);
+          // Update in-memory punch state so UI reflects the change immediately
           p.setPunchState(wasIn); // true if just punched in → show Punch Out
-          // Refresh profile/settings in background
-          p.getProfile(Get.context!);
-          // p.getProfile(Get.context!).then((value) {
-          //   p.loadSettings(Get.context!);
-          // });
+
+          // Only refresh the full profile when the operation was synced online.
+          // Refreshing while offline can overwrite the in-memory punch state
+          // with cached data and cause the UI to revert.
+          if (result['synced'] == true) {
+            p.getProfile(Get.context!);
+          }
         }
       } else {
         // Failed to punch

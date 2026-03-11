@@ -129,6 +129,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
+    // Mark HomePage active for conditional snack bar behavior
+    Global.isHomeActive = true;
     //fetchData();
     notification();
 
@@ -371,6 +373,8 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     // Remove listener to prevent memory leaks
     _profileProvider.removeListener(_handlePendingWarning);
+    // Unmark HomePage active
+    Global.isHomeActive = false;
     super.dispose();
   }
 

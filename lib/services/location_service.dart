@@ -87,8 +87,8 @@ class LocationService {
 
             // detailed keys (kept for compatibility / audit)
             'USER_CD': userCd,
-            'VOUCH_DT': vouchDt,
-            'VOUCH_TIME': formattedVouchTime,
+            'vouchDt': vouchDt,
+            'vouchTime': formattedVouchTime,
             'LAT': lat.toString(),
             'LONGI': longi.toString(),
             'REMARK': remark,

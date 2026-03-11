@@ -30,7 +30,8 @@ class SyncService {
     } else {
       pendingOrders = await db.getPendingOrders();
     }
-    print('[SyncService] Found ${pendingOrders.length} pending order(s) for SYNC_ID=$syncId');
+    print(
+        '[SyncService] Found ${pendingOrders.length} pending order(s) for SYNC_ID=$syncId');
 
     for (var order in pendingOrders) {
       // Validate order items before attempting sync
@@ -709,6 +710,15 @@ class SyncService {
         final moduleNoStr = location['MODULE_NO']?.toString() ?? '205';
 
         var payload = {
+          // Lowercase versions (expected by API)
+          'lat': latStr,
+          'long': longiStr,
+          'remarks': remarkStr,
+          'moduleNo': moduleNoStr,
+          'vouchDt': location['VOUCH_DT']?.toString() ?? '',
+          'vouchTime': cleanTime,
+
+          // Uppercase versions (kept for backward compatibility)
           'USER_CD': location['USER_CD']?.toString() ?? '',
           'VOUCH_DT': location['VOUCH_DT']?.toString() ?? '',
           'VOUCH_TIME': cleanTime,
@@ -717,10 +727,6 @@ class SyncService {
           'REMARK': remarkStr,
           'SYNC_ID': location['SYNC_ID']?.toString() ?? '',
           'MODULE_NO': moduleNoStr,
-          'lat': latStr,
-          'long': longiStr,
-          'moduleNo': moduleNoStr,
-          'remarks': remarkStr,
         };
 
         print('[SyncService] 📤 Syncing location #${locId ?? 'unknown'}');
