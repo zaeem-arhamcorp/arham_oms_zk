@@ -218,12 +218,12 @@ class LocationProvider extends ChangeNotifier {
           // Update in-memory punch state so UI reflects the change immediately
           p.setPunchState(wasIn); // true if just punched in → show Punch Out
 
-          // Only refresh the full profile when the operation was synced online.
-          // Refreshing while offline can overwrite the in-memory punch state
-          // with cached data and cause the UI to revert.
-          if (result['synced'] == true) {
-            p.getProfile(Get.context!);
-          }
+          // Do NOT refresh the full profile immediately after punch even when
+          // synced: fetching the profile can overwrite the in-memory punch
+          // state with stale server data and cause the UI to revert. The app
+          // now restores punch state from the local `locations` table on
+          // startup, and server-driven profile refreshs should run via the
+          // normal startup/sync flows.
         }
       } else {
         // Failed to punch

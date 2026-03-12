@@ -203,7 +203,10 @@ class LocationService {
     final today = DateTime.now();
     final vouchDt =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    return await db.getLocationsByUserAndDate(userCd, vouchDt);
+    final punches = await db.getLocationsByUserAndDate(userCd, vouchDt);
+    print(
+        '[LocationService.getTodaysPunches] Query: USER_CD="$userCd", VOUCH_DT="$vouchDt" → ${punches.length} results');
+    return punches;
   }
 
   /// Get all punches within a date range (for reports)

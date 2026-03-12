@@ -1,5 +1,6 @@
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
+import 'package:arham_corporation/services/location_service.dart';
 import 'package:flutter/cupertino.dart';
 
 //import 'package:fluttertoast/fluttertoast.dart';
@@ -15,6 +16,7 @@ import '../config/app_config.dart';
 import '../models/profileModal.dart';
 import '../models/settingmodal.dart';
 import '../services/services.dart';
+import '../services/sync_service.dart';
 import '../views/loginpage.dart';
 
 class ProfileProvider extends DisposableProvider {
@@ -109,12 +111,90 @@ class ProfileProvider extends DisposableProvider {
           await getUserCode();
           await getUserName();
 
-          if (id == null) {
-            if (YN == "Y") {
-              pp.changePunchInOutParty(ACC_NAME, ACC_CD, context, id: 5);
+          // Restore punch state from local locations table (today's punches)
+          try {
+            final locService = LocationService();
+            // Use ub.syncId (what was stored during punch), not _data?.userCd
+            final userCdStr = ub.syncId ?? '';
+            print(
+                '[PROFILE-OFFLINE] 🔍 Querying punches for userCd="$userCdStr" (from ub.syncId)');
+            if (userCdStr.isNotEmpty) {
+              final punches = await locService.getTodaysPunches(userCdStr);
+              print(
+                  '[PROFILE-OFFLINE] 📊 Found ${punches.length} punches for today');
+              if (punches.isNotEmpty) {
+                for (var p in punches) {
+                  print(
+                      '[PROFILE-OFFLINE]   Punch: ${p['REMARK']} at ${p['VOUCH_TIME']} (USER_CD=${p['USER_CD']})');
+                }
+                final last = punches.last;
+                final remark = (last['REMARK'] ?? '').toString();
+                // If last remark is 'PUNCH IN' then show Punch Out button
+                _data!.isPunchIn = remark == 'PUNCH IN';
+                print(
+                    '[PROFILE-OFFLINE] ✅ Set isPunchIn=${_data!.isPunchIn} based on last remark="$remark"');
+              } else {
+                print(
+                    '[PROFILE-OFFLINE] ⚠️ No punches found for userCd="$userCdStr"');
+              }
+            } else {
+              print(
+                  '[PROFILE-OFFLINE] ⚠️ userCdStr is empty, skipping punch restoration');
             }
+          } catch (e) {
+            print('[PROFILE-OFFLINE] ❌ Failed to restore punch state: $e');
           }
-          notifyListeners();
+
+          // Restore order session state from local order_tracking table
+          try {
+            final syncIdInt = int.tryParse(ub.syncId ?? '0') ?? 0;
+            if (syncIdInt > 0) {
+              final trackings =
+                  await DatabaseHelper().getTodayOrderTrackings(syncIdInt);
+              print(
+                  '[PROFILE-OFFLINE] 🔍 Found ${trackings.length} order trackings for today');
+              if (trackings.isNotEmpty) {
+                final last = trackings.last;
+                final trackingType = (last['tracking_type'] ?? '').toString();
+                final accCd = (last['ACC_CD'] ?? '').toString();
+                final remark = (last['REMARK'] ?? '').toString();
+                print(
+                    '[PROFILE-OFFLINE]   Last order tracking: type=$trackingType, ACC_CD=$accCd, REMARK=$remark');
+
+                if (trackingType == '1' && remark == 'IN') {
+                  // Active order session - restore party info
+                  pp.punchInOutPartyId = accCd;
+                  // Try to find party name from cache, fallback to current ACC_NAME if already set
+                  var partyName = ACC_NAME; // Start with current value
+                  try {
+                    final cached = await DatabaseHelper().getCachedParties();
+                    for (var row in cached) {
+                      if (row['acc_cd'].toString() == accCd) {
+                        partyName = row['name'] ?? ACC_NAME;
+                        break;
+                      }
+                    }
+                  } catch (e) {
+                    print('[PROFILE-OFFLINE] Could not load party cache: $e');
+                  }
+                  pp.punchInOutParty = partyName;
+                  // Set ProfileProvider ACC_Name and ACC_CD for this session
+                  this.change(partyName, accCd);
+                  print(
+                      '[PROFILE-OFFLINE] ✅ Restored active order session: party=$accCd, name="$partyName"');
+                } else if (trackingType == '3' && remark == 'OUT') {
+                  // Order ended - clear party info
+                  pp.punchInOutParty = '';
+                  pp.punchInOutPartyId = '';
+                  this.change('', '');
+                  print(
+                      '[PROFILE-OFFLINE] ✅ Restored ended order session (cleared party)');
+                }
+              }
+            }
+          } catch (e) {
+            print('[PROFILE-OFFLINE] ❌ Failed to restore order state: $e');
+          }
           return;
         }
       } catch (e) {
@@ -163,6 +243,122 @@ class ProfileProvider extends DisposableProvider {
         getUserCode();
         getUserName();
 
+        // Restore punch state from local locations table (today's punches)
+        // This ensures the punch button reflects the last punch action even
+        // when the server profile doesn't have that state yet
+        try {
+          final locService = LocationService();
+          // Use ub.syncId (what was stored during punch), not _data?.userCd
+          final userCdStr = ub.syncId ?? '';
+          print(
+              '[PROFILE-ONLINE] 🔍 Querying punches for userCd="$userCdStr" (from ub.syncId)');
+          if (userCdStr.isNotEmpty) {
+            final punches = await locService.getTodaysPunches(userCdStr);
+            print(
+                '[PROFILE-ONLINE] 📊 Found ${punches.length} punches for today');
+            if (punches.isNotEmpty) {
+              for (var p in punches) {
+                print(
+                    '[PROFILE-ONLINE]   Punch: ${p['REMARK']} at ${p['VOUCH_TIME']} (USER_CD=${p['USER_CD']})');
+              }
+              final last = punches.last;
+              final remark = (last['REMARK'] ?? '').toString();
+              // If last remark is 'PUNCH IN' then show Punch Out button
+              _data!.isPunchIn = remark == 'PUNCH IN';
+              print(
+                  '[PROFILE-ONLINE] ✅ Set isPunchIn=${_data!.isPunchIn} based on last remark="$remark"');
+            } else {
+              print(
+                  '[PROFILE-ONLINE] ⚠️ No punches found for userCd="$userCdStr"');
+            }
+          } else {
+            print(
+                '[PROFILE-ONLINE] ⚠️ userCdStr is empty, skipping punch restoration');
+          }
+        } catch (e) {
+          print('[PROFILE-ONLINE] ❌ Failed to restore punch state: $e');
+        }
+
+        // Restore order session state from local order_tracking table
+        try {
+          final syncIdInt = int.tryParse(ub.syncId ?? '0') ?? 0;
+          print('[PROFILE-ONLINE] 🔍 Checking order state: syncId=$syncIdInt');
+          if (syncIdInt > 0) {
+            final trackings =
+                await DatabaseHelper().getTodayOrderTrackings(syncIdInt);
+            print(
+                '[PROFILE-ONLINE] 📊 Found ${trackings.length} order trackings for today (syncId=$syncIdInt)');
+            if (trackings.isNotEmpty) {
+              for (var t in trackings) {
+                print(
+                    '[PROFILE-ONLINE]   Tracking: type=${t['tracking_type']}, ACC_CD=${t['ACC_CD']}, REMARK=${t['REMARK']}, time=${t['VOUCH_TIME']}');
+              }
+              final last = trackings.last;
+              final trackingType = (last['tracking_type'] ?? '').toString();
+              final accCd = (last['ACC_CD'] ?? '').toString();
+              final remark = (last['REMARK'] ?? '').toString();
+              print(
+                  '[PROFILE-ONLINE]   🎯 Last order tracking: type="$trackingType", ACC_CD="$accCd", REMARK="$remark"');
+
+              if (trackingType == '1' && remark == 'IN') {
+                // Active order session - restore party info
+                pp.punchInOutPartyId = accCd;
+                // Try to find party name from cache, fallback to current ACC_NAME if already set
+                var partyName = ACC_NAME; // Start with current value
+                try {
+                  final cached = await DatabaseHelper().getCachedParties();
+                  for (var row in cached) {
+                    if (row['acc_cd'].toString() == accCd) {
+                      partyName = row['name'] ?? ACC_NAME;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  print('[PROFILE-ONLINE] Could not load party cache: $e');
+                }
+                pp.punchInOutParty = partyName;
+                // Set ProfileProvider ACC_Name and ACC_CD for this session
+                this.change(partyName, accCd);
+                print(
+                    '[PROFILE-ONLINE] ✅ Restored active order session: party=$accCd, name="$partyName"');
+              } else if (trackingType == '3' && remark == 'OUT') {
+                // Order ended - clear party info
+                pp.punchInOutParty = '';
+                pp.punchInOutPartyId = '';
+                this.change('', '');
+                print(
+                    '[PROFILE-ONLINE] ✅ Restored ended order session (cleared party)');
+              } else {
+                print(
+                    '[PROFILE-ONLINE] ⚠️ Last tracking type/remark combo not matched (type=$trackingType, remark=$remark). Leaving as-is.');
+              }
+            } else {
+              print(
+                  '[PROFILE-ONLINE] ⚠️ No order trackings found for syncId=$syncIdInt');
+            }
+          } else {
+            print(
+                '[PROFILE-ONLINE] ⚠️ syncId=$syncIdInt, skipping order state check');
+          }
+        } catch (e) {
+          print('[PROFILE-ONLINE] ❌ Failed to restore order state: $e');
+        }
+
+        // Trigger sync of pending order trackings (IN/OUT) if any exist
+        try {
+          final db = DatabaseHelper();
+          final pendingTrackings = await db.getPendingOrderTrackings();
+          if (pendingTrackings.isNotEmpty && ub.token != null) {
+            print(
+                '[PROFILE-ONLINE] 🔄 Found ${pendingTrackings.length} pending order tracking(s) — triggering sync');
+            // Import and call sync service to push pending trackings
+            _triggerOrderTrackingSync(ub.token!);
+          }
+        } catch (e) {
+          print(
+              '[PROFILE-ONLINE] ⚠️ Failed to trigger order tracking sync: $e');
+        }
+
         notifyListeners();
       } else {
         ub.userSignout(context).then((value) {
@@ -173,7 +369,7 @@ class ProfileProvider extends DisposableProvider {
       }
     } catch (e) {
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
-      print("Error in PerofileProvider getProfile  ${e.toString()}");
+      print("Error in ProfileProvider getProfile  ${e.toString()}");
     }
     notifyListeners();
   }
@@ -255,6 +451,23 @@ class ProfileProvider extends DisposableProvider {
     if (_data != null) {
       _data!.isPunchIn = isIn;
       notifyListeners();
+    }
+  }
+
+  /// Trigger async sync of pending order trackings (START/END order records)
+  /// Called on app startup when online and pending trackings exist
+  Future<void> _triggerOrderTrackingSync(String token) async {
+    try {
+      // Import SyncService for syncing pending trackings
+      final SyncService syncService = SyncService();
+      // Run sync in background without blocking UI
+      syncService.syncOrderTrackings(token).then((_) {
+        print('[PROFILE-ONLINE] ✅ Order tracking sync completed in background');
+      }).catchError((e) {
+        print('[PROFILE-ONLINE] ⚠️ Order tracking sync failed: $e');
+      });
+    } catch (e) {
+      print('[PROFILE-ONLINE] ❌ Error triggering order tracking sync: $e');
     }
   }
 

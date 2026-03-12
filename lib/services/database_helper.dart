@@ -1504,6 +1504,21 @@ class DatabaseHelper {
         .delete('order_tracking', where: 'locId = ?', whereArgs: [trackingId]);
   }
 
+  /// Get today's START/END order trackings (type 1 or 3) for a given SYNC_ID
+  /// Returns list of trackings ordered by time, last one is the current state
+  Future<List<Map<String, dynamic>>> getTodayOrderTrackings(int syncId) async {
+    final db = await database;
+    final today = DateTime.now();
+    final vouchDt =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    return await db.query(
+      'order_tracking',
+      where: 'SYNC_ID = ? AND VOUCH_DT = ? AND tracking_type IN (\'1\', \'3\')',
+      whereArgs: [syncId, vouchDt],
+      orderBy: 'VOUCH_TIME ASC',
+    );
+  }
+
   /// Cache license info from server response
   Future<void> cacheLicenseInfo({
     required int syncId,
