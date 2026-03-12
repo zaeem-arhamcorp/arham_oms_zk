@@ -174,6 +174,7 @@ class ProductController extends GetxController {
             'T_LAND': product.tLAND,
             'FRML_SRT1': product.frmlSrt1,
             'SYNC_ID': product.syncId,
+            'HSN_NO': product.hsnNo, // HSN Code - required for offline display
             'deptment': product.deptment.toJson(),
           };
 
@@ -251,6 +252,7 @@ class ProductController extends GetxController {
                 if (k == 'itemLname') fallback['ITEM_LNAME'] = v;
                 if (k == 'itemBrand') fallback['ITEM_BRAND'] = v;
                 if (k == 'itemCat') fallback['ITEM_CAT'] = v;
+                if (k == 'hsnNo') fallback['HSN_NO'] = v;
                 if (k == 'item_images') fallback['item_images'] = v;
                 if (k == 'deptment') fallback['deptment'] = v;
               }

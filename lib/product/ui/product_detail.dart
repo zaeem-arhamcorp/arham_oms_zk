@@ -93,7 +93,7 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                     Icons.branding_watermark, "Brand", widget.data.itemBrand),
                 _buildDetailRow(Icons.medical_information, "Drug Contain",
                     widget.data.itemLname),
-                _buildDetailRow(Icons.sync, "HSN Code", widget.data.hashCode),
+                _buildDetailRow(Icons.sync, "HSN Code", widget.data.hsnNo ?? 'N/A'),
               ]),
               SizedBox(height: 8.h),
 

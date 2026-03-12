@@ -209,6 +209,7 @@ class DatumProduct {
   dynamic pDisc;
   dynamic gstPerc;
   dynamic tLAND;
+  dynamic hsnNo;
   final DeptmentModal? deptment;
   ItemImageModal? itemImage;
 
@@ -241,7 +242,8 @@ class DatumProduct {
       this.prate,
       this.pDisc,
       this.gstPerc,
-      this.tLAND});
+      this.tLAND,
+      this.hsnNo});
 
   factory DatumProduct.fromJson(Map<String, dynamic> json) => DatumProduct(
     nrate: json["NRATE"],
@@ -274,6 +276,7 @@ class DatumProduct {
     gstPerc: json['GST_PERC'],
     tLAND: json['T_LAND'],
     itemBrand: json['ITEM_BRAND'],
+    hsnNo: json['HSN_NO'],
     // Null check for 'deptment'
     deptment: json['deptment'] != null
         ? DeptmentModal.fromJson(json['deptment'])
@@ -310,6 +313,7 @@ class DatumProduct {
         "SUBCAT": subCat,
         "PRATE": prate,
         "ITEM_BRAND": itemBrand,
+        "HSN_NO": hsnNo,
       };
 }
 

@@ -51,6 +51,7 @@ class Data {
   dynamic sDISC1;
   dynamic cSTK;
   dynamic oRSTK;
+  dynamic hSNNO;
   Deptment? deptment;
   dynamic itemImage;
 
@@ -81,6 +82,7 @@ class Data {
         this.sDISC1,
         this.cSTK,
         this.oRSTK,
+        this.hSNNO,
         this.deptment,
         this.itemImage});
 
@@ -111,6 +113,7 @@ class Data {
     sDISC1 = json['SDISC1'];
     cSTK = json['C_STK'];
     oRSTK = json['OR_STK'];
+    hSNNO = json['HSN_NO'];
     deptment = json['deptment'] != null
         ? Deptment.fromJson(json['deptment'])
         : null;
@@ -145,6 +148,7 @@ class Data {
     data['SDISC1'] = sDISC1;
     data['C_STK'] = cSTK;
     data['OR_STK'] = oRSTK;
+    data['HSN_NO'] = hSNNO;
     if (deptment != null) {
       data['deptment'] = deptment!.toJson();
     }

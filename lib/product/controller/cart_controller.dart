@@ -220,7 +220,7 @@ class CartController extends GetxController {
           "otherDesc": otherDesc,
         if (remarks != null && remarks.trim().isNotEmpty) "fld5": remarks,
         if (rate != null && rate.trim().isNotEmpty) "rate": rate,
-        "moduleNo": "102"
+        "moduleNo": "205"
       };
 
       final response = await dio.post(
