@@ -50,7 +50,7 @@ class PartyProvider extends DisposableProvider {
   Future<void> changePunchInOutParty(partyname, partyID, context,
       {isProductPage, type, id}) async{
     final ProfileProvider pp =
-        Provider.of<ProfileProvider>(context, listen: false);
+    Provider.of<ProfileProvider>(context, listen: false);
     punchInOutParty = partyname;
     punchInOutPartyId = partyID;
     if (isProductPage != null) {
@@ -88,7 +88,7 @@ class PartyProvider extends DisposableProvider {
     _orderParty = partyname;
     _orderPartyId = partyID;
     final CartListProvider cart =
-        Provider.of<CartListProvider>(context, listen: false);
+    Provider.of<CartListProvider>(context, listen: false);
     cart.getCartItem(context, partyID);
     notifyListeners();
   }
@@ -526,9 +526,9 @@ class PartyProvider extends DisposableProvider {
       {oID, id}) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final LocationProvider lp =
-        Provider.of<LocationProvider>(context, listen: false);
+    Provider.of<LocationProvider>(context, listen: false);
     final ProfileProvider pp =
-        Provider.of<ProfileProvider>(context, listen: false);
+    Provider.of<ProfileProvider>(context, listen: false);
     loading = true;
     notifyListeners();
     try {
@@ -550,19 +550,34 @@ class PartyProvider extends DisposableProvider {
       );
 
       if (result['success'] == true) {
+        // Choose contextual messages based on type and sync state
+        String message = 'Order updated successfully';
+        Color bg = Colors.green;
+
         if (result['synced'] == true) {
-          // Successful online sync
           print('[PartyProvider] 🟢 RESULT: SYNCED');
-          AppSnackBar.showGetXCustomSnackBar(
-              message: 'Order updated successfully',
-              backgroundColor: Colors.green);
+          if (type == "1") {
+            message = 'Order session started';
+          } else if (type == "3") {
+            message = 'Order session ended';
+          } else if (type == "2") {
+            message = 'Order placed successfully';
+          }
+          bg = Colors.green;
         } else {
-          // Saved locally, will sync when online
           print('[PartyProvider] 🟠 RESULT: OFFLINE');
-          AppSnackBar.showGetXCustomSnackBar(
-              message: 'Order saved offline (will sync when online)',
-              backgroundColor: Colors.orange);
+          if (type == "1") {
+            message = 'Order session started offline (will sync when online)';
+          } else if (type == "3") {
+            message = 'Order session ended offline (will sync when online)';
+          } else if (type == "2") {
+            message = 'Order saved offline (will sync when online)';
+          }
+          bg = Colors.orange;
         }
+
+        AppSnackBar.showGetXCustomSnackBar(
+            message: message, backgroundColor: bg);
 
         // Update local state based on START or END
         if (id != null) {

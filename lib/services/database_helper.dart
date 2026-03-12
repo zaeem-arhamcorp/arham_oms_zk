@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -51,6 +51,31 @@ class DatabaseHelper {
           db, 'order_tracking', 'tracking_type', "TEXT DEFAULT 'unknown'");
       await _ensureColumnExists(
           db, 'offline_orders', 'SYNC_ID', 'INTEGER DEFAULT 0');
+
+      // CRITICAL: Ensure products_cache has all new columns (v15 migration)
+      // These may not be added if migration was skipped or on fresh install
+      await _ensureColumnExists(db, 'products_cache', 'item_lname', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'item_sname', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'gst_perc', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'prate', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'srate1', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'srate2', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'srate3', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'srate4', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'srate5', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'nrate', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'mrp', 'REAL');
+      await _ensureColumnExists(db, 'products_cache', 'unit', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'hsn_no', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'schedule_type', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'item_type', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'item_brand', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'item_cat', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'subcat', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'ex_dt', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'blacklist', 'INTEGER');
+      await _ensureColumnExists(db, 'products_cache', 'rack_no', 'TEXT');
+      await _ensureColumnExists(db, 'products_cache', 'item_grade', 'TEXT');
     } catch (e) {
       print('[DATABASE] ⚠️ Schema check error (non-fatal): $e');
     }
@@ -222,18 +247,81 @@ class DatabaseHelper {
             '[DATABASE] ℹ️ SYNC_ID column may already exist in offline_orders: $e');
       }
     }
+    if (oldVersion < 15) {
+      // v14 to v15: Expand products_cache table to store individual product fields
+      // instead of just JSON blob for better offline persistence
+      try {
+        // Add all individual product fields to products_cache
+        await db
+            .execute('ALTER TABLE products_cache ADD COLUMN item_lname TEXT');
+        await db
+            .execute('ALTER TABLE products_cache ADD COLUMN item_sname TEXT');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN gst_perc REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN prate REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN srate1 REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN srate2 REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN srate3 REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN srate4 REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN srate5 REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN nrate REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN mrp REAL');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN unit TEXT');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN hsn_no TEXT');
+        await db.execute(
+            'ALTER TABLE products_cache ADD COLUMN schedule_type TEXT');
+        await db
+            .execute('ALTER TABLE products_cache ADD COLUMN item_type TEXT');
+        await db
+            .execute('ALTER TABLE products_cache ADD COLUMN item_brand TEXT');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN item_cat TEXT');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN subcat TEXT');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN ex_dt TEXT');
+        await db
+            .execute('ALTER TABLE products_cache ADD COLUMN blacklist INTEGER');
+        await db.execute('ALTER TABLE products_cache ADD COLUMN rack_no TEXT');
+        await db
+            .execute('ALTER TABLE products_cache ADD COLUMN item_grade TEXT');
+        print(
+            '[DATABASE] ✅ Expanded products_cache table with individual fields');
+      } catch (e) {
+        print('[DATABASE] ℹ️ products_cache columns may already exist: $e');
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // PRODUCTS CACHE - stores full product JSON for offline access
+    // PRODUCTS CACHE - stores full product JSON + individual fields for offline access
+    // Schema includes all v15 columns for complete product details (expiry, GST, brand, etc.)
     await db.execute('''
     CREATE TABLE products_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_cd TEXT UNIQUE NOT NULL,
+      item_name TEXT,
+      item_lname TEXT,
+      item_sname TEXT,
       product_json TEXT NOT NULL,
       cached_at INTEGER NOT NULL,
       department_code TEXT,
-      item_name TEXT
+      gst_perc REAL,
+      prate REAL,
+      srate1 REAL,
+      srate2 REAL,
+      srate3 REAL,
+      srate4 REAL,
+      srate5 REAL,
+      nrate REAL,
+      mrp REAL,
+      unit TEXT,
+      hsn_no TEXT,
+      schedule_type TEXT,
+      item_type TEXT,
+      item_brand TEXT,
+      item_cat TEXT,
+      subcat TEXT,
+      ex_dt TEXT,
+      blacklist INTEGER,
+      rack_no TEXT,
+      item_grade TEXT
     )
     ''');
 
@@ -700,7 +788,8 @@ class DatabaseHelper {
   */
 
   /// Cache products when fetched from API
-  /// Stores full product JSON to reconstruct DatumProduct objects
+  /// Stores full product JSON + individual fields for reliable offline access
+  /// Callers pass maps with: item_cd, product_json (encoded JSON string), cached_at, department_code, item_name
   Future<void> cacheProductsJson(List<Map<String, dynamic>> products) async {
     final db = await database;
     Batch batch = db.batch();
@@ -708,16 +797,190 @@ class DatabaseHelper {
     // Clear old cache
     batch.delete('products_cache');
 
-    // Insert new products
+    // Insert new products with individual fields extracted from the JSON blob
     for (var product in products) {
+      // The callers pass 'product_json' as an encoded JSON string of the full product
+      // Parse it to extract individual fields for the new columns
+      Map<String, dynamic> productData = {};
+      final productJsonStr = product['product_json'] as String?;
+      if (productJsonStr != null && productJsonStr.isNotEmpty) {
+        try {
+          productData = jsonDecode(productJsonStr) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      // Reconstruct product JSON with UPPERCASE keys for ProductItem.fromJson() compatibility
+      // This ensures expiry dates, GST, and other fields are properly parsed when loading from cache
+      Map<String, dynamic> normalizedProductJson =
+          _normalizeProductJson(productData);
+
+      final cachedRecord = {
+        'item_cd': product['item_cd'] ?? productData['ITEM_CD'] ?? '',
+        'item_name': product['item_name'] ?? productData['ITEM_NAME'] ?? '',
+        'item_lname': productData['ITEM_LNAME']?.toString() ??
+            productData['itemLname']?.toString() ??
+            '',
+        'item_sname': productData['ITEM_SNAME']?.toString() ??
+            productData['itemSname']?.toString() ??
+            '',
+        'product_json':
+            jsonEncode(normalizedProductJson), // Store with UPPERCASE keys
+        'cached_at':
+            product['cached_at'] ?? DateTime.now().millisecondsSinceEpoch,
+        'department_code': product['department_code'] ??
+            productData['DEPT_CD']?.toString() ??
+            '',
+        // Individual field columns extracted from product JSON
+        'gst_perc':
+            _toDouble(productData['GST_PERC'] ?? productData['gstPerc']),
+        'prate': _toDouble(productData['PRATE'] ?? productData['prate']),
+        'srate1': _toDouble(productData['SRATE1'] ?? productData['srate1']),
+        'srate2': _toDouble(productData['SRATE2'] ?? productData['srate2']),
+        'srate3': _toDouble(productData['SRATE3'] ?? productData['srate3']),
+        'srate4': _toDouble(productData['SRATE4'] ?? productData['srate4']),
+        'srate5': _toDouble(productData['SRATE5'] ?? productData['srate5']),
+        'nrate': _toDouble(productData['NRATE'] ?? productData['nrate']),
+        'mrp': _toDouble(productData['MRP'] ?? productData['mrp']),
+        'unit': (productData['UNIT'] ?? productData['unit'] ?? '').toString(),
+        'hsn_no':
+            (productData['HSN_NO'] ?? productData['hsnNo'] ?? '').toString(),
+        'schedule_type':
+            (productData['SCHEDULE_TYPE'] ?? productData['scheduleType'] ?? '')
+                .toString(),
+        'item_type': (productData['ITEM_TYPE'] ?? productData['itemType'] ?? '')
+            .toString(),
+        'item_brand':
+            (productData['ITEM_BRAND'] ?? productData['itemBrand'] ?? '')
+                .toString(),
+        'item_cat': (productData['ITEM_CAT'] ?? productData['itemCat'] ?? '')
+            .toString(),
+        'subcat':
+            (productData['SUBCAT'] ?? productData['subcat'] ?? '').toString(),
+        'ex_dt': (productData['EX_DT'] ?? productData['exDt'])?.toString(),
+        'blacklist':
+            _toInt(productData['BLACKLIST'] ?? productData['blacklist']),
+        'rack_no':
+            (productData['RACK_NO'] ?? productData['rackNo'] ?? '').toString(),
+        'item_grade':
+            (productData['ITEM_GRADE'] ?? productData['itemGrade'] ?? '')
+                .toString(),
+      };
+
       batch.insert(
         'products_cache',
-        product,
+        cachedRecord,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
 
     await batch.commit(noResult: true);
+  }
+
+  /// Normalize product JSON to format expected by ProductItem.fromJson()
+  /// ProductItem.fromJson expects UPPERCASE keys (ITEM_CD, EX_DT, etc.)
+  /// but also expects lowercase 'item_images' (exception to the rule)
+  Map<String, dynamic> _normalizeProductJson(Map<String, dynamic> productData) {
+    final normalized = <String, dynamic>{};
+
+    // Mapping of final keys to all possible source key variations
+    final keyMappings = {
+      'ITEM_CD': ['ITEM_CD', 'itemCd'],
+      'ITEM_NAME': ['ITEM_NAME', 'itemName'],
+      'ITEM_CD2': ['ITEM_CD2', 'itemCd2'],
+      'ITEM_SNAME': ['ITEM_SNAME', 'itemSname'],
+      'ITEM_LNAME': ['ITEM_LNAME', 'itemLname'],
+      'ITEM_TYPE': ['ITEM_TYPE', 'itemType'],
+      'SCHEDULE_TYPE': ['SCHEDULE_TYPE', 'scheduleType'],
+      'DEPT_CD': ['DEPT_CD', 'deptCd'],
+      'HSN_NO': ['HSN_NO', 'hsnNo'],
+      'UNIT': ['UNIT', 'unit'],
+      'ITEM_BRAND': ['ITEM_BRAND', 'itemBrand'],
+      'ITEM_CAT': ['ITEM_CAT', 'itemCat'],
+      'SUBCAT': ['SUBCAT', 'subcat'],
+      'EX_DT': ['EX_DT', 'exDt'],
+      'BLACKLIST': ['BLACKLIST', 'blacklist'],
+      'RACK_NO': ['RACK_NO', 'rackNo'],
+      'ITEM_GRADE': ['ITEM_GRADE', 'itemGrade'],
+      'ITEM_DESC': ['ITEM_DESC', 'itemDesc'],
+      'NRATE': ['NRATE', 'nrate'],
+      'SRATE1': ['SRATE1', 'srate1'],
+      'SRATE2': ['SRATE2', 'srate2'],
+      'SRATE3': ['SRATE3', 'srate3'],
+      'SRATE4': ['SRATE4', 'srate4'],
+      'SRATE5': ['SRATE5', 'srate5'],
+      'PRATE': ['PRATE', 'prate'],
+      'MRP': ['MRP', 'mrp'],
+      'GST_PERC': ['GST_PERC', 'gstPerc'],
+      'PDISC': ['PDISC', 'pdisc'],
+      'SDISC': ['SDISC', 'sdisc'],
+      'SDISC1': ['SDISC1', 'sdisc1'],
+      'C_STK': ['C_STK', 'cStk'],
+      'OR_STK': ['OR_STK', 'orStk'],
+      'AVL_STK': ['AVL_STK', 'avlStk'],
+      'T_LAND': ['T_LAND', 'tLAND'],
+      'FRML_SRT1': ['FRML_SRT1', 'frmlSrt1'],
+      'SYNC_ID': ['SYNC_ID', 'syncId'],
+    };
+
+    // Populate normalized map from productData using the key mappings
+    for (var entry in keyMappings.entries) {
+      final uppercaseKey = entry.key;
+      final possibleKeys = entry.value;
+
+      for (var possibleKey in possibleKeys) {
+        if (productData.containsKey(possibleKey)) {
+          normalized[uppercaseKey] = productData[possibleKey];
+          break;
+        }
+      }
+    }
+
+    // Handle special cases where fromJson expects different key names
+    // ProductItem.fromJson expects lowercase 'item_images' (not ITEM_IMAGES)
+    if (productData.containsKey('ITEM_IMAGES')) {
+      normalized['item_images'] = productData['ITEM_IMAGES'];
+    } else if (productData.containsKey('itemImages')) {
+      normalized['item_images'] = productData['itemImages'];
+    } else if (productData.containsKey('item_images')) {
+      normalized['item_images'] = productData['item_images'];
+    }
+
+    // Copy over complex nested objects (department, itemdtls, item_image, tax, etc.)
+    if (productData.containsKey('deptment')) {
+      normalized['deptment'] = productData['deptment'];
+    }
+    if (productData.containsKey('itemdtls')) {
+      normalized['itemdtls'] = productData['itemdtls'];
+    }
+    if (productData.containsKey('item_image')) {
+      normalized['item_image'] = productData['item_image'];
+    }
+    if (productData.containsKey('tax')) {
+      normalized['tax'] = productData['tax'];
+    }
+    if (productData.containsKey('item_barcodes')) {
+      normalized['item_barcodes'] = productData['item_barcodes'];
+    }
+
+    return normalized;
+  }
+
+  /// Helper to safely convert values to double
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  /// Helper to safely convert values to int
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   /// Profile cache: store single profile JSON (id enforced = 1)

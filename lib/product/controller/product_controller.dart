@@ -143,8 +143,10 @@ class ProductController extends GetxController {
         try {
           // Store product JSON using API-style keys so ProductItem.fromJson
           // can reconstruct objects correctly when loading from cache.
+          // IMPORTANT: Include ALL fields that ProductItem.fromJson() expects!
           final productJsonMap = {
             'ITEM_CD': product.itemCd,
+            'ITEM_CD2': product.itemCd2,
             'ITEM_NAME': product.itemName,
             'ITEM_SNAME': product.itemSname,
             'ITEM_LNAME': product.itemLname,
@@ -156,12 +158,22 @@ class ProductController extends GetxController {
             'PDISC': product.pdisc,
             'ITEM_BRAND': product.itemBrand,
             'ITEM_CAT': product.itemCat,
-            'ITEM_IMAGES': product.itemImages,
+            'item_images': product
+                .itemImages, // ✓ CRITICAL: Must be lowercase, not ITEM_IMAGES
             'C_STK': product.cStk,
             'OR_STK': product.orStk,
             'AVL_STK': product.avlStk,
             'SDISC': product.sdisc,
             'SDISC1': product.sdisc1,
+            // MISSING FIELDS NOW ADDED:
+            'EX_DT': product.exDt, // EXPIRY DATE - critical for display!
+            'RACK_NO': product.rackNo,
+            'ITEM_GRADE': product.itemGrade,
+            'ITEM_DESC': product.itemDesc,
+            'GST_PERC': product.gstPerc, // GST percentage
+            'T_LAND': product.tLAND,
+            'FRML_SRT1': product.frmlSrt1,
+            'SYNC_ID': product.syncId,
             'deptment': product.deptment.toJson(),
           };
 
