@@ -57,34 +57,34 @@ class Data {
 
   Data(
       {this.iTEMCD2,
-        this.nRATE,
-        this.aVLSTK,
-        this.eXDT,
-        this.rACKNO,
-        this.iTEMCAT,
-        this.sUBCAT,
-        this.iTEMBRAND,
-        this.iTEMCD,
-        this.iTEMNAME,
-        this.iTEMSNAME,
-        this.iTEMLNAME,
-        this.dEPTCD,
-        this.sRATE1,
-        this.sRATE3,
-        this.sYNCID,
-        this.iTEMGRADE,
-        this.iTEMDESC,
-        this.pRATE,
-        this.pDISC,
-        this.gSTPERC,
-        this.fRMLSRT1,
-        this.sDISC,
-        this.sDISC1,
-        this.cSTK,
-        this.oRSTK,
-        this.hSNNO,
-        this.deptment,
-        this.itemImage});
+      this.nRATE,
+      this.aVLSTK,
+      this.eXDT,
+      this.rACKNO,
+      this.iTEMCAT,
+      this.sUBCAT,
+      this.iTEMBRAND,
+      this.iTEMCD,
+      this.iTEMNAME,
+      this.iTEMSNAME,
+      this.iTEMLNAME,
+      this.dEPTCD,
+      this.sRATE1,
+      this.sRATE3,
+      this.sYNCID,
+      this.iTEMGRADE,
+      this.iTEMDESC,
+      this.pRATE,
+      this.pDISC,
+      this.gSTPERC,
+      this.fRMLSRT1,
+      this.sDISC,
+      this.sDISC1,
+      this.cSTK,
+      this.oRSTK,
+      this.hSNNO,
+      this.deptment,
+      this.itemImage});
 
   Data.fromJson(Map<String, dynamic> json) {
     iTEMCD2 = json['ITEM_CD2'];
@@ -114,9 +114,8 @@ class Data {
     cSTK = json['C_STK'];
     oRSTK = json['OR_STK'];
     hSNNO = json['HSN_NO'];
-    deptment = json['deptment'] != null
-        ? Deptment.fromJson(json['deptment'])
-        : null;
+    deptment =
+        json['deptment'] != null ? Deptment.fromJson(json['deptment']) : null;
     itemImage = json['item_image'];
   }
 
@@ -169,13 +168,13 @@ class Deptment {
 
   Deptment(
       {this.dEPTCD,
-        this.dEPTNAME,
-        this.gROUPING,
-        this.sYNCID,
-        this.cREATEDBY,
-        this.cREATEDAPPTYPE,
-        this.uPDATEDAT,
-        this.cREATEDAT});
+      this.dEPTNAME,
+      this.gROUPING,
+      this.sYNCID,
+      this.cREATEDBY,
+      this.cREATEDAPPTYPE,
+      this.uPDATEDAT,
+      this.cREATEDAT});
 
   Deptment.fromJson(Map<String, dynamic> json) {
     dEPTCD = json['DEPT_CD'];

@@ -43,5 +43,7 @@ class AppConfig {
   static String resetPasswordURL = "${baseURL}reset-password";
   static String changePasswordURL = "${baseURL}change-password";
   static String checkUserURL = "${baseURL}check-user";
-  static String transactionUploadImageURL = "${baseURL}transaction-images/upload";
+  static String transactionUploadImageURL =
+      "${baseURL}transaction-images/upload";
+  static String generateReferralCodeURL = "${baseURL}referral/generate-code";
 }

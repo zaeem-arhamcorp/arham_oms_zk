@@ -9,6 +9,7 @@ import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
+import 'package:arham_corporation/views/referral/referral_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:flutter/material.dart';
@@ -918,6 +919,21 @@ class _HomePageState extends State<HomePage> {
                 ),
                 onTap: () {
                   Get.to(() => ChangePasswordView());
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.group_add,
+                  size: 30,
+                ),
+                title: Text(
+                  'Generate Referral',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  Get.to(() => ReferralView());
                 },
               ),
               ListTile(

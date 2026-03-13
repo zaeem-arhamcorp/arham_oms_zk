@@ -1,4 +1,3 @@
-
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -451,7 +450,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       Icons.branding_watermark, "Brand", widget.data.itemBrand),
                   _buildDetailRow(Icons.medical_information, "Drug Contain",
                       widget.data.itemLname),
-                  _buildDetailRow(Icons.sync, "HSN Code", widget.data.hsnNo ?? 'N/A'),
+                  _buildDetailRow(
+                      Icons.sync, "HSN Code", widget.data.hsnNo ?? 'N/A'),
                 ]),
                 SizedBox(height: 8.h),
 
@@ -464,17 +464,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   ),
                   _buildConditionalRow(Icons.price_check, "Rate",
                       Helper.parseNumericValue(widget.data.srate1.toString())),
-                  if(_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildConditionalRow(Icons.discount, "Discount",
-                      Helper.parseNumericValue(widget.data.sdisc.toString())),
-                  if(_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildConditionalRow(Icons.discount, "CD%",
-                      Helper.parseNumericValue(widget.data.sdisc1.toString())),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildConditionalRow(Icons.discount, "Discount",
+                        Helper.parseNumericValue(widget.data.sdisc.toString())),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildConditionalRow(
+                        Icons.discount,
+                        "CD%",
+                        Helper.parseNumericValue(
+                            widget.data.sdisc1.toString())),
                   _buildConditionalRow(
                       Icons.percent, "GST%", widget.data.gstPerc.toString()),
-                  if(_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildConditionalRow(Icons.local_offer, "Net Rate",
-                      Helper.parseNumericValue(widget.data.nrate.toString())),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildConditionalRow(Icons.local_offer, "Net Rate",
+                        Helper.parseNumericValue(widget.data.nrate.toString())),
                   if (ub.role == AppConfig.masteruser) ...[
                     _buildConditionalRow(Icons.price_change, "Purch Rate",
                         Helper.parseNumericValue(widget.data.prate.toString())),
@@ -484,7 +487,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       Icons.rate_review,
                       "Net Landing",
                       widget.data.tLAND != null && widget.data.tLAND! > 0
-                          ? Helper.parseNumericValue(widget.data.tLAND!.toString())
+                          ? Helper.parseNumericValue(
+                              widget.data.tLAND!.toString())
                           : 0,
                     ),
                   ],
@@ -510,9 +514,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       widget.data.itemDesc.toString()),
                   _buildDetailRow(Icons.local_shipping, "Pack",
                       widget.data.itemSname.toString()),
-                  if(_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildDetailRow(
-                      Icons.science, "Margin", widget.data.frmlSrt1.toString()),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildDetailRow(Icons.science, "Margin",
+                        widget.data.frmlSrt1.toString()),
                 ]),
               ],
             ),
@@ -522,8 +526,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   bool _canLabelSettings(ProfileProvider profile) {
     return profile.data?.profileSettings.any((element) =>
-    (element.variable == 'labelSettings' &&
-        element.value == 'Y')) ??
+            (element.variable == 'labelSettings' && element.value == 'Y')) ??
         false;
   }
 

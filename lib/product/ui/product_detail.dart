@@ -93,7 +93,8 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                     Icons.branding_watermark, "Brand", widget.data.itemBrand),
                 _buildDetailRow(Icons.medical_information, "Drug Contain",
                     widget.data.itemLname),
-                _buildDetailRow(Icons.sync, "HSN Code", widget.data.hsnNo ?? 'N/A'),
+                _buildDetailRow(
+                    Icons.sync, "HSN Code", widget.data.hsnNo),
               ]),
               SizedBox(height: 8.h),
 
@@ -106,46 +107,52 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                 ),
                 _buildConditionalRow(Icons.price_check, "Rate",
                     Helper.parseNumericValue(widget.data.srate1)),
-                if(_canLabelSettings(context.read<ProfileProvider>()))
-                _buildConditionalRow(
-                    Icons.discount, "Discount", Helper.parseNumericValue(widget.data.sdisc)),
-                if(_canLabelSettings(context.read<ProfileProvider>()))
-                _buildConditionalRow(Icons.discount, "CD%", Helper.parseNumericValue(widget.data.sdisc1)),
+                if (_canLabelSettings(context.read<ProfileProvider>()))
+                  _buildConditionalRow(Icons.discount, "Discount",
+                      Helper.parseNumericValue(widget.data.sdisc)),
+                if (_canLabelSettings(context.read<ProfileProvider>()))
+                  _buildConditionalRow(Icons.discount, "CD%",
+                      Helper.parseNumericValue(widget.data.sdisc1)),
                 _buildConditionalRow(
                     Icons.percent, "GST%", widget.data.gstPerc),
-                if(_canLabelSettings(context.read<ProfileProvider>()))
-                _buildConditionalRow(
-                    Icons.local_offer, "Net Rate", Helper.parseNumericValue(widget.data.nrate)),
+                if (_canLabelSettings(context.read<ProfileProvider>()))
+                  _buildConditionalRow(Icons.local_offer, "Net Rate",
+                      Helper.parseNumericValue(widget.data.nrate)),
                 if (ub.role == AppConfig.masteruser) ...[
+                  _buildConditionalRow(Icons.price_change, "Purch Rate",
+                      Helper.parseNumericValue(widget.data.prate)),
+                  _buildConditionalRow(Icons.percent, "Purch Disc",
+                      Helper.parseNumericValue(widget.data.pdisc)),
                   _buildConditionalRow(
-                      Icons.price_change, "Purch Rate", Helper.parseNumericValue(widget.data.prate)),
-                  _buildConditionalRow(
-                      Icons.percent, "Purch Disc", Helper.parseNumericValue(widget.data.pdisc)),
-                  _buildConditionalRow(
-                      Icons.rate_review, "Net Landing", widget.data.tLAND!.isNotEmpty ? Helper.parseNumericValue(widget.data.tLAND) : 0),
+                      Icons.rate_review,
+                      "Net Landing",
+                      widget.data.tLAND!.isNotEmpty
+                          ? Helper.parseNumericValue(widget.data.tLAND)
+                          : 0),
                 ],
               ]),
               SizedBox(height: 8.h),
 
               /// **Stock Details**
               _buildInfoCard("Stock and Other Details", [
-                _buildDetailRow(
-                    Icons.inventory, "Closing Stk", Helper.parseNumericValue(widget.data.cStk)),
-                _buildDetailRow(
-                    Icons.inventory_2, "Available Stk", Helper.parseNumericValue(widget.data.avlStk)),
-                _buildDetailRow(
-                    Icons.storage, "Opening Stk", Helper.parseNumericValue(widget.data.orStk)),
+                _buildDetailRow(Icons.inventory, "Closing Stk",
+                    Helper.parseNumericValue(widget.data.cStk)),
+                _buildDetailRow(Icons.inventory_2, "Available Stk",
+                    Helper.parseNumericValue(widget.data.avlStk)),
+                _buildDetailRow(Icons.storage, "Opening Stk",
+                    Helper.parseNumericValue(widget.data.orStk)),
                 if (widget.data.exDt != null)
-                _buildDetailRow(
-                    Icons.date_range, "Expiry Date", Helper.toUi(widget.data.exDt.toString())),
+                  _buildDetailRow(Icons.date_range, "Expiry Date",
+                      Helper.toUi(widget.data.exDt.toString())),
                 _buildDetailRow(Icons.view_list, "Rack", widget.data.rackNo),
                 _buildDetailRow(Icons.grade, "Grade", widget.data.itemGrade),
                 _buildDetailRow(
                     Icons.card_giftcard, "Bulk Scheme", widget.data.itemDesc),
                 _buildDetailRow(
                     Icons.local_shipping, "Pack", widget.data.itemSname),
-                if(_canLabelSettings(context.read<ProfileProvider>()))
-                _buildDetailRow(Icons.science, "Margin", widget.data.frmlSrt1),
+                if (_canLabelSettings(context.read<ProfileProvider>()))
+                  _buildDetailRow(
+                      Icons.science, "Margin", widget.data.frmlSrt1),
               ]),
             ],
           ),
@@ -266,12 +273,11 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
 
   /// **Conditional Row**
   /// **Conditional Row**
-///
+  ///
 
   bool _canLabelSettings(ProfileProvider profile) {
     return profile.data?.profileSettings.any((element) =>
-    (element.variable == 'labelSettings' &&
-        element.value == 'Y')) ??
+            (element.variable == 'labelSettings' && element.value == 'Y')) ??
         false;
   }
 }

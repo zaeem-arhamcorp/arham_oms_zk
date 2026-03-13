@@ -168,18 +168,17 @@ class ItemImageModal {
   }
 
   Map<String, dynamic> toJson() => {
-    "ITEM_IMG": itemImg,
-    "ITEM_CD": itemCd,
-    "ITEM_IMG1": itemImg1,
-    "ITEM_IMG2": itemImg2,
-    "ITEM_IMG3": itemImg3,
-    "ITEM_IMG4": itemImg4,
-    "ITEM_IMG5": itemImg5,
-    "ITEM_IMG6": itemImg6,
-    "SYNC_ID": syncId,
-  };
+        "ITEM_IMG": itemImg,
+        "ITEM_CD": itemCd,
+        "ITEM_IMG1": itemImg1,
+        "ITEM_IMG2": itemImg2,
+        "ITEM_IMG3": itemImg3,
+        "ITEM_IMG4": itemImg4,
+        "ITEM_IMG5": itemImg5,
+        "ITEM_IMG6": itemImg6,
+        "SYNC_ID": syncId,
+      };
 }
-
 
 class DatumProduct {
   dynamic nrate;
@@ -246,42 +245,42 @@ class DatumProduct {
       this.hsnNo});
 
   factory DatumProduct.fromJson(Map<String, dynamic> json) => DatumProduct(
-    nrate: json["NRATE"],
-    exDt: json["EX_DT"],
-    itemCd: json["ITEM_CD"],
-    itemName: json["ITEM_NAME"],
-    itemSname: json["ITEM_SNAME"],
-    itemLname: json["ITEM_LNAME"],
-    deptCd: json["DEPT_CD"],
-    srate1: json["SRATE1"]?.toDouble(),
-    srate3: json["SRATE3"],
-    cStk: json["C_STK"],
-    orStk: json["OR_STK"],
-    avlStk: json['AVL_STK'],
-    syncId: json["SYNC_ID"],
-    frmlSrt1: json["FRML_SRT1"],
-    prate: json['PRATE'],
-    sdisc: json["SDISC"],
-    sdisc1: json["SDISC1"],
-    itemImage: json['item_image'] != null
-        ? ItemImageModal.fromJson(json['item_image'])
-        : null,
-    itemDesc: json['ITEM_DESC'],
-    itemCd2: json['ITEM_CD2'],
-    itemGrade: json['ITEM_GRADE'],
-    rackNo: json['RACK_NO'],
-    itemCat: json['ITEM_CAT'],
-    subCat: json['SUBCAT'],
-    pDisc: json['PDISC'],
-    gstPerc: json['GST_PERC'],
-    tLAND: json['T_LAND'],
-    itemBrand: json['ITEM_BRAND'],
-    hsnNo: json['HSN_NO'],
-    // Null check for 'deptment'
-    deptment: json['deptment'] != null
-        ? DeptmentModal.fromJson(json['deptment'])
-        : null,
-  );
+        nrate: json["NRATE"],
+        exDt: json["EX_DT"],
+        itemCd: json["ITEM_CD"],
+        itemName: json["ITEM_NAME"],
+        itemSname: json["ITEM_SNAME"],
+        itemLname: json["ITEM_LNAME"],
+        deptCd: json["DEPT_CD"],
+        srate1: json["SRATE1"]?.toDouble(),
+        srate3: json["SRATE3"],
+        cStk: json["C_STK"],
+        orStk: json["OR_STK"],
+        avlStk: json['AVL_STK'],
+        syncId: json["SYNC_ID"],
+        frmlSrt1: json["FRML_SRT1"],
+        prate: json['PRATE'],
+        sdisc: json["SDISC"],
+        sdisc1: json["SDISC1"],
+        itemImage: json['item_image'] != null
+            ? ItemImageModal.fromJson(json['item_image'])
+            : null,
+        itemDesc: json['ITEM_DESC'],
+        itemCd2: json['ITEM_CD2'],
+        itemGrade: json['ITEM_GRADE'],
+        rackNo: json['RACK_NO'],
+        itemCat: json['ITEM_CAT'],
+        subCat: json['SUBCAT'],
+        pDisc: json['PDISC'],
+        gstPerc: json['GST_PERC'],
+        tLAND: json['T_LAND'],
+        itemBrand: json['ITEM_BRAND'],
+        hsnNo: json['HSN_NO'],
+        // Null check for 'deptment'
+        deptment: json['deptment'] != null
+            ? DeptmentModal.fromJson(json['deptment'])
+            : null,
+      );
 
   Map<String, dynamic> toJson() => {
         "NRATE": nrate,

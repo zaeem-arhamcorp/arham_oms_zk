@@ -156,6 +156,7 @@ class AuthServices {
     mobileno,
     firmName,
     emailId,
+    referralCode,
     context,
   ) async {
     Map<String, String> body = {
@@ -166,6 +167,14 @@ class AuthServices {
       "firm_name": firmName,
       "email": emailId,
     };
+
+    // Only include referral_code when a non-empty value is provided
+    try {
+      final ref = referralCode?.toString().trim();
+      if (ref != null && ref.isNotEmpty) {
+        body['referral_code'] = ref;
+      }
+    } catch (_) {}
 
     try {
       final response = await http.post(

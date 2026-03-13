@@ -40,6 +40,7 @@ class _SignUpPageState extends State<SignUpPage> {
   TextEditingController _mobile = TextEditingController();
   TextEditingController _firmName = TextEditingController();
   TextEditingController _emailID = TextEditingController();
+  TextEditingController _referral = TextEditingController();
 
   //final FToast fToast = FToast();
 
@@ -49,6 +50,7 @@ class _SignUpPageState extends State<SignUpPage> {
   FocusNode _mobileFocusNode = FocusNode();
   FocusNode _firmNameFocusNode = FocusNode();
   FocusNode _emailIDFocusNode = FocusNode();
+  FocusNode _referralFocusNode = FocusNode();
 
   var isUserExitsLoading = false.obs;
   var userErrorMsg = ''.obs;
@@ -90,6 +92,7 @@ class _SignUpPageState extends State<SignUpPage> {
     _mobileFocusNode.dispose();
     _firmNameFocusNode.dispose();
     _emailIDFocusNode.dispose();
+    _referralFocusNode.dispose();
     verifyOTPController.value.dispose();
     verifyOTPController.close();
     _resendTimer?.cancel();
@@ -171,6 +174,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 _buildTextField(_firmName, 'Firm Name', Icons.business,
                     _firmNameFocusNode, _emailIDFocusNode, false, 40),
                 _buildEmailField(),
+                _buildReferralField(),
                 SizedBox(height: 20.h),
                 _buildSignUpButton(global),
                 _buildLoginPrompt(),
@@ -254,13 +258,45 @@ class _SignUpPageState extends State<SignUpPage> {
           setState(() {});
         },
         onSubmitted: (_) {
-          if (_isValidEmail(_emailID.text)) {
-            FocusScope.of(context).unfocus();
-          } else {
-            //Fluttertoast.showToast(msg: "Please enter a valid email address");
+          // if (_isValidEmail(_emailID.text)) {
+          //   FocusScope.of(context).requestFocus(_referralFocusNode);
+          // } else {
+          //   //Fluttertoast.showToast(msg: "Please enter a valid email address");
+          //   AppSnackBar.showGetXCustomSnackBar(
+          //       message: 'Please enter a valid email address');
+          // }
+          if (!_isValidEmail(_emailID.text)) {
             AppSnackBar.showGetXCustomSnackBar(
                 message: 'Please enter a valid email address');
           }
+          FocusScope.of(context).requestFocus(_referralFocusNode);
+        },
+      ),
+    );
+  }
+
+  Widget _buildReferralField() {
+    return Padding(
+      padding: EdgeInsets.only(top: 10.h),
+      child: TextField(
+        textInputAction: TextInputAction.done,
+        controller: _referral,
+        focusNode: _referralFocusNode,
+        cursorColor: Colors.black,
+        maxLength: 40,
+        decoration: InputDecoration(
+          labelText: 'Referral Code (Optional)',
+          prefixIcon: Icon(Icons.card_giftcard, color: Colors.black),
+          labelStyle: TextStyle(color: Colors.black),
+          border: OutlineInputBorder(),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0XFF2c9ed9), width: 2.0),
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          counterText: '',
+        ),
+        onSubmitted: (_) {
+          FocusScope.of(context).unfocus();
         },
       ),
     );
@@ -466,6 +502,7 @@ class _SignUpPageState extends State<SignUpPage> {
         _mobile.text,
         _firmName.text,
         _emailID.text,
+        _referral.text,
         context,
       )
           .then((response) {
