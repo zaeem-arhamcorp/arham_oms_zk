@@ -179,26 +179,76 @@ class LocationProvider extends ChangeNotifier {
       print(
           '[LocationProvider]   User: ${ub.syncId} | DateTime: $vouchDt $vouchTime');
 
-      final result = await locationService.punchInOut(
-        userCd: ub.syncId ?? '',
-        vouchDt: vouchDt,
-        vouchTime: vouchTime,
-        punchType: remarks.toString(), // 'PUNCH IN' or 'PUNCH OUT'
-        remark: remarks.toString(),
-        syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
-        moduleNo: '301',
-        token: ub.token ?? '',
-      );
+      // Call appropriate method based on punch type
+      final Map<String, dynamic> result;
+      if (remarks == 'PUNCH IN') {
+        // PUNCH IN: Use punchIn() which starts background tracking
+        result = await locationService.punchIn(
+          userCd: ub.syncId ?? '',
+          vouchDt: vouchDt,
+          vouchTime: vouchTime,
+          remark: remarks,
+          syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
+          moduleNo: '301',
+          token: ub.token ?? '',
+        );
+      } else if (remarks == 'PUNCH OUT') {
+        // PUNCH OUT: Use punchOut() which stops background tracking
+        result = await locationService.punchOut(
+          userCd: ub.syncId ?? '',
+          vouchDt: vouchDt,
+          vouchTime: vouchTime,
+          remark: remarks,
+          syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
+          moduleNo: '301',
+          token: ub.token ?? '',
+        );
+      } else {
+        // Fallback for other punch types
+        result = await locationService.punchInOut(
+          userCd: ub.syncId ?? '',
+          vouchDt: vouchDt,
+          vouchTime: vouchTime,
+          punchType: remarks.toString(),
+          remark: remarks.toString(),
+          syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
+          moduleNo: '301',
+          token: ub.token ?? '',
+        );
+      }
 
       if (result['success'] == true) {
         if (result['synced'] == true) {
           // Successful online sync
           print(
               '[LocationProvider] 🟢 RESULT: SYNCED | locId=${result['locId']} | Lat=${result['lat']}, Lng=${result['longi']}');
-          AppSnackBar.showGetXCustomSnackBar(
-            message: '${remarks} successful',
-            backgroundColor: Colors.green,
-          );
+
+          // Check if background tracking was started (for PUNCH IN)
+          if (result['tracking_started'] == true) {
+            print(
+                '[LocationProvider] ✅ Background tracking STARTED with trip_id=${result['trip_id']}');
+            AppSnackBar.showGetXCustomSnackBar(
+              message: '${remarks} successful. Route tracking started.',
+              backgroundColor: Colors.green,
+            );
+          } else if (result['tracking_stopped'] == true) {
+            // PUNCH OUT completed
+            print('[LocationProvider] ✅ Background tracking STOPPED');
+            final syncStats = result['sync_stats'] ?? {};
+            final syncedCount = syncStats['tracking_synced'] ?? 0;
+            final totalCount = syncStats['tracking_total'] ?? 0;
+            print(
+                '[LocationProvider] 📊 Sync stats: $syncedCount/$totalCount locations synced');
+            AppSnackBar.showGetXCustomSnackBar(
+              message: '${remarks} successful. $syncedCount locations synced.',
+              backgroundColor: Colors.green,
+            );
+          } else {
+            AppSnackBar.showGetXCustomSnackBar(
+              message: '${remarks} successful',
+              backgroundColor: Colors.green,
+            );
+          }
         } else {
           // Saved locally, will sync when online
           print(

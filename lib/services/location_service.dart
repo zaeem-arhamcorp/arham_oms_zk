@@ -3,9 +3,14 @@ import 'package:http/http.dart' as http;
 import 'database_helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import '../config/app_config.dart';
+import 'background_location_service.dart';
+import 'location_sync_service.dart';
 
 class LocationService {
   final DatabaseHelper db = DatabaseHelper();
+  final BackgroundLocationService _backgroundService =
+      BackgroundLocationService();
+  final LocationSyncService _syncService = LocationSyncService();
 
   /// Punch in/out operation: captures location and saves to local + online (if online)
   /// If online: immediately POSTs to server and saves as synced locally
@@ -235,5 +240,297 @@ class LocationService {
     if (punches.isEmpty) return false;
     // Check for 'OUT' punch type in remarks or similar logic
     return punches.length >= 2; // Simple check: at least IN and OUT
+  }
+
+  /// =====================================================
+  /// PUNCH IN WITH BACKGROUND LOCATION TRACKING
+  /// =====================================================
+  /// Punch in with automatic location tracking start.
+  /// Requirements:
+  /// - Employee is online (checked)
+  /// - Captures current location at punch time
+  /// - Starts background service that tracks location every 40 seconds
+  /// - Service continues even when app is minimized or cleared from recent
+  ///
+  /// Parameters:
+  /// - userCd: Employee code
+  /// - syncId: Firm/organization ID
+  /// - token: API authentication token
+  /// - vouchDt: Date of punch (YYYY-MM-DD)
+  /// - vouchTime: Time of punch (HH:MM:SS)
+  /// - moduleNo: Module number
+  /// - createdBy: Created by user code
+  /// - remark: Optional remark/note
+  ///
+  /// Returns:
+  /// - success: true if punch was recorded, false otherwise
+  /// - locId: Database ID of punch record
+  /// - synced: true if data was synced to server, false if pending
+  /// - tracking_started: true if background service was started successfully
+  /// - message: Description of what happened
+  /// - lat/longi: Captured GPS coordinates
+  /// - error: Error message (if any)
+  Future<Map<String, dynamic>> punchIn({
+    required String userCd,
+    required int syncId,
+    required String token,
+    required String vouchDt,
+    required String vouchTime,
+    required String moduleNo,
+    String createdBy = '',
+    String remark = '',
+    String createdAppType = 'oms',
+  }) async {
+    try {
+      print('[LocationService] 🟢 PUNCH IN INITIATED');
+      print('[LocationService]   User: $userCd | Sync ID: $syncId');
+      print('[LocationService]   Date: $vouchDt | Time: $vouchTime');
+
+      // Step 1: Check internet connection - PUNCH IN requires online
+      final isOnline = await NetworkHelper.hasInternet();
+      if (!isOnline) {
+        print('[LocationService] ❌ PUNCH IN FAILED - No internet connection');
+        return {
+          'success': false,
+          'tracking_started': false,
+          'message':
+              'Punch In requires internet connection. Please check your network.',
+          'error': 'No internet connection',
+        };
+      }
+
+      print('[LocationService] ✅ Internet available, proceeding...');
+
+      // Step 2: Record punch in location (existing logic)
+      final punchResult = await punchInOut(
+        userCd: userCd,
+        vouchDt: vouchDt,
+        vouchTime: vouchTime,
+        punchType: 'IN',
+        remark: remark,
+        syncId: syncId,
+        moduleNo: moduleNo,
+        token: token,
+        createdBy: createdBy,
+        createdAppType: createdAppType,
+      );
+
+      if (!punchResult['success']) {
+        print('[LocationService] ❌ Failed to record punch');
+        return {
+          ...punchResult,
+          'tracking_started': false,
+        };
+      }
+
+      print('[LocationService] ✅ Punch recorded successfully');
+      final locId = punchResult['locId'];
+      final startLat = punchResult['lat'] as double;
+      final startLng = punchResult['longi'] as double;
+
+      // Step 3: Start background location tracking service
+      print('[LocationService] 🚀 Starting background location tracking...');
+      final trackingResult = await _backgroundService.startTracking(
+        userCd: userCd,
+        syncId: syncId,
+        token: token,
+        startLat: startLat,
+        startLng: startLng,
+      );
+
+      if (trackingResult['success']) {
+        final tripId = trackingResult['trip_id'] as int;
+        print('[LocationService] ✅ PUNCH IN COMPLETE');
+        print('[LocationService]   ✅ Location recorded: locId=$locId');
+        print(
+            '[LocationService]   ✅ Background tracking started with trip_id=$tripId');
+        print('[LocationService]   📍 Coordinates: $startLat, $startLng');
+
+        return {
+          ...punchResult,
+          'tracking_started': true,
+          'trip_id': tripId,
+          'message': 'Punch In successful. Route tracking started.',
+        };
+      } else {
+        print(
+            '[LocationService] ⚠️ Background tracking failed to start: ${trackingResult['error']}');
+        return {
+          ...punchResult,
+          'tracking_started': false,
+          'message':
+              'Punch In recorded but background tracking failed to start. Please check location permissions.',
+          'warning': 'Tracking service failed: ${trackingResult['message']}',
+        };
+      }
+    } catch (e, stack) {
+      print('[LocationService] ❌ Punch In error: $e');
+      print('[LocationService] Stack: $stack');
+      return {
+        'success': false,
+        'tracking_started': false,
+        'message': 'Failed to punch in: $e',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// =====================================================
+  /// PUNCH OUT WITH BACKGROUND LOCATION TRACKING STOP
+  /// =====================================================
+  /// Punch out with automatic location tracking stop and sync.
+  /// Requirements:
+  /// - Employee is online (checked)
+  /// - Stops background service
+  /// - Syncs all remaining unsynced location data
+  /// - Records the punch out location
+  ///
+  /// Parameters:
+  /// - userCd: Employee code
+  /// - syncId: Firm/organization ID
+  /// - token: API authentication token
+  /// - vouchDt: Date of punch (YYYY-MM-DD)
+  /// - vouchTime: Time of punch (HH:MM:SS)
+  /// - moduleNo: Module number
+  /// - createdBy: Created by user code
+  /// - remark: Optional remark/note
+  ///
+  /// Returns:
+  /// - success: true if punch was recorded, false otherwise
+  /// - locId: Database ID of punch record
+  /// - synced: true if data was synced to server
+  /// - tracking_stopped: true if background service was stopped
+  /// - sync_stats: Statistics of synced location data
+  /// - message: Description of what happened
+  /// - error: Error message (if any)
+  Future<Map<String, dynamic>> punchOut({
+    required String userCd,
+    required int syncId,
+    required String token,
+    required String vouchDt,
+    required String vouchTime,
+    required String moduleNo,
+    String createdBy = '',
+    String remark = '',
+    String createdAppType = 'oms',
+  }) async {
+    try {
+      print('[LocationService] 🔴 PUNCH OUT INITIATED');
+      print('[LocationService]   User: $userCd | Sync ID: $syncId');
+      print('[LocationService]   Date: $vouchDt | Time: $vouchTime');
+
+      // Step 1: Check internet connection - PUNCH OUT requires online
+      final isOnline = await NetworkHelper.hasInternet();
+      if (!isOnline) {
+        print('[LocationService] ❌ PUNCH OUT FAILED - No internet connection');
+        return {
+          'success': false,
+          'tracking_stopped': false,
+          'message':
+              'Punch Out requires internet connection. Please check your network.',
+          'error': 'No internet connection',
+        };
+      }
+
+      print('[LocationService] ✅ Internet available, proceeding...');
+
+      // Step 2: Stop background location tracking service
+      print('[LocationService] 🛑 Stopping background tracking service...');
+      await _backgroundService.stopTracking();
+      print('[LocationService] ✅ Background tracking stopped');
+
+      // Step 3: Sync all remaining unsynced location data
+      print('[LocationService] 🔄 Syncing remaining location data...');
+      final syncStats = await _syncService.syncAllLocations(token);
+      print('[LocationService] ✅ Sync complete');
+      print(
+          '[LocationService]   ${syncStats['total_synced']} synced, ${syncStats['total_failed']} failed');
+
+      // Step 4: Record punch out location
+      print('[LocationService] 📍 Recording punch out location...');
+      final punchResult = await punchInOut(
+        userCd: userCd,
+        vouchDt: vouchDt,
+        vouchTime: vouchTime,
+        punchType: 'OUT',
+        remark: remark,
+        syncId: syncId,
+        moduleNo: moduleNo,
+        token: token,
+        createdBy: createdBy,
+        createdAppType: createdAppType,
+      );
+
+      if (!punchResult['success']) {
+        print('[LocationService] ⚠️ Failed to record punch out');
+        return {
+          ...punchResult,
+          'tracking_stopped': true,
+          'sync_stats': syncStats,
+        };
+      }
+
+      print('[LocationService] ✅ PUNCH OUT COMPLETE');
+      print(
+          '[LocationService]   ✅ Location recorded: locId=${punchResult['locId']}');
+      print('[LocationService]   ✅ Background tracking stopped');
+      print('[LocationService]   ✅ All location data synced');
+      print(
+          '[LocationService]   📍 Coordinates: ${punchResult['lat']}, ${punchResult['longi']}');
+
+      return {
+        ...punchResult,
+        'tracking_stopped': true,
+        'sync_stats': syncStats,
+        'message':
+            'Punch Out successful. All route tracking data has been synced.',
+      };
+    } catch (e, stack) {
+      print('[LocationService] ❌ Punch Out error: $e');
+      print('[LocationService] Stack: $stack');
+
+      // Try to stop service even on error
+      try {
+        await _backgroundService.stopTracking();
+      } catch (_) {}
+
+      return {
+        'success': false,
+        'tracking_stopped': false,
+        'message': 'Failed to punch out: $e',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// Force sync of pending location data (manual trigger)
+  /// Used by UI to manually trigger sync when user wants to ensure data is sent
+  Future<Map<String, dynamic>> syncPendingLocations(String token) async {
+    try {
+      print('[LocationService] 🔄 Manual sync triggered');
+      final result = await _syncService.syncAllLocations(token);
+      return {
+        'success': true,
+        'sync_stats': result,
+        'message': 'Location data synced successfully',
+      };
+    } catch (e) {
+      print('[LocationService] ❌ Manual sync failed: $e');
+      return {
+        'success': false,
+        'message': 'Failed to sync: $e',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// Check if background tracking is currently active
+  bool isTrackingActive() {
+    return _backgroundService.isRunning;
+  }
+
+  /// Get current tracking statistics
+  Future<Map<String, dynamic>> getTrackingStats() async {
+    return await _syncService.getPendingStats();
   }
 }

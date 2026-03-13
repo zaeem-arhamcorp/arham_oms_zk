@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 15,
+      version: 17,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -287,6 +287,38 @@ class DatabaseHelper {
         print('[DATABASE] ℹ️ products_cache columns may already exist: $e');
       }
     }
+    if (oldVersion < 16) {
+      // v15 to v16: Add location_tracking table for continuous background GPS tracking
+      // This table stores location snapshots captured every 40 seconds while service is active
+      await _createLocationTrackingTable(db);
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_location_tracking_synced ON location_tracking(synced)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_location_tracking_user ON location_tracking(user_cd, sync_id)');
+      print(
+          '[DATABASE] ✅ Created location_tracking table for background GPS tracking');
+    }
+    if (oldVersion < 17) {
+      // v16 to v17: Add GPS quality metrics and trip_id to location_tracking table
+      // trip_id: References the server-side trip for this tracking session
+      // accuracy: GPS accuracy in meters (from Position.accuracy)
+      // speed: Speed in m/s (from Position.speed)
+      // altitude: Altitude in meters (from Position.altitude)
+      try {
+        await db.execute(
+            'ALTER TABLE location_tracking ADD COLUMN trip_id INTEGER DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE location_tracking ADD COLUMN accuracy REAL DEFAULT 0.0');
+        await db.execute(
+            'ALTER TABLE location_tracking ADD COLUMN speed REAL DEFAULT 0.0');
+        await db.execute(
+            'ALTER TABLE location_tracking ADD COLUMN altitude REAL DEFAULT 0.0');
+        print(
+            '[DATABASE] ✅ Added trip_id, accuracy, speed, altitude columns to location_tracking');
+      } catch (e) {
+        print('[DATABASE] ℹ️ GPS quality columns may already exist: $e');
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -357,6 +389,7 @@ class DatabaseHelper {
     await _createOfflineOrdersTable(db);
     await _createOfflineOrderItemsTable(db);
     await _createLocationsTable(db);
+    await _createLocationTrackingTable(db);
 
     // PROFILE & HOME & ORDERS CACHE
     await db.execute('''
@@ -1347,6 +1380,35 @@ class DatabaseHelper {
     ''');
   }
 
+  /// Create location_tracking table for continuous background GPS tracking
+  /// Stores location snapshots captured every 40 seconds during active punch-in period
+  /// Table structure per requirements:
+  /// - id (int primary key)
+  /// - latitude (double)
+  /// - longitude (double)
+  /// - timestamp (datetime in milliseconds)
+  /// - synced (int 0/1)
+  /// - user_cd (TEXT)
+  /// - sync_id (int)
+  Future<void> _createLocationTrackingTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS location_tracking (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        latitude REAL NOT NULL DEFAULT 0.0,
+        longitude REAL NOT NULL DEFAULT 0.0,
+        timestamp INTEGER NOT NULL,
+        synced INTEGER NOT NULL DEFAULT 0,
+        user_cd TEXT NOT NULL,
+        sync_id INTEGER NOT NULL,
+        trip_id INTEGER DEFAULT 0,
+        accuracy REAL DEFAULT 0.0,
+        speed REAL DEFAULT 0.0,
+        altitude REAL DEFAULT 0.0,
+        created_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+  }
+
   Future<void> _createLicenseInfoTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS license_info (
@@ -1666,5 +1728,149 @@ class DatabaseHelper {
     });
     print(
         '[DATABASE] Cleared order tracking cache (locations and order_tracking)');
+  }
+
+  /*
+  ==============================
+  LOCATION TRACKING (Background GPS)
+  ==============================
+  Stores continuous location snapshots captured every 40 seconds during active punch-in.
+  These are synced periodically when internet is available.
+  */
+
+  /// Insert a location tracking record (captured location snapshot)
+  /// Returns the ID of the inserted record
+  Future<int> insertLocationTracking({
+    required double latitude,
+    required double longitude,
+    required int timestamp,
+    required String userCd,
+    required int syncId,
+    int tripId = 0,
+    double accuracy = 0.0,
+    double speed = 0.0,
+    double altitude = 0.0,
+  }) async {
+    final db = await database;
+    return await db.insert('location_tracking', {
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': timestamp,
+      'synced': 0,
+      'user_cd': userCd,
+      'sync_id': syncId,
+      'trip_id': tripId,
+      'accuracy': accuracy,
+      'speed': speed,
+      'altitude': altitude,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  /// Get all unsynced location tracking records
+  /// Returns records with synced = 0
+  Future<List<Map<String, dynamic>>> getUnsyncedLocationTrackings() async {
+    final db = await database;
+    return await db.query(
+      'location_tracking',
+      where: 'synced = ?',
+      whereArgs: [0],
+      orderBy: 'timestamp ASC',
+    );
+  }
+
+  /// Get unsynced location tracking records for a specific user
+  Future<List<Map<String, dynamic>>> getUnsyncedLocationTrackingsByUser(
+      String userCd, int syncId) async {
+    final db = await database;
+    return await db.query(
+      'location_tracking',
+      where: 'synced = ? AND user_cd = ? AND sync_id = ?',
+      whereArgs: [0, userCd, syncId],
+      orderBy: 'timestamp ASC',
+    );
+  }
+
+  /// Mark a location tracking record as synced
+  Future<void> markLocationTrackingSynced(int id) async {
+    final db = await database;
+    await db.update(
+      'location_tracking',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Mark multiple location tracking records as synced (batch operation)
+  Future<void> markLocationTrackingsSynced(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    await db.rawUpdate(
+      'UPDATE location_tracking SET synced = 1 WHERE id IN ($placeholders)',
+      ids,
+    );
+  }
+
+  /// Get count of unsynced location tracking records
+  Future<int> getUnsyncedLocationTrackingCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM location_tracking WHERE synced = ?',
+      [0],
+    );
+    return result.first['count'] as int;
+  }
+
+  /// Delete a location tracking record by ID
+  Future<void> deleteLocationTracking(int id) async {
+    final db = await database;
+    await db.delete(
+      'location_tracking',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Delete location tracking records older than specified days
+  /// Used for cleanup of old tracking data
+  Future<int> deleteOldLocationTracking(int daysOld) async {
+    final db = await database;
+    final cutoffTime = DateTime.now().subtract(Duration(days: daysOld));
+    final cutoffMs = cutoffTime.millisecondsSinceEpoch;
+    return await db.delete(
+      'location_tracking',
+      where: 'created_at < ?',
+      whereArgs: [cutoffMs],
+    );
+  }
+
+  /// Clear all location tracking records
+  /// Used for testing or when stopping punch-in
+  Future<void> clearLocationTracking() async {
+    final db = await database;
+    await db.delete('location_tracking');
+    print('[DATABASE] 🧹 Cleared all location tracking records');
+  }
+
+  /// Get summary of location tracking statistics
+  Future<Map<String, dynamic>> getLocationTrackingStats() async {
+    final db = await database;
+    final total = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM location_tracking',
+    );
+    final unsynced = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM location_tracking WHERE synced = 0',
+    );
+    final synced = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM location_tracking WHERE synced = 1',
+    );
+
+    return {
+      'total': total.first['count'] ?? 0,
+      'unsynced': unsynced.first['count'] ?? 0,
+      'synced': synced.first['count'] ?? 0,
+    };
   }
 }

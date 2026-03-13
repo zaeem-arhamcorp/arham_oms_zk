@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import 'constants/constants.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/connectivity_service.dart';
+import 'package:arham_corporation/services/background_location_service.dart';
 
 void main() async {
   SystemChrome.setSystemUIOverlayStyle(
@@ -64,6 +65,11 @@ void main() async {
 
   // Initialize SQLite database
   await DatabaseHelper().database;
+
+  // Initialize background location service
+  print('[Main] Initializing background location service...');
+  await BackgroundLocationService().initialize();
+  print('[Main] ✅ Background location service initialized');
 }
 
 class MyApp extends StatelessWidget {
@@ -98,9 +104,11 @@ class MyApp extends StatelessWidget {
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {
-          // Initialize connectivity service
+          // Initialize connectivity & background service
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            print('[MyApp] Initializing services after first frame...');
             ConnectivityService().initialize(context);
+            print('[MyApp] ✅ ConnectivityService initialized');
           });
 
           return GetMaterialApp(

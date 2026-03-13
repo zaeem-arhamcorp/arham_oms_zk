@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:arham_corporation/services/sync_service.dart';
+import 'package:arham_corporation/services/location_sync_service.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,7 @@ class ConnectivityService {
 
   final Connectivity _connectivity = Connectivity();
   final SyncService _syncService = SyncService();
+  final LocationSyncService _locationSyncService = LocationSyncService();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _wasOffline = false;
   bool _isSyncing = false;
@@ -72,15 +74,22 @@ class ConnectivityService {
         print(
             "[ConnectivityService] ✅ Locations: ${locationResult['synced']} synced, ${locationResult['failed']} failed");
 
+        // Sync background location tracking data (continuous GPS tracking)
+        final trackingResult = await _locationSyncService
+            .syncLocationTracking(userProvider.token!);
+        print(
+            "[ConnectivityService] ✅ Location Tracking: ${trackingResult['synced']} synced, ${trackingResult['failed']} failed");
+
         // Sync pending order tracking data (start/end order)
-        final trackingResult =
+        final orderTrackingResult =
             await _syncService.syncOrderTrackings(userProvider.token!);
         print(
-            "[ConnectivityService] ✅ Order Tracking: ${trackingResult['synced']} synced, ${trackingResult['failed']} failed");
+            "[ConnectivityService] ✅ Order Tracking: ${orderTrackingResult['synced']} synced, ${orderTrackingResult['failed']} failed");
 
         if ((result['synced'] ?? 0) > 0 ||
             (locationResult['synced'] ?? 0) > 0 ||
-            (trackingResult['synced'] ?? 0) > 0) {
+            (trackingResult['synced'] ?? 0) > 0 ||
+            (orderTrackingResult['synced'] ?? 0) > 0) {
           print(
               "[ConnectivityService] 🎉 All offline data synced successfully!");
         }
