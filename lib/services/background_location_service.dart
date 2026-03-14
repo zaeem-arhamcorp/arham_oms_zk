@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'database_helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:http/http.dart' as http;
@@ -185,12 +186,26 @@ class BackgroundLocationService {
 
         print('[BackgroundLocationService] ✅ Trip created: trip_id=$tripId');
 
-        // Store user info for the service
+        // Store user info for the service in MEMORY
         _currentUserCd = userCd;
         _currentSyncId = syncId;
         _token = token;
         _currentTripId = tripId;
         _isRunning = true;
+
+        // ALSO STORE IN PERSISTENT STORAGE in case app is backgrounded
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('active_trip_id', tripId);
+          await prefs.setString('active_user_cd', userCd);
+          await prefs.setInt('active_sync_id', syncId);
+          await prefs.setString('active_token', token);
+          print(
+              '[BackgroundLocationService] ✅ Trip data saved to SharedPreferences');
+        } catch (e) {
+          print(
+              '[BackgroundLocationService] ⚠️ Could not save to SharedPreferences: $e');
+        }
 
         // Start the background service
         await _service.startService();
@@ -229,7 +244,13 @@ class BackgroundLocationService {
   }
 
   /// Stop background location tracking service and end trip on server
-  Future<void> stopTracking() async {
+  /// Sends trip_id with optional last location coordinates
+  /// Backend uses these to populate trip_summaries if it can't query GPS points
+  Future<void> stopTracking({
+    double? lastLat,
+    double? lastLng,
+    int? lastTimestampMs,
+  }) async {
     try {
       print('[BackgroundLocationService] 🛑 Stopping background tracking...');
 
@@ -239,27 +260,94 @@ class BackgroundLocationService {
       // Wait a moment for the service to stop
       await Future.delayed(Duration(milliseconds: 500));
 
-      // End trip on server if we have a trip_id and token
-      if (_currentTripId != null && _token != null) {
+      // Try to get trip_id and token from memory first, then SharedPreferences
+      int? tripIdToUse = _currentTripId;
+      String? tokenToUse = _token;
+
+      if (tripIdToUse == null || tokenToUse == null) {
         print(
-            '[BackgroundLocationService] 📤 Ending trip on server (trip_id=$_currentTripId)...');
+            '[BackgroundLocationService] ⚠️ Trip data not in memory, checking SharedPreferences...');
         try {
+          final prefs = await SharedPreferences.getInstance();
+          tripIdToUse = prefs.getInt('active_trip_id');
+          tokenToUse = prefs.getString('active_token');
+          if (tripIdToUse != null && tokenToUse != null) {
+            print(
+                '[BackgroundLocationService] ✅ Retrieved trip data from SharedPreferences');
+            print('[BackgroundLocationService]   trip_id=$tripIdToUse');
+          }
+        } catch (e) {
+          print(
+              '[BackgroundLocationService] ⚠️ Could not retrieve from SharedPreferences: $e');
+        }
+      }
+
+      // End trip on server if we have a trip_id and token
+      if (tripIdToUse != null && tokenToUse != null) {
+        print(
+            '[BackgroundLocationService] 📤 Ending trip on server (trip_id=$tripIdToUse)...');
+        try {
+          // Build payload with last location data for test
+          final tripEndPayload = <String, dynamic>{
+            'trip_id': tripIdToUse,
+          };
+
+          // Add last location data if available
+          if (lastLat != null && lastLng != null && lastTimestampMs != null) {
+            // Convert milliseconds to MySQL DATETIME format: "YYYY-MM-DD HH:MM:SS"
+            final lastDateTime =
+                DateTime.fromMillisecondsSinceEpoch(lastTimestampMs);
+            final lastTimestampFormatted =
+                '${lastDateTime.year.toString().padLeft(4, '0')}-'
+                '${lastDateTime.month.toString().padLeft(2, '0')}-'
+                '${lastDateTime.day.toString().padLeft(2, '0')} '
+                '${lastDateTime.hour.toString().padLeft(2, '0')}:'
+                '${lastDateTime.minute.toString().padLeft(2, '0')}:'
+                '${lastDateTime.second.toString().padLeft(2, '0')}';
+
+            tripEndPayload['last_lat'] = lastLat;
+            tripEndPayload['last_lng'] = lastLng;
+            tripEndPayload['last_timestamp'] = lastTimestampFormatted;
+
+            print(
+                '[BackgroundLocationService] 📍 Including last location in payload:');
+            print(
+                '[BackgroundLocationService]   Lat: $lastLat | Lng: $lastLng');
+            print(
+                '[BackgroundLocationService]   Timestamp: $lastTimestampFormatted (from ${lastTimestampMs}ms)');
+          }
+
+          print('[BackgroundLocationService] 📤 Sending request to /trip/end');
+          print(
+              '[BackgroundLocationService]    Payload: ${jsonEncode(tripEndPayload)}');
+
           final tripEndResponse = await http.post(
             Uri.parse('${AppConfig.baseURL}location/trip/end'),
             headers: {
-              'Authorization': 'Bearer $_token',
+              'Authorization': 'Bearer $tokenToUse',
               'x-app-type': 'oms',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({
-              'trip_id': _currentTripId.toString(),
-            }),
+            body: jsonEncode(tripEndPayload),
           );
 
           if (tripEndResponse.statusCode == 200 ||
               tripEndResponse.statusCode == 201) {
             print(
                 '[BackgroundLocationService] ✅ Trip ended successfully on server');
+            // Clear SharedPreferences after successful end
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('active_trip_id');
+              await prefs.remove('active_user_cd');
+              await prefs.remove('active_sync_id');
+              await prefs.remove('active_token');
+              print(
+                  '[BackgroundLocationService] ✅ Cleared trip data from SharedPreferences');
+            } catch (e) {
+              print(
+                  '[BackgroundLocationService] ⚠️ Could not clear SharedPreferences: $e');
+            }
           } else {
             print(
                 '[BackgroundLocationService] ⚠️ Trip end failed: ${tripEndResponse.statusCode}');
@@ -267,6 +355,9 @@ class BackgroundLocationService {
         } catch (e) {
           print('[BackgroundLocationService] ⚠️ Error ending trip: $e');
         }
+      } else {
+        print(
+            '[BackgroundLocationService] ⚠️ Missing trip_id or token - cannot end trip on server');
       }
 
       _isRunning = false;

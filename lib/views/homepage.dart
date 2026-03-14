@@ -7,6 +7,8 @@ import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/battery_optimization_service.dart';
+import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/referral/referral_view.dart';
@@ -166,6 +168,9 @@ class _HomePageState extends State<HomePage> {
           _showAutoOfflineCachingDialog(syncId);
         } else {
           print('[HomePage] Auto-cache already done for firm $syncId');
+          // Still show battery dialog even if caching was already done
+          await Future.delayed(Duration(milliseconds: 1500));
+          _checkAndShowBatteryOptimizationDialog();
         }
       } else {
         print(
@@ -524,7 +529,9 @@ class _HomePageState extends State<HomePage> {
                           maxLines: 1,
                           textAlign: TextAlign.start,
                           style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w800),
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18),
                         ),
                       ),
                       SizedBox(
@@ -707,6 +714,28 @@ class _HomePageState extends State<HomePage> {
           //           width: 0.1,
           //         ),
           // ],
+          actions: [
+            IconButton(
+              onPressed: () {
+                showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        content:
+                            Text("You don't have any notification for now."),
+                        actions: [
+                          TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: Text("OK"))
+                        ],
+                      );
+                    });
+              },
+              icon: Icon(Icons.notifications_none),
+            )
+          ],
         ),
         drawer: Drawer(
           backgroundColor: Colors.white,
@@ -1486,7 +1515,7 @@ class _HomePageState extends State<HomePage> {
                                       child: Text(
                                           "${data != null ? "${data!.data.label}:" : ""}",
                                           style: TextStyle(
-                                              fontSize: 18.sp,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: 0.8)),
                                     ),
@@ -2110,25 +2139,37 @@ class _HomePageState extends State<HomePage> {
 
                     // Auto-close dialog after 1.5 seconds and show snackbar
                     Future.delayed(Duration(milliseconds: 1500), () async {
-                      if (dialogContext.mounted) {
-                        Navigator.of(dialogContext).pop();
+                      try {
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext, rootNavigator: true)
+                              .pop();
+                        }
+                      } catch (e) {
+                        print('[HomePage] Error closing cache dialog: $e');
+                      }
 
-                        // Mark firm as cached
+                      // Mark firm as cached
+                      try {
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('auto_cached_firm_$syncId', true);
                         print('[HomePage] Marked firm $syncId as auto-cached');
-
-                        final bool allSuccess =
-                            cacheItems.every((item) => item.isSuccess);
-                        AppSnackBar.showGetXCustomSnackBar(
-                          message: allSuccess
-                              ? 'All data cached successfully! You can now work offline.'
-                              : failureMessage ??
-                                  'Caching failed. Please check your internet connection and try again.',
-                          backgroundColor:
-                              allSuccess ? Colors.green : Colors.red,
-                        );
+                      } catch (e) {
+                        print('[HomePage] Error marking firm cached: $e');
                       }
+
+                      final bool allSuccess =
+                          cacheItems.every((item) => item.isSuccess);
+                      AppSnackBar.showGetXCustomSnackBar(
+                        message: allSuccess
+                            ? 'All data cached successfully! You can now work offline.'
+                            : failureMessage ??
+                                'Caching failed. Please check your internet connection and try again.',
+                        backgroundColor: allSuccess ? Colors.green : Colors.red,
+                      );
+
+                      // ✅ Show battery optimization dialog AFTER offline caching dialog closes
+                      await Future.delayed(Duration(milliseconds: 500));
+                      _checkAndShowBatteryOptimizationDialog();
                     });
                   }
                 } catch (e) {
@@ -2488,6 +2529,37 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  /// Check if battery optimization is enabled and show dialog once per session
+  /// This is called AFTER offline caching dialog closes
+  Future<void> _checkAndShowBatteryOptimizationDialog() async {
+    try {
+      print('[HomePage] ===== BATTERY DIALOG CHECK STARTED =====');
+      final shouldShow = await BatteryOptimizationService.shouldShowDialog();
+      print(
+          '[HomePage] BatteryOptimizationService.shouldShowDialog() returned: $shouldShow');
+      print('[HomePage] mounted=$mounted');
+
+      if (shouldShow && mounted) {
+        print(
+            '[HomePage] Battery optimization is ENABLED - showing dialog after cache dialog');
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => BatteryOptimizationDialog(),
+        ).then((_) {
+          print('[HomePage] Battery dialog closed by user');
+          // Mark dialog as shown only after user closes it
+          BatteryOptimizationService.markDialogAsShown();
+        });
+      } else {
+        print(
+            '[HomePage] Battery optimization check: shouldShow=$shouldShow, mounted=$mounted - dialog NOT shown');
+      }
+    } catch (e) {
+      print('[HomePage] Error checking battery optimization: $e');
+    }
   }
 }
 

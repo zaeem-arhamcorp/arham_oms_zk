@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <!-- Wake lock permission to keep device running during background service -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Battery optimization permission -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

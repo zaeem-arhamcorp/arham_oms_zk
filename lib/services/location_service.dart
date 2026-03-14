@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'database_helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import '../config/app_config.dart';
@@ -434,19 +435,54 @@ class LocationService {
 
       print('[LocationService] ✅ Internet available, proceeding...');
 
-      // Step 2: Stop background location tracking service
+      // Step 2: Get the last location from the active trip (if any)
+      double? lastLat;
+      double? lastLng;
+      int? lastTimestampMs;
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final activeTripId = prefs.getInt('active_trip_id');
+
+        if (activeTripId != null && activeTripId > 0) {
+          print(
+              '[LocationService] 📍 Getting last location for trip_id=$activeTripId...');
+          final lastLocation =
+              await db.getLastLocationTrackingForTrip(activeTripId);
+
+          if (lastLocation != null) {
+            lastLat = lastLocation['LAT'] as double?;
+            lastLng = lastLocation['LNG'] as double?;
+            lastTimestampMs = lastLocation['TIMESTAMP'] as int?;
+
+            if (lastLat != null && lastLng != null && lastTimestampMs != null) {
+              print('[LocationService] ✅ Got last location:');
+              print(
+                  '[LocationService]   Lat: $lastLat | Lng: $lastLng | Timestamp: ${lastTimestampMs}ms');
+            }
+          }
+        }
+      } catch (e) {
+        print('[LocationService] ⚠️ Could not get last location: $e');
+      }
+
+      // Step 3: Stop background location tracking service
       print('[LocationService] 🛑 Stopping background tracking service...');
-      await _backgroundService.stopTracking();
+      await _backgroundService.stopTracking(
+        lastLat: lastLat,
+        lastLng: lastLng,
+        lastTimestampMs: lastTimestampMs,
+      );
       print('[LocationService] ✅ Background tracking stopped');
 
-      // Step 3: Sync all remaining unsynced location data
+      // Step 4: Sync all remaining unsynced location data
       print('[LocationService] 🔄 Syncing remaining location data...');
       final syncStats = await _syncService.syncAllLocations(token);
       print('[LocationService] ✅ Sync complete');
       print(
           '[LocationService]   ${syncStats['total_synced']} synced, ${syncStats['total_failed']} failed');
 
-      // Step 4: Record punch out location
+      // Step 5: Record punch out location
       print('[LocationService] 📍 Recording punch out location...');
       final punchResult = await punchInOut(
         userCd: userCd,

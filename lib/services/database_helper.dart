@@ -1873,4 +1873,31 @@ class DatabaseHelper {
       'synced': synced.first['count'] ?? 0,
     };
   }
+
+  /// Get the last (most recent) location tracking record for a specific trip
+  /// Used to get last_lat, last_lng, last_timestamp for trip_summaries
+  /// Returns the most recent location record by timestamp, or null if not found
+  Future<Map<String, dynamic>?> getLastLocationTrackingForTrip(
+      int tripId) async {
+    final db = await database;
+
+    final results = await db.query(
+      'location_tracking',
+      where: 'trip_id = ?',
+      whereArgs: [tripId],
+      orderBy: 'timestamp DESC',
+      limit: 1,
+    );
+
+    if (results.isEmpty) {
+      return null;
+    }
+
+    final record = results.first;
+    return {
+      'LAT': record['latitude'] as double?,
+      'LNG': record['longitude'] as double?,
+      'TIMESTAMP': record['timestamp'] as int?,
+    };
+  }
 }

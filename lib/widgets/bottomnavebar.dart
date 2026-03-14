@@ -11,16 +11,29 @@ import 'package:provider/provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/user_provider.dart';
 import '../views/dailyReportScreen.dart';
+import '../services/battery_optimization_service.dart';
 
 class BottomnavigationBarScreen extends StatefulWidget {
   const BottomnavigationBarScreen({Key? key}) : super(key: key);
 
   @override
-  State<BottomnavigationBarScreen> createState() => _BottomnavigationBarScreenState();
+  State<BottomnavigationBarScreen> createState() =>
+      _BottomnavigationBarScreenState();
 }
 
 class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Reset battery optimization flag for new login session
+    // This allows the dialog to show again after logout/login
+    () async {
+      await BatteryOptimizationService.resetForNewSession();
+      print('[BottomnavBar] Battery flag reset completed for new session');
+    }();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -35,7 +48,7 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
     ];
     if (p.data?.modulesList != null &&
         p.data!.modulesList!.any((module) =>
-        module.mODULENO == "301" &&
+            module.mODULENO == "301" &&
             (module.rEADRIGHT == true || module.pRINTRIGHT == true))) {
       pages.add(DailyReportScreen());
     }
@@ -47,14 +60,20 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
   List<BottomNavigationBarItem> _buildBottomNavigationItems(ProfileProvider p) {
     List<BottomNavigationBarItem> items = [
       BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-      BottomNavigationBarItem(icon: Icon(Icons.widgets_outlined), label: 'Menus'),
+      BottomNavigationBarItem(
+          icon: Icon(Icons.widgets_outlined), label: 'Menus'),
     ];
-    if (p.data != null && p.data!.modulesList!.any((module) => module.mODULENO == "301" &&
-        (module.rEADRIGHT == true || module.pRINTRIGHT == true))) {
-      items.add(BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'));
+    if (p.data != null &&
+        p.data!.modulesList!.any((module) =>
+            module.mODULENO == "301" &&
+            (module.rEADRIGHT == true || module.pRINTRIGHT == true))) {
+      items.add(BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard), label: 'Dashboard'));
     }
-    items.add(BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Order'));
-    items.add(BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'));
+    items.add(BottomNavigationBarItem(
+        icon: Icon(Icons.storefront_outlined), label: 'Order'));
+    items.add(
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'));
     return items;
   }
 
@@ -65,7 +84,8 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
     final ProfileProvider p = context.watch<ProfileProvider>();
 
     final List<Widget> pages = _buildPages(p);
-    final List<BottomNavigationBarItem> bottomNavItems = _buildBottomNavigationItems(p);
+    final List<BottomNavigationBarItem> bottomNavItems =
+        _buildBottomNavigationItems(p);
 
     // Safeguard for invalid _selectedIndex
     if (_selectedIndex >= pages.length) {
@@ -74,7 +94,8 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: false, // ✅ Important: this fixes bottom nav above keyboard
+      resizeToAvoidBottomInset:
+          false, // ✅ Important: this fixes bottom nav above keyboard
       body: StreamBuilder<ServiceStatus>(
         stream: Geolocator.getServiceStatusStream(),
         builder: (context, snapshot) {
@@ -82,7 +103,8 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
             l.changeLocationStatus(true);
           }
 
-          bool locationEnabled = snapshot.data == ServiceStatus.enabled || l.enebleLocationPermission == true;
+          bool locationEnabled = snapshot.data == ServiceStatus.enabled ||
+              l.enebleLocationPermission == true;
 
           if (ub.role == AppConfig.operatoruser && !locationEnabled) {
             return Center(
@@ -96,10 +118,13 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
                   SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () async {
-                      LocationPermission permission = await Geolocator.checkPermission();
-                      bool isServiceEnabled = await Geolocator.isLocationServiceEnabled();
+                      LocationPermission permission =
+                          await Geolocator.checkPermission();
+                      bool isServiceEnabled =
+                          await Geolocator.isLocationServiceEnabled();
                       if (isServiceEnabled) {
-                        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+                        if (permission == LocationPermission.denied ||
+                            permission == LocationPermission.deniedForever) {
                           await Geolocator.openAppSettings();
                         } else {
                           l.changeLocationStatus(true);
