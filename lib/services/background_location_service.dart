@@ -84,7 +84,8 @@ class BackgroundLocationService {
       print(
           '[BackgroundLocationService] 📌 Setting notification as ongoing...');
       await platform.invokeMethod('setNotificationOngoing', {
-        'notificationId': 1,
+        'notificationId':
+            888, // Use flutter_background_service plugin's notification ID
         'title': title,
         'message': message,
       });
@@ -248,10 +249,14 @@ class BackgroundLocationService {
         // Start the background service
         await _service.startService();
 
+        // Give the service a moment to fully initialize before updating notification
+        await Future.delayed(const Duration(milliseconds: 500));
+
         // Set the notification as non-dismissible (non-swipeable)
         await setNotificationOngoing(
           title: 'Route Tracking Active',
-          message: 'Your location is being tracked during this route',
+          message:
+              'Your location is being tracked during this route. Please DO NOT remove the app from background',
         );
 
         // Send initial configuration to the service

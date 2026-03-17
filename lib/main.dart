@@ -77,6 +77,20 @@ void main() async {
   await LocationTrackingWorkmanager.initialize();
   await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
   print('[Main] ✅ Location tracking WorkManager initialized');
+
+  // Attempt immediate resume if app was killed with active tracking
+  print('[Main] Checking for active trip to resume...');
+  try {
+    final resumed =
+        await BackgroundLocationService().resumeTrackingIfActiveTrip();
+    if (resumed) {
+      print('[Main] ✅ Active trip resumed on app startup');
+    } else {
+      print('[Main] ℹ️ No active trip to resume');
+    }
+  } catch (e) {
+    print('[Main] ⚠️ Error resuming active trip: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {
