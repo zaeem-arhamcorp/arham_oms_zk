@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -27,6 +28,7 @@ class BackgroundLocationService {
   final DatabaseHelper _db = DatabaseHelper();
   final FlutterBackgroundService _service = FlutterBackgroundService();
   static const Duration _captureInterval = Duration(seconds: 40);
+  static const platform = MethodChannel('com.arhamerp.app/notification');
 
   bool _isRunning = false;
   String? _currentUserCd;
@@ -57,6 +59,7 @@ class BackgroundLocationService {
           // onIosConfiguration to inform ios app that you learned more about background service by installing flutter_background_service_ios package
           isForegroundMode: true,
           autoStart: false,
+          autoStartOnBoot: false,
         ),
         iosConfiguration: IosConfiguration(
           autoStart: false,
@@ -68,6 +71,28 @@ class BackgroundLocationService {
       print('[BackgroundLocationService] ✅ Background service initialized');
     } catch (e) {
       print('[BackgroundLocationService] ❌ Error initializing: $e');
+    }
+  }
+
+  /// Set foreground service notification as ongoing (non-dismissible)
+  /// This prevents users from accidentally swiping away the location tracking notification
+  Future<void> setNotificationOngoing({
+    String title = 'Location Tracking Active',
+    String message = 'Background location tracking is active',
+  }) async {
+    try {
+      print(
+          '[BackgroundLocationService] 📌 Setting notification as ongoing...');
+      await platform.invokeMethod('setNotificationOngoing', {
+        'notificationId': 1,
+        'title': title,
+        'message': message,
+      });
+      print(
+          '[BackgroundLocationService] ✅ Notification set as ongoing (non-dismissible)');
+    } catch (e) {
+      print(
+          '[BackgroundLocationService] ⚠️ Error setting notification ongoing: $e');
     }
   }
 
@@ -92,11 +117,11 @@ class BackgroundLocationService {
       print('[BackgroundLocationService]   User: $userCd');
       print('[BackgroundLocationService]   Sync ID: $syncId');
 
-      // Verify permissions
-      final permission = await Geolocator.checkPermission();
+      // Verify permissions. Background tracking requires "always" permission.
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        final result = await Geolocator.requestPermission();
-        if (result == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
           print('[BackgroundLocationService] ❌ Location permission denied');
           return {
             'success': false,
@@ -116,6 +141,17 @@ class BackgroundLocationService {
         };
       }
 
+      if (permission == LocationPermission.whileInUse) {
+        print(
+            '[BackgroundLocationService] ❌ Background location needs "Allow all the time" permission');
+        return {
+          'success': false,
+          'message':
+              'Please enable "Allow all the time" location permission for route tracking.',
+          'error': 'Background location permission not granted',
+        };
+      }
+
       print('[BackgroundLocationService] ✅ Location permissions granted');
 
       // Step 1: Call /api/location/trip/start to initialize trip on server
@@ -125,6 +161,8 @@ class BackgroundLocationService {
       print(
           '[BackgroundLocationService]   Send data: syncId=$syncId, startLat=$startLat, startLng=$startLng');
       try {
+        print(
+            '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/start');
         final tripStartResponse = await http.post(
           Uri.parse('${AppConfig.baseURL}location/trip/start'),
           headers: {
@@ -210,6 +248,12 @@ class BackgroundLocationService {
         // Start the background service
         await _service.startService();
 
+        // Set the notification as non-dismissible (non-swipeable)
+        await setNotificationOngoing(
+          title: 'Route Tracking Active',
+          message: 'Your location is being tracked during this route',
+        );
+
         // Send initial configuration to the service
         _service.invoke('startLocationTracking', {
           'userCd': userCd,
@@ -243,22 +287,79 @@ class BackgroundLocationService {
     }
   }
 
-  /// Stop background location tracking service and end trip on server
-  /// Sends trip_id with optional last location coordinates
-  /// Backend uses these to populate trip_summaries if it can't query GPS points
-  Future<void> stopTracking({
-    double? lastLat,
-    double? lastLng,
-    int? lastTimestampMs,
-  }) async {
+  /// Resume background tracking for an already active trip persisted locally.
+  /// This is used by WorkManager after app process is killed.
+  Future<bool> resumeTrackingIfActiveTrip() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final tripId = prefs.getInt('active_trip_id');
+      final userCd = prefs.getString('active_user_cd');
+      final syncId = prefs.getInt('active_sync_id');
+      final token = prefs.getString('active_token');
+
+      if (tripId == null || userCd == null || syncId == null || token == null) {
+        print(
+            '[BackgroundLocationService] No active trip in SharedPreferences. Skipping resume.');
+        return false;
+      }
+
+      _currentTripId = tripId;
+      _currentUserCd = userCd;
+      _currentSyncId = syncId;
+      _token = token;
+
+      bool serviceRunning = false;
+      try {
+        serviceRunning = await _service.isRunning();
+      } catch (e) {
+        print(
+            '[BackgroundLocationService] Could not check service running state: $e');
+      }
+
+      if (!serviceRunning) {
+        print(
+            '[BackgroundLocationService] Recovering tracking service for active trip_id=$tripId');
+        await _service.startService();
+
+        // Set the notification as non-dismissible when recovering
+        await setNotificationOngoing(
+          title: 'Route Tracking Resumed',
+          message: 'Your location is being tracked during this route',
+        );
+
+        _service.invoke('startLocationTracking', {
+          'userCd': userCd,
+          'syncId': syncId,
+          'token': token,
+          'tripId': tripId,
+        });
+      } else {
+        print(
+            '[BackgroundLocationService] Background service already running. Resume not required.');
+      }
+
+      _isRunning = true;
+      return true;
+    } catch (e) {
+      print('[BackgroundLocationService] Error while resuming active trip: $e');
+      return false;
+    }
+  }
+
+  /// Stop background location tracking service.
+  /// By default also ends the trip on server; can be skipped for punch-out flow
+  /// so pending points sync before trip end.
+  Future<void> stopTracking({bool endTripOnServer = true}) async {
     try {
       print('[BackgroundLocationService] 🛑 Stopping background tracking...');
 
-      // Signal the service to stop
+      // Signal the service to stop (tracking loop will exit)
       _service.invoke('stopLocationTracking');
 
       // Wait a moment for the service to stop
       await Future.delayed(Duration(milliseconds: 500));
+      print('[BackgroundLocationService] ✅ Foreground service stopping...');
 
       // Try to get trip_id and token from memory first, then SharedPreferences
       int? tripIdToUse = _currentTripId;
@@ -282,45 +383,13 @@ class BackgroundLocationService {
         }
       }
 
-      // End trip on server if we have a trip_id and token
-      if (tripIdToUse != null && tokenToUse != null) {
+      // End trip on server if requested and if we have trip_id+token
+      if (endTripOnServer && tripIdToUse != null && tokenToUse != null) {
         print(
             '[BackgroundLocationService] 📤 Ending trip on server (trip_id=$tripIdToUse)...');
         try {
-          // Build payload with last location data for test
-          final tripEndPayload = <String, dynamic>{
-            'trip_id': tripIdToUse,
-          };
-
-          // Add last location data if available
-          if (lastLat != null && lastLng != null && lastTimestampMs != null) {
-            // Convert milliseconds to MySQL DATETIME format: "YYYY-MM-DD HH:MM:SS"
-            final lastDateTime =
-                DateTime.fromMillisecondsSinceEpoch(lastTimestampMs);
-            final lastTimestampFormatted =
-                '${lastDateTime.year.toString().padLeft(4, '0')}-'
-                '${lastDateTime.month.toString().padLeft(2, '0')}-'
-                '${lastDateTime.day.toString().padLeft(2, '0')} '
-                '${lastDateTime.hour.toString().padLeft(2, '0')}:'
-                '${lastDateTime.minute.toString().padLeft(2, '0')}:'
-                '${lastDateTime.second.toString().padLeft(2, '0')}';
-
-            tripEndPayload['last_lat'] = lastLat;
-            tripEndPayload['last_lng'] = lastLng;
-            tripEndPayload['last_timestamp'] = lastTimestampFormatted;
-
-            print(
-                '[BackgroundLocationService] 📍 Including last location in payload:');
-            print(
-                '[BackgroundLocationService]   Lat: $lastLat | Lng: $lastLng');
-            print(
-                '[BackgroundLocationService]   Timestamp: $lastTimestampFormatted (from ${lastTimestampMs}ms)');
-          }
-
-          print('[BackgroundLocationService] 📤 Sending request to /trip/end');
           print(
-              '[BackgroundLocationService]    Payload: ${jsonEncode(tripEndPayload)}');
-
+              '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/end');
           final tripEndResponse = await http.post(
             Uri.parse('${AppConfig.baseURL}location/trip/end'),
             headers: {
@@ -328,7 +397,9 @@ class BackgroundLocationService {
               'x-app-type': 'oms',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode(tripEndPayload),
+            body: jsonEncode({
+              'trip_id': tripIdToUse,
+            }),
           );
 
           if (tripEndResponse.statusCode == 200 ||
@@ -355,9 +426,12 @@ class BackgroundLocationService {
         } catch (e) {
           print('[BackgroundLocationService] ⚠️ Error ending trip: $e');
         }
-      } else {
+      } else if (endTripOnServer) {
         print(
             '[BackgroundLocationService] ⚠️ Missing trip_id or token - cannot end trip on server');
+      } else {
+        print(
+            '[BackgroundLocationService] ℹ️ Trip end skipped now. Caller will end trip after pending sync.');
       }
 
       _isRunning = false;
@@ -366,10 +440,68 @@ class BackgroundLocationService {
       _token = null;
       _currentTripId = null;
 
-      print('[BackgroundLocationService] ✅ Background tracking stopped');
+      print(
+          '[BackgroundLocationService] ✅ Background tracking completely stopped');
+      print('[BackgroundLocationService]    - Tracking loop exited');
+      print('[BackgroundLocationService]    - Service notification will clear');
+      print(
+          '[BackgroundLocationService]    - Trip end requested: $endTripOnServer');
+      print('[BackgroundLocationService]    - All state cleared');
     } catch (e) {
       print('[BackgroundLocationService] ⚠️ Error stopping tracking: $e');
       _isRunning = false;
+    }
+  }
+
+  /// End active trip on server using persisted trip data.
+  /// Used when capture is already stopped and pending data has synced.
+  Future<bool> endActiveTripOnServer() async {
+    try {
+      int? tripIdToUse = _currentTripId;
+      String? tokenToUse = _token;
+
+      if (tripIdToUse == null || tokenToUse == null) {
+        final prefs = await SharedPreferences.getInstance();
+        tripIdToUse = prefs.getInt('active_trip_id');
+        tokenToUse = prefs.getString('active_token');
+      }
+
+      if (tripIdToUse == null || tokenToUse == null) {
+        print(
+            '[BackgroundLocationService] ⚠️ Missing trip data, cannot end trip on server');
+        return false;
+      }
+
+      print(
+          '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/end');
+      final tripEndResponse = await http.post(
+        Uri.parse('${AppConfig.baseURL}location/trip/end'),
+        headers: {
+          'Authorization': 'Bearer $tokenToUse',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'trip_id': tripIdToUse}),
+      );
+
+      if (tripEndResponse.statusCode == 200 ||
+          tripEndResponse.statusCode == 201) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('active_trip_id');
+        await prefs.remove('active_user_cd');
+        await prefs.remove('active_sync_id');
+        await prefs.remove('active_token');
+        print(
+            '[BackgroundLocationService] ✅ Trip ended and SharedPreferences cleared');
+        return true;
+      }
+
+      print(
+          '[BackgroundLocationService] ⚠️ Trip end failed: ${tripEndResponse.statusCode} ${tripEndResponse.body}');
+      return false;
+    } catch (e) {
+      print('[BackgroundLocationService] ⚠️ Error ending trip on server: $e');
+      return false;
     }
   }
 
@@ -590,6 +722,8 @@ class BackgroundLocationService {
 
       // Send to server via /api/location/update endpoint
       print('[BackgroundLocationService] [Background]    ⏳ Sending request...');
+      print(
+          '[BackgroundLocationService] [Background] API HIT: ${AppConfig.baseURL}location/update');
       final response = await http.post(
         Uri.parse('${AppConfig.baseURL}location/update'),
         headers: {
@@ -692,6 +826,8 @@ class BackgroundLocationService {
           final timestampSeconds = timestamp ~/ 1000;
 
           // Send to server via /api/location/update endpoint
+          print(
+              '[BackgroundLocationService] [Background] API HIT: ${AppConfig.baseURL}location/update');
           final response = await http.post(
             Uri.parse('${AppConfig.baseURL}location/update'),
             headers: {

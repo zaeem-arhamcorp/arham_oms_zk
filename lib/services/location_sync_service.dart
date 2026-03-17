@@ -9,9 +9,11 @@ import 'database_helper.dart';
 class LocationSyncService {
   final DatabaseHelper _db = DatabaseHelper();
 
-  /// Sync background location tracking records
-  /// Fetches all unsynced location_tracking records and sends them to the server
-  /// Returns a map with sync statistics: {synced: count, failed: count}
+  /// Sync background location tracking records in BULK
+  /// Groups locations by trip_id and sends in batch format for efficiency
+  /// Offline scenarios: Instead of 50+ individual API calls, sends 1-2 bulk calls
+  /// Format: { trip_id: X, batch: [{lat, lng, accuracy, speed, altitude}, ...] }
+  /// Returns: {synced: count, failed: count}
   Future<Map<String, int>> syncLocationTracking(String token) async {
     print('[LocationSyncService] 🔄 Starting location tracking sync...');
 
@@ -24,31 +26,71 @@ class LocationSyncService {
         return {'synced': 0, 'failed': 0};
       }
 
-      print('[LocationSyncService] 📊 Found ${unsyncedLocations.length} unsynced tracking records');
+      print(
+          '[LocationSyncService] 📊 Found ${unsyncedLocations.length} unsynced tracking records');
 
-      int synced = 0;
-      int failed = 0;
-      final List<int> syncedIds = [];
+      // Group locations by trip_id for bulk sync
+      final Map<int, List<Map>> locationsByTrip = {};
+      final Map<int, List<int>> idsByTrip = {};
 
-      // Process each location
       for (var location in unsyncedLocations) {
+        final tripId = location['trip_id'] as int? ?? 0;
+        final id = location['id'] as int;
+
+        if (!locationsByTrip.containsKey(tripId)) {
+          locationsByTrip[tripId] = [];
+          idsByTrip[tripId] = [];
+        }
+
+        locationsByTrip[tripId]!.add(location);
+        idsByTrip[tripId]!.add(id);
+      }
+
+      int totalSynced = 0;
+      int totalFailed = 0;
+
+      // Send bulk request for each trip
+      for (var entry in locationsByTrip.entries) {
+        final tripId = entry.key;
+        final locations = entry.value;
+        final ids = idsByTrip[tripId]!;
+
+        print(
+            '[LocationSyncService] 📦 Preparing bulk sync for trip_id=$tripId');
+        print(
+            '[LocationSyncService]    Batch size: ${locations.length} locations');
+
         try {
-          final id = location['id'] as int;
-          final latitude = location['latitude'] as double;
-          final longitude = location['longitude'] as double;
-          final timestamp = location['timestamp'] as int;
-          final tripId = location['trip_id'] as int? ?? 0;
-          final accuracy = location['accuracy'] as double? ?? 0.0;
-          final speed = location['speed'] as double? ?? 0.0;
-          final altitude = location['altitude'] as double? ?? 0.0;
+          // Build batch array
+          final batch = locations.map((location) {
+            final latitude = (location['latitude'] as num?)?.toDouble() ?? 0.0;
+            final longitude =
+                (location['longitude'] as num?)?.toDouble() ?? 0.0;
+            final accuracy = (location['accuracy'] as num?)?.toDouble() ?? 0.0;
+            final speed = (location['speed'] as num?)?.toDouble() ?? 0.0;
+            final altitude = (location['altitude'] as num?)?.toDouble() ?? 0.0;
+            final timestampMs = (location['timestamp'] as num?)?.toInt() ?? 0;
+            final timestampSeconds =
+                timestampMs > 0 ? (timestampMs ~/ 1000) : null;
 
+            return {
+              'lat': latitude,
+              'lng': longitude,
+              'accuracy': accuracy > 0 ? accuracy : null,
+              'speed': speed > 0 ? speed : null,
+              'altitude': altitude != 0 ? altitude : null,
+              'timestamp': timestampSeconds,
+            };
+          }).toList();
+
+          // Send bulk request
           print(
-              '[LocationSyncService] 📤 Syncing location id=$id: ($latitude, $longitude) trip=$tripId');
+              '[LocationSyncService] 📤 Sending bulk request to /location/update');
+          print('[LocationSyncService]    trip_id: $tripId');
+          print('[LocationSyncService]    locations: ${batch.length}');
+          print(
+              '[LocationSyncService] API HIT: ${AppConfig.baseURL}location/update');
 
-          // Convert timestamp from milliseconds to seconds
-          final timestampSeconds = timestamp ~/ 1000;
-
-          // Send to server using /location/update endpoint (same as BackgroundLocationService)
           final response = await http.post(
             Uri.parse('${AppConfig.baseURL}location/update'),
             headers: {
@@ -58,37 +100,36 @@ class LocationSyncService {
             },
             body: jsonEncode({
               'trip_id': tripId,
-              'lat': latitude,
-              'lng': longitude,
-              'accuracy': accuracy > 0 ? accuracy : null,
-              'speed': speed > 0 ? speed : null,
-              'altitude': altitude != 0 ? altitude : null,
-              'timestamp': timestampSeconds,
+              'batch': batch,
             }),
           );
 
           if (response.statusCode == 200 || response.statusCode == 201) {
-            // Mark as synced in local database
-            await _db.markLocationTrackingSynced(id);
-            syncedIds.add(id);
-            synced++;
-            print('[LocationSyncService] ✅ Sync successful for id=$id: ${response.body}');
+            // Mark all locations as synced in local database
+            await _db.markLocationTrackingsSynced(ids);
+            totalSynced += ids.length;
+            print(
+                '[LocationSyncService] ✅ Bulk sync successful for trip_id=$tripId');
+            print('[LocationSyncService]    Synced: ${ids.length} locations');
+            print('[LocationSyncService]    Response: ${response.body}');
           } else {
-            failed++;
-            print('[LocationSyncService] ⚠️ Server error ${response.statusCode} for id=$id');
-            print('[LocationSyncService]   Response: ${response.body}');
+            totalFailed += ids.length;
+            print(
+                '[LocationSyncService] ⚠️ Server error ${response.statusCode} for trip_id=$tripId');
+            print('[LocationSyncService]    Response: ${response.body}');
           }
         } catch (e) {
-          failed++;
-          print('[LocationSyncService] ❌ Error syncing location: $e');
+          totalFailed += ids.length;
+          print(
+              '[LocationSyncService] ❌ Error syncing bulk for trip_id=$tripId: $e');
         }
       }
 
       print('[LocationSyncService] 📊 Location tracking sync complete');
-      print('[LocationSyncService]   ✅ Synced: $synced');
-      print('[LocationSyncService]   ❌ Failed: $failed');
+      print('[LocationSyncService]   ✅ Total synced: $totalSynced');
+      print('[LocationSyncService]   ❌ Total failed: $totalFailed');
 
-      return {'synced': synced, 'failed': failed};
+      return {'synced': totalSynced, 'failed': totalFailed};
     } catch (e) {
       print('[LocationSyncService] ❌ Error in location tracking sync: $e');
       return {'synced': 0, 'failed': 0};
@@ -110,7 +151,8 @@ class LocationSyncService {
         return {'synced': 0, 'failed': 0};
       }
 
-      print('[LocationSyncService] 📊 Found ${pendingLocations.length} pending punch locations');
+      print(
+          '[LocationSyncService] 📊 Found ${pendingLocations.length} pending punch locations');
 
       int synced = 0;
       int failed = 0;
@@ -163,10 +205,12 @@ class LocationSyncService {
             // Mark as synced in local database
             await _db.updateLocationSyncStatus(locId, 'synced', null);
             synced++;
-            print('[LocationSyncService] ✅ Sync successful for punch locId=$locId');
+            print(
+                '[LocationSyncService] ✅ Sync successful for punch locId=$locId');
           } else {
             failed++;
-            print('[LocationSyncService] ⚠️ Server error ${response.statusCode} for punch locId=$locId');
+            print(
+                '[LocationSyncService] ⚠️ Server error ${response.statusCode} for punch locId=$locId');
             print('[LocationSyncService]   Response: ${response.body}');
           }
         } catch (e) {
@@ -211,9 +255,12 @@ class LocationSyncService {
       };
 
       print('[LocationSyncService] ✅ All location sync complete');
-      print('[LocationSyncService]   Tracking: ${result['tracking_synced']} synced, ${result['tracking_failed']} failed');
-      print('[LocationSyncService]   Punch: ${result['punch_synced']} synced, ${result['punch_failed']} failed');
-      print('[LocationSyncService]   Total: ${result['total_synced']} synced, ${result['total_failed']} failed');
+      print(
+          '[LocationSyncService]   Tracking: ${result['tracking_synced']} synced, ${result['tracking_failed']} failed');
+      print(
+          '[LocationSyncService]   Punch: ${result['punch_synced']} synced, ${result['punch_failed']} failed');
+      print(
+          '[LocationSyncService]   Total: ${result['total_synced']} synced, ${result['total_failed']} failed');
 
       return result;
     } catch (e) {

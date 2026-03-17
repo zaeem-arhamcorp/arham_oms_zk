@@ -114,33 +114,12 @@ class ProfileProvider extends DisposableProvider {
           // Restore punch state from local locations table (today's punches)
           try {
             final locService = LocationService();
-            // Use ub.syncId (what was stored during punch), not _data?.userCd
-            final userCdStr = ub.syncId ?? '';
-            print(
-                '[PROFILE-OFFLINE] 🔍 Querying punches for userCd="$userCdStr" (from ub.syncId)');
-            if (userCdStr.isNotEmpty) {
-              final punches = await locService.getTodaysPunches(userCdStr);
-              print(
-                  '[PROFILE-OFFLINE] 📊 Found ${punches.length} punches for today');
-              if (punches.isNotEmpty) {
-                for (var p in punches) {
-                  print(
-                      '[PROFILE-OFFLINE]   Punch: ${p['REMARK']} at ${p['VOUCH_TIME']} (USER_CD=${p['USER_CD']})');
-                }
-                final last = punches.last;
-                final remark = (last['REMARK'] ?? '').toString();
-                // If last remark is 'PUNCH IN' then show Punch Out button
-                _data!.isPunchIn = remark == 'PUNCH IN';
-                print(
-                    '[PROFILE-OFFLINE] ✅ Set isPunchIn=${_data!.isPunchIn} based on last remark="$remark"');
-              } else {
-                print(
-                    '[PROFILE-OFFLINE] ⚠️ No punches found for userCd="$userCdStr"');
-              }
-            } else {
-              print(
-                  '[PROFILE-OFFLINE] ⚠️ userCdStr is empty, skipping punch restoration');
-            }
+            await _restorePunchStateAndAutoCloseIfNeeded(
+              ub: ub,
+              locService: locService,
+              canAutoPunchOut: false,
+              logTag: '[PROFILE-OFFLINE]',
+            );
           } catch (e) {
             print('[PROFILE-OFFLINE] ❌ Failed to restore punch state: $e');
           }
@@ -248,33 +227,12 @@ class ProfileProvider extends DisposableProvider {
         // when the server profile doesn't have that state yet
         try {
           final locService = LocationService();
-          // Use ub.syncId (what was stored during punch), not _data?.userCd
-          final userCdStr = ub.syncId ?? '';
-          print(
-              '[PROFILE-ONLINE] 🔍 Querying punches for userCd="$userCdStr" (from ub.syncId)');
-          if (userCdStr.isNotEmpty) {
-            final punches = await locService.getTodaysPunches(userCdStr);
-            print(
-                '[PROFILE-ONLINE] 📊 Found ${punches.length} punches for today');
-            if (punches.isNotEmpty) {
-              for (var p in punches) {
-                print(
-                    '[PROFILE-ONLINE]   Punch: ${p['REMARK']} at ${p['VOUCH_TIME']} (USER_CD=${p['USER_CD']})');
-              }
-              final last = punches.last;
-              final remark = (last['REMARK'] ?? '').toString();
-              // If last remark is 'PUNCH IN' then show Punch Out button
-              _data!.isPunchIn = remark == 'PUNCH IN';
-              print(
-                  '[PROFILE-ONLINE] ✅ Set isPunchIn=${_data!.isPunchIn} based on last remark="$remark"');
-            } else {
-              print(
-                  '[PROFILE-ONLINE] ⚠️ No punches found for userCd="$userCdStr"');
-            }
-          } else {
-            print(
-                '[PROFILE-ONLINE] ⚠️ userCdStr is empty, skipping punch restoration');
-          }
+          await _restorePunchStateAndAutoCloseIfNeeded(
+            ub: ub,
+            locService: locService,
+            canAutoPunchOut: true,
+            logTag: '[PROFILE-ONLINE]',
+          );
         } catch (e) {
           print('[PROFILE-ONLINE] ❌ Failed to restore punch state: $e');
         }
@@ -451,6 +409,96 @@ class ProfileProvider extends DisposableProvider {
     if (_data != null) {
       _data!.isPunchIn = isIn;
       notifyListeners();
+    }
+  }
+
+  /// Restore punch state from today's records.
+  /// If day changed and previous state was still open, auto-run punch out online.
+  Future<void> _restorePunchStateAndAutoCloseIfNeeded({
+    required UserProvider ub,
+    required LocationService locService,
+    required bool canAutoPunchOut,
+    required String logTag,
+  }) async {
+    if (_data == null) return;
+
+    final userCdStr = ub.syncId ?? '';
+    print(
+        '$logTag 🔍 Querying punches for userCd="$userCdStr" (from ub.syncId)');
+    if (userCdStr.isEmpty) {
+      print('$logTag ⚠️ userCdStr is empty, skipping punch restoration');
+      return;
+    }
+
+    final punches = await locService.getTodaysPunches(userCdStr);
+    print('$logTag 📊 Found ${punches.length} punches for today');
+
+    if (punches.isNotEmpty) {
+      for (var p in punches) {
+        print(
+            '$logTag   Punch: ${p['REMARK']} at ${p['VOUCH_TIME']} (USER_CD=${p['USER_CD']})');
+      }
+      final last = punches.last;
+      final remark = (last['REMARK'] ?? '').toString();
+      _data!.isPunchIn = remark == 'PUNCH IN';
+      print(
+          '$logTag ✅ Set isPunchIn=${_data!.isPunchIn} based on last remark="$remark"');
+      return;
+    }
+
+    print(
+        '$logTag ⚠️ No punches found for today, checking previous-day open state');
+
+    final latestPunch = await DatabaseHelper().getLatestPunchForUser(userCdStr);
+    final latestRemark = (latestPunch?['REMARK'] ?? '').toString();
+    final latestDate = (latestPunch?['VOUCH_DT'] ?? '').toString();
+
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final hasPreviousDayOpenPunch = latestPunch != null &&
+        latestRemark == 'PUNCH IN' &&
+        latestDate != todayStr;
+
+    if (!hasPreviousDayOpenPunch) {
+      _data!.isPunchIn = false;
+      print('$logTag ✅ No previous-day open punch found. Set isPunchIn=false');
+      return;
+    }
+
+    print(
+        '$logTag ⚠️ Found previous-day open punch (date=$latestDate). Need real punch out before showing Punch IN.');
+
+    if (!canAutoPunchOut) {
+      _data!.isPunchIn = true;
+      print(
+          '$logTag ℹ️ Offline mode: cannot auto punch out now. Keeping isPunchIn=true until online.');
+      return;
+    }
+
+    final syncIdInt = int.tryParse(ub.syncId ?? '0') ?? 0;
+    final vouchTime = now.toString().split(' ')[1].split('.').first;
+
+    print('$logTag 🔄 Auto triggering day-change PUNCH OUT...');
+    final autoPunchOutResult = await locService.punchOut(
+      userCd: userCdStr,
+      syncId: syncIdInt,
+      token: ub.token ?? '',
+      vouchDt: todayStr,
+      vouchTime: vouchTime,
+      moduleNo: '301',
+      remark: 'PUNCH OUT',
+    );
+
+    if (autoPunchOutResult['success'] == true) {
+      _data!.isPunchIn = false;
+      print('$logTag ✅ Day-change auto PUNCH OUT success. Set isPunchIn=false');
+    } else {
+      _data!.isPunchIn = true;
+      print(
+          '$logTag ❌ Day-change auto PUNCH OUT failed: ${autoPunchOutResult['message'] ?? autoPunchOutResult['error']}');
+      print('$logTag Keeping isPunchIn=true so user can retry punch out.');
     }
   }
 

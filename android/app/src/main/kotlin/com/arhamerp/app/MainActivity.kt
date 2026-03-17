@@ -10,14 +10,20 @@ import android.os.BatteryManager
 import android.os.PowerManager
 import android.content.Context
 import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.NotificationCompat
+import android.app.Notification
+import android.app.NotificationManager
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.arhamerp.app/battery"
+    private val BATTERY_CHANNEL = "com.arhamerp.app/battery"
+    private val NOTIFICATION_CHANNEL = "com.arhamerp.app/notification"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         GeneratedPluginRegistrant.registerWith(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        // Battery optimization channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BATTERY_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "isBatteryOptimizationEnabled" -> {
@@ -26,6 +32,23 @@ class MainActivity : FlutterActivity() {
                     "openBatteryOptimizationSettings" -> {
                         openBatteryOptimizationSettings()
                         result.success(null)
+                    }
+                    else -> {
+                        result.notImplemented()
+                    }
+                }
+            }
+
+        // Notification channel for setting ongoing notifications
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setNotificationOngoing" -> {
+                        val notificationId = call.argument<Int>("notificationId") ?: 1
+                        val title = call.argument<String>("title") ?: "Location Tracking Active"
+                        val message = call.argument<String>("message") ?: "Background location tracking is active"
+                        setForegroundNotificationOngoing(notificationId, title, message)
+                        result.success(true)
                     }
                     else -> {
                         result.notImplemented()
@@ -80,6 +103,37 @@ class MainActivity : FlutterActivity() {
                     exx.printStackTrace()
                 }
             }
+        }
+    }
+
+    /**
+     * Sets the foreground service notification as ongoing (non-dismissible).
+     * Users cannot swipe away or dismiss the notification.
+     * This is important for background location tracking to remain persistent.
+     */
+    private fun setForegroundNotificationOngoing(
+        notificationId: Int,
+        title: String,
+        message: String
+    ) {
+        try {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            
+            val notification = NotificationCompat.Builder(this, "background_location_service")
+                .setContentTitle(title)
+                .setContentText(message)
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(false)
+                .build()
+            
+            // Apply FLAG_ONGOING_EVENT to make it non-dismissible
+            notification.flags = notification.flags or Notification.FLAG_ONGOING_EVENT
+
+            manager.notify(notificationId, notification)
+            android.util.Log.d("NotificationManager", "✅ Foreground notification set as ongoing (non-dismissible)")
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationManager", "❌ Error setting notification ongoing: ${e.message}")
         }
     }
 }

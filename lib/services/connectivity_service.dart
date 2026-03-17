@@ -41,8 +41,16 @@ class ConnectivityService {
     );
 
     // Check initial connectivity
-    _connectivity.checkConnectivity().then((results) {
+    _connectivity.checkConnectivity().then((results) async {
       _wasOffline = results.contains(ConnectivityResult.none);
+
+      // Also try startup sync when app opens with internet already available.
+      if (!_wasOffline && !_isSyncing) {
+        final hasNet = await NetworkHelper.hasInternet();
+        if (hasNet) {
+          await _syncPendingOrders(context);
+        }
+      }
     });
   }
 

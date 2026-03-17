@@ -29,6 +29,7 @@ import 'constants/constants.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/connectivity_service.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
+import 'package:arham_corporation/services/location_tracking_workmanager.dart';
 
 void main() async {
   SystemChrome.setSystemUIOverlayStyle(
@@ -70,6 +71,12 @@ void main() async {
   print('[Main] Initializing background location service...');
   await BackgroundLocationService().initialize();
   print('[Main] ✅ Background location service initialized');
+
+  // Initialize periodic recovery for app-kill scenarios (no boot recovery)
+  print('[Main] Initializing location tracking WorkManager...');
+  await LocationTrackingWorkmanager.initialize();
+  await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
+  print('[Main] ✅ Location tracking WorkManager initialized');
 }
 
 class MyApp extends StatelessWidget {
