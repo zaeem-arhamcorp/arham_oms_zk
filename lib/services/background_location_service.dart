@@ -45,6 +45,38 @@ class BackgroundLocationService {
 
   int? get currentTripId => _currentTripId;
 
+  static String _formatDateTimeForApi(int timestampMs) {
+    // Use UTC with explicit timezone marker to avoid server-side timezone ambiguity.
+    return DateTime.fromMillisecondsSinceEpoch(timestampMs)
+        .toUtc()
+        .toIso8601String();
+  }
+
+  /// Check if the app has "Allow all the time" location permission
+  /// Required for background location tracking to work
+  Future<bool> hasBackgroundLocationPermission() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+
+      print('[BackgroundLocationService] Checking location permission...');
+      print('[BackgroundLocationService]   Permission status: $permission');
+
+      // Only LocationPermission.always is valid for background tracking
+      if (permission == LocationPermission.always) {
+        print(
+            '[BackgroundLocationService] ✅ "Allow all the time" permission granted');
+        return true;
+      } else {
+        print(
+            '[BackgroundLocationService] ❌ Permission is: $permission (needs "Always")');
+        return false;
+      }
+    } catch (e) {
+      print('[BackgroundLocationService] ⚠️ Error checking permission: $e');
+      return false;
+    }
+  }
+
   /// Initialize background location service
   /// Should be called once during app startup
   Future<void> initialize() async {
@@ -52,7 +84,7 @@ class BackgroundLocationService {
       print('[BackgroundLocationService] Initializing background service...');
 
       // Configure the background service callback
-      _service.configure(
+      await _service.configure(
         androidConfiguration: AndroidConfiguration(
           // this will be executed when app is in foreground
           onStart: _onStart,
@@ -327,6 +359,22 @@ class BackgroundLocationService {
             '[BackgroundLocationService] Recovering tracking service for active trip_id=$tripId');
         await _service.startService();
 
+        // Give the plugin a brief moment to spin up the foreground isolate.
+        await Future.delayed(const Duration(milliseconds: 700));
+
+        bool startedAfterRecovery = false;
+        try {
+          startedAfterRecovery = await _service.isRunning();
+        } catch (e) {
+          print(
+              '[BackgroundLocationService] Could not verify service state after recovery start: $e');
+        }
+
+        if (!startedAfterRecovery) {
+          print(
+              '[BackgroundLocationService] ⚠️ Recovery start requested but service is still not running');
+        }
+
         // Set the notification as non-dismissible when recovering
         await setNotificationOngoing(
           title: 'Route Tracking Resumed',
@@ -341,7 +389,7 @@ class BackgroundLocationService {
         });
       } else {
         print(
-            '[BackgroundLocationService] Background service already running. Resume not required.');
+            '[BackgroundLocationService] Background service already running. Resume not required. ');
       }
 
       _isRunning = true;
@@ -584,8 +632,12 @@ class BackgroundLocationService {
               '[BackgroundLocationService] [Background] 📍 Captured location: ${position.latitude}, ${position.longitude}');
           print(
               '[BackgroundLocationService] [Background]   Accuracy: ${position.accuracy}m, Speed: ${position.speed}m/s, Altitude: ${position.altitude}m');
+          final timestampDateTime =
+              DateTime.fromMillisecondsSinceEpoch(timestamp)
+                  .toLocal()
+                  .toIso8601String();
           print(
-              '[BackgroundLocationService] [Background]   Timestamp: $timestamp ms');
+              '[BackgroundLocationService] [Background]   Timestamp: $timestampDateTime');
 
           // Store location in SQLite first (always, regardless of internet)
           try {
@@ -687,8 +739,9 @@ class BackgroundLocationService {
       }
       print('[BackgroundLocationService] [Background]    ✅ Internet available');
 
-      // Convert timestamp from milliseconds to seconds
+      // Keep epoch seconds for backend validation and include ISO datetime.
       final timestampSeconds = timestamp ~/ 1000;
+      final timestampDateTime = _formatDateTimeForApi(timestamp);
 
       final payload = {
         'trip_id': tripId,
@@ -698,6 +751,7 @@ class BackgroundLocationService {
         'speed': speed > 0 ? speed : null,
         'altitude': altitude != 0 ? altitude : null,
         'timestamp': timestampSeconds,
+        'timestamp_datetime': timestampDateTime,
       };
 
       print(
@@ -722,7 +776,9 @@ class BackgroundLocationService {
       print(
           '[BackgroundLocationService] [Background]           \"altitude\": \"${payload['altitude']}\",');
       print(
-          '[BackgroundLocationService] [Background]           \"timestamp\": \"${payload['timestamp']}\"');
+          '[BackgroundLocationService] [Background]           \"timestamp\": \"${payload['timestamp']}\",');
+      print(
+          '[BackgroundLocationService] [Background]           \"timestamp_datetime\": \"${payload['timestamp_datetime']}\"');
       print('[BackgroundLocationService] [Background]         }');
 
       // Send to server via /api/location/update endpoint
@@ -827,8 +883,9 @@ class BackgroundLocationService {
           final speed = location['speed'] as double? ?? 0.0;
           final altitude = location['altitude'] as double? ?? 0.0;
 
-          // Convert milliseconds to seconds for server API
+          // Keep epoch seconds for backend validation and include ISO datetime.
           final timestampSeconds = timestamp ~/ 1000;
+          final timestampDateTime = _formatDateTimeForApi(timestamp);
 
           // Send to server via /api/location/update endpoint
           print(
@@ -848,6 +905,7 @@ class BackgroundLocationService {
               'speed': speed > 0 ? speed : null,
               'altitude': altitude != 0 ? altitude : null,
               'timestamp': timestampSeconds,
+              'timestamp_datetime': timestampDateTime,
             }),
           );
 

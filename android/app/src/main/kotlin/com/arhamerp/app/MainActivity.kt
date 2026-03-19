@@ -68,16 +68,17 @@ class MainActivity : FlutterActivity() {
         return try {
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             if (powerManager != null) {
-                // Show dialog only if:
-                // 1. Power save mode IS enabled (battery optimization is active)
-                // 2. App is NOT exempted from battery optimization
-                val isInPowerSaveMode = powerManager.isPowerSaveMode
+                // Check if app is restricted (NOT whitelisted) from battery optimization
+                // isIgnoringBatteryOptimizations() returns:
+                // - true: App is whitelisted (can run in background freely)
+                // - false: App is restricted (battery optimization is limiting it)
                 val isIgnoringBatteryOpt = powerManager.isIgnoringBatteryOptimizations(packageName)
                 
-                val shouldShowDialog = isInPowerSaveMode && !isIgnoringBatteryOpt
+                // Show dialog when app is NOT whitelisted (restricted from background)
+                val shouldShowDialog = !isIgnoringBatteryOpt
                 
                 android.util.Log.d("BatteryOptimization", 
-                    "isBatteryOptimizationEnabled: isInPowerSaveMode=$isInPowerSaveMode, isIgnoringBatteryOpt=$isIgnoringBatteryOpt, shouldShow=$shouldShowDialog")
+                    "isBatteryOptimizationEnabled: isIgnoringBatteryOpt=$isIgnoringBatteryOpt, shouldShow=$shouldShowDialog")
                 
                 shouldShowDialog
             } else {

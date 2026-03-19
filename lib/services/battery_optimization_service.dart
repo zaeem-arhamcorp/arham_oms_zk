@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_settings/app_settings.dart';
 
 class BatteryOptimizationService {
   static const platform = MethodChannel('com.arhamerp.app/battery');
@@ -24,7 +25,9 @@ class BatteryOptimizationService {
   /// Open battery optimization settings
   static Future<void> openBatteryOptimizationSettings() async {
     try {
-      await platform.invokeMethod('openBatteryOptimizationSettings');
+      print('[BatteryOptimization] Opening battery optimization settings...');
+      await AppSettings.openAppSettings();
+      print('[BatteryOptimization] ✅ Battery optimization settings opened');
     } catch (e) {
       print('[BatteryOptimization] Error opening settings: $e');
     }

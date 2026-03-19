@@ -8,7 +8,9 @@ import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/battery_optimization_service.dart';
+import 'package:arham_corporation/services/location_permission_service.dart';
 import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
+import 'package:arham_corporation/widgets/location_permission_dialog.dart';
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/referral/referral_view.dart';
@@ -2552,13 +2554,47 @@ class _HomePageState extends State<HomePage> {
           print('[HomePage] Battery dialog closed by user');
           // Mark dialog as shown only after user closes it
           BatteryOptimizationService.markDialogAsShown();
+          // Now check and show location permission dialog
+          _checkAndShowLocationPermissionDialog();
         });
       } else {
         print(
             '[HomePage] Battery optimization check: shouldShow=$shouldShow, mounted=$mounted - dialog NOT shown');
+        // Still check location permission even if battery dialog wasn't shown
+        _checkAndShowLocationPermissionDialog();
       }
     } catch (e) {
       print('[HomePage] Error checking battery optimization: $e');
+    }
+  }
+
+  Future<void> _checkAndShowLocationPermissionDialog() async {
+    try {
+      print('[HomePage] ===== LOCATION PERMISSION DIALOG CHECK STARTED =====');
+      final hasPermission =
+          await LocationPermissionService.hasBackgroundLocationPermission();
+      print(
+          '[HomePage] LocationPermissionService.hasBackgroundLocationPermission() returned: $hasPermission');
+      print('[HomePage] mounted=$mounted');
+
+      // Show dialog if permission is not granted (no session flag - check every time)
+      if (!hasPermission && mounted) {
+        print('[HomePage] Location permission not granted - showing dialog');
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => LocationPermissionDialog(),
+        ).then((_) {
+          print('[HomePage] Location permission dialog closed by user');
+        });
+      } else if (hasPermission) {
+        print(
+            '[HomePage] Location permission already granted - dialog NOT shown');
+      } else {
+        print('[HomePage] Not mounted - dialog NOT shown');
+      }
+    } catch (e) {
+      print('[HomePage] Error checking location permission: $e');
     }
   }
 }

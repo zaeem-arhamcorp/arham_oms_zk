@@ -76,6 +76,7 @@ void main() async {
   print('[Main] Initializing location tracking WorkManager...');
   await LocationTrackingWorkmanager.initialize();
   await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
+  await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
   print('[Main] ✅ Location tracking WorkManager initialized');
 
   // Attempt immediate resume if app was killed with active tracking
