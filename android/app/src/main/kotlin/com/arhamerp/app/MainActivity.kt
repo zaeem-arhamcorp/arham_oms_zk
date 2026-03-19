@@ -20,6 +20,7 @@ import android.os.Build
 class MainActivity : FlutterActivity() {
     private val BATTERY_CHANNEL = "com.arhamerp.app/battery"
     private val NOTIFICATION_CHANNEL = "com.arhamerp.app/notification"
+    private val TRACKING_CONTROL_CHANNEL = "com.arhamerp.app/tracking_control"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         GeneratedPluginRegistrant.registerWith(flutterEngine)
@@ -57,6 +58,26 @@ class MainActivity : FlutterActivity() {
                         setForegroundNotificationOngoing(notificationId, title, message)
                         result.success(true)
                     }
+                    else -> {
+                        result.notImplemented()
+                    }
+                }
+            }
+
+        // Native watchdog channel to improve recovery after app swipe/kill.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TRACKING_CONTROL_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startTrackingRecoveryWatchdog" -> {
+                        TrackingRecoveryManager.startWatchdog(applicationContext)
+                        result.success(true)
+                    }
+
+                    "stopTrackingRecoveryWatchdog" -> {
+                        TrackingRecoveryManager.stopWatchdog(applicationContext)
+                        result.success(true)
+                    }
+
                     else -> {
                         result.notImplemented()
                     }

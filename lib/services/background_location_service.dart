@@ -29,6 +29,8 @@ class BackgroundLocationService {
   final FlutterBackgroundService _service = FlutterBackgroundService();
   static const Duration _captureInterval = Duration(seconds: 40);
   static const platform = MethodChannel('com.arhamerp.app/notification');
+  static const trackingControlPlatform =
+      MethodChannel('com.arhamerp.app/tracking_control');
 
   bool _isRunning = false;
   String? _currentUserCd;
@@ -281,6 +283,17 @@ class BackgroundLocationService {
         // Start the background service
         await _service.startService();
 
+        // Start native watchdog for extra recovery after app swipe/kill.
+        try {
+          await trackingControlPlatform
+              .invokeMethod('startTrackingRecoveryWatchdog');
+          print(
+              '[BackgroundLocationService] ✅ Native tracking recovery watchdog enabled');
+        } catch (e) {
+          print(
+              '[BackgroundLocationService] ⚠️ Could not enable native recovery watchdog: $e');
+        }
+
         // Give the service a moment to fully initialize before updating notification
         await Future.delayed(const Duration(milliseconds: 500));
 
@@ -409,6 +422,16 @@ class BackgroundLocationService {
 
       // Signal the service to stop (tracking loop will exit)
       _service.invoke('stopLocationTracking');
+
+      // Disable native watchdog so it does not restart tracking after punch-out.
+      try {
+        await trackingControlPlatform
+            .invokeMethod('stopTrackingRecoveryWatchdog');
+        print('[BackgroundLocationService] ✅ Native recovery watchdog disabled');
+      } catch (e) {
+        print(
+            '[BackgroundLocationService] ⚠️ Could not disable native recovery watchdog: $e');
+      }
 
       // Wait a moment for the service to stop
       await Future.delayed(Duration(milliseconds: 500));
