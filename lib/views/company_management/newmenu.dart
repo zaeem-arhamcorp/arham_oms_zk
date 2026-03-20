@@ -1,6 +1,7 @@
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/views/ItemWisePartyWisePurchaseReportScreen.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
+import 'package:arham_corporation/views/route_report_screen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -550,8 +551,8 @@ class _NewMenuState extends State<NewMenu> {
                           .any((module) => module.mODULENO == "321" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.account_balance, "Route Report",
                             () {
-                          Get.to(() => PartyWiseReportScreen());
-                        }, iconUrl: "assets/icons/party-wise-sale.png"),
+                          Get.to(() => RouteReportScreen());
+                        }, iconUrl: "assets/icons/route_report.png"),
                 ]),
               ],
             ),

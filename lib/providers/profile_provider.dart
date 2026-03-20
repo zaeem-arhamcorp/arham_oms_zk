@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/services/location_service.dart';
@@ -100,6 +102,7 @@ class ProfileProvider extends DisposableProvider {
         final cached = await DatabaseHelper().getCachedProfileJson();
         if (cached != null && cached.isNotEmpty) {
           _data = profileModalFromJson(cached).data;
+          _ensureLegacyModuleNosFromModulesList();
           // populate simple fields
           YN = (data?.profileSettings.any(
                       (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
@@ -198,6 +201,9 @@ class ProfileProvider extends DisposableProvider {
 
       if (response.statusCode == 200) {
         _data = profileModalFromJson(response.body).data;
+
+        // Keep module access firm-specific after firm switch.
+        await _applyFirmModuleFilter(ub);
 
         // Cache profile for offline
         try {
@@ -336,9 +342,19 @@ class ProfileProvider extends DisposableProvider {
   /// Updates _data.profileSettings with the loaded settings
   Future loadSettings(BuildContext context) async {
     try {
+      if (!context.mounted) {
+        print('[SETTINGS] Skipping loadSettings: context is not mounted');
+        return;
+      }
+
       final bool online = await NetworkHelper.hasInternet();
 
       if (online) {
+        if (!context.mounted) {
+          print('[SETTINGS] Aborting online settings load: context disposed');
+          return;
+        }
+
         // Fetch settings from API when online
         print('[SETTINGS] Loading settings from API (online)');
         final SettingModal? settingResponse =
@@ -410,6 +426,125 @@ class ProfileProvider extends DisposableProvider {
       _data!.isPunchIn = isIn;
       notifyListeners();
     }
+  }
+
+  Future<void> _applyFirmModuleFilter(UserProvider ub) async {
+    _ensureLegacyModuleNosFromModulesList();
+
+    final selectedSyncId = ub.syncId?.trim();
+    final token = ub.token?.trim();
+
+    if (selectedSyncId == null || selectedSyncId.isEmpty) {
+      print('[PROFILE-ONLINE] ⚠️ Firm module filter skipped: syncId is empty');
+      return;
+    }
+
+    if (token == null || token.isEmpty) {
+      print('[PROFILE-ONLINE] ⚠️ Firm module filter skipped: token is empty');
+      return;
+    }
+
+    final modules = _data?.modulesList;
+    if (modules == null || modules.isEmpty) {
+      print(
+          '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: no modules in profile');
+      return;
+    }
+
+    try {
+      final http.Response firmResponse = await http.get(
+        Uri.parse(AppConfig.baseURL + 'firm'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+      );
+
+      if (firmResponse.statusCode != 200) {
+        print(
+            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: /firm status=${firmResponse.statusCode}');
+        return;
+      }
+
+      print('[PROFILE-ONLINE] /firm raw data ${firmResponse.body}');
+
+      final decoded = json.decode(firmResponse.body);
+      final List<dynamic> firms =
+          decoded['data'] is List ? decoded['data'] : [];
+
+      Map<String, dynamic>? selectedFirm;
+      for (final firm in firms) {
+        if (firm is Map<String, dynamic> &&
+            (firm['SYNC_ID']?.toString().trim() ?? '') == selectedSyncId) {
+          selectedFirm = firm;
+          break;
+        }
+      }
+
+      if (selectedFirm == null) {
+        print(
+            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: selected firm $selectedSyncId not found in /firm');
+        return;
+      }
+
+      print(
+          '[PROFILE-ONLINE] Selected firm raw for syncId=$selectedSyncId => $selectedFirm');
+
+      final moduleNosRaw = selectedFirm['MODULE_NOS']?.toString().trim() ?? '';
+      if (moduleNosRaw.isEmpty) {
+        print(
+            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: MODULE_NOS empty for syncId=$selectedSyncId');
+        return;
+      }
+
+      final Set<String> allowedModuleNos = moduleNosRaw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      if (allowedModuleNos.isEmpty) {
+        print(
+            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: parsed MODULE_NOS is empty');
+        return;
+      }
+
+      final before = _data!.modulesList!.length;
+      _data!.modulesList = _data!.modulesList!
+          .where((m) => allowedModuleNos.contains((m.mODULENO ?? '').trim()))
+          .toList();
+      final after = _data!.modulesList!.length;
+
+      _ensureLegacyModuleNosFromModulesList();
+      print(
+          '[PROFILE-ONLINE] ✅ Applied firm module filter for syncId=$selectedSyncId (before=$before, after=$after)');
+    } catch (e) {
+      print('[PROFILE-ONLINE] ❌ Failed to apply firm module filter: $e');
+    }
+  }
+
+  void _ensureLegacyModuleNosFromModulesList() {
+    if (_data == null) return;
+    if (_data!.moduleNos.isNotEmpty) return;
+
+    final modules = _data!.modulesList ?? <Modules>[];
+    if (modules.isEmpty) return;
+
+    final Set<String> moduleNos = <String>{};
+    for (final module in modules) {
+      final moduleNo = module.mODULENO?.trim() ?? '';
+      if (moduleNo.isEmpty) continue;
+
+      moduleNos.add(moduleNo);
+
+      if (moduleNo.length >= 2) {
+        moduleNos.add(moduleNo.substring(moduleNo.length - 2));
+      } else {
+        moduleNos.add(moduleNo.padLeft(2, '0'));
+      }
+    }
+
+    _data!.moduleNos = moduleNos.toList();
   }
 
   /// Restore punch state from today's records.

@@ -2130,11 +2130,40 @@ class _HomePageState extends State<HomePage> {
         },
       );
 
+      // Keep full raw payload log for debugging exact server response.
       print("Dashboard Firm Data " + response.body);
+      print('[HomePage] /firm response status=${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         final List<dynamic> firms = data['data'];
+
+        final allSyncIds = firms
+            .map((f) =>
+                (f is Map<String, dynamic>) ? f['SYNC_ID']?.toString() : null)
+            .whereType<String>()
+            .toList();
+        final selectedSyncId = ub.syncId?.toString();
+        final selectedFirm = firms.cast<Map<String, dynamic>?>().firstWhere(
+              (f) =>
+                  (f?['SYNC_ID']?.toString() ?? '') == (selectedSyncId ?? ''),
+              orElse: () => null,
+            );
+
+        final selectedModulesRaw =
+            selectedFirm?['MODULE_NOS']?.toString().trim() ?? '';
+        final selectedModuleCount = selectedModulesRaw.isEmpty
+            ? 0
+            : selectedModulesRaw
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toSet()
+                .length;
+
+        print(
+            '[HomePage] /firm syncIds=$allSyncIds, selectedSyncId=$selectedSyncId, selectedFirmFound=${selectedFirm != null}, selectedModuleCount=$selectedModuleCount');
+        print('[HomePage] /firm selectedFirmRaw=${selectedFirm ?? {}}');
 
         // Parse each entry to a map with firm name and sync ID
         setState(() {
