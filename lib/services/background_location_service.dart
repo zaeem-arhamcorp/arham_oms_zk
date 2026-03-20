@@ -427,7 +427,8 @@ class BackgroundLocationService {
       try {
         await trackingControlPlatform
             .invokeMethod('stopTrackingRecoveryWatchdog');
-        print('[BackgroundLocationService] ✅ Native recovery watchdog disabled');
+        print(
+            '[BackgroundLocationService] ✅ Native recovery watchdog disabled');
       } catch (e) {
         print(
             '[BackgroundLocationService] ⚠️ Could not disable native recovery watchdog: $e');

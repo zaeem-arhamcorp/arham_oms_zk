@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
@@ -17,6 +18,7 @@ import 'package:arham_corporation/views/referral/referral_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
@@ -55,6 +57,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static const MethodChannel _manufacturerChannel = MethodChannel('my_channel');
   DashboardModal? data;
   bool nolist = false;
   late ProfileProvider
@@ -255,6 +258,90 @@ class _HomePageState extends State<HomePage> {
     }
 
     super.initState();
+  }
+
+  Future<String> getManufacturer() async {
+    if (!Platform.isAndroid) return 'unknown';
+
+    try {
+      final manufacturer =
+          await _manufacturerChannel.invokeMethod<String>('getManufacturer');
+      return (manufacturer ?? 'unknown').toLowerCase();
+    } on PlatformException catch (e) {
+      print('[HomePage] Failed to get manufacturer: ${e.message}');
+      return 'unknown';
+    } catch (e) {
+      print('[HomePage] Unexpected error while getting manufacturer: $e');
+      return 'unknown';
+    }
+  }
+
+  String getInstructionForDevice(String manufacturer) {
+    if (manufacturer.contains('vivo')) {
+      return "1. Open Settings -> Apps\n2. Go to 'Special app access'\n3. Open 'Background power consumption management'\n4. Select ArhamOMS\n5. Click on Don't restrict.";
+    }
+
+    if (manufacturer.contains('xiaomi') || manufacturer.contains('redmi')) {
+      return 'Enable Auto-start for this app, set Battery saver to No restrictions, and lock the app in Recents.';
+    }
+
+    if (manufacturer.contains('oppo') || manufacturer.contains('realme')) {
+      return 'Open App management and allow background activity for this app.';
+    }
+
+    // if (manufacturer.contains('samsung')) {
+    //   return 'Open Battery settings and disable battery optimization for this app.';
+    // }
+
+    return 'Please make sure that if any battery optimization or background power consumption restrictions are enabled for this app anywhere in your device settings, kindly disable them to ensure reliable tracking.';
+  }
+
+  Future<void> showBatteryGuideIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasShownBatteryGuide = prefs.getBool('hasShownBatteryGuide') ?? false;
+
+    if (hasShownBatteryGuide || !mounted) return;
+
+    final manufacturer = await getManufacturer();
+    final instruction = getInstructionForDevice(manufacturer);
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.battery_charging_full_sharp,
+              color: Colors.orange,
+              size: 28,
+            ),
+            SizedBox(
+              width: 12,
+            ),
+            Text(
+              'One Last Check',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ],
+        ),
+        content: Text(instruction),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            style: TextButton.styleFrom(
+                backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    await prefs.setBool('hasShownBatteryGuide', true);
   }
 
   /// Handles showing the pending warning snackbar when it's set by the API.
@@ -2546,22 +2633,23 @@ class _HomePageState extends State<HomePage> {
       if (shouldShow && mounted) {
         print(
             '[HomePage] Battery optimization is ENABLED - showing dialog after cache dialog');
-        showDialog(
+        await showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => BatteryOptimizationDialog(),
-        ).then((_) {
-          print('[HomePage] Battery dialog closed by user');
-          // Mark dialog as shown only after user closes it
-          BatteryOptimizationService.markDialogAsShown();
-          // Now check and show location permission dialog
-          _checkAndShowLocationPermissionDialog();
-        });
+        );
+        print('[HomePage] Battery dialog closed by user');
+        // Mark dialog as shown only after user closes it
+        BatteryOptimizationService.markDialogAsShown();
+        // Now check and show location permission dialog
+        await _checkAndShowLocationPermissionDialog();
+        await showBatteryGuideIfNeeded();
       } else {
         print(
             '[HomePage] Battery optimization check: shouldShow=$shouldShow, mounted=$mounted - dialog NOT shown');
         // Still check location permission even if battery dialog wasn't shown
-        _checkAndShowLocationPermissionDialog();
+        await _checkAndShowLocationPermissionDialog();
+        await showBatteryGuideIfNeeded();
       }
     } catch (e) {
       print('[HomePage] Error checking battery optimization: $e');
@@ -2580,13 +2668,12 @@ class _HomePageState extends State<HomePage> {
       // Show dialog if permission is not granted (no session flag - check every time)
       if (!hasPermission && mounted) {
         print('[HomePage] Location permission not granted - showing dialog');
-        showDialog(
+        await showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => LocationPermissionDialog(),
-        ).then((_) {
-          print('[HomePage] Location permission dialog closed by user');
-        });
+        );
+        print('[HomePage] Location permission dialog closed by user');
       } else if (hasPermission) {
         print(
             '[HomePage] Location permission already granted - dialog NOT shown');

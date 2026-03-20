@@ -21,6 +21,7 @@ class MainActivity : FlutterActivity() {
     private val BATTERY_CHANNEL = "com.arhamerp.app/battery"
     private val NOTIFICATION_CHANNEL = "com.arhamerp.app/notification"
     private val TRACKING_CONTROL_CHANNEL = "com.arhamerp.app/tracking_control"
+    private val MY_CHANNEL = "my_channel"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         GeneratedPluginRegistrant.registerWith(flutterEngine)
@@ -76,6 +77,20 @@ class MainActivity : FlutterActivity() {
                     "stopTrackingRecoveryWatchdog" -> {
                         TrackingRecoveryManager.stopWatchdog(applicationContext)
                         result.success(true)
+                    }
+
+                    else -> {
+                        result.notImplemented()
+                    }
+                }
+            }
+
+        // Manufacturer channel for one-time device-specific battery guidance in Flutter.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MY_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getManufacturer" -> {
+                        result.success(Build.MANUFACTURER ?: "")
                     }
 
                     else -> {

@@ -545,6 +545,13 @@ class _NewMenuState extends State<NewMenu> {
                         Icons.account_balance, "Sales Register Report", () {
                       Get.to(() => SalesRegisterReportScreen());
                     }, iconUrl: "assets/icons/Sales-Register.png"),
+                  if (p.data != null &&
+                      p.data!.modulesList!
+                          .any((module) => module.mODULENO == "321" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.account_balance, "Route Report",
+                            () {
+                          Get.to(() => PartyWiseReportScreen());
+                        }, iconUrl: "assets/icons/party-wise-sale.png"),
                 ]),
               ],
             ),
