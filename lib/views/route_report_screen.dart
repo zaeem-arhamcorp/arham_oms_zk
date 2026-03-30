@@ -251,43 +251,6 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return '${parsed.toStringAsFixed(2)} km';
   }
 
-  String _gapDurationText(dynamic gap) {
-    if (gap is! Map) return 'No order placed';
-
-    final formatted = gap['formatted']?.toString().trim();
-    if (formatted != null && formatted.isNotEmpty) {
-      return formatted;
-    }
-
-    final secondsRaw = gap['seconds'];
-    final seconds = int.tryParse(secondsRaw?.toString() ?? '');
-    if (seconds == null) return 'No order placed';
-
-    final d = Duration(seconds: seconds);
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    return '${h}h ${m}m';
-  }
-
-  String _gapDistanceText(dynamic gap) {
-    if (gap is! Map) return 'No order placed';
-    final distanceKm = gap['distance_km'] ?? gap['distanceKm'];
-    if (distanceKm == null) return 'No order placed';
-    final kmText = _kmString(distanceKm);
-    return kmText == '-' ? 'No order placed' : kmText;
-  }
-
-  String _distanceBreakdownText(dynamic distanceBreakdown, List<String> keys) {
-    if (distanceBreakdown is! Map) return 'No order';
-    for (final key in keys) {
-      final value = distanceBreakdown[key];
-      if (value == null) continue;
-      final kmText = _kmString(value);
-      if (kmText != '-') return kmText;
-    }
-    return 'No order';
-  }
-
   void _ensureTripGapInfo(int tripId) {
     if (tripId <= 0) return;
     if (_gapInfoByTripId.containsKey(tripId)) return;
@@ -317,36 +280,28 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       final data = decoded['data'];
       if (data is! Map) return;
 
-      dynamic orderTiming = data['order_tracking_timing'];
-      if (orderTiming is! Map && decoded['order_tracking_timing'] is Map) {
-        orderTiming = decoded['order_tracking_timing'];
-      }
-      if (orderTiming is! Map && data['trip'] is Map) {
-        final tripObj = data['trip'] as Map;
-        if (tripObj['order_tracking_timing'] is Map) {
-          orderTiming = tripObj['order_tracking_timing'];
-        }
-      }
+      final orderTiming = data['order_tracking_timing'];
       if (orderTiming is! Map) return;
 
       final punchGap = orderTiming['punch_in_to_first_in_gap'];
       final outGap = orderTiming['last_out_to_punch_out_gap'];
       final distanceBreakdown = orderTiming['distance_breakdown'];
 
-        final punchFormatted = _gapDurationText(punchGap);
-        final punchKm = _gapDistanceText(punchGap);
+      final punchFormatted =
+          (punchGap is Map) ? (punchGap['formatted']?.toString() ?? '-') : '-';
+      final punchKm =
+          (punchGap is Map) ? _kmString(punchGap['distance_km']) : '-';
 
-        final outFormatted = _gapDurationText(outGap);
-        final outKm = _gapDistanceText(outGap);
+      final outFormatted =
+          (outGap is Map) ? (outGap['formatted']?.toString() ?? '-') : '-';
+      final outKm = (outGap is Map) ? _kmString(outGap['distance_km']) : '-';
 
-        final businessKm = _distanceBreakdownText(distanceBreakdown, [
-        'business_km',
-        'businessKm',
-        ]);
-        final transitKm = _distanceBreakdownText(distanceBreakdown, [
-        'transit_km',
-        'transitKm',
-        ]);
+      final businessKm = (distanceBreakdown is Map)
+          ? _kmString(distanceBreakdown['business_km'])
+          : '-';
+      final transitKm = (distanceBreakdown is Map)
+          ? _kmString(distanceBreakdown['transit_km'])
+          : '-';
 
       if (!mounted) return;
       setState(() {
@@ -496,27 +451,26 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final startTime = _tripStartTimeFromMap(detail);
     final endTime = _tripEndTimeFromMap(detail);
 
-    final isGapLoading = _gapLoadingIds.contains(tripId) && gapInfo == null;
-    final noGapText = isGapLoading ? 'Loading...' : 'No order placed';
-
-    final punchGapText =
-      gapInfo == null ? noGapText : '${gapInfo['punchFormatted'] ?? noGapText}';
+    final punchGapText = gapInfo == null
+        ? 'No order placed'
+        : '${gapInfo['punchFormatted'] ?? 'No order placed'}';
 
     final punchDistanceGapText =
-      gapInfo == null ? noGapText : '${gapInfo['punchKm'] ?? noGapText}';
+        gapInfo == null ? 'No order placed' : '${gapInfo['punchKm'] ?? '-'}';
 
-    final outGapText =
-      gapInfo == null ? noGapText : '${gapInfo['outFormatted'] ?? noGapText}';
+    final outGapText = gapInfo == null
+        ? 'No order placed'
+        : '${gapInfo['outFormatted'] ?? 'No order placed'}';
 
     final outDistanceGapText =
-      gapInfo == null ? noGapText : '${gapInfo['outKm'] ?? noGapText}';
+        gapInfo == null ? 'No order placed' : '${gapInfo['outKm'] ?? '-'}';
 
     final businessKmText = distanceBreakdown == null
         ? 'No order'
-      : '${distanceBreakdown['businessKm'] ?? 'No order'}';
+        : '${distanceBreakdown['businessKm'] ?? '-'}';
     final transitKmText = distanceBreakdown == null
         ? 'No order'
-      : '${distanceBreakdown['transitKm'] ?? 'No order'}';
+        : '${distanceBreakdown['transitKm'] ?? '-'}';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

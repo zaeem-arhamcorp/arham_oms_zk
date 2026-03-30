@@ -60,7 +60,6 @@ class _ProductPageState extends State<ProductPage> {
 
   bool isDownloadingExportPdf = false;
   bool isDownloadingPartyExportPdf = false;
-  bool isStartEndOrderLoading = false; // Track loading state for Start/End Order
 
   List<String> isCardItemLoading = [];
 
@@ -958,51 +957,25 @@ class _ProductPageState extends State<ProductPage> {
                                                     },
                                           child: Text("Start Order"))
                                       : TextButton(
-                                          onPressed: isStartEndOrderLoading
-                                              ? null
-                                              : () async {
-                                                  setState(() {
-                                                    isStartEndOrderLoading =
-                                                        true;
-                                                  });
-                                                  try {
-                                                    await party.startEndOrder(
-                                                        profile.ACC_NAME,
-                                                        profile.ACC_CD,
-                                                        context,
-                                                        "3",
-                                                        id: 1);
-                                                  } finally {
-                                                    if (mounted) {
-                                                      setState(() {
-                                                        dataProduct.clear();
-                                                        isLoading = true;
-                                                        qty.clear();
-                                                        freeQty.clear();
-                                                        _page = 1;
-                                                        _hasNextPage = false;
-                                                        isStartEndOrderLoading =
-                                                            false;
-                                                      });
-                                                      getProduct();
-                                                    }
-                                                  }
-                                                },
-                                          child: isStartEndOrderLoading
-                                              ? SizedBox(
-                                                  height: 20,
-                                                  width: 20,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                            Color>(
-                                                      Color(0xFF2c9ed9),
-                                                    ),
-                                                  ),
-                                                )
-                                              : Text("End Order"))
+                                          onPressed: () async {
+                                            await party.startEndOrder(
+                                                profile.ACC_NAME,
+                                                profile.ACC_CD,
+                                                context,
+                                                "3",
+                                                id: 1);
+
+                                            setState(() {
+                                              dataProduct.clear();
+                                              isLoading = true;
+                                              qty.clear();
+                                              freeQty.clear();
+                                              _page = 1;
+                                              _hasNextPage = false;
+                                            });
+                                            getProduct();
+                                          },
+                                          child: Text("End Order"))
                                   : TextButton(
                                       onPressed: showMenu, child: Text("")),
                               if (Provider.of<PartyProvider>(context)

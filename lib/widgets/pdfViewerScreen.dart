@@ -338,26 +338,22 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:arham_corporation/helper/helper.dart';
-
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../config/app_config.dart';
 import '../helper/notification_services.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
@@ -454,18 +450,19 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     try {
       // On modern Android, permissions may not be needed to share from app's temp directory.
       // However, requesting is safer for older versions.
-      if (Platform.isAndroid) {
-        final androidInfo = await DeviceInfoPlugin().androidInfo;
-        if (androidInfo.version.sdkInt < 33) {
-          final status = await Permission.storage.request();
-          if (!status.isGranted) {
-            AppSnackBar.showGetXCustomSnackBar(
-                message: "Storage permission is required to share files.");
-            setState(() => showLoading = false);
-            return;
-          }
-        }
-      }
+
+      // if (Platform.isAndroid) {
+      //   final androidInfo = await DeviceInfoPlugin().androidInfo;
+      //   if (androidInfo.version.sdkInt < 33) {
+      //     final status = await Permission.storage.request();
+      //     if (!status.isGranted) {
+      //       AppSnackBar.showGetXCustomSnackBar(
+      //           message: "Storage permission is required to share files.");
+      //       setState(() => showLoading = false);
+      //       return;
+      //     }
+      //   }
+      // }
 
       final Directory dir = await getTemporaryDirectory();
       // Ensure the file extension is correctly handled, defaulting to .pdf

@@ -37,7 +37,7 @@ class SyncService {
       // Validate order items before attempting sync
       final items = await db.getOrderItems(order['id']);
       final hasValidItems =
-      items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
+          items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
 
       if (items.isEmpty || !hasValidItems) {
         // Unrecoverable: no items or all items lack item_cd even after repair
@@ -106,7 +106,7 @@ class SyncService {
           for (var p in all) {
             try {
               final json = jsonDecode(p['product_json'].toString())
-              as Map<String, dynamic>;
+                  as Map<String, dynamic>;
               final pName = (json['ITEM_NAME'] ?? json['itemName'] ?? '')
                   .toString()
                   .trim();
@@ -114,7 +114,7 @@ class SyncService {
                   pName.toLowerCase() == itemName.toLowerCase()) {
                 recoveredCd =
                     (json['ITEM_CD'] ?? json['itemCd'] ?? p['item_cd'])
-                        ?.toString() ??
+                            ?.toString() ??
                         '';
                 if (recoveredCd.isNotEmpty) break;
               }
@@ -253,14 +253,14 @@ class SyncService {
         // Try to find this item in products_cache and get its rate
         try {
           final cachedProduct = productsCache.firstWhere(
-                (p) => p['item_cd']?.toString() == itemCd,
+            (p) => p['item_cd']?.toString() == itemCd,
             orElse: () => {},
           );
 
           if (cachedProduct.isNotEmpty) {
             final productJson =
-            jsonDecode(cachedProduct['product_json'].toString())
-            as Map<String, dynamic>;
+                jsonDecode(cachedProduct['product_json'].toString())
+                    as Map<String, dynamic>;
             // Try different rate field names from product JSON
             final srate = productJson['SRATE1'] ??
                 productJson['SRATE3'] ??
@@ -359,9 +359,9 @@ class SyncService {
               orderCount: licenseInfoFromResponse['orderCount'] as int? ?? 0,
               maxOrders: licenseInfoFromResponse['maxOrders'] as int? ?? 0,
               autoBlacklisted:
-              licenseInfoFromResponse['autoBlacklisted'] == true,
+                  licenseInfoFromResponse['autoBlacklisted'] == true,
               renewalTriggered:
-              licenseInfoFromResponse['renewalTriggered'] == true,
+                  licenseInfoFromResponse['renewalTriggered'] == true,
             );
             print(
                 '[SyncService] ✅ Updated license info cache after order sync');
@@ -386,9 +386,9 @@ class SyncService {
           final licenseInfoAfter = await db.getLicenseInfo(syncId);
 
           final offlineBefore =
-          (licenseInfoBefore?['offline_order_count'] ?? 0) as int;
+              (licenseInfoBefore?['offline_order_count'] ?? 0) as int;
           final offlineAfter =
-          (licenseInfoAfter?['offline_order_count'] ?? 0) as int;
+              (licenseInfoAfter?['offline_order_count'] ?? 0) as int;
 
           print('[SyncService] ╔════════════════════════════════════════════');
           print('[SyncService] ║ LICENSE INFO RESET AFTER SYNC');
@@ -420,7 +420,7 @@ class SyncService {
           final existingTracking = await dbInst.query(
             'order_tracking',
             where:
-            "tracking_type = '2' AND ACC_CD = ? AND ABS(CAST(CREATED_AT as INTEGER) - ?) < 5000",
+                "tracking_type = '2' AND ACC_CD = ? AND ABS(CAST(CREATED_AT as INTEGER) - ?) < 5000",
             whereArgs: [
               order["server_party_id"]?.toString() ?? '',
               order["order_date"] ?? DateTime.now().millisecondsSinceEpoch
@@ -482,7 +482,7 @@ class SyncService {
               userCd: "",
               isEndOrder: null, // Neutral for order placement
               orderDateTime:
-              orderDateTime, // Pass order's actual creation time IF available
+                  orderDateTime, // Pass order's actual creation time IF available
             );
 
             print(
@@ -520,7 +520,7 @@ class SyncService {
         {
           'sync_status': 'rejected',
           'error_message':
-          '$errorMsg - Waiting for license renewal to retry (HTTP ${response.statusCode})',
+              '$errorMsg - Waiting for license renewal to retry (HTTP ${response.statusCode})',
         },
         where: 'id = ?',
         whereArgs: [order['id']],
@@ -542,7 +542,7 @@ class SyncService {
     for (var order in pendingOrders) {
       final items = await db.getOrderItems(order['id']);
       final hasValid =
-      items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
+          items.any((i) => (i['item_cd']?.toString() ?? '').isNotEmpty);
 
       if (items.isEmpty || !hasValid) {
         await db.deleteOfflineOrder(order['id']);
@@ -927,7 +927,7 @@ class SyncService {
     // ALSO sync pending PLACE ORDER (type=2) trackings that were created offline
     print('[SyncService] 🎯 PLACE ORDER TRACKING SYNC (type=2)');
     final pendingPlaceOrderTrackings =
-    await db.getPendingOrderPlacementTrackings();
+        await db.getPendingOrderPlacementTrackings();
     print(
         '[SyncService] Found ${pendingPlaceOrderTrackings.length} pending PLACE ORDER tracking(s)');
 

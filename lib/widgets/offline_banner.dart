@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/sync_service.dart';
-import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class OfflineBanner extends StatefulWidget {
@@ -23,38 +23,20 @@ class _OfflineBannerState extends State<OfflineBanner> {
   }
 
   Future<void> _checkPendingOrders() async {
-    final db = await DatabaseHelper().database;
-
-    final pendingOrders = await DatabaseHelper().getPendingOrders();
-    final failedOrders = pendingOrders
-        .where((order) => (order['sync_attempts'] as int? ?? 0) > 0)
-        .toList();
-
-    // Debug: dump sample pending orders and their items + products cache
     try {
-      print('PENDING ORDERS (count ${pendingOrders.length}): $pendingOrders');
+      final pendingOrders = await DatabaseHelper().getPendingOrders();
+      final failedOrders = pendingOrders
+          .where((order) => (order['sync_attempts'] as int? ?? 0) > 0)
+          .toList();
 
-      for (var o in pendingOrders.take(5)) {
-        final items = await db.query(
-          'offline_order_items',
-          where: 'order_id = ?',
-          whereArgs: [o['id']],
-        );
-        print('ITEMS for order ${o['id']}: $items');
+      if (mounted) {
+        setState(() {
+          _pendingOrdersCount = pendingOrders.length;
+          _failedOrdersCount = failedOrders.length;
+        });
       }
-
-      final products = await db.query('products_cache', limit: 10);
-      print('PRODUCTS_CACHE (sample): $products');
     } catch (e) {
-      print('Error dumping offline debug data: $e');
-    }
-
-
-    if (mounted) {
-      setState(() {
-        _pendingOrdersCount = pendingOrders.length;
-        _failedOrdersCount = failedOrders.length;
-      });
+      print('[OfflineBanner] Error checking pending orders: $e');
     }
   }
 
@@ -68,11 +50,28 @@ class _OfflineBannerState extends State<OfflineBanner> {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       if (userProvider.token != null) {
-        await SyncService().syncOrders(userProvider.token!);
+        final result = await SyncService().syncOrders(userProvider.token!);
         await _checkPendingOrders(); // Refresh count
+
+        if (mounted) {
+          final msg = result['synced'] == 0 &&
+                  result['failed'] == 0 &&
+                  result['skipped'] == 0
+              ? 'No pending orders to sync'
+              : 'Synced: ${result['synced']}, Failed: ${result['failed']}, Skipped: ${result['skipped']}';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), duration: Duration(seconds: 3)),
+          );
+        }
       }
     } catch (e) {
-      print("Manual sync failed: $e");
+      print("[OfflineBanner] Manual sync failed: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Sync failed: $e'), duration: Duration(seconds: 3)),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {

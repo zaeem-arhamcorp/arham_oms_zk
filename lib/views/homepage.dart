@@ -2,52 +2,50 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:arham_corporation/helper/network_helper.dart';
-import 'package:arham_corporation/helper/notification_services.dart';
-import 'package:arham_corporation/models/profileModal.dart';
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-import 'package:arham_corporation/providers/location_provider.dart';
-import 'package:arham_corporation/services/database_helper.dart';
-import 'package:arham_corporation/services/battery_optimization_service.dart';
-import 'package:arham_corporation/services/location_permission_service.dart';
-import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
-import 'package:arham_corporation/widgets/location_permission_dialog.dart';
-import 'package:arham_corporation/views/About%20me.dart';
-import 'package:arham_corporation/views/change_password/change_password_view.dart';
-import 'package:arham_corporation/views/referral/referral_view.dart';
-import 'package:arham_corporation/views/settingsScreen.dart';
-import 'package:arham_corporation/views/userScreen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
+import 'package:arham_corporation/models/profileModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/global.dart';
+import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/battery_optimization_service.dart';
+import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/location_permission_service.dart';
+import 'package:arham_corporation/views/About%20me.dart';
+import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/views/orderReportScreen.dart';
-
+import 'package:arham_corporation/views/referral/referral_view.dart';
+import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
+import 'package:arham_corporation/views/settingsScreen.dart';
+import 'package:arham_corporation/views/userScreen.dart';
+import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
+import 'package:arham_corporation/widgets/location_permission_dialog.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/item_list_provider.dart';
 import '../services/authservices.dart';
-import '../services/services.dart';
 import '../services/offline_caching_service.dart'
     show OfflineCachingService, CacheItemStatus;
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../services/services.dart';
+import '../services/sync_service.dart';
 import '../widgets/bottomnavebar.dart';
 import 'company_management/firm_list.dart';
 import 'narration/narration_view.dart';
-import '../services/sync_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -1052,6 +1050,21 @@ class _HomePageState extends State<HomePage> {
                 ),
                 onTap: () {
                   Get.to(() => ReferralView());
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.attach_money,
+                  size: 30,
+                ),
+                title: Text(
+                  'Expense Reimbursement',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  Get.to(() => GetExpenseView());
                 },
               ),
               ListTile(
