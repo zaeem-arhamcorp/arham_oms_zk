@@ -1,0 +1,39 @@
+import 'package:flutter/material.dart';
+
+class AccountFormFields {
+  //  Basic Info
+  static final personNmController = TextEditingController();
+  static final accNameController = TextEditingController();
+  static final mobile1Controller = TextEditingController();
+  static final add1Controller = TextEditingController();
+  static final cityController = TextEditingController();
+  // static final stateController = TextEditingController();
+  // static final pincodeController = TextEditingController();
+  static final latitudeController = TextEditingController();
+  static final longitudeController = TextEditingController();
+
+  //  License Info
+  static final gstNoController = TextEditingController();
+  static final drugLic1Controller = TextEditingController();
+  static final drugLic2Controller = TextEditingController();
+  static final fssaiNoController = TextEditingController();
+
+  static void clearAll() {
+    // Basic Info
+    accNameController.clear();
+    personNmController.clear();
+    mobile1Controller.clear();
+    add1Controller.clear();
+    cityController.clear();
+    // stateController.clear();
+    // pincodeController.clear();
+    latitudeController.clear();
+    longitudeController.clear();
+
+    // License Info
+    gstNoController.clear();
+    drugLic1Controller.clear();
+    drugLic2Controller.clear();
+    fssaiNoController.clear();
+  }
+}

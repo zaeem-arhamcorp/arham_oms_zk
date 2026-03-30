@@ -46,4 +46,7 @@ class AppConfig {
   static String transactionUploadImageURL =
       "${baseURL}transaction-images/upload";
   static String generateReferralCodeURL = "${baseURL}referral/generate-code";
+
+  static const String createAccountt = 'master-entry/account';
+  static const String uploadImage = 'master-entry/account/upload-image';
 }

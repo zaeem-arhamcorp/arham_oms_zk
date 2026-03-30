@@ -18,6 +18,8 @@ import '../../models/productModal.dart';
 import '../../providers/cart_list_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../services/services.dart';
+import '../../views/party_managment/bindings/account_bindings.dart';
+import '../../views/party_managment/screens/account_screen.dart';
 import '../../widgets/pdfViewerScreen.dart';
 import '../controller/cart_controller.dart';
 import '../controller/product_controller.dart';
@@ -624,14 +626,42 @@ class _ProductsPageState extends State<ProductsPage> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 20.0, bottom: 5.0, top: 20.0),
-                              child: Text("Select Party:",
-                                  style: TextStyle(
-                                      fontSize: 20.0,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.8)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 20.0, bottom: 5.0, top: 20.0),
+                                  child: Text("Select Party:",
+                                      style: TextStyle(
+                                          fontSize: 20.0,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.8)),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    final accName = await Get.to(
+                                      () => const AccountScreen(),
+                                      binding: AccountBindings(),
+                                    );
+
+                                    if (accName != null && accName is String) {
+                                      //  STEP 1: Refresh party list (VERY IMPORTANT)
+                                      await pp
+                                          .getPartyNameProductPage(pageContext);
+
+                                      //  STEP 2: Rebuild bottom sheet UI
+                                      setStatee(() {});
+
+                                      //  STEP 3: (Optional) Update selected values
+                                      controller.selectedPartyName.value =
+                                          accName;
+                                      controller.selectedPartyId.value = '';
+                                    }
+                                  },
+                                  child: const Text('Add Account'),
+                                ),
+                              ],
                             ),
                             Padding(
                               padding: const EdgeInsets.all(8.0),
@@ -674,7 +704,8 @@ class _ProductsPageState extends State<ProductsPage> {
                                             // );
                                             Navigator.pop(context);
 
-                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            WidgetsBinding.instance
+                                                .addPostFrameCallback((_) {
                                               OrderLoadingDialog.show(
                                                 context: pageContext,
                                                 action: "Starting",
@@ -689,22 +720,29 @@ class _ProductsPageState extends State<ProductsPage> {
                                                           e.value == 'Y') ==
                                                   true) {
                                                 final LocationProvider lp =
-                                                    Provider.of<LocationProvider>(
+                                                    Provider.of<
+                                                            LocationProvider>(
                                                         pageContext,
                                                         listen: false);
                                                 if (lp.enebleLocationPermission ==
                                                     true) {
                                                   await party
                                                       .changePunchInOutParty(
-                                                          (_tempParty.isNotEmpty)
-                                                              ? _tempParty[index]
+                                                          (_tempParty
+                                                                  .isNotEmpty)
+                                                              ? _tempParty[
+                                                                      index]
                                                                   .accName
-                                                              : party.data[index]
+                                                              : party
+                                                                  .data[index]
                                                                   .accName,
-                                                          (_tempParty.isNotEmpty)
-                                                              ? _tempParty[index]
+                                                          (_tempParty
+                                                                  .isNotEmpty)
+                                                              ? _tempParty[
+                                                                      index]
                                                                   .accCd
-                                                              : party.data[index]
+                                                              : party
+                                                                  .data[index]
                                                                   .accCd,
                                                           isProductPage: true,
                                                           type: "1",
@@ -713,14 +751,16 @@ class _ProductsPageState extends State<ProductsPage> {
                                                   if (_tempParty.isNotEmpty) {
                                                     controller.selectedPartyName
                                                             .value =
-                                                        _tempParty[index].accName;
+                                                        _tempParty[index]
+                                                            .accName;
                                                     controller.selectedPartyId
                                                             .value =
                                                         _tempParty[index].accCd;
                                                   } else {
                                                     controller.selectedPartyName
                                                             .value =
-                                                        party.data[index].accName;
+                                                        party.data[index]
+                                                            .accName;
                                                     controller.selectedPartyId
                                                             .value =
                                                         party.data[index].accCd;
@@ -729,10 +769,12 @@ class _ProductsPageState extends State<ProductsPage> {
                                                   log("Selected Party Name: ${controller.selectedPartyName.value}");
                                                   log("Selected Party ID: ${controller.selectedPartyId.value}");
                                                 } else {
-                                                  OrderLoadingDialog.dismiss(pageContext);
-                                                  AppSnackBar.showGetXCustomSnackBar(
-                                                      message:
-                                                          "Please Enable Location Permission");
+                                                  OrderLoadingDialog.dismiss(
+                                                      pageContext);
+                                                  AppSnackBar
+                                                      .showGetXCustomSnackBar(
+                                                          message:
+                                                              "Please Enable Location Permission");
                                                   return;
                                                 }
                                               } else {
@@ -740,26 +782,28 @@ class _ProductsPageState extends State<ProductsPage> {
                                                     (_tempParty.isNotEmpty)
                                                         ? _tempParty[index]
                                                             .accName
-                                                        : party
-                                                            .data[index].accName,
+                                                        : party.data[index]
+                                                            .accName,
                                                     (_tempParty.isNotEmpty)
-                                                        ? _tempParty[index].accCd
-                                                        : party.data[index].accCd,
+                                                        ? _tempParty[index]
+                                                            .accCd
+                                                        : party
+                                                            .data[index].accCd,
                                                     pageContext);
 
                                                 if (_tempParty.isNotEmpty) {
                                                   controller.selectedPartyName
                                                           .value =
                                                       _tempParty[index].accName;
-                                                  controller
-                                                          .selectedPartyId.value =
+                                                  controller.selectedPartyId
+                                                          .value =
                                                       _tempParty[index].accCd;
                                                 } else {
                                                   controller.selectedPartyName
                                                           .value =
                                                       party.data[index].accName;
-                                                  controller
-                                                          .selectedPartyId.value =
+                                                  controller.selectedPartyId
+                                                          .value =
                                                       party.data[index].accCd;
                                                 }
                                               }
@@ -771,29 +815,42 @@ class _ProductsPageState extends State<ProductsPage> {
                                                 freeQty.clear();
                                               });
 
-                                              await controller.fetchProductsFromAPI();
+                                              await controller
+                                                  .fetchProductsFromAPI();
 
-                                              if (controller.selectedPartyId.isNotEmpty) {
-                                                cartController.productAddedStates.clear();
+                                              if (controller
+                                                  .selectedPartyId.isNotEmpty) {
+                                                cartController
+                                                    .productAddedStates
+                                                    .clear();
 
                                                 await cart.getCartItem(
                                                     pageContext,
-                                                    controller.selectedPartyId.value);
+                                                    controller
+                                                        .selectedPartyId.value);
 
                                                 for (var item in cart.data) {
-                                                  cartController.productAddedStates[item.itemCd] = true;
+                                                  cartController
+                                                          .productAddedStates[
+                                                      item.itemCd] = true;
                                                 }
 
                                                 cartController.update();
 
                                                 cartController.cartCount.value =
-                                                    cartController.productAddedStates.length;
+                                                    cartController
+                                                        .productAddedStates
+                                                        .length;
                                               }
 
-                                              OrderLoadingDialog.dismiss(pageContext);
+                                              OrderLoadingDialog.dismiss(
+                                                  pageContext);
                                             } catch (e) {
-                                              OrderLoadingDialog.dismiss(pageContext);
-                                              AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
+                                              OrderLoadingDialog.dismiss(
+                                                  pageContext);
+                                              AppSnackBar
+                                                  .showGetXCustomSnackBar(
+                                                      message: "Error: $e");
                                             }
                                           },
                                           child: (_tempParty.isNotEmpty)
@@ -897,14 +954,14 @@ class _ProductsPageState extends State<ProductsPage> {
               context: mainContext,
               action: "Starting",
             );
-            
+
             log("✅ Loader show() called");
           } else {
             log("❌ Main context is null or not mounted");
           }
 
-          final isPunchInOutEnabled = profileProvider.data?.profileSettings
-                  .any((setting) =>
+          final isPunchInOutEnabled = profileProvider.data?.profileSettings.any(
+                  (setting) =>
                       setting.variable == 'punchInOut' &&
                       setting.value == 'Y') ??
               false;
