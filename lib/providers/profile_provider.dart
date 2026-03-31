@@ -433,6 +433,14 @@ class ProfileProvider extends DisposableProvider {
 
     final selectedSyncId = ub.syncId?.trim();
     final token = ub.token?.trim();
+    final userRole = ub.role?.trim() ?? "";
+
+    // Master users should NOT have their modules filtered by firm restrictions
+    if (userRole == AppConfig.masteruser) {
+      print(
+          '[PROFILE-ONLINE] ℹ️ Firm module filter skipped: Master user role detected');
+      return;
+    }
 
     if (selectedSyncId == null || selectedSyncId.isEmpty) {
       print('[PROFILE-ONLINE] ⚠️ Firm module filter skipped: syncId is empty');

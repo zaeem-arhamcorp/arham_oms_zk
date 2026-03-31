@@ -5,11 +5,21 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import 'trip_detail_map_screen.dart';
+
 class RouteReportScreen extends StatefulWidget {
-  const RouteReportScreen({super.key});
+  final String? selectedUserCd;
+  final String? selectedUserName;
+
+  const RouteReportScreen({
+    super.key,
+    this.selectedUserCd,
+    this.selectedUserName,
+  });
 
   @override
   State<RouteReportScreen> createState() => _RouteReportScreenState();
@@ -329,9 +339,14 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final profile = Provider.of<ProfileProvider>(context, listen: false);
 
     final token = ub.token;
-    final userCd = profile.userCode?.trim().isNotEmpty == true
-        ? profile.userCode!.trim()
-        : '';
+
+    // Use selectedUserCd if provided (for master user viewing child user's trips),
+    // otherwise use the logged-in user's code
+    final userCd = widget.selectedUserCd ??
+        (profile.userCode?.trim().isNotEmpty == true
+            ? profile.userCode!.trim()
+            : '');
+
     final syncId = ub.syncId?.trim() ?? '';
 
     if (token == null || token.isEmpty) {
@@ -472,224 +487,237 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         ? 'No order'
         : '${distanceBreakdown['transitKm'] ?? '-'}';
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Trip: $tripId',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 16),
-                ),
-                SizedBox(
-                  width: 8,
-                ),
-                isActive
-                    ? Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(color: Colors.orange.shade200)),
-                        child: Text(
-                          "Active",
-                          style: TextStyle(color: Colors.orange),
+    return GestureDetector(
+      onTap: () {
+        Get.to(
+          () => TripDetailMapScreen(
+            tripId: tripId,
+            userName: widget.selectedUserName,
+          ),
+        );
+      },
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Trip: $tripId',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  SizedBox(
+                    width: 8,
+                  ),
+                  isActive
+                      ? Container(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(5),
+                              border:
+                                  Border.all(color: Colors.orange.shade200)),
+                          child: Text(
+                            "Active",
+                            style: TextStyle(color: Colors.orange),
+                          ),
+                        )
+                      : Container(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: Colors.blueGrey.shade50,
+                              borderRadius: BorderRadius.circular(5),
+                              border:
+                                  Border.all(color: Colors.blueGrey.shade100)),
+                          child: Text(
+                            "Ended",
+                            style: TextStyle(color: Colors.blueGrey),
+                          ),
                         ),
-                      )
-                    : Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                            color: Colors.blueGrey.shade50,
-                            borderRadius: BorderRadius.circular(5),
-                            border:
-                                Border.all(color: Colors.blueGrey.shade100)),
-                        child: Text(
-                          "Ended",
-                          style: TextStyle(color: Colors.blueGrey),
-                        ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _iconInfo(
+                              Icons.calendar_today_outlined, '$startDate'),
+                          SizedBox(
+                            height: 5,
+                          ),
+                          _iconInfo(Icons.access_time_outlined, '$startTime'),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     _iconInfo(Icons.calendar_today_outlined, '$startDate'),
+                          //     // Icon(Icons.arrow_right_alt),
+                          //     Text("|"),
+                          //     _iconInfo(Icons.calendar_today_outlined, '$endDate'),
+                          //   ],
+                          // ),
+                          // const SizedBox(height: 6),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     _iconInfo(Icons.access_time_outlined, '$startTime'),
+                          //     // Icon(Icons.arrow_right_alt),
+                          //     Text("|"),
+                          //     _iconInfo(Icons.access_time_outlined, '$endTime'),
+                          //   ],
+                          // ),
+                        ],
                       ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.blueGrey.shade100,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _iconInfo(Icons.calendar_today_outlined, '$startDate'),
-                        SizedBox(
-                          height: 5,
-                        ),
-                        _iconInfo(Icons.access_time_outlined, '$startTime'),
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        //   children: [
-                        //     _iconInfo(Icons.calendar_today_outlined, '$startDate'),
-                        //     // Icon(Icons.arrow_right_alt),
-                        //     Text("|"),
-                        //     _iconInfo(Icons.calendar_today_outlined, '$endDate'),
-                        //   ],
-                        // ),
-                        // const SizedBox(height: 6),
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        //   children: [
-                        //     _iconInfo(Icons.access_time_outlined, '$startTime'),
-                        //     // Icon(Icons.arrow_right_alt),
-                        //     Text("|"),
-                        //     _iconInfo(Icons.access_time_outlined, '$endTime'),
-                        //   ],
-                        // ),
-                      ],
                     ),
-                  ),
-                  Container(
-                    height: 30,
-                    width: 1,
-                    color: Colors.black,
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        _iconInfo(Icons.calendar_today_outlined, '$endDate'),
-                        SizedBox(
-                          height: 5,
-                        ),
-                        _iconInfo(Icons.access_time_outlined, '$endTime'),
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        //   children: [
-                        //     _iconInfo(Icons.calendar_today_outlined, '$startDate'),
-                        //     // Icon(Icons.arrow_right_alt),
-                        //     Text("|"),
-                        //     _iconInfo(Icons.calendar_today_outlined, '$endDate'),
-                        //   ],
-                        // ),
-                        // const SizedBox(height: 6),
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        //   children: [
-                        //     _iconInfo(Icons.access_time_outlined, '$startTime'),
-                        //     // Icon(Icons.arrow_right_alt),
-                        //     Text("|"),
-                        //     _iconInfo(Icons.access_time_outlined, '$endTime'),
-                        //   ],
-                        // ),
-                      ],
+                    Container(
+                      height: 30,
+                      width: 1,
+                      color: Colors.black,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _iconInfo(Icons.timer_outlined,
-                      'Duration: ${_durationFromMap(detail)}'),
-                  _iconInfo(Icons.social_distance_outlined,
-                      'Distance: ${_distanceKmFromMap(detail)}'),
-                  // _iconInfo(Icons.speed_outlined, 'Speed: ${_speedFromMap(detail)}'),
-                  // _iconInfo(Icons.person_outline, 'User: ${_tripUserFromMap(detail)}'),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.grey,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _iconInfo(Icons.calendar_today_outlined, '$endDate'),
+                          SizedBox(
+                            height: 5,
+                          ),
+                          _iconInfo(Icons.access_time_outlined, '$endTime'),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     _iconInfo(Icons.calendar_today_outlined, '$startDate'),
+                          //     // Icon(Icons.arrow_right_alt),
+                          //     Text("|"),
+                          //     _iconInfo(Icons.calendar_today_outlined, '$endDate'),
+                          //   ],
+                          // ),
+                          // const SizedBox(height: 6),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     _iconInfo(Icons.access_time_outlined, '$startTime'),
+                          //     // Icon(Icons.arrow_right_alt),
+                          //     Text("|"),
+                          //     _iconInfo(Icons.access_time_outlined, '$endTime'),
+                          //   ],
+                          // ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.login_outlined,
-                              size: 16,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              "IN gap",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                        // _iconInfo(Icons.login_outlined, 'IN gap'),
-                        _iconInfo(Icons.timer_outlined, 'Time: $punchGapText'),
-                        SizedBox(width: 6),
-                        _iconInfo(Icons.social_distance_outlined,
-                            'Distance: $punchDistanceGapText'),
-                      ],
-                    ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _iconInfo(Icons.timer_outlined,
+                        'Duration: ${_durationFromMap(detail)}'),
+                    _iconInfo(Icons.social_distance_outlined,
+                        'Distance: ${_distanceKmFromMap(detail)}'),
+                    // _iconInfo(Icons.speed_outlined, 'Speed: ${_speedFromMap(detail)}'),
+                    // _iconInfo(Icons.person_outline, 'User: ${_tripUserFromMap(detail)}'),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.grey,
                   ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Icon(
-                              Icons.logout_outlined,
-                              size: 16,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              "OUT gap",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                        // _iconInfo(Icons.login_outlined, 'OUT gap'),
-                        _iconInfo(Icons.timer_outlined, 'Time: $outGapText'),
-                        _iconInfo(Icons.social_distance_outlined,
-                            'Distance: $outDistanceGapText'),
-                      ],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.login_outlined,
+                                size: 16,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                "IN gap",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          // _iconInfo(Icons.login_outlined, 'IN gap'),
+                          _iconInfo(
+                              Icons.timer_outlined, 'Time: $punchGapText'),
+                          SizedBox(width: 6),
+                          _iconInfo(Icons.social_distance_outlined,
+                              'Distance: $punchDistanceGapText'),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(
+                                Icons.logout_outlined,
+                                size: 16,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                "OUT gap",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          // _iconInfo(Icons.login_outlined, 'OUT gap'),
+                          _iconInfo(Icons.timer_outlined, 'Time: $outGapText'),
+                          _iconInfo(Icons.social_distance_outlined,
+                              'Distance: $outDistanceGapText'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _iconInfo(Icons.business_center_outlined,
-                      'Business Km: $businessKmText'),
-                  _iconInfo(
-                      Icons.alt_route_outlined, 'Transit Km: $transitKmText'),
-                ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _iconInfo(Icons.business_center_outlined,
+                        'Business Km: $businessKmText'),
+                    _iconInfo(
+                        Icons.alt_route_outlined, 'Transit Km: $transitKmText'),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -697,9 +725,13 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.selectedUserName != null
+        ? '${widget.selectedUserName}\'s Route Report'
+        : 'Route Report';
+
     return Scaffold(
       appBar: CustomAppBar(
-        title: "Route Report",
+        title: title,
       ),
       body: Column(
         children: [
@@ -727,3 +759,5 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     );
   }
 }
+
+//API Key: https://maps.googleapis.com/maps/api/js?key=AIzaSyCHNYtneNSu_KZwoGAK7pFGWhJpKFVaiaI&libraries=maps,marke

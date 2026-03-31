@@ -29,6 +29,13 @@ class ProductController extends GetxController {
   var selectedPartyName = ''.obs;
   var selectedPartyId = ''.obs;
 
+  // Stockist selection (for groupCd=136)
+  var selectedStockistName = ''.obs;
+  var selectedStockistId = ''.obs;
+  var hasStockistAccess = false.obs;
+  var stockists = <DatumPartyname>[].obs;
+  var isStockistLoading = false.obs;
+
   final products = RxList<ProductItem>();
   final filteredProducts = RxList<ProductItem>();
   var otherDescOptions = <DatumNarration>[].obs;
@@ -648,6 +655,45 @@ class ProductController extends GetxController {
       _handleError('Failed to fetch party names: $e');
     } finally {
       isPartyLoading.value = false;
+    }
+  }
+
+  /// Fetch stockists by groupCd parameter
+  /// Used to get parties with specific groupCd (e.g., groupCd=136 for stockists)
+  Future<void> fetchStockists({required String groupCd}) async {
+    isStockistLoading.value = true;
+    try {
+      final uri = Uri.parse('${AppConfig.baseURL}products/party')
+          .replace(queryParameters: {'groupCd': groupCd});
+
+      final response = await dio.get(
+        uri.toString(),
+        options: Options(
+          headers: {
+            "Authorization": "Bearer ${ub.token}",
+            'x-app-type': 'oms',
+          },
+        ),
+      );
+
+      print('[Stockist] GET $uri');
+      print('[Stockist] Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final partyData = PartynameModal.fromJson(response.data);
+        stockists.assignAll(partyData.data);
+        hasStockistAccess.value = stockists.isNotEmpty;
+        print(
+            '[Stockist] Fetched ${stockists.length} stockists for groupCd=$groupCd');
+      } else {
+        print('[Stockist] Failed with status: ${response.statusCode}');
+        hasStockistAccess.value = false;
+      }
+    } catch (e) {
+      print('[Stockist] Error fetching stockists: $e');
+      hasStockistAccess.value = false;
+    } finally {
+      isStockistLoading.value = false;
     }
   }
 

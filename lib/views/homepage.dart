@@ -693,9 +693,15 @@ class _HomePageState extends State<HomePage> {
                               '[HomePage] Failed to clear auto-cache flag: $e');
                         }
 
-                        ub
-                            .saveUserData(value["role"] ?? "", value["token"])
-                            .then((value) {
+                        // Preserve existing role if the response doesn't include one
+                        final currentRole = ub.role ?? "";
+                        final newRole = value["role"] ?? currentRole;
+                        print(
+                            '[HomePage] Role preservation: current=$currentRole, API=${{
+                          value["role"]
+                        }}, using=$newRole');
+
+                        ub.saveUserData(newRole, value["token"]).then((value) {
                           ub.setSignIn().then((value) {
                             final locationProvider =
                                 Provider.of<LocationProvider>(context,
@@ -1052,21 +1058,26 @@ class _HomePageState extends State<HomePage> {
                   Get.to(() => ReferralView());
                 },
               ),
-              ListTile(
-                leading: Icon(
-                  Icons.attach_money,
-                  size: 30,
-                ),
-                title: Text(
-                  'Expense Reimbursement',
-                  style: TextStyle(
-                    fontSize: 20,
+              // Reimbursement (Module 231)
+              if (_profileProvider.data?.modulesList != null &&
+                  _profileProvider.data!.modulesList!.any((module) =>
+                      module.mODULENO == "231" &&
+                      (module.rEADRIGHT == true || module.pRINTRIGHT == true)))
+                ListTile(
+                  leading: Icon(
+                    Icons.attach_money,
+                    size: 30,
                   ),
+                  title: Text(
+                    'Reimbursement',
+                    style: TextStyle(
+                      fontSize: 20,
+                    ),
+                  ),
+                  onTap: () {
+                    Get.to(() => GetExpenseView());
+                  },
                 ),
-                onTap: () {
-                  Get.to(() => GetExpenseView());
-                },
-              ),
               ListTile(
                 leading: Icon(
                   Icons.info_outline,

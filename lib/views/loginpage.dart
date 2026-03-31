@@ -925,7 +925,14 @@ class _LoginPageState extends State<LoginPage> {
             print('[LoginPage] Failed to clear auto-cache flag: $e');
           }
 
-          ub.saveUserData(value["role"] ?? "", value["token"]).then((value) {
+          // Preserve existing role if the response doesn't include one
+          final currentRole = ub.role ?? "";
+          final newRole = value["role"] ?? currentRole;
+          print('[LoginPage] Role preservation: current=$currentRole, API=${{
+            value["role"]
+          }}, using=$newRole');
+
+          ub.saveUserData(newRole, value["token"]).then((value) {
             ub.setSignIn().then((value) {
               final locationProvider =
                   Provider.of<LocationProvider>(context, listen: false);

@@ -1,7 +1,9 @@
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/views/ItemWisePartyWisePurchaseReportScreen.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
+import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/route_report_screen.dart';
+import 'package:arham_corporation/views/user_selection_screen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -193,7 +195,8 @@ class _NewMenuState extends State<NewMenu> {
                       fit: BoxFit.contain,
                       width: MediaQuery.of(context).size.width * 0.55,
                       // Don't use full screen height here
-                      height: MediaQuery.of(context).size.height * 0.14, // Reduce height
+                      height: MediaQuery.of(context).size.height *
+                          0.14, // Reduce height
                     ),
                   ),
                 ],
@@ -251,8 +254,8 @@ class _NewMenuState extends State<NewMenu> {
             //   ),
             if (ub.role == AppConfig.masteruser &&
                 (p.data != null &&
-                    p.data!.modulesList!
-                        .any((module) => module.mODULENO == "109" && module.rEADRIGHT == true)))
+                    p.data!.modulesList!.any((module) =>
+                        module.mODULENO == "109" && module.rEADRIGHT == true)))
               ListTile(
                 leading: Icon(
                   Icons.nat_rounded,
@@ -403,21 +406,22 @@ class _NewMenuState extends State<NewMenu> {
                 _buildSection("Transaction", [
                   //if (p.data != null && p.data!.moduleNos.contains("16"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "214" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "214" && module.rEADRIGHT == true))
                     _buildIconTextBox(
                         Icons.receipt_long_outlined, "Receipt Entry \n", () {
-                      Get.to(() => ReceivableReceiptSettlementPage(), arguments: {
-                        "DeleteRight": receiptDeleteRight,
-                        "ReadRight": receiptReadRight,
-                      });
+                      Get.to(() => ReceivableReceiptSettlementPage(),
+                          arguments: {
+                            "DeleteRight": receiptDeleteRight,
+                            "ReadRight": receiptReadRight,
+                          });
                     }),
                   //if (p.data != null && p.data!.moduleNos.contains("17"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "215" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.payments_outlined, "Payment Entry\n",
-                        () {
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "215" && module.rEADRIGHT == true))
+                    _buildIconTextBox(
+                        Icons.payments_outlined, "Payment Entry\n", () {
                       Get.to(() => PayablePaymentSettlementPage(), arguments: {
                         "DeleteRight": paymentDeleteRight,
                         "ReadRight": paymentReadRight,
@@ -425,76 +429,81 @@ class _NewMenuState extends State<NewMenu> {
                     }),
                   //if (p.data != null && p.data!.moduleNos.contains("12"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "312" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.shopping_bag_outlined, "Party wise item wise Order",
-                        () {
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "312" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.shopping_bag_outlined,
+                        "Party wise item wise Order", () {
                       Get.to(() => ItemWisePartyWiseSaleReportScreen());
                     }),
-        
+
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "306" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.shopping_bag_outlined, "Party wise item wise purchase",
-                            () {
-                          Get.to(() => ItemWisePartyWisePurchaseReportScreen());
-                        }),
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "306" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.shopping_bag_outlined,
+                        "Party wise item wise purchase", () {
+                      Get.to(() => ItemWisePartyWisePurchaseReportScreen());
+                    }),
+                  if (p.data != null &&
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "231" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.attach_money, "Reimbursement", () {
+                      Get.to(() => GetExpenseView());
+                    }),
                 ]),
-        
                 _buildSection("Ledgers", [
                   //if (p.data != null && p.data!.moduleNos.contains("02"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "302" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "302" && module.rEADRIGHT == true))
                     _buildIconTextBox(
                         Icons.leaderboard_outlined, "Account Ledger", () {
                       Get.to(() => AccountLedgerScreen());
                     }, iconUrl: "assets/icons/Account-Ledger.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("03"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "303" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance_wallet, "Item Ledger",
-                        () {
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "303" && module.rEADRIGHT == true))
+                    _buildIconTextBox(
+                        Icons.account_balance_wallet, "Item Ledger", () {
                       Get.to(() => ItemLedgerReportScreen());
                     }, iconUrl: "assets/icons/item-ledger.png"),
                 ]),
                 _buildSection("Outstanding", [
                   //if (p.data != null && p.data!.moduleNos.contains("07"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "307" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "307" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.receipt_long, "Receivable\n", () {
                       Get.to(() => OutStandingReportReceivableScreen());
                     }, iconUrl: "assets/icons/Receivable.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("14"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "314" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "314" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.payment, "Payable\n", () {
                       Get.to(() => OutStandingReportPayableScreen());
                     }, iconUrl: "assets/icons/Payable.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("10"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "310" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "310" && module.rEADRIGHT == true))
                     _buildIconTextBox(
                         Icons.account_balance, "Party Wise Receivable", () {
-                      Get.to(() => PartyWiseOutStandingReportReceivableScreen());
+                      Get.to(
+                          () => PartyWiseOutStandingReportReceivableScreen());
                     }, iconUrl: "assets/icons/Party-Receivable.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("15"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "315" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Party Wise Payable",
-                        () {
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "315" && module.rEADRIGHT == true))
+                    _buildIconTextBox(
+                        Icons.account_balance, "Party Wise Payable", () {
                       Get.to(() => PartyWiseOutStandingReportPayableScreen());
                     }, iconUrl: "assets/icons/Party-Payable.png"),
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "311" && module.rEADRIGHT == true) &&
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "311" &&
+                          module.rEADRIGHT == true) &&
                       ub.role == AppConfig.masteruser &&
                       p.data?.profileSettings
                               .firstWhere((element) =>
@@ -509,50 +518,58 @@ class _NewMenuState extends State<NewMenu> {
                 _buildSection("Reports", [
                   //if (p.data != null && p.data!.moduleNos.contains("04"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "304" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Order Report", () {
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "304" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.account_balance, "Order Report",
+                        () {
                       Get.to(() => OrderReportScreen(),
                           arguments: {"OrderPrint Right": orderPrintRight});
                     }, iconUrl: "assets/icons/order-report.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("05"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "305" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "305" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.payment, "Stock Report", () {
                       Get.to(() => StockReportScreen());
                     }, iconUrl: "assets/icons/stock-report.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("08"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "308" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "308" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.account_balance, "Item Wise Sale",
                         () {
                       Get.to(() => ItemWiseSaleReportScreen());
                     }, iconUrl: "assets/icons/item-wise-sale.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("09"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "309" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "309" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.account_balance, "Party Wise Sale ",
                         () {
                       Get.to(() => PartyWiseReportScreen());
                     }, iconUrl: "assets/icons/party-wise-sale.png"),
                   //if (p.data != null && p.data!.moduleNos.contains("13"))
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "313" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "313" && module.rEADRIGHT == true))
                     _buildIconTextBox(
                         Icons.account_balance, "Sales Register Report", () {
                       Get.to(() => SalesRegisterReportScreen());
                     }, iconUrl: "assets/icons/Sales-Register.png"),
                   if (p.data != null &&
-                      p.data!.modulesList!
-                          .any((module) => module.mODULENO == "321" && module.rEADRIGHT == true))
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "321" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.account_balance, "Route Report",
-                            () {
-                          Get.to(() => RouteReportScreen());
-                        }, iconUrl: "assets/icons/route_report.png"),
+                        () {
+                      // Route to UserSelectionScreen if master user, otherwise to RouteReportScreen
+                      final ub =
+                          Provider.of<UserProvider>(context, listen: false);
+                      if (ub.role == AppConfig.masteruser) {
+                        Get.to(() => const UserSelectionScreen());
+                      } else {
+                        Get.to(() => const RouteReportScreen());
+                      }
+                    }, iconUrl: "assets/icons/route_report.png"),
                 ]),
               ],
             ),

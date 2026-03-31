@@ -116,10 +116,13 @@ class _ProductsPageState extends State<ProductsPage> {
         cartController.cartCount.value =
             cartController.productAddedStates.length;
       }
-    });
 
-    // Initialize filteredDepartments by copying contents from deptment
-    controller.filteredDepartments.assignAll(controller.deptment);
+      // Fetch stockists for groupCd=136 if available
+      await controller.fetchStockists(groupCd: '136');
+
+      // Initialize filteredDepartments by copying contents from deptment
+      controller.filteredDepartments.assignAll(controller.deptment);
+    });
   }
 
   Timer? timer;
@@ -227,6 +230,7 @@ class _ProductsPageState extends State<ProductsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildPartyHeader(profile),
+                      _buildStockistHeader(),
                       _buildChipSelector(),
                       Expanded(child: _buildProductList()),
                     ],
@@ -452,6 +456,118 @@ class _ProductsPageState extends State<ProductsPage> {
     });
   }
 
+  /// **Stockist Header Widget** - Shows stockist selection when groupCd=136 is available
+  Widget _buildStockistHeader() {
+    return Obx(() {
+      if (!controller.hasStockistAccess.value) {
+        return const SizedBox.shrink();
+      }
+
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 8.0),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 5.0),
+                  child: Text(
+                    'Stockist:',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    controller.selectedStockistName.value.isNotEmpty
+                        ? controller.selectedStockistName.value
+                        : 'Select Stockist',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: controller.selectedStockistName.value.isEmpty
+                          ? Colors.grey
+                          : Colors.black,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    showStockistSelectionDialog();
+                  },
+                  child: const Text('Select'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  /// Show dialog to select stockist
+  void showStockistSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Stockist'),
+          content: Obx(() {
+            if (controller.isStockistLoading.value) {
+              return const SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            if (controller.stockists.isEmpty) {
+              return const SizedBox(
+                height: 100,
+                child: Center(child: Text('No stockists available')),
+              );
+            }
+
+            return SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: controller.stockists.length,
+                itemBuilder: (context, index) {
+                  final stockist = controller.stockists[index];
+                  final name = stockist.accName ?? 'Unknown';
+                  final code = stockist.accCd ?? '';
+
+                  return ListTile(
+                    title: Text(name),
+                    subtitle: Text('Code: $code'),
+                    onTap: () {
+                      controller.selectedStockistName.value = name;
+                      controller.selectedStockistId.value = code;
+                      Navigator.pop(context);
+                      print('[Product] Selected Stockist: $name ($code)');
+                    },
+                  );
+                },
+              ),
+            );
+          }),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildChipSelector() {
     return Obx(() {
       if (controller.isDpLoading.value) return const LinearProgressIndicator();
@@ -638,29 +754,36 @@ class _ProductsPageState extends State<ProductsPage> {
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 0.8)),
                                 ),
-                                TextButton(
-                                  onPressed: () async {
-                                    final accName = await Get.to(
-                                      () => const AccountScreen(),
-                                      binding: AccountBindings(),
-                                    );
+                                // Add Account button (Module 102)
+                                if (p.data?.modulesList != null &&
+                                    p.data!.modulesList!.any((module) =>
+                                        module.mODULENO == "102" &&
+                                        (module.wRITERIGHT == true ||
+                                            module.uPDATERIGHT == true)))
+                                  TextButton(
+                                    onPressed: () async {
+                                      final accName = await Get.to(
+                                        () => const AccountScreen(),
+                                        binding: AccountBindings(),
+                                      );
 
-                                    if (accName != null && accName is String) {
-                                      //  STEP 1: Refresh party list (VERY IMPORTANT)
-                                      await pp
-                                          .getPartyNameProductPage(pageContext);
+                                      if (accName != null &&
+                                          accName is String) {
+                                        //  STEP 1: Refresh party list (VERY IMPORTANT)
+                                        await pp.getPartyNameProductPage(
+                                            pageContext);
 
-                                      //  STEP 2: Rebuild bottom sheet UI
-                                      setStatee(() {});
+                                        //  STEP 2: Rebuild bottom sheet UI
+                                        setStatee(() {});
 
-                                      //  STEP 3: (Optional) Update selected values
-                                      controller.selectedPartyName.value =
-                                          accName;
-                                      controller.selectedPartyId.value = '';
-                                    }
-                                  },
-                                  child: const Text('Add Account'),
-                                ),
+                                        //  STEP 3: (Optional) Update selected values
+                                        controller.selectedPartyName.value =
+                                            accName;
+                                        controller.selectedPartyId.value = '';
+                                      }
+                                    },
+                                    child: const Text('Add Account'),
+                                  ),
                               ],
                             ),
                             Padding(
@@ -1033,3 +1156,5 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 }
+
+// GET {{base_url}}/products/party?groupCd=136

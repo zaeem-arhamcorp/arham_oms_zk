@@ -7,6 +7,9 @@ import '../widgets/form_widgets.dart';
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
+  // Module 102: Party Management / Account Management
+  static const String accountModuleNo = '102';
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<AccountController>();

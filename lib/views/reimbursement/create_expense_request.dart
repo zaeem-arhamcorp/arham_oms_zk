@@ -12,6 +12,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +29,8 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
 
   static const int maxImageSize = 2 * 1024 * 1024; // 2MB
   static const int maxDocSize = 5 * 1024 * 1024; // 5MB
+
+  static const String _reimbursementModuleNo = '231';
 
   // Daily Allowance
   final _dailyAmountController = TextEditingController();
@@ -98,16 +101,7 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
   Future<void> _pickDocDaily() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: [
-        'pdf',
-        'doc',
-        'docx',
-        'xls',
-        'xlsx',
-        'jpg',
-        'jpeg',
-        'png'
-      ],
+      allowedExtensions: ['pdf'],
       allowMultiple: false,
     );
 
@@ -139,16 +133,7 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
   Future<void> _pickDocOther() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: [
-        'pdf',
-        'doc',
-        'docx',
-        'xls',
-        'xlsx',
-        'jpg',
-        'jpeg',
-        'png'
-      ],
+      allowedExtensions: ['pdf'],
       allowMultiple: false,
     );
 
@@ -220,10 +205,7 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
   //   });
   // }
 
-  Future<void> _pickImageDailyAllowance() async {
-    final XFile? image =
-        await _dailyImagePicker.pickImage(source: ImageSource.gallery);
-
+  Future<void> _handleDailyImage(XFile? image) async {
     if (image == null) return;
 
     final allowed = ['jpg', 'jpeg', 'png', 'webp'];
@@ -238,11 +220,13 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
 
     File file = File(image.path);
 
-    // 🔥 Compress
+    // Compress
     final compressed = await _compressImage(file);
-    if (compressed == null) return;
 
-    final size = await compressed.length();
+    // fallback if compression fails
+    final finalFile = compressed ?? file;
+
+    final size = await finalFile.length();
 
     if (size > maxImageSize) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,9 +238,54 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
       return;
     }
 
+    debugPrint("Picked image path: ${image.path}");
+    debugPrint("Extension: $ext");
+    debugPrint("Final file path: ${finalFile.path}");
+    debugPrint("Final size: $size");
+
     setState(() {
-      _dailyImageFile = XFile(compressed.path);
+      _dailyImageFile = XFile(finalFile.path);
     });
+  }
+
+  Future<void> _pickImageDailyAllowance() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Capture from Camera'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await _dailyImagePicker.pickImage(
+                    source: ImageSource.camera,
+                  );
+                  _handleDailyImage(image);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text('Select from Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await _dailyImagePicker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  _handleDailyImage(image);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // Future<void> _pickImageOtherAllowance() async {
@@ -283,10 +312,7 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
   //   });
   // }
 
-  Future<void> _pickImageOtherAllowance() async {
-    final XFile? image =
-        await _otherImagePicker.pickImage(source: ImageSource.gallery);
-
+  Future<void> _handleOtherImage(XFile? image) async {
     if (image == null) return;
 
     final allowed = ['jpg', 'jpeg', 'png', 'webp'];
@@ -301,10 +327,13 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
 
     File file = File(image.path);
 
+    // 🔥 Compress
     final compressed = await _compressImage(file);
-    if (compressed == null) return;
 
-    final size = await compressed.length();
+    // fallback if compression fails
+    final finalFile = compressed ?? file;
+
+    final size = await finalFile.length();
 
     if (size > maxImageSize) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -317,8 +346,48 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
     }
 
     setState(() {
-      _otherImage = XFile(compressed.path);
+      _otherImage = XFile(finalFile.path);
     });
+  }
+
+  Future<void> _pickImageOtherAllowance() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Capture from Camera'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await _otherImagePicker.pickImage(
+                    source: ImageSource.camera,
+                  );
+                  _handleOtherImage(image);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text('Select from Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await _otherImagePicker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  _handleOtherImage(image);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _pickDoc() async {
@@ -534,7 +603,7 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
 
       int index = 1;
 
-      // 🟢 DAILY
+      // 🟢 DAILY ALLOWANCE
       if (_selectedExpenseTypes.contains('DAILY_ALLOWANCE')) {
         request.fields['date$index'] =
             DateFormat('yyyy-MM-dd').format(_selectedDate);
@@ -543,25 +612,51 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
         request.fields['notes$index'] = _dailyNotesController.text.trim();
 
         if (_dailyImageFile != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'img$index',
-            _dailyImageFile!.path,
-          ));
+          final file = File(_dailyImageFile!.path);
+          if (await file.exists()) {
+            final bytes = await file.readAsBytes();
+            final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
+            final typeSplit = mimeType.split('/');
+
+            request.files.add(
+              http.MultipartFile.fromBytes(
+                'img$index',
+                bytes,
+                filename: p.basename(file.path),
+                contentType: http.MediaType(typeSplit[0], typeSplit[1]),
+              ),
+            );
+            debugPrint(
+                '📎 Attached img$index: ${p.basename(file.path)} ($mimeType)');
+          }
         }
 
         if (_dailyDoc != null && _dailyDoc!.path != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'doc$index',
-            _dailyDoc!.path!,
-          ));
+          final file = File(_dailyDoc!.path!);
+          if (await file.exists()) {
+            final bytes = await file.readAsBytes();
+            final mimeType = lookupMimeType(file.path) ?? 'application/pdf';
+            final typeSplit = mimeType.split('/');
+
+            request.files.add(
+              http.MultipartFile.fromBytes(
+                'doc$index',
+                bytes,
+                filename: p.basename(file.path),
+                contentType: http.MediaType(typeSplit[0], typeSplit[1]),
+              ),
+            );
+            debugPrint(
+                '📎 Attached doc$index: ${p.basename(file.path)} ($mimeType)');
+          }
         }
 
+        debugPrint('Added Daily Allowance (index $index)');
+        log('Added Daily Allowance (index $index)');
         index++;
-        debugPrint('Submitting Daily Allowance request');
-        log('Submitting Daily Allowance request');
       }
 
-      // 🔵 OTHER
+      // 🔵 OTHER ALLOWANCE
       if (_selectedExpenseTypes.contains('OTHER_ALLOWANCE')) {
         request.fields['date$index'] =
             DateFormat('yyyy-MM-dd').format(_selectedDate);
@@ -570,33 +665,62 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
         request.fields['notes$index'] = _otherNotesController.text.trim();
 
         if (_otherImage != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'img$index',
-            _otherImage!.path,
-          ));
+          final file = File(_otherImage!.path);
+          if (await file.exists()) {
+            final bytes = await file.readAsBytes();
+            final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
+            final typeSplit = mimeType.split('/');
+
+            request.files.add(
+              http.MultipartFile.fromBytes(
+                'img$index',
+                bytes,
+                filename: p.basename(file.path),
+                contentType: http.MediaType(typeSplit[0], typeSplit[1]),
+              ),
+            );
+            debugPrint(
+                '📎 Attached img$index: ${p.basename(file.path)} ($mimeType)');
+          }
         }
 
         if (_otherDoc != null && _otherDoc!.path != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'doc$index',
-            _otherDoc!.path!,
-          ));
+          final file = File(_otherDoc!.path!);
+          if (await file.exists()) {
+            final bytes = await file.readAsBytes();
+            final mimeType = lookupMimeType(file.path) ?? 'application/pdf';
+            final typeSplit = mimeType.split('/');
+
+            request.files.add(
+              http.MultipartFile.fromBytes(
+                'doc$index',
+                bytes,
+                filename: p.basename(file.path),
+                contentType: http.MediaType(typeSplit[0], typeSplit[1]),
+              ),
+            );
+            debugPrint(
+                '📎 Attached doc$index: ${p.basename(file.path)} ($mimeType)');
+          }
         }
 
-        index++;
-        debugPrint('Submitting Other Allowance request');
-        log('Submitting Other Allowance request');
+        debugPrint('Added Other Allowance (index $index)');
+        log('Added Other Allowance (index $index)');
       }
 
       debugPrint("FIELDS: ${request.fields}");
-      debugPrint("FILES: ${request.files.map((e) => e.field)}");
+      debugPrint(
+          "FILES: ${request.files.map((e) => '${e.field}: ${e.filename} (${e.contentType})')}");
 
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (!mounted) return;
 
-      final decoded = jsonDecode(responseBody);
+      debugPrint("STATUS CODE: ${response.statusCode}");
+      debugPrint("RESPONSE BODY: ${response.body}");
+
+      final decoded = jsonDecode(response.body);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -613,6 +737,9 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
       }
     } catch (e) {
       if (!mounted) return;
+
+      debugPrint('Exception during submission: $e');
+      log('Exception during submission: $e');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
