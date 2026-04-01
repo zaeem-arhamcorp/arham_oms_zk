@@ -527,6 +527,9 @@ class _ProductsPageState extends State<ProductsPage> {
                       color: Colors.red,
                     ),
                   ),
+                SizedBox(
+                  width: 10,
+                ),
                 TextButton(
                   onPressed: () {
                     showStockistMenu();

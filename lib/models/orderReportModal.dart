@@ -47,7 +47,8 @@ class DatumOrder {
       this.narration,
       this.vouchDt,
       this.imgUrl,
-      this.remark});
+      this.remark,
+      this.canEdit});
 
   String partyCd;
   dynamic oId;
@@ -60,6 +61,7 @@ class DatumOrder {
   dynamic narration;
   dynamic imgUrl;
   dynamic remark;
+  dynamic canEdit; // CAN_EDIT flag from API
   Account account;
   User user;
   List<Ordritm> ordritms;
@@ -76,6 +78,7 @@ class DatumOrder {
         narration: json['NARRATION'] ?? "",
         imgUrl: json['IMG_URL'] ?? "",
         remark: json['REMARK'] ?? "",
+        canEdit: json['CAN_EDIT'] ?? true, // Default to true if not provided
         account: Account.fromJson(json["account"]),
         user: User.fromJson(json['usermast']),
         ordritms: List<Ordritm>.from(
@@ -94,6 +97,7 @@ class DatumOrder {
         "NARRATION": narration,
         "IMG_URL": imgUrl,
         "REMARK": remark,
+        "CAN_EDIT": canEdit,
         "account": account.toJson(),
         "usermast": user.toJson(),
         "ordritms": List<dynamic>.from(ordritms.map((x) => x.toJson())),

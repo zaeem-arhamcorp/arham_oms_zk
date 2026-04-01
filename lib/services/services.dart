@@ -606,12 +606,21 @@ class Services {
       );
       print("${AppConfig.baseURL}orders/$oId");
       print(response.body);
-      if (response.statusCode == 200) {
+      print("Response Status Code: ${response.statusCode}");
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 400 ||
+          response.statusCode == 422) {
         final Map<String, dynamic> responseData = json.decode(response.body);
 
-        // Check if order can be edited
-        if (responseData['CAN_EDIT'] == false) {
+        // Check if order can be edited - handle both boolean and string "false"
+        final canEditValue = responseData['CAN_EDIT'];
+        final isCanEditFalse = canEditValue == false || canEditValue == 'false';
+
+        if (isCanEditFalse) {
           // Order cannot be edited - return error info
+          print(
+              '[Services] CAN_EDIT is false - cannot edit order: ${responseData['message']}');
           return {
             'success': false,
             'message': responseData['message'] ?? 'Order cannot be edited',
@@ -620,13 +629,14 @@ class Services {
         }
 
         // Order can be edited
+        print('[Services] CAN_EDIT is true - order can be edited');
         return {
           'success': true,
           'message': responseData["message"],
           'CAN_EDIT': true,
         };
       } else {
-        print('print 11');
+        print('print 11 - Unexpected status code: ${response.statusCode}');
 
         // ub.userSignout(context).then((value) {
         //   Get.offAll(() => LoginPage());
