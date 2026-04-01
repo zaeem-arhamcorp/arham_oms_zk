@@ -666,11 +666,12 @@ class ProductController extends GetxController {
 
   /// Fetch stockists by groupCd parameter
   /// Used to get parties with specific groupCd (e.g., groupCd=136 for stockists)
+  /// and stockist=1 to fetch user-specific stockists.
   Future<void> fetchStockists({required String groupCd}) async {
     isStockistLoading.value = true;
     try {
       final uri = Uri.parse('${AppConfig.baseURL}products/party')
-          .replace(queryParameters: {'groupCd': groupCd});
+          .replace(queryParameters: {'groupCd': groupCd, 'stockist': '1'});
 
       final response = await dio.get(
         uri.toString(),
@@ -690,7 +691,7 @@ class ProductController extends GetxController {
         stockists.assignAll(partyData.data);
         hasStockistAccess.value = stockists.isNotEmpty;
         print(
-            '[Stockist] Fetched ${stockists.length} stockists for groupCd=$groupCd');
+            '[Stockist] Fetched ${stockists.length} stockists for groupCd=$groupCd with stockist=1');
 
         // Calculate distances and sort stockists by proximity
         await _sortStockistsByDistance();

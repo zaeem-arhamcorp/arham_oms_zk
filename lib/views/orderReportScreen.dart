@@ -1861,7 +1861,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                       data[index]
                                                                           .oId,
                                                                       context)
-                                                                    .then(
+                                                                  .then(
                                                                       (value) async {
                                                                 print(
                                                                     '[OrderReport] updateOrder response: $value');
@@ -1893,40 +1893,41 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                           Colors
                                                                               .green);
 
-                                                                    final PartyProvider
+                                                                  final PartyProvider
                                                                       partyProvider =
-                                                                      Provider.of<PartyProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                          false);
-                                                                    final ProfileProvider
+                                                                      Provider.of<
+                                                                              PartyProvider>(
+                                                                          context,
+                                                                          listen:
+                                                                              false);
+                                                                  final ProfileProvider
                                                                       profileProvider =
-                                                                      Provider.of<ProfileProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                          false);
-                                                                    final orderPartyName =
+                                                                      Provider.of<
+                                                                              ProfileProvider>(
+                                                                          context,
+                                                                          listen:
+                                                                              false);
+                                                                  final orderPartyName =
                                                                       data[index]
-                                                                        .account
-                                                                        .accName;
-                                                                    final orderPartyId =
+                                                                          .account
+                                                                          .accName;
+                                                                  final orderPartyId =
                                                                       data[index]
-                                                                        .account
-                                                                        .accCd;
+                                                                          .account
+                                                                          .accCd;
 
-                                                                    partyProvider.changeParty(
+                                                                  partyProvider.changeParty(
                                                                       orderPartyName,
                                                                       orderPartyId,
                                                                       context);
-                                                                    if (profileProvider
-                                                                        .YN ==
+                                                                  if (profileProvider
+                                                                          .YN ==
                                                                       'Y') {
-                                                                    await partyProvider
-                                                                      .changePunchInOutParty(
+                                                                    await partyProvider.changePunchInOutParty(
                                                                         orderPartyName,
                                                                         orderPartyId,
                                                                         context);
-                                                                    }
+                                                                  }
 
                                                                   Get.to(
                                                                     () =>
@@ -1967,40 +1968,41 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                           Colors
                                                                               .green);
 
-                                                                    final PartyProvider
+                                                                  final PartyProvider
                                                                       partyProvider =
-                                                                      Provider.of<PartyProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                          false);
-                                                                    final ProfileProvider
+                                                                      Provider.of<
+                                                                              PartyProvider>(
+                                                                          context,
+                                                                          listen:
+                                                                              false);
+                                                                  final ProfileProvider
                                                                       profileProvider =
-                                                                      Provider.of<ProfileProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                          false);
-                                                                    final orderPartyName =
+                                                                      Provider.of<
+                                                                              ProfileProvider>(
+                                                                          context,
+                                                                          listen:
+                                                                              false);
+                                                                  final orderPartyName =
                                                                       data[index]
-                                                                        .account
-                                                                        .accName;
-                                                                    final orderPartyId =
+                                                                          .account
+                                                                          .accName;
+                                                                  final orderPartyId =
                                                                       data[index]
-                                                                        .account
-                                                                        .accCd;
+                                                                          .account
+                                                                          .accCd;
 
-                                                                    partyProvider.changeParty(
+                                                                  partyProvider.changeParty(
                                                                       orderPartyName,
                                                                       orderPartyId,
                                                                       context);
-                                                                    if (profileProvider
-                                                                        .YN ==
+                                                                  if (profileProvider
+                                                                          .YN ==
                                                                       'Y') {
-                                                                    await partyProvider
-                                                                      .changePunchInOutParty(
+                                                                    await partyProvider.changePunchInOutParty(
                                                                         orderPartyName,
                                                                         orderPartyId,
                                                                         context);
-                                                                    }
+                                                                  }
 
                                                                   Get.to(
                                                                     () =>
