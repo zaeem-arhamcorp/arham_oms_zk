@@ -44,8 +44,12 @@ class DatumPartyname {
       this.zone,
       this.whNo,
       this.person_nm,
+      this.pincode,
+      this.lat,
+      this.long,
       this.groupCD,
-      this.clBAL});
+      this.clBAL,
+      this.distanceInMeters});
 
   String accCd;
   String accName;
@@ -59,8 +63,12 @@ class DatumPartyname {
   String accCartItem;
   String? whNo;
   String? person_nm;
+  String? pincode;
+  dynamic lat;
+  dynamic long;
   num? groupCD;
   num? clBAL;
+  double? distanceInMeters;
 
   factory DatumPartyname.fromJson(Map<String, dynamic> json) => DatumPartyname(
         accCd: json["ACC_CD"] ?? "",
@@ -75,8 +83,12 @@ class DatumPartyname {
         accCartItem: json['ACC_CART_ITEM'] ?? "",
         whNo: json['WA_NO'] ?? "",
         person_nm: json['PERSON_NM'],
+        pincode: json['PINCODE'] ?? "",
+        lat: json['LAT'],
+        long: json['LONG'],
         groupCD: json['GROUP_CD'] ?? 0,
         clBAL: json['CL_BAL'] ?? 0,
+        distanceInMeters: null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -92,7 +104,11 @@ class DatumPartyname {
         "CITY": city,
         "ZONE": zone,
         "PERSON_NM": person_nm,
+        "PINCODE": pincode,
+        "LAT": lat,
+        "LONG": long,
         "GROUP_CD": groupCD,
         "CL_BAL": clBAL,
+        "distanceInMeters": distanceInMeters,
       };
 }

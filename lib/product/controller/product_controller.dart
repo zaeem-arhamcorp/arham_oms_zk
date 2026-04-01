@@ -8,9 +8,10 @@ import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import '../../models/narrationModal.dart';
 import '../../models/partynameModal.dart';
@@ -32,6 +33,11 @@ class ProductController extends GetxController {
   // Stockist selection (for groupCd=136)
   var selectedStockistName = ''.obs;
   var selectedStockistId = ''.obs;
+  var selectedStockistAddress = ''.obs;
+  var selectedStockistCity = ''.obs;
+  var selectedStockistMobile = ''.obs;
+  var selectedStockistPersonName = ''.obs;
+  var selectedStockistPincode = ''.obs;
   var hasStockistAccess = false.obs;
   var stockists = <DatumPartyname>[].obs;
   var isStockistLoading = false.obs;
@@ -685,6 +691,9 @@ class ProductController extends GetxController {
         hasStockistAccess.value = stockists.isNotEmpty;
         print(
             '[Stockist] Fetched ${stockists.length} stockists for groupCd=$groupCd');
+
+        // Calculate distances and sort stockists by proximity
+        await _sortStockistsByDistance();
       } else {
         print('[Stockist] Failed with status: ${response.statusCode}');
         hasStockistAccess.value = false;
@@ -694,6 +703,141 @@ class ProductController extends GetxController {
       hasStockistAccess.value = false;
     } finally {
       isStockistLoading.value = false;
+    }
+  }
+
+  /// Calculate distance between user and each stockist, then sort by proximity
+  Future<void> _sortStockistsByDistance() async {
+    try {
+      // Get user's current position
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      print(
+          '[Stockist] User location: Lat=${position.latitude}, Long=${position.longitude}');
+
+      // Calculate distance for each stockist and update the model
+      for (final stockist in stockists) {
+        // Skip if lat/long is missing or invalid
+        final lat = _parseDouble(stockist.lat);
+        final long = _parseDouble(stockist.long);
+
+        if (lat != null && long != null) {
+          final distanceInMeters = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            lat,
+            long,
+          );
+          stockist.distanceInMeters = distanceInMeters;
+          print(
+              '[Stockist] ${stockist.accName}: ${(distanceInMeters / 1000).toStringAsFixed(2)} km');
+        } else {
+          print(
+              '[Stockist] ${stockist.accName}: Missing coordinates (Lat=$lat, Long=$long)');
+          stockist.distanceInMeters = null;
+        }
+      }
+
+      // Sort stockists by distance (nearest first), with null values at the end
+      stockists.sort((a, b) {
+        if (a.distanceInMeters == null && b.distanceInMeters == null) return 0;
+        if (a.distanceInMeters == null) return 1; // Null goes to end
+        if (b.distanceInMeters == null) return -1; // Null goes to end
+        return a.distanceInMeters!.compareTo(b.distanceInMeters!);
+      });
+
+      print('[Stockist] Sorted ${stockists.length} stockists by distance');
+      stockists.refresh(); // Notify listeners of the change
+    } catch (e) {
+      print('[Stockist] Error calculating distances: $e');
+      // Continue with original order if distance calculation fails
+    }
+  }
+
+  /// Helper method to safely parse double from dynamic value
+  double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  /// Save stockist selection to SharedPreferences
+  Future<void> saveStockistSelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selectedStockistName', selectedStockistName.value);
+      await prefs.setString('selectedStockistId', selectedStockistId.value);
+      await prefs.setString(
+          'selectedStockistAddress', selectedStockistAddress.value);
+      await prefs.setString('selectedStockistCity', selectedStockistCity.value);
+      await prefs.setString(
+          'selectedStockistMobile', selectedStockistMobile.value);
+      await prefs.setString(
+          'selectedStockistPersonName', selectedStockistPersonName.value);
+      await prefs.setString(
+          'selectedStockistPincode', selectedStockistPincode.value);
+      print(
+          '[Stockist] Saved selection: ${selectedStockistName.value} (${selectedStockistId.value})');
+    } catch (e) {
+      print('[Stockist] Error saving selection: $e');
+    }
+  }
+
+  /// Restore stockist selection from SharedPreferences
+  Future<void> restoreStockistSelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString('selectedStockistName') ?? '';
+      final id = prefs.getString('selectedStockistId') ?? '';
+
+      if (name.isNotEmpty && id.isNotEmpty) {
+        selectedStockistName.value = name;
+        selectedStockistId.value = id;
+        selectedStockistAddress.value =
+            prefs.getString('selectedStockistAddress') ?? '';
+        selectedStockistCity.value =
+            prefs.getString('selectedStockistCity') ?? '';
+        selectedStockistMobile.value =
+            prefs.getString('selectedStockistMobile') ?? '';
+        selectedStockistPersonName.value =
+            prefs.getString('selectedStockistPersonName') ?? '';
+        selectedStockistPincode.value =
+            prefs.getString('selectedStockistPincode') ?? '';
+        print('[Stockist] Restored selection: $name ($id)');
+      }
+    } catch (e) {
+      print('[Stockist] Error restoring selection: $e');
+    }
+  }
+
+  /// Clear stockist selection from SharedPreferences
+  Future<void> clearStockistSelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('selectedStockistName');
+      await prefs.remove('selectedStockistId');
+      await prefs.remove('selectedStockistAddress');
+      await prefs.remove('selectedStockistCity');
+      await prefs.remove('selectedStockistMobile');
+      await prefs.remove('selectedStockistPersonName');
+      await prefs.remove('selectedStockistPincode');
+      selectedStockistName.value = '';
+      selectedStockistId.value = '';
+      selectedStockistAddress.value = '';
+      selectedStockistCity.value = '';
+      selectedStockistMobile.value = '';
+      selectedStockistPersonName.value = '';
+      selectedStockistPincode.value = '';
+      print('[Stockist] Cleared selection');
+    } catch (e) {
+      print('[Stockist] Error clearing selection: $e');
     }
   }
 

@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:arham_corporation/services/battery_optimization_service.dart';
+import 'package:flutter/material.dart';
 
 class BatteryOptimizationDialog extends StatelessWidget {
   const BatteryOptimizationDialog({super.key});
@@ -65,6 +65,13 @@ class BatteryOptimizationDialog extends StatelessWidget {
           ],
         ),
         actions: [
+          //TODO: REMOVE 'CANCEL' BUTTON BEFORE PRODUCTION BUILD
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text("Cancel"),
+          ),
           ElevatedButton.icon(
             onPressed: () async {
               await BatteryOptimizationService

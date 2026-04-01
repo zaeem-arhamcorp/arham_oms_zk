@@ -14,6 +14,7 @@ import 'package:arham_corporation/services/order_tracking_service.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -48,9 +49,9 @@ class PartyProvider extends DisposableProvider {
   String punchInOutPartyId = "";
 
   Future<void> changePunchInOutParty(partyname, partyID, context,
-      {isProductPage, type, id}) async{
+      {isProductPage, type, id}) async {
     final ProfileProvider pp =
-    Provider.of<ProfileProvider>(context, listen: false);
+        Provider.of<ProfileProvider>(context, listen: false);
     punchInOutParty = partyname;
     punchInOutPartyId = partyID;
     if (isProductPage != null) {
@@ -88,7 +89,7 @@ class PartyProvider extends DisposableProvider {
     _orderParty = partyname;
     _orderPartyId = partyID;
     final CartListProvider cart =
-    Provider.of<CartListProvider>(context, listen: false);
+        Provider.of<CartListProvider>(context, listen: false);
     cart.getCartItem(context, partyID);
     notifyListeners();
   }
@@ -522,13 +523,75 @@ class PartyProvider extends DisposableProvider {
 
   bool loading = false;
 
+  /// Sort parties by distance from user (nearest first)
+  Future<void> sortPartiesByDistance() async {
+    try {
+      // Get user's current position
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      print(
+          '[Party] User location: Lat=${position.latitude}, Long=${position.longitude}');
+
+      // Calculate distance for each party and update the model
+      for (final party in _data) {
+        // Skip if lat/long is missing or invalid
+        final lat = _parseDouble(party.lat);
+        final long = _parseDouble(party.long);
+
+        if (lat != null && long != null) {
+          final distanceInMeters = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            lat,
+            long,
+          );
+          party.distanceInMeters = distanceInMeters;
+          print(
+              '[Party] ${party.accName}: ${(distanceInMeters / 1000).toStringAsFixed(2)} km');
+        } else {
+          print(
+              '[Party] ${party.accName}: Missing coordinates (Lat=$lat, Long=$long)');
+          party.distanceInMeters = null;
+        }
+      }
+
+      // Sort parties by distance (nearest first), with null values at the end
+      _data.sort((a, b) {
+        if (a.distanceInMeters == null && b.distanceInMeters == null) return 0;
+        if (a.distanceInMeters == null) return 1; // Null goes to end
+        if (b.distanceInMeters == null) return -1; // Null goes to end
+        return a.distanceInMeters!.compareTo(b.distanceInMeters!);
+      });
+
+      print('[Party] Sorted ${_data.length} parties by distance');
+      notifyListeners();
+    } catch (e) {
+      print('[Party] Error calculating distances: $e');
+      // Continue with original order if distance calculation fails
+    }
+  }
+
+  /// Helper method to safely parse double from dynamic value
+  double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   Future startEndOrder(accName, acc_cd, BuildContext context, type,
       {oID, id}) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final LocationProvider lp =
-    Provider.of<LocationProvider>(context, listen: false);
+        Provider.of<LocationProvider>(context, listen: false);
     final ProfileProvider pp =
-    Provider.of<ProfileProvider>(context, listen: false);
+        Provider.of<ProfileProvider>(context, listen: false);
     loading = true;
     notifyListeners();
     try {

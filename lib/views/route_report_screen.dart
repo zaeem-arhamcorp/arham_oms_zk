@@ -94,6 +94,143 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return parts.length > 1 ? parts.sublist(1).join(' ') : '-';
   }
 
+  /// Open date picker for "from date"
+  Future<void> _pickFromDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fromDate,
+      firstDate: DateTime(2020),
+      lastDate: _toDate,
+    );
+    if (picked != null) {
+      setState(() {
+        _fromDate = picked;
+      });
+      _fetchTrips();
+    }
+  }
+
+  /// Open date picker for "to date"
+  Future<void> _pickToDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _toDate,
+      firstDate: _fromDate,
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _toDate = picked;
+      });
+      _fetchTrips();
+    }
+  }
+
+  /// Build date range filter widget
+  Widget _buildDateRangeFilter() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Filter by Date Range',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // From Date
+              Expanded(
+                child: GestureDetector(
+                  onTap: _pickFromDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.white,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'From Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _fmtDate(_fromDate),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // To Date
+              Expanded(
+                child: GestureDetector(
+                  onTap: _pickToDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.white,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'To Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _fmtDate(_toDate),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Map<String, dynamic>> _extractTripsFromResponseBody(String body) {
     final decoded = json.decode(body);
     final dynamic data = decoded['data'];
@@ -735,6 +872,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       ),
       body: Column(
         children: [
+          _buildDateRangeFilter(),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.all(12),

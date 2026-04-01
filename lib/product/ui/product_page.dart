@@ -120,6 +120,9 @@ class _ProductsPageState extends State<ProductsPage> {
       // Fetch stockists for groupCd=136 if available
       await controller.fetchStockists(groupCd: '136');
 
+      // Restore previously selected stockist (if any)
+      await controller.restoreStockistSelection();
+
       // Initialize filteredDepartments by copying contents from deptment
       controller.filteredDepartments.assignAll(controller.deptment);
     });
@@ -229,8 +232,8 @@ class _ProductsPageState extends State<ProductsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildPartyHeader(profile),
                       _buildStockistHeader(),
+                      _buildPartyHeader(profile),
                       _buildChipSelector(),
                       Expanded(child: _buildProductList()),
                     ],
@@ -254,7 +257,7 @@ class _ProductsPageState extends State<ProductsPage> {
         const Padding(
           padding: EdgeInsets.only(left: 5.0),
           child: Text(
-            'Party:',
+            'Party :',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
@@ -335,14 +338,25 @@ class _ProductsPageState extends State<ProductsPage> {
         if (profile.YN == "Y")
           profile.ACC_NAME.isEmpty && profile.ACC_CD.isEmpty
               ? TextButton(
-                  onPressed: profile.data?.isPunchIn == true
-                      ? showMenu
-                      : () {
-                          AppSnackBar.showGetXCustomSnackBar(
-                              message: 'Please Punch In');
+                  onPressed: () {
+                    // Validation 1: Check if punched in
+                    if (profile.data?.isPunchIn != true) {
+                      AppSnackBar.showGetXCustomSnackBar(
+                          message: 'Please Punch In');
+                      return;
+                    }
 
-                          //Fluttertoast.showToast(msg: "Please Punch In");
-                        },
+                    // Validation 2: Check if stockist is required but not selected
+                    if (controller.hasStockistAccess.value &&
+                        controller.selectedStockistId.value.isEmpty) {
+                      AppSnackBar.showGetXCustomSnackBar(
+                          message: 'Please Select Stockist');
+                      return;
+                    }
+
+                    // All validations passed - show party menu
+                    showMenu();
+                  },
                   child: const Text("Start Order"),
                 )
               : TextButton(
@@ -466,24 +480,24 @@ class _ProductsPageState extends State<ProductsPage> {
       return Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 8.0),
+            // padding: const EdgeInsets.symmetric(vertical: 8.0),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Colors.grey.shade300),
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 const Padding(
                   padding: EdgeInsets.only(left: 5.0),
                   child: Text(
-                    'Stockist:',
+                    'Stockist :',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Flexible(
+                Expanded(
                   child: Text(
                     controller.selectedStockistName.value.isNotEmpty
                         ? controller.selectedStockistName.value
@@ -499,7 +513,7 @@ class _ProductsPageState extends State<ProductsPage> {
                 ),
                 TextButton(
                   onPressed: () {
-                    showStockistSelectionDialog();
+                    showStockistMenu();
                   },
                   child: const Text('Select'),
                 ),
@@ -511,62 +525,180 @@ class _ProductsPageState extends State<ProductsPage> {
     });
   }
 
-  /// Show dialog to select stockist
-  void showStockistSelectionDialog() {
-    showDialog(
+  void showStockistMenu() {
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Stockist'),
-          content: Obx(() {
-            if (controller.isStockistLoading.value) {
-              return const SizedBox(
-                height: 100,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            if (controller.stockists.isEmpty) {
-              return const SizedBox(
-                height: 100,
-                child: Center(child: Text('No stockists available')),
-              );
-            }
-
+        return Obx(() {
+          if (controller.isStockistLoading.value) {
             return SizedBox(
-              width: double.maxFinite,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: controller.stockists.length,
-                itemBuilder: (context, index) {
-                  final stockist = controller.stockists[index];
-                  final name = stockist.accName ?? 'Unknown';
-                  final code = stockist.accCd ?? '';
-
-                  return ListTile(
-                    title: Text(name),
-                    subtitle: Text('Code: $code'),
-                    onTap: () {
-                      controller.selectedStockistName.value = name;
-                      controller.selectedStockistId.value = code;
-                      Navigator.pop(context);
-                      print('[Product] Selected Stockist: $name ($code)');
-                    },
-                  );
-                },
-              ),
+              height: 200,
+              child: const Center(child: CircularProgressIndicator()),
             );
-          }),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+          }
+
+          if (controller.stockists.isEmpty) {
+            return SizedBox(
+              height: 200,
+              child: const Center(child: Text('No stockists available')),
+            );
+          }
+
+          return SizedBox(
+            height: 450,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.only(left: 20.0, top: 20.0, bottom: 10),
+                  child: Text(
+                    "Select Stockist:",
+                    style: TextStyle(
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: controller.stockists.length,
+                    itemBuilder: (context, index) {
+                      final stockist = controller.stockists[index];
+                      final name = stockist.accName ?? 'Unknown';
+                      final code = stockist.accCd ?? '';
+
+                      return InkWell(
+                        onTap: () async {
+                          controller.selectedStockistName.value = name;
+                          controller.selectedStockistId.value = code;
+                          await controller.saveStockistSelection();
+                          Navigator.pop(context);
+                          print('[Product] Selected Stockist: $name ($code)');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 12.0,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Code: $code',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    if (stockist.accAddress?.isNotEmpty ??
+                                        false)
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.location_on,
+                                              size: 14, color: Colors.blue),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              stockist.accAddress ?? '',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    if (stockist.mobile.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.phone,
+                                              size: 14, color: Colors.blue),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            stockist.mobile,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    if (stockist.lat != null &&
+                                        stockist.long != null) ...[
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.location_on_outlined,
+                                              size: 14, color: Colors.green),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${stockist.lat}, ${stockist.long}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.check_circle_outline,
+                                color:
+                                    controller.selectedStockistId.value == code
+                                        ? Colors.blue
+                                        : Colors.grey.shade300,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        );
+          );
+        });
       },
     );
   }
+
+  /// Show dialog to select stockist
 
   Widget _buildChipSelector() {
     return Obx(() {
@@ -708,7 +840,7 @@ class _ProductsPageState extends State<ProductsPage> {
     });
   }
 
-  void showMenu() {
+  Future<void> showMenu() async {
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
     final CartListProvider cart =
         Provider.of<CartListProvider>(context, listen: false);
@@ -716,7 +848,11 @@ class _ProductsPageState extends State<ProductsPage> {
         Provider.of<ProfileProvider>(context, listen: false);
     // Capture page-level context BEFORE the bottom sheet opens
     final BuildContext pageContext = context;
-    pp.getPartyNameProductPage(context);
+
+    // Fetch parties and sort by distance BEFORE showing bottom sheet
+    await pp.getPartyNameProductPage(context);
+    await pp.sortPartiesByDistance();
+
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
