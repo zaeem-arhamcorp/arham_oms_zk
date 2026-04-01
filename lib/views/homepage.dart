@@ -8,6 +8,7 @@ import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
+import 'package:arham_corporation/product/controller/product_controller.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/global.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
@@ -1648,8 +1649,13 @@ class _HomePageState extends State<HomePage> {
                                       ElevatedButton(
                                         onPressed: () {
                                           if (p.data?.isPunchIn == true) {
-                                            // setState(() {});
+                                            // PUNCH OUT clicked
                                             location.setRemarks("PUNCH OUT");
+                                            // Clear stockist selection on punch out
+                                            final productController =
+                                                Get.find<ProductController>();
+                                            productController
+                                                .clearStockistSelection();
                                           } else {
                                             location.setRemarks("PUNCH IN");
                                           }

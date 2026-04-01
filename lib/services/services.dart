@@ -593,7 +593,7 @@ class Services {
     return null;
   }
 
-  Future<String?> updateOrder(oId, context) async {
+  Future<Map<String, dynamic>?> updateOrder(oId, context) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
     try {
@@ -607,7 +607,24 @@ class Services {
       print("${AppConfig.baseURL}orders/$oId");
       print(response.body);
       if (response.statusCode == 200) {
-        return json.decode(response.body)["message"];
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        // Check if order can be edited
+        if (responseData['CAN_EDIT'] == false) {
+          // Order cannot be edited - return error info
+          return {
+            'success': false,
+            'message': responseData['message'] ?? 'Order cannot be edited',
+            'CAN_EDIT': false,
+          };
+        }
+
+        // Order can be edited
+        return {
+          'success': true,
+          'message': responseData["message"],
+          'CAN_EDIT': true,
+        };
       } else {
         print('print 11');
 

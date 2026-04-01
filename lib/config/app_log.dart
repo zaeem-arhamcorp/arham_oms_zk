@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 /// ANSI color codes for console output (only visible in debug terminals)
 class _LogColor {
-  static const green = '\x1B[32m';
+  static const green = '\x1B[37m'; // ANSI code for white (default)
 }
 
 /// Global app logging helper.

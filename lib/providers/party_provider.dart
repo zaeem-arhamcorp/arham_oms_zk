@@ -136,7 +136,10 @@ class PartyProvider extends DisposableProvider {
       print(response.body);
       if (response.statusCode == 200) {
         final parsed = partynameModalFromJson(response.body).data;
-        data.addAll(parsed);
+        // Filter to only include parties (groupCD 135 or 85), exclude stockists (groupCD 136)
+        var filteredData = parsed
+            .where((party) => (party.groupCD == 135 || party.groupCD == 85));
+        data.addAll(filteredData);
         if (data.isEmpty) {
           nolistParty = true;
         } else {

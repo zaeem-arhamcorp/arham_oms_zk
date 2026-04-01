@@ -511,6 +511,22 @@ class _ProductsPageState extends State<ProductsPage> {
                     ),
                   ),
                 ),
+                if (controller.selectedStockistName.value.isNotEmpty)
+                  // TextButton(
+                  //   onPressed: () async {
+                  //     await controller.clearStockistSelection();
+                  //   },
+                  //   child: const Text('Unselect', style: TextStyle(color: Colors.red)),
+                  // ),
+                  GestureDetector(
+                    onTap: () async {
+                      await controller.clearStockistSelection();
+                    },
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.red,
+                    ),
+                  ),
                 TextButton(
                   onPressed: () {
                     showStockistMenu();

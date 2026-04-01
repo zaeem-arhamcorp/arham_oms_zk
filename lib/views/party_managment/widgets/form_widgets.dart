@@ -73,12 +73,14 @@ class FormWidgets {
           controller: AccountFormFields.accNameController,
           label: 'Account Name',
           isRequired: true,
+          maxLength: 100,
           validator: (v) => FormValidation.validateRequired(v, 'Account Name'),
         ),
         textField(
           controller: AccountFormFields.personNmController,
           label: 'Person Name',
           isRequired: true,
+          maxLength: 100,
           validator: (v) => FormValidation.validateRequired(v, 'Person Name'),
         ),
         textField(
@@ -92,20 +94,22 @@ class FormWidgets {
               FormValidation.validateRequired(v, 'Mobile Number'),
         ),
         textField(
-          controller: AccountFormFields.add1Controller,
-          label: 'Address',
-        ),
+            controller: AccountFormFields.add1Controller,
+            label: 'Address',
+            maxLength: 255),
         textField(
-          controller: AccountFormFields.cityController,
-          label: 'City',
-        ),
+            controller: AccountFormFields.cityController,
+            label: 'City',
+            maxLength: 50),
         // textField(
         //   controller: AccountFormFields.stateController,
         //   label: 'State',
+        //   maxLength: 50
         // ),
         // textField(
         //   controller: AccountFormFields.pincodeController,
         //   label: 'Pincode',
+        //   maxLength: 10
         //   isNumber: true,
         // ),
         const SizedBox(height: 8),

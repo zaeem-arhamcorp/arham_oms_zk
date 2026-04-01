@@ -1,7 +1,6 @@
 ﻿//import 'package:fluttertoast/fluttertoast.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/constants/constants.dart';
@@ -16,31 +15,27 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/services.dart';
-import 'package:arham_corporation/widgets/app_dimensions.dart';
-import 'package:arham_corporation/widgets/app_font_weight.dart';
 import 'package:arham_corporation/widgets/common_text.dart';
 import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:whatsapp_share/whatsapp_share.dart';
 
 import '../models/orderReportModal.dart';
 import '../providers/party_provider.dart';
 import '../widgets/pdfViewerScreen.dart';
-
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class OrderReportScreen extends StatefulWidget {
   const OrderReportScreen({Key? key}) : super(key: key);
@@ -636,101 +631,107 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                   //       ],
                   //     ),
                   //   ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.only(left: 5.0, top: 5.0, bottom: 5.0),
-                    child: Row(
-                      children: [
-                        Row(
-                          children: [
-                            Radio(
-                              visualDensity: const VisualDensity(
-                                  horizontal: VisualDensity.minimumDensity,
-                                  vertical: VisualDensity.minimumDensity),
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              value: 1,
-                              groupValue: radiocheck,
-                              onChanged: (val) {
-                                setState(() {
-                                  radiocheck = val!;
-                                });
-                                getDate();
-                              },
-                            ),
-                            Text(
-                              "All ",
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Radio(
+                  Visibility(
+                    visible: !(profile.data?.profileSettings?.any((e) =>
+                            e.variable == 'omsWithoutErpSync' &&
+                            e.value == 'Y') ??
+                        false),
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                          left: 5.0, top: 5.0, bottom: 5.0),
+                      child: Row(
+                        children: [
+                          Row(
+                            children: [
+                              Radio(
                                 visualDensity: const VisualDensity(
                                     horizontal: VisualDensity.minimumDensity,
                                     vertical: VisualDensity.minimumDensity),
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
-                                value: 2,
+                                value: 1,
                                 groupValue: radiocheck,
                                 onChanged: (val) {
                                   setState(() {
                                     radiocheck = val!;
                                   });
                                   getDate();
-                                }),
-                            Text(
-                              "Pending Orders ",
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Radio(
-                                visualDensity: const VisualDensity(
-                                    horizontal: VisualDensity.minimumDensity,
-                                    vertical: VisualDensity.minimumDensity),
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                value: 3,
-                                groupValue: radiocheck,
-                                onChanged: (val) {
-                                  setState(() {
-                                    radiocheck = val!;
-                                  });
-                                  getDate();
-                                }),
-                            Text(
-                              "Synced Orders ",
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Radio(
-                                visualDensity: const VisualDensity(
-                                    horizontal: VisualDensity.minimumDensity,
-                                    vertical: VisualDensity.minimumDensity),
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                value: 4,
-                                groupValue: radiocheck,
-                                onChanged: (val) {
-                                  setState(() {
-                                    radiocheck = val!;
-                                  });
-                                  getDate();
-                                }),
-                            Text(
-                              "Billed Orders ",
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
+                                },
+                              ),
+                              Text(
+                                "All ",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Radio(
+                                  visualDensity: const VisualDensity(
+                                      horizontal: VisualDensity.minimumDensity,
+                                      vertical: VisualDensity.minimumDensity),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  value: 2,
+                                  groupValue: radiocheck,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      radiocheck = val!;
+                                    });
+                                    getDate();
+                                  }),
+                              Text(
+                                "Pending Orders ",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Radio(
+                                  visualDensity: const VisualDensity(
+                                      horizontal: VisualDensity.minimumDensity,
+                                      vertical: VisualDensity.minimumDensity),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  value: 3,
+                                  groupValue: radiocheck,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      radiocheck = val!;
+                                    });
+                                    getDate();
+                                  }),
+                              Text(
+                                "Synced Orders ",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Radio(
+                                  visualDensity: const VisualDensity(
+                                      horizontal: VisualDensity.minimumDensity,
+                                      vertical: VisualDensity.minimumDensity),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  value: 4,
+                                  groupValue: radiocheck,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      radiocheck = val!;
+                                    });
+                                    getDate();
+                                  }),
+                              Text(
+                                "Billed Orders ",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   // Padding(
@@ -1841,10 +1842,18 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                   //             .user
                                                   //             .userCd)
                                                   Container(
-                                                    child: profile.userCode ==
-                                                            data[index]
-                                                                .user
-                                                                .userCd
+                                                    child: (profile.userCode ==
+                                                                data[index]
+                                                                    .user
+                                                                    .userCd ||
+                                                            (profile.data
+                                                                    ?.profileSettings
+                                                                    ?.any((e) =>
+                                                                        e.variable ==
+                                                                            'omsWithoutErpSync' &&
+                                                                        e.value ==
+                                                                            'Y') ??
+                                                                false))
                                                         ? IconButton(
                                                             onPressed: () {
                                                               Services()
@@ -1855,50 +1864,97 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                   .then(
                                                                       (value) {
                                                                 if (value !=
-                                                                    null)
-                                                                  // Fluttertoast
-                                                                  //     .showToast(
-                                                                  //         msg:
-                                                                  //             value);
+                                                                        null &&
+                                                                    value is Map<
+                                                                        String,
+                                                                        dynamic>) {
+                                                                  // New response format with success flag
+                                                                  if (value[
+                                                                          'success'] ==
+                                                                      false) {
+                                                                    // Order cannot be edited - show error and don't navigate
+                                                                    AppSnackBar.showGetXCustomSnackBar(
+                                                                        message:
+                                                                            value['message'] ??
+                                                                                'Order cannot be edited',
+                                                                        backgroundColor:
+                                                                            Colors.red);
+                                                                    return;
+                                                                  }
 
+                                                                  // Order can be edited - show success and navigate
                                                                   AppSnackBar.showGetXCustomSnackBar(
                                                                       message:
-                                                                          value,
+                                                                          value[
+                                                                              'message'],
                                                                       backgroundColor:
                                                                           Colors
                                                                               .green);
-                                                                // Get.to(
-                                                                //   () =>
-                                                                //       //ProductPage(),
-                                                                //       ProductsPage(),
-                                                                // );
 
-                                                                Get.to(
-                                                                  () =>
-                                                                      //ProductPage(),
-                                                                      ProductsPage(),
-                                                                )?.then(
-                                                                    (result) {
-                                                                  if (result ==
-                                                                      true) {
-                                                                    final PartyProvider
-                                                                        party =
-                                                                        Provider.of<PartyProvider>(
-                                                                            context,
-                                                                            listen:
-                                                                                false);
-                                                                    if (party
-                                                                            .partyid !=
-                                                                        "") {
-                                                                      getDate();
-                                                                    } else {
-                                                                      setState(
-                                                                          () {
-                                                                        data.clear();
-                                                                      });
+                                                                  Get.to(
+                                                                    () =>
+                                                                        ProductsPage(),
+                                                                  )?.then(
+                                                                      (result) {
+                                                                    if (result ==
+                                                                        true) {
+                                                                      final PartyProvider
+                                                                          party =
+                                                                          Provider.of<PartyProvider>(
+                                                                              context,
+                                                                              listen: false);
+                                                                      if (party
+                                                                              .partyid !=
+                                                                          "") {
+                                                                        getDate();
+                                                                      } else {
+                                                                        setState(
+                                                                            () {
+                                                                          data.clear();
+                                                                        });
+                                                                      }
                                                                     }
-                                                                  }
-                                                                });
+                                                                  });
+                                                                } else if (value !=
+                                                                    null) {
+                                                                  // Old response format (String) - treat as success
+                                                                  final message = value
+                                                                          is String
+                                                                      ? value
+                                                                      : value[
+                                                                          'message'];
+                                                                  AppSnackBar.showGetXCustomSnackBar(
+                                                                      message:
+                                                                          message,
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .green);
+
+                                                                  Get.to(
+                                                                    () =>
+                                                                        ProductsPage(),
+                                                                  )?.then(
+                                                                      (result) {
+                                                                    if (result ==
+                                                                        true) {
+                                                                      final PartyProvider
+                                                                          party =
+                                                                          Provider.of<PartyProvider>(
+                                                                              context,
+                                                                              listen: false);
+                                                                      if (party
+                                                                              .partyid !=
+                                                                          "") {
+                                                                        getDate();
+                                                                      } else {
+                                                                        setState(
+                                                                            () {
+                                                                          data.clear();
+                                                                        });
+                                                                      }
+                                                                    }
+                                                                  });
+                                                                }
                                                               });
                                                             },
                                                             icon: Icon(Icons
@@ -1980,87 +2036,97 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                   //             .user
                                                   //             .userCd)
                                                   Container(
-                                                    child:
-                                                        ub.role ==
+                                                    child: (ub.role ==
                                                                 AppConfig
-                                                                    .masteruser
-                                                            ? IconButton(
-                                                                onPressed: () {
-                                                                  showDialog(
-                                                                    context:
-                                                                        context,
-                                                                    builder:
-                                                                        (BuildContext
-                                                                            context) {
-                                                                      return AlertDialog(
-                                                                        title: Text(
-                                                                            'Delete Confirmation'),
-                                                                        content:
-                                                                            Text('Are you sure you want to delete order?'),
-                                                                        actions: [
-                                                                          TextButton(
-                                                                            onPressed:
-                                                                                () {
-                                                                              // Cancel button: Close the dialog
+                                                                    .masteruser ||
+                                                            (profile.data
+                                                                    ?.profileSettings
+                                                                    ?.any((e) =>
+                                                                        e.variable ==
+                                                                            'omsWithoutErpSync' &&
+                                                                        e.value ==
+                                                                            'Y') ??
+                                                                false))
+                                                        ? IconButton(
+                                                            onPressed: () {
+                                                              showDialog(
+                                                                context:
+                                                                    context,
+                                                                builder:
+                                                                    (BuildContext
+                                                                        context) {
+                                                                  return AlertDialog(
+                                                                    title: Text(
+                                                                        'Delete Confirmation'),
+                                                                    content: Text(
+                                                                        'Are you sure you want to delete order?'),
+                                                                    actions: [
+                                                                      TextButton(
+                                                                        onPressed:
+                                                                            () {
+                                                                          // Cancel button: Close the dialog
+                                                                          Navigator.pop(
+                                                                              context);
+                                                                        },
+                                                                        child: Text(
+                                                                            'No'),
+                                                                      ),
+                                                                      TextButton(
+                                                                        onPressed:
+                                                                            () {
+                                                                          // Confirm logout
+                                                                          Services()
+                                                                              .deleteOrder(data[index].oId, context)
+                                                                              .then((value) {
+                                                                            if (value !=
+                                                                                null) {
+                                                                              // Fluttertoast
+                                                                              //     .showToast(
+                                                                              //         msg:
+                                                                              //             value);
                                                                               Navigator.pop(context);
-                                                                            },
-                                                                            child:
-                                                                                Text('No'),
-                                                                          ),
-                                                                          TextButton(
-                                                                            onPressed:
-                                                                                () {
-                                                                              // Confirm logout
-                                                                              Services().deleteOrder(data[index].oId, context).then((value) {
-                                                                                if (value != null) {
-                                                                                  // Fluttertoast
-                                                                                  //     .showToast(
-                                                                                  //         msg:
-                                                                                  //             value);
-                                                                                  Navigator.pop(context);
 
-                                                                                  AppSnackBar.showGetXCustomSnackBar(message: value, backgroundColor: Colors.green);
+                                                                              AppSnackBar.showGetXCustomSnackBar(message: value, backgroundColor: Colors.green);
 
-                                                                                  getDate();
-                                                                                }
-                                                                              });
-                                                                            },
-                                                                            child:
-                                                                                Text('Yes'),
-                                                                          ),
-                                                                        ],
-                                                                      );
-                                                                    },
+                                                                              getDate();
+                                                                            }
+                                                                          });
+                                                                        },
+                                                                        child: Text(
+                                                                            'Yes'),
+                                                                      ),
+                                                                    ],
                                                                   );
-
-                                                                  // Services()
-                                                                  //     .deleteOrder(
-                                                                  //         data[index]
-                                                                  //             .oId,
-                                                                  //         context)
-                                                                  //     .then((value) {
-                                                                  //   if (value !=
-                                                                  //       null) {
-                                                                  //     // Fluttertoast
-                                                                  //     //     .showToast(
-                                                                  //     //         msg:
-                                                                  //     //             value);
-                                                                  //     AppSnackBar
-                                                                  //         .showGetXCustomSnackBar(
-                                                                  //             message:
-                                                                  //                 value);
-                                                                  //
-                                                                  //     getDate();
-                                                                  //   }
-                                                                  // });
                                                                 },
-                                                                icon: Icon(
-                                                                  Icons
-                                                                      .delete_outline,
-                                                                  color: Colors
-                                                                      .red,
-                                                                ))
-                                                            : Container(),
+                                                              );
+
+                                                              // Services()
+                                                              //     .deleteOrder(
+                                                              //         data[index]
+                                                              //             .oId,
+                                                              //         context)
+                                                              //     .then((value) {
+                                                              //   if (value !=
+                                                              //       null) {
+                                                              //     // Fluttertoast
+                                                              //     //     .showToast(
+                                                              //     //         msg:
+                                                              //     //             value);
+                                                              //     AppSnackBar
+                                                              //         .showGetXCustomSnackBar(
+                                                              //             message:
+                                                              //                 value);
+                                                              //
+                                                              //     getDate();
+                                                              //   }
+                                                              // });
+                                                            },
+                                                            icon: Icon(
+                                                              Icons
+                                                                  .delete_outline,
+                                                              color: Colors.red,
+                                                            ))
+                                                        : Container(),
                                                   )
                                                 ],
                                               )
@@ -2539,3 +2605,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     );
   }
 }
+
+// POST /account-image
+
+// omsWithoutErpSync
