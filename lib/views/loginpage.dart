@@ -5,6 +5,7 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/utlityModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/services/heartbeat_service.dart';
 
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/providers/global.dart';
@@ -938,6 +939,11 @@ class _LoginPageState extends State<LoginPage> {
                   Provider.of<LocationProvider>(context, listen: false);
               final userProvider =
                   Provider.of<UserProvider>(context, listen: false);
+              
+              // Start heartbeat monitoring after successful login
+              print('[LoginPage] Starting heartbeat service on login...');
+              HeartbeatService().startHeartbeat();
+              
               locationProvider.start(userProvider);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);

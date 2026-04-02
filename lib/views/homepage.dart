@@ -1653,7 +1653,9 @@ class _HomePageState extends State<HomePage> {
                                             location.setRemarks("PUNCH OUT");
                                             // Clear stockist selection on punch out
                                             final productController =
-                                                Get.find<ProductController>();
+                                                Get.isRegistered<ProductController>()
+                                                    ? Get.find<ProductController>()
+                                                    : Get.put(ProductController());
                                             productController
                                                 .clearStockistSelection();
                                           } else {

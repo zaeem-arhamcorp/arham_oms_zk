@@ -130,8 +130,7 @@ class AccountRepository extends GetxService {
       final json = response['json'] as Map<String, dynamic>?;
 
       if (statusCode == 200 || statusCode == 201) {
-        appLog('[uploadAccountImage] Success: $json',
-            tag: 'AccountRepository');
+        appLog('[uploadAccountImage] Success: $json', tag: 'AccountRepository');
         return {
           'success': true,
           'data': json,

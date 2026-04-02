@@ -5,7 +5,6 @@ import 'package:mime/mime.dart';
 
 import '../../../config/app_log.dart';
 
-
 class ApiService {
   final String baseUrl;
 
@@ -40,8 +39,6 @@ class ApiService {
         'body': response.body,
         'json': response.body.isNotEmpty ? jsonDecode(response.body) : null,
       };
-
-
     } catch (e, stackTrace) {
       // Log the error
       // ignore: avoid_print
@@ -74,7 +71,8 @@ class ApiService {
         final file = entry.value;
         final fieldName = entry.key;
         final fileName = file.path.split('/').last;
-        final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+        final mimeType =
+            lookupMimeType(file.path) ?? 'application/octet-stream';
 
         appLog('Attaching file: $fieldName -> $fileName ($mimeType)',
             tag: 'ApiService');
@@ -102,8 +100,7 @@ class ApiService {
       return {
         'statusCode': response.statusCode,
         'body': responseBody,
-        'json':
-            responseBody.isNotEmpty ? jsonDecode(responseBody) : null,
+        'json': responseBody.isNotEmpty ? jsonDecode(responseBody) : null,
       };
     } catch (e, stackTrace) {
       appLog('API MULTIPART POST error: $e',

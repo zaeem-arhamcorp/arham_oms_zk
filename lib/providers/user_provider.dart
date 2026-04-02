@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:arham_corporation/providers/app_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/heartbeat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -90,6 +91,7 @@ class UserProvider extends ChangeNotifier {
     final SharedPreferences sp = await SharedPreferences.getInstance();
     await sp.setString("role", role);
     await sp.setString("token", token);
+    print('[UserProvider] ✅ Saved token to SharedPreferences: token=$token');
     _role = role;
     _token = token;
     notifyListeners();
@@ -118,6 +120,10 @@ class UserProvider extends ChangeNotifier {
   Future userSignout(context) async {
     final SharedPreferences sp = await SharedPreferences.getInstance();
     sp.clear();
+
+    // Stop heartbeat monitoring on logout
+    print('[UserProvider] Stopping heartbeat service on logout...');
+    await HeartbeatService().stopHeartbeat();
 
     Services().logout(context);
 

@@ -118,7 +118,7 @@ void locationTrackingCallbackDispatcher() {
       print(
           '[LocationTrackingWorkmanager] ✅ Active trip recovery attempted from WorkManager');
 
-      final token = prefs.getString('active_token');
+      final token = prefs.getString('token');
       if (token != null && token.isNotEmpty) {
         final hasInternet = await NetworkHelper.hasInternet();
         if (hasInternet) {

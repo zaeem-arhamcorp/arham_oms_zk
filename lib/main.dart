@@ -30,6 +30,8 @@ import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/connectivity_service.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:arham_corporation/services/location_tracking_workmanager.dart';
+import 'package:arham_corporation/services/heartbeat_service.dart';
+import 'package:arham_corporation/services/heartbeat_workmanager.dart';
 
 void main() async {
   SystemChrome.setSystemUIOverlayStyle(
@@ -78,6 +80,18 @@ void main() async {
   await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
   await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
   print('[Main] ✅ Location tracking WorkManager initialized');
+
+  // Initialize heartbeat background service
+  print('[Main] Initializing heartbeat background service...');
+  await HeartbeatService().initialize();
+  print('[Main] ✅ Heartbeat background service initialized');
+
+  // Initialize heartbeat workmanager
+  print('[Main] Initializing heartbeat WorkManager...');
+  await HeartbeatWorkmanager.initialize();
+  await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
+  await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
+  print('[Main] ✅ Heartbeat WorkManager initialized');
 
   // Attempt immediate resume if app was killed with active tracking
   print('[Main] Checking for active trip to resume...');
