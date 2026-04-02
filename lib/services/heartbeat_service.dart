@@ -16,6 +16,7 @@ class HeartbeatService {
   HeartbeatService._internal();
 
   final FlutterBackgroundService _service = FlutterBackgroundService();
+
   /// Heartbeat sent every 30 seconds
   /// Backend marks user offline if no heartbeat received within 30 seconds
   static const Duration _heartbeatInterval = Duration(seconds: 30);
@@ -107,7 +108,8 @@ class HeartbeatService {
       service.stopSelf();
     });
 
-    print('[HeartbeatService] [CALLBACK] Service setup complete, heartbeat timer started');
+    print(
+        '[HeartbeatService] [CALLBACK] Service setup complete, heartbeat timer started');
   }
 
   /// Send heartbeat asynchronously
@@ -119,10 +121,12 @@ class HeartbeatService {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      print('[HeartbeatService] [CALLBACK] DEBUG: token from SharedPreferences = $token');
+      print(
+          '[HeartbeatService] [CALLBACK] DEBUG: token from SharedPreferences = $token');
 
       if (token == null || token.isEmpty) {
-        print('[HeartbeatService] [CALLBACK] ❌ No token found in SharedPreferences, skipping heartbeat');
+        print(
+            '[HeartbeatService] [CALLBACK] ❌ No token found in SharedPreferences, skipping heartbeat');
         return;
       }
 
@@ -130,9 +134,11 @@ class HeartbeatService {
       final success = await repository.sendHeartbeat(token: token);
 
       if (success) {
-        print('[HeartbeatService] [CALLBACK] ✅ Heartbeat sent (30s) - User ONLINE');
+        print(
+            '[HeartbeatService] [CALLBACK] ✅ Heartbeat sent (30s) - User ONLINE');
       } else {
-        print('[HeartbeatService] [CALLBACK] ⚠️ Heartbeat failed - will retry in 30 seconds');
+        print(
+            '[HeartbeatService] [CALLBACK] ⚠️ Heartbeat failed - will retry in 30 seconds');
       }
     } catch (e) {
       print('[HeartbeatService] [CALLBACK] ❌ Exception in heartbeat timer: $e');

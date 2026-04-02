@@ -34,10 +34,10 @@ class HeartbeatWorkmanager {
 
   /// Register periodic heartbeat task (every 15 minutes as recovery mechanism)
   /// Strategy:
-  /// - PRIMARY: flutter_background_service sends heartbeat every 30 seconds (continuous)
+  /// - PRIMARY: foreground location tracking service sends heartbeat every 30 seconds
   /// - FALLBACK: WorkManager fires every 15 minutes to recover if service is killed
   /// - GOAL: Ensure heartbeat is sent every 30 seconds to keep user online
-  /// 
+  ///
   /// This runs even if the app is completely closed, ensuring user isn't marked offline
   static Future<void> registerPeriodicHeartbeatTask() async {
     try {
@@ -59,7 +59,7 @@ class HeartbeatWorkmanager {
       print(
           '[HeartbeatWorkmanager] ✅ Registered periodic heartbeat recovery task every 15 minutes ($_uniqueTaskName / $_taskName)');
       print(
-          '[HeartbeatWorkmanager] ℹ️ PRIMARY: flutter_background_service sends heartbeat every 30 seconds');
+          '[HeartbeatWorkmanager] ℹ️ PRIMARY: foreground location tracking service sends heartbeat every 30 seconds');
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
@@ -144,8 +144,17 @@ void heartbeatCallbackDispatcher() {
       await prefs.remove(HeartbeatWorkmanager._lastErrorKey);
 
       // Increment task count
-      final taskCount = (prefs.getInt(HeartbeatWorkmanager._taskCountKey) ?? 0) + 1;
+      final taskCount =
+          (prefs.getInt(HeartbeatWorkmanager._taskCountKey) ?? 0) + 1;
       await prefs.setInt(HeartbeatWorkmanager._taskCountKey, taskCount);
+
+      // Heartbeat should run only during active punch-in tracking sessions.
+      final activeTripId = prefs.getInt('active_trip_id');
+      if (activeTripId == null || activeTripId <= 0) {
+        print(
+            '[HeartbeatWorkmanager] [CALLBACK] ℹ️ No active trip. Skipping heartbeat recovery.');
+        return true;
+      }
 
       // Get token and send heartbeat
       final token = prefs.getString('token');

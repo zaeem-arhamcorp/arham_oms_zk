@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
@@ -23,6 +22,8 @@ class UserStatusRepository {
   Future<bool> sendHeartbeat({required String token}) async {
     try {
       print('[UserStatusRepository] Sending heartbeat (30-second interval)...');
+      print(
+          '[UserStatusRepository] DEBUG: Token format check - starts with "eyJ": ${token.startsWith('eyJ')}');
 
       final url = Uri.parse('${AppConfig.baseURL}${AppConfig.heartbeat}');
       print('[UserStatusRepository] Heartbeat URL: $url');
@@ -32,17 +33,15 @@ class UserStatusRepository {
         headers: {
           'Authorization': 'Bearer $token',
           'x-app-type': 'oms',
-          'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'timestamp': DateTime.now().toUtc().toIso8601String(),
-        }),
       ).timeout(
         const Duration(seconds: 5),
         onTimeout: () => http.Response('timeout', 408),
       );
 
-      print('[UserStatusRepository] Heartbeat response: ${response.statusCode}');
+      print(
+          '[UserStatusRepository] Heartbeat response: ${response.statusCode}');
+      print('[UserStatusRepository] Heartbeat response body: ${response.body}');
 
       // Store heartbeat timestamp
       final prefs = await SharedPreferences.getInstance();
@@ -52,15 +51,24 @@ class UserStatusRepository {
       );
 
       // Accept 200, 201, or 204 as success (204 = No Content)
-      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
-        print('[UserStatusRepository] ✅ Heartbeat sent successfully - User marked ONLINE');
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        print(
+            '[UserStatusRepository] ✅ Heartbeat sent successfully - User marked ONLINE');
 
         // Mark user as online
         await prefs.setBool(_onlineStatusKey, true);
         return true;
+      } else if (response.statusCode == 401) {
+        print(
+            '[UserStatusRepository] ❌ 401 UNAUTHORIZED - Token may be invalid or expired');
+        print('[UserStatusRepository] Response: ${response.body}');
+        return false;
       } else {
         print(
             '[UserStatusRepository] ⚠️ Heartbeat failed with status: ${response.statusCode} - User may be marked OFFLINE if failures continue');
+        print('[UserStatusRepository] Response: ${response.body}');
         return false;
       }
     } catch (e) {

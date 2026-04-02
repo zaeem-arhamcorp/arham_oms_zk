@@ -11,6 +11,7 @@ import 'database_helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/services/user_status_repository.dart';
 
 /// Background Location Tracking Service
 /// Captures GPS location every 40 seconds during active punch-in.
@@ -634,11 +635,40 @@ class BackgroundLocationService {
         '[BackgroundLocationService] [Background]   Capture interval: 40 seconds');
     print(
         '[BackgroundLocationService] [Background]   Sync strategy: Immediate (after each capture)');
+    print(
+        '[BackgroundLocationService] [Background]   Heartbeat interval: 30 seconds (while tracking active)');
+    print(
+      '[HEARTBEAT] ACTIVE_TRIP_START: heartbeat lifecycle is now bound to punch-in tracking');
+
+    final heartbeatRepository = UserStatusRepository();
+    DateTime? lastHeartbeatAt;
+
+    Future<void> sendHeartbeatIfDue() async {
+      final now = DateTime.now();
+      if (lastHeartbeatAt != null &&
+          now.difference(lastHeartbeatAt!).inSeconds < 30) {
+        return;
+      }
+
+      print('[HEARTBEAT] POST_ATTEMPT: sending heartbeat to server...');
+      print('[BackgroundLocationService] [Background] ❤️ Sending heartbeat...');
+      final heartbeatOk = await heartbeatRepository.sendHeartbeat(token: token);
+
+      if (heartbeatOk) {
+        lastHeartbeatAt = now;
+        print('[HEARTBEAT] POST_SUCCESS: server accepted heartbeat');
+        print('[BackgroundLocationService] [Background] ✅ Heartbeat sent');
+      } else {
+        print('[HEARTBEAT] POST_FAILED: heartbeat call was not successful');
+        print('[BackgroundLocationService] [Background] ⚠️ Heartbeat send failed');
+      }
+    }
 
     // Main tracking loop
     bool shouldContinue = true;
     service.on('stopLocationTracking').listen((event) {
       shouldContinue = false;
+      print('[HEARTBEAT] ACTIVE_TRIP_STOP: stopping heartbeat with tracking stop');
       print('[BackgroundLocationService] [Background] Received stop signal');
     });
 
@@ -717,6 +747,7 @@ class BackgroundLocationService {
                 '[BackgroundLocationService] [Background] Service stopped, exiting loop');
             return;
           }
+          await sendHeartbeatIfDue();
           await Future.delayed(const Duration(seconds: 1));
         }
         print('[BackgroundLocationService] [Background] ');
