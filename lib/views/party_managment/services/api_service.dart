@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
 
 import '../../../config/app_log.dart';
 
@@ -47,5 +49,79 @@ class ApiService {
           tag: 'ApiService', error: e, stackTrace: stackTrace);
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> postMultipart(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, String>? fields,
+    Map<String, File>? files,
+  }) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    final request = http.MultipartRequest('POST', url);
+
+    // Add headers
+    request.headers.addAll(headers ?? {});
+
+    // Add fields
+    if (fields != null) {
+      request.fields.addAll(fields);
+    }
+
+    // Add files
+    if (files != null) {
+      for (var entry in files.entries) {
+        final file = entry.value;
+        final fieldName = entry.key;
+        final fileName = file.path.split('/').last;
+        final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+
+        appLog('Attaching file: $fieldName -> $fileName ($mimeType)',
+            tag: 'ApiService');
+
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            fieldName,
+            file.path,
+            filename: fileName,
+            contentType: _parseMediaType(mimeType),
+          ),
+        );
+      }
+    }
+
+    try {
+      appLog('API MULTIPART POST request to $url', tag: 'ApiService');
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      appLog('API MULTIPART response status: ${response.statusCode}',
+          tag: 'ApiService');
+      appLog('API MULTIPART response body: $responseBody', tag: 'ApiService');
+
+      return {
+        'statusCode': response.statusCode,
+        'body': responseBody,
+        'json':
+            responseBody.isNotEmpty ? jsonDecode(responseBody) : null,
+      };
+    } catch (e, stackTrace) {
+      appLog('API MULTIPART POST error: $e',
+          tag: 'ApiService', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  // Helper to parse media type
+  dynamic _parseMediaType(String mimeType) {
+    try {
+      final parts = mimeType.split('/');
+      if (parts.length == 2) {
+        return http.MediaType(parts[0], parts[1]);
+      }
+    } catch (e) {
+      appLog('Error parsing MIME type: $e', tag: 'ApiService');
+    }
+    return http.MediaType('application', 'octet-stream');
   }
 }

@@ -49,4 +49,5 @@ class AppConfig {
 
   static const String createAccountt = 'master-entry/account';
   static const String uploadImage = 'master-entry/account/upload-image';
+  static const String uploadAccountImage = 'account-image';
 }

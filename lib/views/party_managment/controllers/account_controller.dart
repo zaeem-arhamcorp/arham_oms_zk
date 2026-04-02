@@ -8,8 +8,8 @@ import 'package:provider/provider.dart';
 import '../../../config/app_log.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
-import '../models/account_model.dart';
 import '../core/account_repository.dart';
+import '../models/account_model.dart';
 import '../widgets/account_form_fields.dart';
 
 class AccountController extends GetxController {
@@ -130,8 +130,52 @@ class AccountController extends GetxController {
 
       if (result['success']) {
         successMessage.value = result['message'];
+
+        // Extract ACC_CD from response
+        final responseData = result['data'] as Map<String, dynamic>?;
+        final accCd = responseData?['data']?['ACC_CD'] as String?;
+
+        appLog('[createAccountFromForm] Account created - ACC_CD: $accCd',
+            tag: 'AccountController');
+
+        // If image is selected, upload it after a delay
+        if (selectedImage.value != null && accCd != null && accCd.isNotEmpty) {
+          appLog(
+              '[createAccountFromForm] Image selected, waiting 2 seconds before upload',
+              tag: 'AccountController');
+
+          // Wait for 2 seconds
+          await Future.delayed(const Duration(seconds: 2));
+
+          appLog('[createAccountFromForm] Uploading account image',
+              tag: 'AccountController');
+
+          // Upload the image
+          final imageResult = await _repository.uploadAccountImage(
+            accCd: accCd,
+            imageFile: selectedImage.value!,
+            token: token!,
+          );
+
+          if (imageResult['success']) {
+            appLog('[createAccountFromForm] Image uploaded successfully',
+                tag: 'AccountController');
+            successMessage.value =
+                '${result['message']}\n${imageResult['message']}';
+          } else {
+            appLog(
+                '[createAccountFromForm] Image upload failed: ${imageResult['error']}',
+                tag: 'AccountController');
+            // Account is created but image upload failed
+            // Still show success but with warning
+            successMessage.value =
+                '${result['message']}\nWarning: ${imageResult['message']}';
+          }
+        }
+
         final accName = AccountFormFields.accNameController.text.trim();
         AccountFormFields.clearAll();
+        selectedImage.value = null;
         // Pop and pass account name back
         Get.back(result: accName);
       } else {

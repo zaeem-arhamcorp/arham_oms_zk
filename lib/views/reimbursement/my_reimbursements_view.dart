@@ -14,7 +14,8 @@ class MyReimbursementsView extends StatefulWidget {
   State<MyReimbursementsView> createState() => _MyReimbursementsViewState();
 }
 
-class _MyReimbursementsViewState extends State<MyReimbursementsView> {
+class _MyReimbursementsViewState extends State<MyReimbursementsView>
+    with AutomaticKeepAliveClientMixin {
   final DateFormat _apiDateFormat = DateFormat('yyyy-MM-dd');
   late DateTime _fromDate;
   late DateTime _toDate;
@@ -22,6 +23,9 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView> {
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _requests = <Map<String, dynamic>>[];
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -126,6 +130,9 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView> {
 
     if (pickedDate == null) return;
 
+    final DateTime oldFromDate = _fromDate;
+    final DateTime oldToDate = _toDate;
+
     setState(() {
       if (isFromDate) {
         _fromDate = pickedDate;
@@ -142,6 +149,10 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView> {
     debugPrint(
       '[Reimbursement][MyRequests] Selected range: ${_apiDateFormat.format(_fromDate)} to ${_apiDateFormat.format(_toDate)}',
     );
+
+    if (oldFromDate != _fromDate || oldToDate != _toDate) {
+      await _fetchReimbursements();
+    }
   }
 
   Color _statusColor(String status) {
@@ -215,18 +226,6 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _fetchReimbursements,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Apply Filter'),
-              ),
             ),
           ],
         ),
@@ -331,6 +330,7 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     debugPrint('[Reimbursement][MyRequests] Building screen');
     return Scaffold(
       body: Column(

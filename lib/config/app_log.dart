@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 /// ANSI color codes for console output (only visible in debug terminals)
 class _LogColor {
-  static const green = '\x1B[37m'; // ANSI code for white (default)
+  static const white = '\x1B[37m'; // ANSI code for white (default)
 }
 
 /// Global app logging helper.
@@ -17,8 +17,8 @@ void appLog(
   String? color, // optional override
 }) {
   if (kDebugMode) {
-    final selectedColor = color ?? _LogColor.green; // default color
-    final formatted = '$selectedColor[$tag] $message${_LogColor.green}';
+    final selectedColor = color ?? _LogColor.white; // default color
+    final formatted = '$selectedColor[$tag] $message${_LogColor.white}';
 
     // For debug console
     // ignore: avoid_print
