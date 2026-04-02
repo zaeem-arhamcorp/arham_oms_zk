@@ -101,17 +101,20 @@ class FormWidgets {
             controller: AccountFormFields.cityController,
             label: 'City',
             maxLength: 50),
-        // textField(
-        //   controller: AccountFormFields.stateController,
-        //   label: 'State',
-        //   maxLength: 50
-        // ),
-        // textField(
-        //   controller: AccountFormFields.pincodeController,
-        //   label: 'Pincode',
-        //   maxLength: 10
-        //   isNumber: true,
-        // ),
+        textField(
+            controller: AccountFormFields.areaController,
+            label: 'Area',
+            maxLength: 50),
+        textField(
+            controller: AccountFormFields.stateController,
+            label: 'State',
+            maxLength: 50),
+        textField(
+          controller: AccountFormFields.pincodeController,
+          label: 'Pincode',
+          maxLength: 10,
+          isNumber: true,
+        ),
         const SizedBox(height: 8),
         sectionHeader('Current Location'),
         Obx(() {

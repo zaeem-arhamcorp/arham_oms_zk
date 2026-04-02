@@ -3,6 +3,9 @@ import 'package:arham_corporation/providers/app_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:arham_corporation/config/app_config.dart';
 
 class UserProvider extends ChangeNotifier {
   UserProvider() {
@@ -129,5 +132,52 @@ class UserProvider extends ChangeNotifier {
     _token = null;
 
     notifyListeners();
+  }
+
+  /// Check if current user is a parent user (has child users)
+  Future<bool> hasChildren() async {
+    print('[UserProvider] 🔍 Checking if user has children...');
+    
+    if (_token == null || _token!.isEmpty) {
+      print('[UserProvider] ❌ Token is null or empty');
+      return false;
+    }
+
+    try {
+      final uri = Uri.parse('${AppConfig.baseURL}users/children');
+      print('[UserProvider] 📡 Calling children API: $uri');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'x-app-type': 'oms',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      print('[UserProvider] 📥 Response Status: ${response.statusCode}');
+      print('[UserProvider] 📋 Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        final data = decoded['data'];
+        
+        print('[UserProvider] ✅ Data type: ${data.runtimeType}');
+        
+        if (data is List) {
+          final hasChildren = data.isNotEmpty;
+          print('[UserProvider] 👥 Children count: ${data.length} (hasChildren: $hasChildren)');
+          return hasChildren;
+        }
+        print('[UserProvider] ❌ Data is not a list');
+        return false;
+      }
+      
+      print('[UserProvider] ❌ API returned status ${response.statusCode}');
+      return false;
+    } catch (e) {
+      print('[UserProvider] ❌ Timeout or error checking children: $e');
+      return false;
+    }
   }
 }

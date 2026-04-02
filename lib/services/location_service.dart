@@ -336,6 +336,7 @@ class LocationService {
         token: token,
         startLat: startLat,
         startLng: startLng,
+        moduleNo: moduleNo,
       );
 
       if (trackingResult['success']) {

@@ -7,8 +7,9 @@ class AccountFormFields {
   static final mobile1Controller = TextEditingController();
   static final add1Controller = TextEditingController();
   static final cityController = TextEditingController();
-  // static final stateController = TextEditingController();
-  // static final pincodeController = TextEditingController();
+  static final areaController = TextEditingController();
+  static final stateController = TextEditingController();
+  static final pincodeController = TextEditingController();
   static final latitudeController = TextEditingController();
   static final longitudeController = TextEditingController();
 
@@ -25,8 +26,9 @@ class AccountFormFields {
     mobile1Controller.clear();
     add1Controller.clear();
     cityController.clear();
-    // stateController.clear();
-    // pincodeController.clear();
+    areaController.clear();
+    stateController.clear();
+    pincodeController.clear();
     latitudeController.clear();
     longitudeController.clear();
 

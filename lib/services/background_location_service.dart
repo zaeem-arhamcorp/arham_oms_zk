@@ -12,6 +12,7 @@ import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/services/user_status_repository.dart';
+import 'location_sync_service.dart';
 
 /// Background Location Tracking Service
 /// Captures GPS location every 40 seconds during active punch-in.
@@ -53,6 +54,18 @@ class BackgroundLocationService {
     return DateTime.fromMillisecondsSinceEpoch(timestampMs)
         .toUtc()
         .toIso8601String();
+  }
+
+  static String _formatDateTimeWithOffsetForApi(int timestampMs) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(timestampMs).toLocal();
+    final offset = dt.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final absOffset = offset.abs();
+    final offsetHours = absOffset.inHours.toString().padLeft(2, '0');
+    final offsetMinutes =
+        (absOffset.inMinutes % 60).toString().padLeft(2, '0');
+
+    return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}T${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}$sign$offsetHours:$offsetMinutes';
   }
 
   /// Check if the app has "Allow all the time" location permission
@@ -147,6 +160,8 @@ class BackgroundLocationService {
     required String token,
     required double startLat,
     required double startLng,
+    required String moduleNo,
+    String tripName = 'Punch In Route',
   }) async {
     try {
       print('[BackgroundLocationService] 🚀 Starting background tracking...');
@@ -190,15 +205,20 @@ class BackgroundLocationService {
 
       print('[BackgroundLocationService] ✅ Location permissions granted');
 
+        final startTime = _formatDateTimeWithOffsetForApi(
+        DateTime.now().millisecondsSinceEpoch,
+        );
+
       // Step 1: Call /api/location/trip/start to initialize trip on server
       print('[BackgroundLocationService] 📤 Initiating trip on server...');
       print(
           '[BackgroundLocationService]   API URL: ${AppConfig.baseURL}location/trip/start');
       print(
-          '[BackgroundLocationService]   Send data: syncId=$syncId, startLat=$startLat, startLng=$startLng');
+          '[BackgroundLocationService]   Send data: start_time=$startTime, sync_id=$syncId, module_no=$moduleNo, trip_name=$tripName');
       try {
         print(
             '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/start');
+        final parsedModuleNo = int.tryParse(moduleNo);
         final tripStartResponse = await http.post(
           Uri.parse('${AppConfig.baseURL}location/trip/start'),
           headers: {
@@ -207,9 +227,10 @@ class BackgroundLocationService {
             'Content-Type': 'application/json',
           },
           body: jsonEncode({
-            'sync_id': syncId.toString(),
-            'start_lat': startLat.toString(),
-            'start_lng': startLng.toString(),
+            'sync_id': syncId,
+            'module_no': parsedModuleNo ?? moduleNo,
+            'trip_name': tripName,
+            'start_time': startTime,
           }),
         );
 
@@ -442,18 +463,21 @@ class BackgroundLocationService {
       // Try to get trip_id and token from memory first, then SharedPreferences
       int? tripIdToUse = _currentTripId;
       String? tokenToUse = _token;
+      int? syncIdToUse = _currentSyncId;
 
-      if (tripIdToUse == null || tokenToUse == null) {
+      if (tripIdToUse == null || tokenToUse == null || syncIdToUse == null) {
         print(
             '[BackgroundLocationService] ⚠️ Trip data not in memory, checking SharedPreferences...');
         try {
           final prefs = await SharedPreferences.getInstance();
           tripIdToUse = prefs.getInt('active_trip_id');
           tokenToUse = prefs.getString('token');
-          if (tripIdToUse != null && tokenToUse != null) {
+          syncIdToUse = prefs.getInt('active_sync_id');
+          if (tripIdToUse != null && tokenToUse != null && syncIdToUse != null) {
             print(
                 '[BackgroundLocationService] ✅ Retrieved trip data from SharedPreferences');
             print('[BackgroundLocationService]   trip_id=$tripIdToUse');
+            print('[BackgroundLocationService]   sync_id=$syncIdToUse');
           }
         } catch (e) {
           print(
@@ -462,10 +486,17 @@ class BackgroundLocationService {
       }
 
       // End trip on server if requested and if we have trip_id+token
-      if (endTripOnServer && tripIdToUse != null && tokenToUse != null) {
+      if (endTripOnServer &&
+          tripIdToUse != null &&
+          tokenToUse != null &&
+          syncIdToUse != null) {
         print(
             '[BackgroundLocationService] 📤 Ending trip on server (trip_id=$tripIdToUse)...');
         try {
+          final endTime = _formatDateTimeWithOffsetForApi(
+            DateTime.now().millisecondsSinceEpoch,
+          );
+          print('[BackgroundLocationService]   Send data: trip_id=$tripIdToUse, end_time=$endTime, sync_id=$syncIdToUse');
           print(
               '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/end');
           final tripEndResponse = await http.post(
@@ -477,6 +508,8 @@ class BackgroundLocationService {
             },
             body: jsonEncode({
               'trip_id': tripIdToUse,
+              'end_time': endTime,
+              'sync_id': syncIdToUse,
             }),
           );
 
@@ -537,21 +570,27 @@ class BackgroundLocationService {
     try {
       int? tripIdToUse = _currentTripId;
       String? tokenToUse = _token;
+      int? syncIdToUse = _currentSyncId;
 
-      if (tripIdToUse == null || tokenToUse == null) {
+      if (tripIdToUse == null || tokenToUse == null || syncIdToUse == null) {
         final prefs = await SharedPreferences.getInstance();
         tripIdToUse = prefs.getInt('active_trip_id');
         tokenToUse = prefs.getString('token');
+        syncIdToUse = prefs.getInt('active_sync_id');
       }
 
-      if (tripIdToUse == null || tokenToUse == null) {
+      if (tripIdToUse == null || tokenToUse == null || syncIdToUse == null) {
         print(
-            '[BackgroundLocationService] ⚠️ Missing trip data, cannot end trip on server');
+            '[BackgroundLocationService] ⚠️ Missing trip/sync data, cannot end trip on server');
         return false;
       }
 
       print(
           '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/end');
+      final endTime = _formatDateTimeWithOffsetForApi(
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      print('[BackgroundLocationService]   Send data: trip_id=$tripIdToUse, end_time=$endTime, sync_id=$syncIdToUse');
       final tripEndResponse = await http.post(
         Uri.parse('${AppConfig.baseURL}location/trip/end'),
         headers: {
@@ -559,7 +598,11 @@ class BackgroundLocationService {
           'x-app-type': 'oms',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'trip_id': tripIdToUse}),
+        body: jsonEncode({
+          'trip_id': tripIdToUse,
+          'end_time': endTime,
+          'sync_id': syncIdToUse,
+        }),
       );
 
       if (tripEndResponse.statusCode == 200 ||
@@ -638,10 +681,182 @@ class BackgroundLocationService {
     print(
         '[BackgroundLocationService] [Background]   Heartbeat interval: 30 seconds (while tracking active)');
     print(
-      '[HEARTBEAT] ACTIVE_TRIP_START: heartbeat lifecycle is now bound to punch-in tracking');
+        '[HEARTBEAT] ACTIVE_TRIP_START: heartbeat lifecycle is now bound to punch-in tracking');
 
     final heartbeatRepository = UserStatusRepository();
+    final locationSyncService = LocationSyncService();
     DateTime? lastHeartbeatAt;
+    DateTime? lastAutoPunchOutAttemptAt;
+
+    String formatDate(DateTime dt) {
+      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    }
+
+    String formatTime(DateTime dt) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+    }
+
+    Future<bool> tryAutoPunchOutAt11Pm() async {
+      final now = DateTime.now();
+
+      // Trigger auto punch-out at 11:00 PM or later while tracking is active.
+      if (now.hour < 23) {
+        return false;
+      }
+
+      // Avoid hammering APIs every second on repeated failures.
+      if (lastAutoPunchOutAttemptAt != null &&
+          now.difference(lastAutoPunchOutAttemptAt!).inSeconds < 60) {
+        return false;
+      }
+      lastAutoPunchOutAttemptAt = now;
+
+      final today = formatDate(now);
+      final autoDoneKey = 'auto_punch_out_done_$today';
+      final prefs = await SharedPreferences.getInstance();
+
+      if ((prefs.getBool(autoDoneKey) ?? false) == true) {
+        print(
+            '[AUTO-PUNCH-OUT] Already completed for $today. Stopping active tracking.');
+        return true;
+      }
+
+      print(
+          '[AUTO-PUNCH-OUT] Trigger met at ${formatTime(now)} on $today. Starting auto punch out...');
+
+      final isOnline = await NetworkHelper.hasInternet();
+      if (!isOnline) {
+        print('[AUTO-PUNCH-OUT] Waiting for internet to auto punch out.');
+        return false;
+      }
+
+      double lat = 0.0;
+      double lng = 0.0;
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
+        lat = position.latitude;
+        lng = position.longitude;
+      } catch (e) {
+        print('[AUTO-PUNCH-OUT] GPS unavailable, using 0,0 coordinates: $e');
+      }
+
+      final vouchDt = today;
+      final vouchTime = formatTime(now);
+      final createdAt = now.millisecondsSinceEpoch;
+
+      final locId = await db.insertLocation({
+        'USER_CD': userCd,
+        'VOUCH_DT': vouchDt,
+        'VOUCH_TIME': vouchTime,
+        'LAT': lat,
+        'LONGI': lng,
+        'REMARK': 'PUNCH OUT',
+        'SYNC_ID': syncId,
+        'CREATED_BY': '',
+        'CREATED_AT': createdAt,
+        'UPDATED_BY': '',
+        'UPDATED_AT': createdAt,
+        'CREATED_APP_TYPE': 'oms',
+        'MODULE_NO': '301',
+        'sync_status': 'pending',
+      });
+      print('[AUTO-PUNCH-OUT] Local punch-out saved (locId=$locId)');
+      print('[AUTO-PUNCH-OUT] API HIT: ${AppConfig.baseURL}locations');
+
+      final punchOutResponse = await http.post(
+        Uri.parse('${AppConfig.baseURL}locations'),
+        body: {
+          'lat': lat.toString(),
+          'long': lng.toString(),
+          'moduleNo': '301',
+          'remarks': 'PUNCH OUT',
+          'USER_CD': userCd,
+          'vouchDt': vouchDt,
+          'vouchTime': vouchTime,
+          'LAT': lat.toString(),
+          'LONGI': lng.toString(),
+          'REMARK': 'PUNCH OUT',
+          'SYNC_ID': syncId.toString(),
+          'MODULE_NO': '301',
+          'CREATED_BY': '',
+          'CREATED_APP_TYPE': 'oms',
+        },
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+      );
+      print(
+          '[AUTO-PUNCH-OUT] /locations response: ${punchOutResponse.statusCode}');
+
+      if (punchOutResponse.statusCode != 200 &&
+          punchOutResponse.statusCode != 201) {
+        print(
+            '[AUTO-PUNCH-OUT] Punch-out POST failed: ${punchOutResponse.statusCode} ${punchOutResponse.body}');
+        return false;
+      }
+
+      await db.updateLocationSyncStatus(locId, 'synced', null);
+      print('[AUTO-PUNCH-OUT] Punch-out POST successful and marked synced');
+
+      final syncStats = await locationSyncService.syncAllLocations(token);
+      print(
+          '[AUTO-PUNCH-OUT] Synced pending location data: ${syncStats['total_synced']} synced, ${syncStats['total_failed']} failed');
+      print('[AUTO-PUNCH-OUT] API HIT: ${AppConfig.baseURL}location/trip/end');
+
+      final endTime = _formatDateTimeWithOffsetForApi(
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      print('[AUTO-PUNCH-OUT]   Send data: trip_id=$tripId, end_time=$endTime, sync_id=$syncId');
+
+      final endTripResponse = await http.post(
+        Uri.parse('${AppConfig.baseURL}location/trip/end'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'trip_id': tripId,
+          'end_time': endTime,
+          'sync_id': syncId,
+        }),
+      );
+      print(
+          '[AUTO-PUNCH-OUT] /location/trip/end response: ${endTripResponse.statusCode}');
+
+      if (endTripResponse.statusCode != 200 &&
+          endTripResponse.statusCode != 201) {
+        print(
+            '[AUTO-PUNCH-OUT] Trip end failed: ${endTripResponse.statusCode} ${endTripResponse.body}');
+        return false;
+      }
+
+      // Disable native watchdog so tracking is not re-started after auto punch-out.
+      try {
+        await trackingControlPlatform
+            .invokeMethod('stopTrackingRecoveryWatchdog');
+      } catch (e) {
+        print('[AUTO-PUNCH-OUT] Could not disable recovery watchdog: $e');
+      }
+
+      await prefs.remove('active_trip_id');
+      await prefs.remove('active_user_cd');
+      await prefs.remove('active_sync_id');
+      await prefs.setBool(autoDoneKey, true);
+
+      final instance = BackgroundLocationService();
+      instance._isRunning = false;
+      instance._currentUserCd = null;
+      instance._currentSyncId = null;
+      instance._currentTripId = null;
+
+      print('[AUTO-PUNCH-OUT] SUCCESS: User auto punched out at 11 PM.');
+      return true;
+    }
 
     Future<void> sendHeartbeatIfDue() async {
       final now = DateTime.now();
@@ -660,7 +875,8 @@ class BackgroundLocationService {
         print('[BackgroundLocationService] [Background] ✅ Heartbeat sent');
       } else {
         print('[HEARTBEAT] POST_FAILED: heartbeat call was not successful');
-        print('[BackgroundLocationService] [Background] ⚠️ Heartbeat send failed');
+        print(
+            '[BackgroundLocationService] [Background] ⚠️ Heartbeat send failed');
       }
     }
 
@@ -668,12 +884,21 @@ class BackgroundLocationService {
     bool shouldContinue = true;
     service.on('stopLocationTracking').listen((event) {
       shouldContinue = false;
-      print('[HEARTBEAT] ACTIVE_TRIP_STOP: stopping heartbeat with tracking stop');
+      print(
+          '[HEARTBEAT] ACTIVE_TRIP_STOP: stopping heartbeat with tracking stop');
       print('[BackgroundLocationService] [Background] Received stop signal');
     });
 
     while (shouldContinue) {
       try {
+        final autoPunchedOutBeforeCapture = await tryAutoPunchOutAt11Pm();
+        if (autoPunchedOutBeforeCapture) {
+          print(
+              '[AUTO-PUNCH-OUT] Tracking loop exit after successful auto punch-out.');
+          await service.stopSelf();
+          return;
+        }
+
         // Capture current location
         try {
           final position = await Geolocator.getCurrentPosition(
@@ -748,6 +973,13 @@ class BackgroundLocationService {
             return;
           }
           await sendHeartbeatIfDue();
+          final autoPunchedOutDuringWait = await tryAutoPunchOutAt11Pm();
+          if (autoPunchedOutDuringWait) {
+            print(
+                '[AUTO-PUNCH-OUT] Tracking loop exit during wait after successful auto punch-out.');
+            await service.stopSelf();
+            return;
+          }
           await Future.delayed(const Duration(seconds: 1));
         }
         print('[BackgroundLocationService] [Background] ');

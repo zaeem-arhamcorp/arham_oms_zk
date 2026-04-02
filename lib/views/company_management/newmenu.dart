@@ -560,14 +560,25 @@ class _NewMenuState extends State<NewMenu> {
                       p.data!.modulesList!.any((module) =>
                           module.mODULENO == "321" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.account_balance, "Route Report",
-                        () {
-                      // Route to UserSelectionScreen if master user, otherwise to RouteReportScreen
+                        () async {
+                      // Route to UserSelectionScreen if master user or parent user with children
                       final ub =
                           Provider.of<UserProvider>(context, listen: false);
                       if (ub.role == AppConfig.masteruser) {
-                        Get.to(() => const UserSelectionScreen());
+                        print('[NewMenu] 👑 Master user detected - showing user selection');
+                        Get.to(() => const UserSelectionScreen(isMasterUser: true));
                       } else {
-                        Get.to(() => const RouteReportScreen());
+                        // Check if operator is a parent user
+                        print('[NewMenu] 👤 Operator user detected - checking if parent');
+                        final isParent = await ub.hasChildren();
+                        print('[NewMenu] Parent check result: $isParent');
+                        if (isParent) {
+                          print('[NewMenu] ✅ Operator is a parent - showing child selection');
+                          Get.to(() => const UserSelectionScreen(isMasterUser: false));
+                        } else {
+                          print('[NewMenu] 📊 Operator is not a parent - showing own route');
+                          Get.to(() => const RouteReportScreen());
+                        }
                       }
                     }, iconUrl: "assets/icons/route_report.png"),
                 ]),
