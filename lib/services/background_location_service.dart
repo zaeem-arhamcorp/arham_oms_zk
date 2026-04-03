@@ -62,8 +62,7 @@ class BackgroundLocationService {
     final sign = offset.isNegative ? '-' : '+';
     final absOffset = offset.abs();
     final offsetHours = absOffset.inHours.toString().padLeft(2, '0');
-    final offsetMinutes =
-        (absOffset.inMinutes % 60).toString().padLeft(2, '0');
+    final offsetMinutes = (absOffset.inMinutes % 60).toString().padLeft(2, '0');
 
     return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}T${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}$sign$offsetHours:$offsetMinutes';
   }
@@ -205,9 +204,9 @@ class BackgroundLocationService {
 
       print('[BackgroundLocationService] ✅ Location permissions granted');
 
-        final startTime = _formatDateTimeWithOffsetForApi(
+      final startTime = _formatDateTimeWithOffsetForApi(
         DateTime.now().millisecondsSinceEpoch,
-        );
+      );
 
       // Step 1: Call /api/location/trip/start to initialize trip on server
       print('[BackgroundLocationService] 📤 Initiating trip on server...');
@@ -473,7 +472,9 @@ class BackgroundLocationService {
           tripIdToUse = prefs.getInt('active_trip_id');
           tokenToUse = prefs.getString('token');
           syncIdToUse = prefs.getInt('active_sync_id');
-          if (tripIdToUse != null && tokenToUse != null && syncIdToUse != null) {
+          if (tripIdToUse != null &&
+              tokenToUse != null &&
+              syncIdToUse != null) {
             print(
                 '[BackgroundLocationService] ✅ Retrieved trip data from SharedPreferences');
             print('[BackgroundLocationService]   trip_id=$tripIdToUse');
@@ -496,7 +497,8 @@ class BackgroundLocationService {
           final endTime = _formatDateTimeWithOffsetForApi(
             DateTime.now().millisecondsSinceEpoch,
           );
-          print('[BackgroundLocationService]   Send data: trip_id=$tripIdToUse, end_time=$endTime, sync_id=$syncIdToUse');
+          print(
+              '[BackgroundLocationService]   Send data: trip_id=$tripIdToUse, end_time=$endTime, sync_id=$syncIdToUse');
           print(
               '[BackgroundLocationService] API HIT: ${AppConfig.baseURL}location/trip/end');
           final tripEndResponse = await http.post(
@@ -551,10 +553,22 @@ class BackgroundLocationService {
       _token = null;
       _currentTripId = null;
 
+      // ✅ STOP FOREGROUND SERVICE - Clear notification via platform channel
+      print('[BackgroundLocationService] 🛑 Stopping foreground service...');
+      try {
+        // Invoke Android to stop the foreground service and dismiss notification
+        await trackingControlPlatform.invokeMethod('stopForegroundService');
+        print('[BackgroundLocationService] ✅ Foreground service stopped');
+      } catch (e) {
+        print(
+            '[BackgroundLocationService] ⚠️ Error stopping foreground service: $e');
+      }
+
       print(
           '[BackgroundLocationService] ✅ Background tracking completely stopped');
       print('[BackgroundLocationService]    - Tracking loop exited');
-      print('[BackgroundLocationService]    - Service notification will clear');
+      print('[BackgroundLocationService]    - Foreground service STOPPED');
+      print('[BackgroundLocationService]    - Notification DISMISSED');
       print(
           '[BackgroundLocationService]    - Trip end requested: $endTripOnServer');
       print('[BackgroundLocationService]    - All state cleared');
@@ -590,7 +604,8 @@ class BackgroundLocationService {
       final endTime = _formatDateTimeWithOffsetForApi(
         DateTime.now().millisecondsSinceEpoch,
       );
-      print('[BackgroundLocationService]   Send data: trip_id=$tripIdToUse, end_time=$endTime, sync_id=$syncIdToUse');
+      print(
+          '[BackgroundLocationService]   Send data: trip_id=$tripIdToUse, end_time=$endTime, sync_id=$syncIdToUse');
       final tripEndResponse = await http.post(
         Uri.parse('${AppConfig.baseURL}location/trip/end'),
         headers: {
@@ -810,7 +825,8 @@ class BackgroundLocationService {
       final endTime = _formatDateTimeWithOffsetForApi(
         DateTime.now().millisecondsSinceEpoch,
       );
-      print('[AUTO-PUNCH-OUT]   Send data: trip_id=$tripId, end_time=$endTime, sync_id=$syncId');
+      print(
+          '[AUTO-PUNCH-OUT]   Send data: trip_id=$tripId, end_time=$endTime, sync_id=$syncId');
 
       final endTripResponse = await http.post(
         Uri.parse('${AppConfig.baseURL}location/trip/end'),

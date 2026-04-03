@@ -34,6 +34,7 @@ import '../models/orderReportModal.dart';
 import '../models/productModal.dart';
 import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
+import '../models/dashboard_v2_modal.dart';
 import '../providers/user_provider.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'database_helper.dart';
@@ -63,6 +64,38 @@ class Services {
       FirebaseCrashlytics.instance.recordError(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       print("Error in Services getDashboard data Dashboard ${e.toString()}");
+    }
+    return null;
+  }
+
+  Future<DashboardV2Modal?> getDashboardV2Data(
+      BuildContext context, String fromDate, String toDate) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURL}dashboard/v2?fromDate=$fromDate&toDate=$toDate"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print("${AppConfig.baseURL}dashboard/v2?fromDate=$fromDate&toDate=$toDate");
+      print(response.body);
+      if (response.statusCode == 200) {
+        return dashboardV2ModalFromJson(response.body);
+      } else {
+        print('Dashboard v2 error: ${response.statusCode}');
+        if (response.statusCode == 401) {
+          ub.userSignout(context).then((value) {
+            Get.offAll(() => LoginPage());
+          });
+        }
+      }
+    } catch (e, stack) {
+      FirebaseCrashlytics.instance.recordError(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      print("Error in Services getDashboardV2 data Dashboard ${e.toString()}");
     }
     return null;
   }
@@ -571,7 +604,7 @@ class Services {
                   pb.YN == "Y" ? pp.punchInOutParty : "", partyCd, context, "2",
                   oID: orderId.isNotEmpty ? orderId : null)
               .then((value) {
-            pb.getProfile(context).then((v) {
+            pb.getProfile().then((v) {
               // Load settings after profile is loaded
               pb.loadSettings(context);
             });
@@ -593,12 +626,19 @@ class Services {
     return null;
   }
 
-  Future<Map<String, dynamic>?> updateOrder(oId, context) async {
+  Future<Map<String, dynamic>?> updateOrder(oId, context,
+      {String? stockist}) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
     try {
+      // Build URI with optional stockist parameter
+      var uri = Uri.parse("${AppConfig.baseURL}orders/$oId");
+      if (stockist != null && stockist.isNotEmpty) {
+        uri = uri.replace(queryParameters: {'stockist': stockist});
+      }
+
       final http.Response response = await http.put(
-        Uri.parse("${AppConfig.baseURL}orders/$oId"),
+        uri,
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -2995,25 +3035,108 @@ class Services {
   }
 
   void logout(context) async {
-    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    print(ub.token);
     try {
+      // Since context may be deactivated during logout, we need to handle this carefully
+      UserProvider? ub;
+      try {
+        ub = Provider.of<UserProvider>(context, listen: false);
+      } catch (e) {
+        print(
+            '[Services] ⚠️ Could not access UserProvider from context during logout: $e');
+        print(
+            '[Services] Skipping server logout API call (context deactivated)');
+        return;
+      }
+
+      final token = ub?.token;
+      if (token == null || token.isEmpty) {
+        print('[Services] No token available for logout API call');
+        return;
+      }
+
+      print('[Services] 📡 Calling logout API...');
       final http.Response response = await http.post(
         Uri.parse("${AppConfig.baseURL}logout"),
         headers: {
-          "Authorization": "Bearer ${ub.token}",
+          "Authorization": "Bearer $token",
           'x-app-type': 'oms',
         },
-      );
+      ).timeout(const Duration(seconds: 5));
+
       print("Response : ${response.body}");
       if (response.statusCode == 200) {
+        print('[Services] ✅ Logout API successful');
         return json.decode(response.body);
       }
     } catch (e, stack) {
+      print('[Services] ⚠️ Error in logout API call: $e');
+      // Don't record this error to Crashlytics since context is deactivated
+      // and this is expected during logout
+    }
+  }
+
+  Future<void> logoutWithToken(String? token) async {
+    try {
+      if (token == null || token.isEmpty) {
+        print('[Services] No token available for logout API call');
+        return;
+      }
+
+      print('[Services] 📡 Calling logout API (token mode)...');
+      final http.Response response = await http.post(
+        Uri.parse("${AppConfig.baseURL}logout"),
+        headers: {
+          "Authorization": "Bearer $token",
+          'x-app-type': 'oms',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      print(
+          '[Services] Logout(token) status=${response.statusCode} body=${response.body}');
+    } catch (e) {
+      print('[Services] ⚠️ Error in logout(token) API call: $e');
+    }
+  }
+
+  /// Fetch current punch state from server using /orders-tracking API
+  /// Returns the outer 'remark' field which indicates "PUNCH IN" or "PUNCH OUT"
+  Future<String?> getCurrentPunchState(String token) async {
+    if (token.isEmpty) {
+      print('[Services] 🔐 [PUNCH_STATE] Token is missing');
+      return null;
+    }
+
+    try {
+      print(
+          '[Services] 📡 [PUNCH_STATE] Fetching current punch state from /orders-tracking');
+      final http.Response response = await http.get(
+        Uri.parse("${AppConfig.baseURL}orders-tracking"),
+        headers: {
+          "Authorization": "Bearer $token",
+          'x-app-type': 'oms',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      print(
+          '[Services] 📥 [PUNCH_STATE] Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        final outerRemark = decoded['remark']?.toString() ?? '';
+
+        print('[Services] 📋 [PUNCH_STATE] Full Response: ${response.body}');
+        print('[Services] ✅ [PUNCH_STATE] Outer remark: "$outerRemark"');
+
+        return outerRemark;
+      } else {
+        print(
+            '[Services] ❌ [PUNCH_STATE] API returned status ${response.statusCode}');
+        return null;
+      }
+    } catch (e, stack) {
+      print('[Services] ❌ [PUNCH_STATE] Exception: $e');
       FirebaseCrashlytics.instance.recordError(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
-      //Fluttertoast.showToast(msg: "Something went wrong");
-      print("Error in Services logout data ${e.toString()}");
+      return null;
     }
   }
 

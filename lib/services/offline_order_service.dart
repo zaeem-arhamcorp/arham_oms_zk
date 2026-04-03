@@ -147,6 +147,7 @@ class OfflineOrderService {
         'amount': item['amount'],
         'other_desc': item['other_desc'] ?? '',
         'fld5': item['fld5'] ?? '',
+        'stockist': item['stockist'] ?? '',
       };
     }).toList();
 

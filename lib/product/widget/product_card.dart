@@ -324,10 +324,13 @@ class _ProductCardState extends State<ProductCard> {
                         //controller: quantityController,
                         controller: qtyController,
                         decoration: const InputDecoration(
-                            hintText: 'Qty', labelText: 'Qty',
+                          hintText: 'Qty',
+                          labelText: 'Qty',
                         ),
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+                        ],
                         // onChanged: (val){
                         //   controller.isKeyboardOpen.value = false;
                         // },
@@ -484,6 +487,7 @@ class _ProductCardState extends State<ProductCard> {
                       remarks: selectedRemark,
                       nrate: widget.product.nrate?.toString(),
                       itemName: widget.product.itemName.toString(),
+                      stockist: controller.selectedStockistId.value,
                     )
                     .then((value) => {
                           quantityController.clear(),
@@ -635,7 +639,9 @@ class _ProductCardState extends State<ProductCard> {
                         decoration: const InputDecoration(
                             hintText: 'Qty', labelText: 'Qty'),
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         onChanged: (value) {
                           cartController.setQuantity(
                               widget.product.itemCd, value);
@@ -811,6 +817,7 @@ class _ProductCardState extends State<ProductCard> {
                                 remarks: selectedRemark,
                                 nrate: widget.product.nrate?.toString(),
                                 itemName: widget.product.itemName.toString(),
+                                stockist: controller.selectedStockistId.value,
                               )
                               .then((value) => {
                                     quantityController.clear(),

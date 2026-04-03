@@ -39,7 +39,8 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
     final token = ub.token;
     final role = ub.role;
 
-    print('[UserSelectionScreen] 🔍 Starting fetch - isMasterUser=${widget.isMasterUser}, role=$role');
+    print(
+        '[UserSelectionScreen] 🔍 Starting fetch - isMasterUser=${widget.isMasterUser}, role=$role');
 
     if (token == null || token.isEmpty) {
       print('[UserSelectionScreen] ❌ Token is missing or empty');
@@ -63,77 +64,86 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
       ).timeout(const Duration(seconds: 10));
 
       print('[UserSelectionScreen] 📥 Response Status: ${response.statusCode}');
-      print('[UserSelectionScreen] 📋 Response Body Length: ${response.body.length} chars');
+      print(
+          '[UserSelectionScreen] 📋 Response Body Length: ${response.body.length} chars');
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         final data = decoded['data'];
 
         print('[UserSelectionScreen] ✅ Decoded data type: ${data.runtimeType}');
-        print('[UserSelectionScreen] 📊 Total users in response: ${data is List ? data.length : "Not a list"}');
+        print(
+            '[UserSelectionScreen] 📊 Total users in response: ${data is List ? data.length : "Not a list"}');
 
         if (data is List) {
           // Log each user
           for (int i = 0; i < data.length; i++) {
             final user = data[i];
-            print('[UserSelectionScreen] 👤 User[$i]: ${user['USER_NAME']} (CD: ${user['USER_CD']}, Parent: ${user['PARENT_USER']}, isSelf: ${user['isSelf']})');
+            print(
+                '[UserSelectionScreen] 👤 User[$i]: ${user['USER_NAME']} (CD: ${user['USER_CD']}, Parent: ${user['PARENT_USER']}, isSelf: ${user['isSelf']})');
           }
 
           // FRONTEND FILTERING: Only show children if not master user
           List<Map<String, dynamic>> filteredUsers = [];
           Map<String, dynamic>? selfUser;
-          
+
           if (widget.isMasterUser) {
             // Master users see all users
             final allUsers = data.cast<Map<String, dynamic>>().toList();
-            
+
             // Extract self user
-            selfUser = allUsers.firstWhere(
-                (user) => user['isSelf'] == true,
+            selfUser = allUsers.firstWhere((user) => user['isSelf'] == true,
                 orElse: () => {});
-            
+
             // Add self first if found
             if (selfUser.isNotEmpty) {
               filteredUsers.add(selfUser);
-              print('[UserSelectionScreen] ➕ Added self at top: ${selfUser['USER_NAME']}');
+              print(
+                  '[UserSelectionScreen] ➕ Added self at top: ${selfUser['USER_NAME']}');
             }
-            
+
             // Add all other users
-            final otherUsers = allUsers.where((user) => user['isSelf'] != true).toList();
+            final otherUsers =
+                allUsers.where((user) => user['isSelf'] != true).toList();
             filteredUsers.addAll(otherUsers);
-            
-            print('[UserSelectionScreen] 👑 Master mode: showing ${filteredUsers.length} total users (self at top)');
+
+            print(
+                '[UserSelectionScreen] 👑 Master mode: showing ${filteredUsers.length} total users (self at top)');
           } else {
             // Parent operators see themselves + their direct children
             final allUsers = data.cast<Map<String, dynamic>>().toList();
-            
+
             // Find current user to get their code
-            selfUser = allUsers.firstWhere(
-                (user) => user['isSelf'] == true,
+            selfUser = allUsers.firstWhere((user) => user['isSelf'] == true,
                 orElse: () => {});
-            
+
             if (selfUser.isEmpty) {
-              print('[UserSelectionScreen] ⚠️ Could not find current user in response');
+              print(
+                  '[UserSelectionScreen] ⚠️ Could not find current user in response');
               filteredUsers = allUsers;
             } else {
               final currentUserCode = selfUser['USER_CD'];
-              print('[UserSelectionScreen] 👤 Current operator code: $currentUserCode');
-              
+              print(
+                  '[UserSelectionScreen] 👤 Current operator code: $currentUserCode');
+
               // Add self first
               filteredUsers.add(selfUser);
-              print('[UserSelectionScreen] ➕ Added self at top: ${selfUser['USER_NAME']}');
-              
+              print(
+                  '[UserSelectionScreen] ➕ Added self at top: ${selfUser['USER_NAME']}');
+
               // Then add users where PARENT_USER matches current user
               final children = allUsers
                   .where((user) => user['PARENT_USER'] == currentUserCode)
                   .toList();
-              
+
               filteredUsers.addAll(children);
-              
-              print('[UserSelectionScreen] 🔗 Added ${children.length} direct children');
+
+              print(
+                  '[UserSelectionScreen] 🔗 Added ${children.length} direct children');
               for (int i = 0; i < children.length; i++) {
                 final user = children[i];
-                print('[UserSelectionScreen] 👶 Child[$i]: ${user['USER_NAME']} (CD: ${user['USER_CD']})');
+                print(
+                    '[UserSelectionScreen] 👶 Child[$i]: ${user['USER_NAME']} (CD: ${user['USER_CD']})');
               }
             }
           }
@@ -142,16 +152,19 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
             _childUsers = filteredUsers;
             _loading = false;
           });
-          print('[UserSelectionScreen] ✅ Successfully loaded ${_childUsers.length} users to display');
+          print(
+              '[UserSelectionScreen] ✅ Successfully loaded ${_childUsers.length} users to display');
         } else {
-          print('[UserSelectionScreen] ❌ Data is not a list: ${data.runtimeType}');
+          print(
+              '[UserSelectionScreen] ❌ Data is not a list: ${data.runtimeType}');
           setState(() {
             _error = 'Invalid response format';
             _loading = false;
           });
         }
       } else {
-        print('[UserSelectionScreen] ❌ API returned status ${response.statusCode}');
+        print(
+            '[UserSelectionScreen] ❌ API returned status ${response.statusCode}');
         setState(() {
           _error = 'Failed to fetch users: ${response.statusCode}';
           _loading = false;

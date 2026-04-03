@@ -76,6 +76,14 @@ class DatabaseHelper {
       await _ensureColumnExists(db, 'products_cache', 'blacklist', 'INTEGER');
       await _ensureColumnExists(db, 'products_cache', 'rack_no', 'TEXT');
       await _ensureColumnExists(db, 'products_cache', 'item_grade', 'TEXT');
+
+      // ✅ Ensure cart_items has stockist column for new cart API field
+      await _ensureColumnExists(
+          db, 'cart_items', 'stockist', "TEXT DEFAULT ''");
+
+      // ✅ Ensure offline_order_items has stockist column (transferred from cart)
+      await _ensureColumnExists(
+          db, 'offline_order_items', 'stockist', "TEXT DEFAULT ''");
     } catch (e) {
       print('[DATABASE] ⚠️ Schema check error (non-fatal): $e');
     }
@@ -1734,16 +1742,20 @@ class DatabaseHelper {
     );
   }
 
-  /// Clear order tracking data (locations and order_tracking records)
-  /// Called on firm switch to clear transient tracking data from previous firm
+  /// Clear order tracking data while preserving punch history.
+  /// Called on firm switch/login to clear transient route/order tracking data
+  /// from previous session without removing PUNCH IN/OUT rows needed for
+  /// punch state restoration.
   Future<void> clearOrderTrackingCache() async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('locations');
+      // Keep punch rows so login-time punch restoration can still work.
+      await txn.delete('locations',
+          where: "REMARK NOT IN (?, ?)", whereArgs: ['PUNCH IN', 'PUNCH OUT']);
       await txn.delete('order_tracking');
     });
     print(
-        '[DATABASE] Cleared order tracking cache (locations and order_tracking)');
+        '[DATABASE] Cleared tracking cache (preserved PUNCH IN/OUT rows, cleared order_tracking)');
   }
 
   /*

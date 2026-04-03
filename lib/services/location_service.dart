@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'database_helper.dart';
@@ -5,6 +6,9 @@ import 'package:arham_corporation/helper/network_helper.dart';
 import '../config/app_config.dart';
 import 'background_location_service.dart';
 import 'location_sync_service.dart';
+import 'package:provider/provider.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:flutter/material.dart';
 
 class LocationService {
   final DatabaseHelper db = DatabaseHelper();
@@ -404,6 +408,130 @@ class LocationService {
   /// - sync_stats: Statistics of synced location data
   /// - message: Description of what happened
   /// - error: Error message (if any)
+
+  /// =====================================================
+  /// RESTART LOCATION TRACKING (After Logout/Login)
+  /// =====================================================
+  /// Restarts background location tracking without recording a new punch.
+  /// Used when user logs back in and was previously punched in.
+  /// The punch record already exists on the server - we just restart tracking.
+  ///
+  /// Parameters:
+  /// - context: BuildContext for accessing providers
+  /// - moduleNo: Module number (defaults to '301')
+  /// - logTag: Log tag prefix for debugging
+  ///
+  /// Returns:
+  /// - success: true if tracking started successfully
+  /// - message: Description of what happened
+  /// - error: Error message (if any)
+  Future<Map<String, dynamic>> restartTracking({
+    required String userCd,
+    required int syncId,
+    required String? token,
+    String moduleNo = '301',
+    String logTag = '[LocationService]',
+  }) async {
+    try {
+      print(
+          '$logTag 🔄 RESTART TRACKING - User logged back in (was previously punched in)');
+
+      // Safety check: Prevent double-starting if already running
+      if (_backgroundService.isRunning) {
+        print('$logTag ℹ️ Background service already running - skipping restart');
+        return {
+          'success': true,
+          'message': 'Background tracking already active',
+          'already_running': true,
+        };
+      }
+
+      // Validate user data
+      if (userCd.isEmpty || token == null || token.isEmpty || syncId <= 0) {
+        print(
+            '$logTag ❌ Missing user data: userCd=$userCd, syncId=$syncId, hasToken=${token != null}');
+        return {
+          'success': false,
+          'message': 'Missing user data',
+          'error': 'Cannot restart tracking without user credentials',
+        };
+      }
+
+      print('$logTag ℹ️ User: $userCd | Sync ID: $syncId');
+
+      // Step 1: Get current GPS location (or last known) - with aggressive timeout
+      double currentLat = 0, currentLng = 0;
+      try {
+        try {
+          final Position position = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.bestForNavigation)
+              .timeout(const Duration(seconds: 5)); // Reduced timeout
+          currentLat = position.latitude;
+          currentLng = position.longitude;
+          print('$logTag 📍 Current GPS location: $currentLat, $currentLng');
+        } on TimeoutException {
+          print('$logTag ⚠️ GPS timeout (5s) - trying last known');
+          final Position? lastKnown = await Geolocator.getLastKnownPosition()
+              .timeout(const Duration(seconds: 3));
+          if (lastKnown != null) {
+            currentLat = lastKnown.latitude;
+            currentLng = lastKnown.longitude;
+            print(
+                '$logTag 📍 Last known GPS location: $currentLat, $currentLng');
+          } else {
+            print('$logTag ⚠️ No last known position - using (0,0)');
+            currentLat = 0;
+            currentLng = 0;
+          }
+        }
+      } catch (e) {
+        print('$logTag ⚠️ GPS retrieval failed completely: $e - using (0,0)');
+        currentLat = 0;
+        currentLng = 0;
+      }
+
+      // Step 2: Start background location tracking service
+      print('$logTag 🚀 Starting background location tracking service...');
+      final trackingResult = await _backgroundService.startTracking(
+        userCd: userCd,
+        syncId: syncId,
+        token: token,
+        startLat: currentLat,
+        startLng: currentLng,
+        moduleNo: moduleNo,
+      );
+
+      if (trackingResult['success']) {
+        final tripId = trackingResult['trip_id'] as int?;
+        print('$logTag ✅ RESTART TRACKING SUCCESSFUL');
+        print('$logTag   ✅ Background tracking restarted with trip_id=$tripId');
+        print('$logTag   📍 Coordinates: $currentLat, $currentLng');
+        return {
+          'success': true,
+          'trip_id': tripId,
+          'message': 'Location tracking restarted successfully.',
+        };
+      } else {
+        print(
+            '$logTag ⚠️ Background tracking failed to restart: ${trackingResult['error']}');
+        return {
+          'success': false,
+          'message':
+              'Background tracking failed to restart. Please check location permissions.',
+          'error': trackingResult['message'],
+        };
+      }
+    } catch (e, stack) {
+      print('$logTag ❌ Restart tracking error: $e');
+      print('$logTag Stack: $stack');
+      return {
+        'success': false,
+        'message': 'Failed to restart tracking: $e',
+        'error': e.toString(),
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> punchOut({
     required String userCd,
     required int syncId,

@@ -19,17 +19,11 @@ class HeartbeatWorkmanager {
 
   /// Initialize WorkManager for heartbeat tasks
   static Future<void> initialize() async {
-    try {
-      print('[HeartbeatWorkmanager] Initializing WorkManager for heartbeat...');
-      await Workmanager().initialize(
-        heartbeatCallbackDispatcher,
-        isInDebugMode: false,
-      );
-      print('[HeartbeatWorkmanager] ✅ WorkManager initialized');
-    } catch (e) {
-      print('[HeartbeatWorkmanager] ❌ Error initializing WorkManager: $e');
-      rethrow;
-    }
+    // ✅ Workmanager is now initialized in main.dart
+    // This method is kept for backward compatibility
+    // Do NOT call Workmanager().initialize() again here to avoid double-initialization crashes
+    print(
+        '[HeartbeatWorkmanager] ✅ Using shared Workmanager instance from main');
   }
 
   /// Register periodic heartbeat task (every 15 minutes as recovery mechanism)

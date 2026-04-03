@@ -31,7 +31,7 @@ class _FirmListPageState extends State<FirmListPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ProfileProvider p =
           Provider.of<ProfileProvider>(context, listen: false);
-      p.getProfile(context).then((value) {
+      p.getProfile().then((value) {
         // Load settings after profile is loaded
         p.loadSettings(context);
 

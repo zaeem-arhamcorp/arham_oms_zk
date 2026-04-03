@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:arham_corporation/providers/app_provider.dart';
 import 'package:arham_corporation/services/services.dart';
+import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -120,24 +121,56 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future userSignout(context) async {
+    print('[UserProvider] 🔴 User logout initiated');
+    final logoutToken = _token;
+
+    // Step 1: Stop background location tracking service
+    try {
+      print(
+          '[UserProvider] 🛑 Stopping background location tracking service...');
+      final backgroundService = BackgroundLocationService();
+      await backgroundService.stopTracking(endTripOnServer: false);
+      print('[UserProvider] ✅ Background tracking stopped');
+    } catch (e) {
+      print('[UserProvider] ⚠️ Error stopping tracking: $e');
+    }
+
+    // Step 2: Clear SharedPreferences
     final SharedPreferences sp = await SharedPreferences.getInstance();
+    print('[UserProvider] 🗑️ Clearing SharedPreferences');
     sp.clear();
 
-    Services().logout(context);
+    // Step 3: Call server logout using captured token (no context/provider lookup)
+    try {
+      print('[UserProvider] 📡 Calling server logout API...');
+      await Services().logoutWithToken(logoutToken);
+      print('[UserProvider] ✅ Server logout completed');
+    } catch (e) {
+      print('[UserProvider] ⚠️ Error in server logout: $e');
+    }
 
-    AppProviders.disposeAllDisposableProviders(context);
+    // Step 4: Dispose all providers
+    // Note: Skip context-based disposal since widget tree is deactivated
+    // Each provider should auto-cleanup when replaced or removed from widget tree
+    print(
+        '[UserProvider] 🧹 Skipping context-based provider disposal (widget tree deactivated)');
 
+    // Step 5: Clear local user state
     _isSignedIn = false;
     _role = null;
     _token = null;
+    _syncId = null;
+    _syncName = null;
+    _custId = null;
 
+    print('[UserProvider] ✅ User logout completed');
     notifyListeners();
   }
 
   /// Check if current user is a parent user (has child users)
   Future<bool> hasChildren() async {
     print('[UserProvider] 🔍 Checking if user has children...');
-    
+
     if (_token == null || _token!.isEmpty) {
       print('[UserProvider] ❌ Token is null or empty');
       return false;
@@ -146,7 +179,7 @@ class UserProvider extends ChangeNotifier {
     try {
       final uri = Uri.parse('${AppConfig.baseURL}users/children');
       print('[UserProvider] 📡 Calling children API: $uri');
-      
+
       final response = await http.get(
         uri,
         headers: {
@@ -161,18 +194,19 @@ class UserProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         final data = decoded['data'];
-        
+
         print('[UserProvider] ✅ Data type: ${data.runtimeType}');
-        
+
         if (data is List) {
           final hasChildren = data.isNotEmpty;
-          print('[UserProvider] 👥 Children count: ${data.length} (hasChildren: $hasChildren)');
+          print(
+              '[UserProvider] 👥 Children count: ${data.length} (hasChildren: $hasChildren)');
           return hasChildren;
         }
         print('[UserProvider] ❌ Data is not a list');
         return false;
       }
-      
+
       print('[UserProvider] ❌ API returned status ${response.statusCode}');
       return false;
     } catch (e) {

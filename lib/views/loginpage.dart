@@ -903,7 +903,8 @@ class _LoginPageState extends State<LoginPage> {
         if (value != null) {
           try {
             await DatabaseHelper().clearOrderTrackingCache();
-            print('[LoginPage] Cleared order tracking cache');
+            print(
+                '[LoginPage] Cleared route/order tracking cache (kept punch rows)');
           } catch (e) {
             print('[LoginPage] Failed to clear cache: $e');
           }
@@ -942,7 +943,7 @@ class _LoginPageState extends State<LoginPage> {
               locationProvider.start(userProvider);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);
-              context.read<ProfileProvider>().getProfile(context).then((value) {
+              context.read<ProfileProvider>().getProfile().then((value) {
                 context.read<ProfileProvider>().loadSettings(context);
                 global.loadinglogin(false);
                 global.loadingfetchlogin(false);

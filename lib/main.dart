@@ -31,6 +31,7 @@ import 'package:arham_corporation/services/connectivity_service.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:arham_corporation/services/location_tracking_workmanager.dart';
 import 'package:arham_corporation/services/heartbeat_workmanager.dart';
+import 'package:workmanager/workmanager.dart';
 
 void main() async {
   SystemChrome.setSystemUIOverlayStyle(
@@ -50,11 +51,7 @@ void main() async {
     return true;
   };
 
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
-      .then((_) {
-    runApp(MyApp());
-  });
-
+  // ✅ Initialize Hive BEFORE building widgets
   Directory directory = await getApplicationDocumentsDirectory();
   Hive.initFlutter();
   Hive.init(directory.path);
@@ -65,29 +62,40 @@ void main() async {
   await Hive.openBox<Ordermodal>(Constants.addOrder);
   await Hive.openBox<DatumOrderList>(Constants.orderFetch);
 
-  // Initialize SQLite database
+  // ✅ Initialize SQLite database BEFORE building widgets
   await DatabaseHelper().database;
 
-  // Initialize background location service
+  // ✅ Initialize background location service BEFORE building widgets
   print('[Main] Initializing background location service...');
   await BackgroundLocationService().initialize();
   print('[Main] ✅ Background location service initialized');
 
-  // Initialize periodic recovery for app-kill scenarios (no boot recovery)
+  // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
+  print('[Main] Initializing Workmanager core...');
+  try {
+    await Workmanager().initialize(
+      locationTrackingCallbackDispatcher,
+      isInDebugMode: false,
+    );
+    print('[Main] ✅ Workmanager core initialized');
+  } catch (e) {
+    print('[Main] ⚠️ Workmanager init warning: $e');
+  }
+
   print('[Main] Initializing location tracking WorkManager...');
   await LocationTrackingWorkmanager.initialize();
   await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
   await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
   print('[Main] ✅ Location tracking WorkManager initialized');
 
-  // Initialize heartbeat workmanager
+  // ✅ Initialize heartbeat workmanager BEFORE building widgets
   print('[Main] Initializing heartbeat WorkManager...');
   await HeartbeatWorkmanager.initialize();
   await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
   await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
   print('[Main] ✅ Heartbeat WorkManager initialized');
 
-  // Attempt immediate resume if app was killed with active tracking
+  // ✅ Attempt immediate resume if app was killed with active tracking
   print('[Main] Checking for active trip to resume...');
   try {
     final resumed =
@@ -100,6 +108,10 @@ void main() async {
   } catch (e) {
     print('[Main] ⚠️ Error resuming active trip: $e');
   }
+
+  // ✅ NOW set orientation and build app (all initialization done)
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {

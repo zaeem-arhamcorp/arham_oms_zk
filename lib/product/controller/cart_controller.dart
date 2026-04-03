@@ -36,6 +36,7 @@ class CartController extends GetxController {
     String? remarks,
     String? nrate, // for offline storage
     String? itemName, // for offline storage
+    String? stockist, // New field for stockist
   }) async {
     if (productAddedStates[itemCd] == true) return;
 
@@ -115,6 +116,7 @@ class CartController extends GetxController {
           otherDesc: otherDesc ?? '',
           fld5: remarks ?? '',
           itemName: itemName ?? '',
+          stockist: stockist ?? '',
         );
 
         productAddedStates[itemCd] = true;
@@ -206,6 +208,7 @@ class CartController extends GetxController {
         otherDesc: otherDesc ?? '',
         fld5: remarks ?? '',
         itemName: itemName ?? '',
+        stockist: stockist ?? '',
       );
       log("Item $itemCd saved to local cart (online+local)");
 
@@ -220,6 +223,8 @@ class CartController extends GetxController {
           "otherDesc": otherDesc,
         if (remarks != null && remarks.trim().isNotEmpty) "fld5": remarks,
         if (rate != null && rate.trim().isNotEmpty) "rate": rate,
+        if (stockist != null && stockist.trim().isNotEmpty)
+          "stockist": stockist,
         "moduleNo": "205"
       };
 

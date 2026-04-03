@@ -59,8 +59,7 @@ class _MenusPageState extends State<MenusPage> {
           ],
           title: Text("Menus"),
         ),
-        body:
-        GridView.count(
+        body: GridView.count(
           crossAxisCount: 3,
           children: [
             if (p.data != null && p.data!.moduleNos.contains("04"))
@@ -97,16 +96,18 @@ class _MenusPageState extends State<MenusPage> {
                   iconUrl: "assets/icons/outstanding.png",
                 ),
               ),
-            if (p.data != null && p.data!.moduleNos.contains("14")) // TODO : THIS LINE USE FOR CHECK HIDE & SHOW MENU
+            if (p.data != null &&
+                p.data!.moduleNos.contains(
+                    "14")) // TODO : THIS LINE USE FOR CHECK HIDE & SHOW MENU
               Card(
                 elevation: 8,
                 child: MenuContainer(
-                title: "Outstanding Payable",
-                onTap: () {
-                  Get.to(() => OutStandingReportPayableScreen());
-                },
-                icon: Icons.payment, // IconData
-            ),
+                  title: "Outstanding Payable",
+                  onTap: () {
+                    Get.to(() => OutStandingReportPayableScreen());
+                  },
+                  icon: Icons.payment, // IconData
+                ),
               ),
             if (p.data != null && p.data!.moduleNos.contains("10"))
               Card(
@@ -165,7 +166,8 @@ class _MenusPageState extends State<MenusPage> {
                 child: MenuContainer(
                   title: "Item Wise Sale",
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) {
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (context) {
                       return ItemWiseSaleReportScreen();
                     }));
                   },
@@ -195,18 +197,17 @@ class _MenusPageState extends State<MenusPage> {
                 ),
               ),
             if (p.data != null && p.data!.moduleNos.contains("01"))
-
-            if (p.data != null && p.data!.moduleNos.contains("03"))
-              Card(
-                elevation: 8,
-                child: MenuContainer(
-                  title: "Item Ledger",
-                  onTap: () {
-                    Get.to(() => ItemLedgerReportScreen());
-                  },
-                  iconUrl: "assets/icons/item-ledger.png",
+              if (p.data != null && p.data!.moduleNos.contains("03"))
+                Card(
+                  elevation: 8,
+                  child: MenuContainer(
+                    title: "Item Ledger",
+                    onTap: () {
+                      Get.to(() => ItemLedgerReportScreen());
+                    },
+                    iconUrl: "assets/icons/item-ledger.png",
+                  ),
                 ),
-              ),
             if (p.data != null && p.data!.moduleNos.contains("13"))
               Card(
                 elevation: 8,
@@ -244,12 +245,12 @@ class _MenusPageState extends State<MenusPage> {
               Card(
                 elevation: 8,
                 child: MenuContainer(
-                title: "Receipt",
-                onTap: () {
-                  Get.to(() => ReceivableReceiptSettlementPage());
-                },
-                icon: Icons.receipt, // IconData
-            ),
+                  title: "Receipt",
+                  onTap: () {
+                    Get.to(() => ReceivableReceiptSettlementPage());
+                  },
+                  icon: Icons.receipt, // IconData
+                ),
               ),
             if (p.data != null && p.data!.moduleNos.contains("17"))
               Card(

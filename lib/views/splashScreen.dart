@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
             // Try to populate profile from cache (provider already handles offline load)
             await context
                 .read<ProfileProvider>()
-                .getProfile(context)
+                .getProfile()
                 .timeout(const Duration(seconds: 2));
 
             // Load settings (cached or from API)
@@ -107,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen> {
           try {
             await context
                 .read<ProfileProvider>()
-                .getProfile(context)
+                .getProfile()
                 .timeout(const Duration(seconds: 6));
 
             // Load settings (cached or from API)

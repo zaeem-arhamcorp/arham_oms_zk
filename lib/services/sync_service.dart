@@ -293,6 +293,9 @@ class SyncService {
       if (item["fld5"] != null && item["fld5"].toString().isNotEmpty) {
         cartPayload["fld5"] = item["fld5"].toString();
       }
+      if (item["stockist"] != null && item["stockist"].toString().isNotEmpty) {
+        cartPayload["stockist"] = item["stockist"].toString();
+      }
 
       print('[SyncService] POST cart: $cartPayload');
 

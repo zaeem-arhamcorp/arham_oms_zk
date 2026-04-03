@@ -56,7 +56,7 @@ class OfflineCachingService {
 
         final profileProvider =
             Provider.of<ProfileProvider>(context, listen: false);
-        await profileProvider.getProfile(context);
+        await profileProvider.getProfile();
         print('[OFFLINE CACHE] ✓ Profile cached');
 
         // Cache License Info for Order Limits

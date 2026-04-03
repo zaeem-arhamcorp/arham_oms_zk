@@ -11,6 +11,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/location_service.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -174,44 +175,51 @@ class LocationProvider extends ChangeNotifier {
       final now = DateTime.now();
       final vouchDt = now.toString().split(' ')[0]; // YYYY-MM-DD format
       final vouchTime = now.toString().split(' ')[1]; // HH:MM:SS format
+      final sp = await SharedPreferences.getInstance();
+      final actualUserCd = sp.getString('UserCode') ?? '';
+      final firmSyncId = int.tryParse(ub.syncId ?? '0') ?? 0;
 
       print('[LocationProvider] 🔵 PUNCH REQUEST - Remark: ${remarks}');
       print(
-          '[LocationProvider]   User: ${ub.syncId} | DateTime: $vouchDt $vouchTime');
+          '[LocationProvider]   USER_CD: $actualUserCd | SYNC_ID: $firmSyncId | DateTime: $vouchDt $vouchTime');
+
+      if (actualUserCd.isEmpty || firmSyncId <= 0) {
+        throw Exception('Missing USER_CD or SYNC_ID for punch operation');
+      }
 
       // Call appropriate method based on punch type
       final Map<String, dynamic> result;
       if (remarks == 'PUNCH IN') {
         // PUNCH IN: Use punchIn() which starts background tracking
         result = await locationService.punchIn(
-          userCd: ub.syncId ?? '',
+          userCd: actualUserCd,
           vouchDt: vouchDt,
           vouchTime: vouchTime,
           remark: remarks,
-          syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
+          syncId: firmSyncId,
           moduleNo: '301',
           token: ub.token ?? '',
         );
       } else if (remarks == 'PUNCH OUT') {
         // PUNCH OUT: Use punchOut() which stops background tracking
         result = await locationService.punchOut(
-          userCd: ub.syncId ?? '',
+          userCd: actualUserCd,
           vouchDt: vouchDt,
           vouchTime: vouchTime,
           remark: remarks,
-          syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
+          syncId: firmSyncId,
           moduleNo: '301',
           token: ub.token ?? '',
         );
       } else {
         // Fallback for other punch types
         result = await locationService.punchInOut(
-          userCd: ub.syncId ?? '',
+          userCd: actualUserCd,
           vouchDt: vouchDt,
           vouchTime: vouchTime,
           punchType: remarks.toString(),
           remark: remarks.toString(),
-          syncId: int.tryParse(ub.syncId ?? '0') ?? 0,
+          syncId: firmSyncId,
           moduleNo: '301',
           token: ub.token ?? '',
         );

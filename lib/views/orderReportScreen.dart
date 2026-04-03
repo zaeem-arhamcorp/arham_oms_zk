@@ -38,7 +38,14 @@ import '../providers/party_provider.dart';
 import '../widgets/pdfViewerScreen.dart';
 
 class OrderReportScreen extends StatefulWidget {
-  const OrderReportScreen({Key? key}) : super(key: key);
+  final String? selectedUserCd;
+  final String? selectedUserName;
+
+  const OrderReportScreen({
+    Key? key,
+    this.selectedUserCd,
+    this.selectedUserName,
+  }) : super(key: key);
 
   @override
   State<OrderReportScreen> createState() => _OrderReportScreenState();
@@ -51,6 +58,12 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   TextEditingController fromdateController = TextEditingController();
   TextEditingController toDateController = TextEditingController();
   TextEditingController userController = TextEditingController();
+
+  List<Map<String, dynamic>> _users = [];
+  bool _loadingUsers = false;
+  String? _selectedUserName;
+  String _selectedUserCode = ''; // Tracks current dropdown selection
+  bool _usersFetchInitiated = false; // Track if we've already tried to fetch
 
   bool isWhatsappInstalled = false;
   bool isWhatsappBussinessInstalled = false;
@@ -193,15 +206,148 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     // fromdateController.text = Helper.getDefaultFromDate();
     // toDateController.text = DateFormat("yyyy-MM-dd").format(DateTime.now());
 
-    fromdateController.text = Helper.toUi(Helper.getDefaultFromDate());
+    // Use 90-day range to capture all hierarchy orders (parent + children)
+    final now = DateTime.now();
+    final fromDate = now.subtract(const Duration(days: 90));
+    fromdateController.text =
+        Helper.toUi(DateFormat("yyyy-MM-dd").format(fromDate));
     toDateController.text =
         Helper.toUi(DateFormat("yyyy-MM-dd").format(DateTime.now()));
+
+    // If selectedUserCd is provided (from user selection screen), use it
+    if (widget.selectedUserCd != null && widget.selectedUserCd!.isNotEmpty) {
+      userController.text = widget.selectedUserCd!;
+      _selectedUserCode = widget.selectedUserCd!;
+    }
 
     getDate();
     checkWhatsappInstalled();
     checkWhatsappBussinessInstalled();
     _focusNode.requestFocus();
     super.initState();
+  }
+
+  Future<void> _fetchUsers() async {
+    setState(() {
+      _loadingUsers = true;
+    });
+
+    try {
+      final UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
+
+      final String token = userProvider.token ?? '';
+      final String baseUrl = AppConfig.baseURL;
+
+      print(
+          '_fetchUsers: Fetching from ${baseUrl}users with token: ${token.substring(0, 20)}...');
+
+      final response = await http.get(
+        Uri.parse('${baseUrl}users'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      print('_fetchUsers: Response status: ${response.statusCode}');
+      print('_fetchUsers: Response body: ${response.body.substring(0, 500)}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        List<dynamic> users = jsonResponse['data'] as List<dynamic>? ?? [];
+
+        print('_fetchUsers: Fetched ${users.length} users');
+
+        setState(() {
+          _users = List<Map<String, dynamic>>.from(
+            users.map((user) {
+              final userCode = user['USER_CD'] ?? user['userCode'] ?? '';
+              final userName = user['USER_NAME'] ?? user['userName'] ?? '';
+              print('_fetchUsers: Adding user - $userName ($userCode)');
+              return {
+                'userCode': userCode,
+                'userName': userName,
+              };
+            }),
+          );
+          _loadingUsers = false;
+        });
+
+        print('_fetchUsers: State updated with ${_users.length} users');
+      } else {
+        setState(() {
+          _loadingUsers = false;
+        });
+        print('Failed to fetch users: ${response.statusCode}');
+        print('Response: ${response.body}');
+      }
+    } catch (e) {
+      setState(() {
+        _loadingUsers = false;
+      });
+      print('Error fetching users: $e');
+    }
+  }
+
+  List<DropdownMenuItem<String>> _buildUserDropdownItems() {
+    // Trigger fetch on first dropdown open if users not yet fetched
+    if (_users.isEmpty && !_loadingUsers && !_usersFetchInitiated) {
+      print('First dropdown open - triggering user fetch');
+      _usersFetchInitiated = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchUsers();
+      });
+    }
+
+    List<DropdownMenuItem<String>> items = [
+      DropdownMenuItem<String>(
+        value: '',
+        child: Text("All Users"),
+      ),
+    ];
+
+    if (_loadingUsers) {
+      items.add(
+        DropdownMenuItem<String>(
+          enabled: false,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  "Loading users...",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    items.addAll(
+      _users
+          .map((user) => DropdownMenuItem<String>(
+                value: user['userCode'] ?? '',
+                child: Text(user['userName'] ?? user['userCode'] ?? ''),
+              ))
+          .toList(),
+    );
+
+    return items;
   }
 
   TextEditingController searchPartyClt = TextEditingController();
@@ -322,6 +468,12 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     final PartyProvider party = context.watch<PartyProvider>();
     final UserProvider ub = context.watch<UserProvider>();
     final ProfileProvider profile = context.watch<ProfileProvider>();
+
+    // If selectedUserName provided, show it; otherwise show "Order Report"
+    final title = widget.selectedUserName != null
+        ? '${widget.selectedUserName}\'s Order Report'
+        : 'Order Report';
+
     return WillPopScope(
       onWillPop: () async {
         Get.back(result: true);
@@ -331,7 +483,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         appBar: CustomAppBar(
-          title: "Order Report",
+          title: title,
           actions: [
             if (printRight)
               PopupMenuButton<dynamic>(
@@ -945,6 +1097,52 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                 onSaved: (val) {},
                               ),
                             ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // ------------------- USER DROPDOWN -------------------
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10.0, vertical: 8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Filter by User"),
+                        SizedBox(height: 5.h),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              underline: SizedBox(),
+                              hint: Text("Select User (All if empty)"),
+                              value: _selectedUserCode.isEmpty
+                                  ? null
+                                  : _selectedUserCode,
+                              items: _buildUserDropdownItems(),
+                              onChanged: (value) {
+                                print('Dropdown selected: $value');
+                                setState(() {
+                                  _selectedUserCode = value ?? '';
+                                  userController.text = value ?? '';
+                                  _selectedUserName = value == ''
+                                      ? 'All Users'
+                                      : _users.firstWhere(
+                                          (user) => user['userCode'] == value,
+                                          orElse: () => {'userName': 'Unknown'},
+                                        )['userName'];
+                                });
+                                print('Calling getDate from dropdown');
+                                getDate();
+                              },
+                            ),
                           ),
                         ),
                       ],
@@ -1860,7 +2058,12 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                   .updateOrder(
                                                                       data[index]
                                                                           .oId,
-                                                                      context)
+                                                                      context,
+                                                                      stockist: data[
+                                                                              index]
+                                                                          .account
+                                                                          .accCd
+                                                                          .toString())
                                                                   .then(
                                                                       (value) async {
                                                                 print(

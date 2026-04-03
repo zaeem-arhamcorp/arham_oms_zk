@@ -4,6 +4,8 @@ import 'package:arham_corporation/views/narration/narration_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/route_report_screen.dart';
 import 'package:arham_corporation/views/user_selection_screen.dart';
+import 'package:arham_corporation/views/change_password/change_password_view.dart';
+import 'package:arham_corporation/views/referral/referral_view.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -56,12 +58,14 @@ class _NewMenuState extends State<NewMenu> {
   bool narrationDeleteRight = false;
   bool narrationPrintRights = false;
 
+  late ProfileProvider _profileProvider;
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    final ProfileProvider p =
-        Provider.of<ProfileProvider>(context, listen: false);
+    _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final ProfileProvider p = _profileProvider;
 
     // var receiptEntryModule =
     // p.data!.modulesList!.firstWhere((module) => module.mODULENO == "214");
@@ -252,10 +256,9 @@ class _NewMenuState extends State<NewMenu> {
             //       Get.to(() => DailyReportScreen());
             //     },
             //   ),
-            if (ub.role == AppConfig.masteruser &&
-                (p.data != null &&
-                    p.data!.modulesList!.any((module) =>
-                        module.mODULENO == "109" && module.rEADRIGHT == true)))
+            if (p.data != null &&
+                p.data!.modulesList!.any((module) =>
+                    module.mODULENO == "109" && module.rEADRIGHT == true))
               ListTile(
                 leading: Icon(
                   Icons.nat_rounded,
@@ -290,7 +293,9 @@ class _NewMenuState extends State<NewMenu> {
                   Get.to(() => FirmListPage());
                 },
               ),
-            if (ub.role == AppConfig.masteruser)
+            if (p.data != null &&
+                p.data!.modulesList!.any((module) =>
+                    module.mODULENO == "110" && module.rEADRIGHT == true))
               ListTile(
                 leading: Icon(
                   Icons.group,
@@ -333,6 +338,81 @@ class _NewMenuState extends State<NewMenu> {
                 ),
                 onTap: () {
                   Get.to(() => SettingScreen());
+                },
+              ),
+            // ✅ Show Go Offline button only if offline mode is enabled
+            Selector<ProfileProvider, bool>(
+              selector: (context, profileProvider) =>
+                  profileProvider.isOfflineModeEnabled(),
+              builder: (context, isOfflineModeEnabled, child) {
+                if (!isOfflineModeEnabled) {
+                  return SizedBox.shrink();
+                }
+                return ListTile(
+                  leading: Icon(
+                    Icons.cloud_download,
+                    size: 30,
+                  ),
+                  title: Text(
+                    'Go Offline',
+                    style: TextStyle(
+                      fontSize: 20,
+                    ),
+                  ),
+                  onTap: () {
+                    // TODO: Implement offline dialog
+                  },
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.key,
+                size: 30,
+              ),
+              title: Text(
+                'Change Password',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => ChangePasswordView());
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.group_add,
+                size: 30,
+              ),
+              title: Text(
+                'Generate Referral',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => ReferralView());
+              },
+            ),
+            // Reimbursement (Module 231)
+            if (_profileProvider.data?.modulesList != null &&
+                _profileProvider.data!.modulesList!.any((module) =>
+                    module.mODULENO == "231" &&
+                    (module.rEADRIGHT == true || module.pRINTRIGHT == true)))
+              ListTile(
+                leading: Icon(
+                  Icons.attach_money,
+                  size: 30,
+                ),
+                title: Text(
+                  'Reimbursement',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  Get.to(() => GetExpenseView());
                 },
               ),
             ListTile(
@@ -565,18 +645,24 @@ class _NewMenuState extends State<NewMenu> {
                       final ub =
                           Provider.of<UserProvider>(context, listen: false);
                       if (ub.role == AppConfig.masteruser) {
-                        print('[NewMenu] 👑 Master user detected - showing user selection');
-                        Get.to(() => const UserSelectionScreen(isMasterUser: true));
+                        print(
+                            '[NewMenu] 👑 Master user detected - showing user selection');
+                        Get.to(() =>
+                            const UserSelectionScreen(isMasterUser: true));
                       } else {
                         // Check if operator is a parent user
-                        print('[NewMenu] 👤 Operator user detected - checking if parent');
+                        print(
+                            '[NewMenu] 👤 Operator user detected - checking if parent');
                         final isParent = await ub.hasChildren();
                         print('[NewMenu] Parent check result: $isParent');
                         if (isParent) {
-                          print('[NewMenu] ✅ Operator is a parent - showing child selection');
-                          Get.to(() => const UserSelectionScreen(isMasterUser: false));
+                          print(
+                              '[NewMenu] ✅ Operator is a parent - showing child selection');
+                          Get.to(() =>
+                              const UserSelectionScreen(isMasterUser: false));
                         } else {
-                          print('[NewMenu] 📊 Operator is not a parent - showing own route');
+                          print(
+                              '[NewMenu] 📊 Operator is not a parent - showing own route');
                           Get.to(() => const RouteReportScreen());
                         }
                       }

@@ -19,10 +19,11 @@ class LocationTrackingWorkmanager {
   static const String _lastTaskNameKey = 'wm_last_task_name';
 
   static Future<void> initialize() async {
-    await Workmanager().initialize(
-      locationTrackingCallbackDispatcher,
-      isInDebugMode: false,
-    );
+    // ✅ Workmanager is now initialized in main.dart
+    // This method is kept for backward compatibility
+    // Do NOT call Workmanager().initialize() again here to avoid double-initialization crashes
+    print(
+        '[LocationTrackingWorkmanager] ✅ Using shared Workmanager instance from main');
   }
 
   static Future<void> registerPeriodicRecoveryTask() async {

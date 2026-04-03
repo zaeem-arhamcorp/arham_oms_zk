@@ -88,13 +88,18 @@ class ProfileProvider extends DisposableProvider {
     notifyListeners();
   }
 
-  Future getProfile(BuildContext context, {id}) async {
+  Future getProfile({id}) async {
     // NOTE: Do NOT clear _data, YN, ACC_NAME, ACC_CD or call notifyListeners()
     // before the network response. Doing so causes the UI to lose all state
     // (punch button disappears, Start/End Order breaks, partyCd becomes empty).
     // These values will be overwritten once the response arrives.
-    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
+
+    // Get auth data from SharedPreferences (no context dependency)
+    final sp = await SharedPreferences.getInstance();
+    final token = sp.getString('token') ?? '';
+    final syncIdStr = sp.getString('SyncId') ?? '';
+    final syncId = int.tryParse(syncIdStr) ?? 0;
+
     final bool online = await NetworkHelper.hasInternet();
     if (!online) {
       // Load cached profile if available
@@ -117,8 +122,10 @@ class ProfileProvider extends DisposableProvider {
           // Restore punch state from local locations table (today's punches)
           try {
             final locService = LocationService();
+            final userCodeFromPrefs = _userCode ?? '';
             await _restorePunchStateAndAutoCloseIfNeeded(
-              ub: ub,
+              userCd: userCodeFromPrefs,
+              syncIdValue: syncId,
               locService: locService,
               canAutoPunchOut: false,
               logTag: '[PROFILE-OFFLINE]',
@@ -129,10 +136,9 @@ class ProfileProvider extends DisposableProvider {
 
           // Restore order session state from local order_tracking table
           try {
-            final syncIdInt = int.tryParse(ub.syncId ?? '0') ?? 0;
-            if (syncIdInt > 0) {
+            if (syncId > 0) {
               final trackings =
-                  await DatabaseHelper().getTodayOrderTrackings(syncIdInt);
+                  await DatabaseHelper().getTodayOrderTrackings(syncId);
               print(
                   '[PROFILE-OFFLINE] 🔍 Found ${trackings.length} order trackings for today');
               if (trackings.isNotEmpty) {
@@ -145,7 +151,6 @@ class ProfileProvider extends DisposableProvider {
 
                 if (trackingType == '1' && remark == 'IN') {
                   // Active order session - restore party info
-                  pp.punchInOutPartyId = accCd;
                   // Try to find party name from cache, fallback to current ACC_NAME if already set
                   var partyName = ACC_NAME; // Start with current value
                   try {
@@ -159,15 +164,13 @@ class ProfileProvider extends DisposableProvider {
                   } catch (e) {
                     print('[PROFILE-OFFLINE] Could not load party cache: $e');
                   }
-                  pp.punchInOutParty = partyName;
                   // Set ProfileProvider ACC_Name and ACC_CD for this session
                   this.change(partyName, accCd);
                   print(
                       '[PROFILE-OFFLINE] ✅ Restored active order session: party=$accCd, name="$partyName"');
                 } else if (trackingType == '3' && remark == 'OUT') {
                   // Order ended - clear party info
-                  pp.punchInOutParty = '';
-                  pp.punchInOutPartyId = '';
+                  this.change('', '');
                   this.change('', '');
                   print(
                       '[PROFILE-OFFLINE] ✅ Restored ended order session (cleared party)');
@@ -190,20 +193,20 @@ class ProfileProvider extends DisposableProvider {
       final http.Response response = await http.get(
         Uri.parse(AppConfig.baseURL + "profile"),
         headers: {
-          "Authorization": "Bearer ${ub.token}",
+          "Authorization": "Bearer $token",
           'x-app-type': 'oms',
         },
       );
 
       print(AppConfig.baseURL + "profile");
-      print("Bearer ${ub.token}");
+      print("Bearer $token");
       print(response.body);
 
       if (response.statusCode == 200) {
         _data = profileModalFromJson(response.body).data;
 
         // Keep module access firm-specific after firm switch.
-        await _applyFirmModuleFilter(ub);
+        await _applyFirmModuleFilter(syncId);
 
         // Cache profile for offline
         try {
@@ -228,24 +231,117 @@ class ProfileProvider extends DisposableProvider {
         getUserCode();
         getUserName();
 
-        // Restore punch state from local locations table (today's punches)
-        // This ensures the punch button reflects the last punch action even
-        // when the server profile doesn't have that state yet
+        // Reconcile punch state with local-first strategy:
+        // 1) If today's local punches exist, trust them (they represent this device session)
+        // 2) Otherwise use server /orders-tracking remark
+        // 3) If server unavailable, fall back to legacy local restoration flow
+        String? serverPunchRemark;
+        final locService = LocationService();
+        final effectiveUserCd =
+            (_data?.userCd?.toString().trim().isNotEmpty ?? false)
+                ? _data!.userCd.toString().trim()
+                : (_userCode ?? '').trim();
+
         try {
-          final locService = LocationService();
-          await _restorePunchStateAndAutoCloseIfNeeded(
-            ub: ub,
-            locService: locService,
-            canAutoPunchOut: true,
-            logTag: '[PROFILE-ONLINE]',
-          );
+          if (effectiveUserCd.isNotEmpty) {
+            final localTodayPunches =
+                await locService.getTodaysPunches(effectiveUserCd);
+            print(
+                '[PROFILE-ONLINE] 📊 Local today punches for USER_CD=$effectiveUserCd: ${localTodayPunches.length}');
+
+            if (localTodayPunches.isNotEmpty) {
+              final lastLocal = localTodayPunches.last;
+              final localRemark = (lastLocal['REMARK'] ?? '').toString();
+              _data!.isPunchIn = localRemark == 'PUNCH IN';
+              print(
+                  '[PROFILE-ONLINE] ✅ Applied LOCAL punch state: remark=$localRemark, isPunchIn=${_data!.isPunchIn}');
+
+              if (_data!.isPunchIn) {
+                try {
+                  final currentModuleNo = _data?.profileSettings
+                          .firstWhere((e) => e.variable == 'currentModule',
+                              orElse: () =>
+                                  DatumSettings(variable: '', value: ''))
+                          .value ??
+                      '301';
+                  final syncIdInt = syncId;
+                  print(
+                      '[PROFILE-ONLINE] 🚀 Restarting location tracking from LOCAL state (moduleNo=$currentModuleNo)');
+                  await locService.restartTracking(
+                    userCd: effectiveUserCd,
+                    syncId: syncIdInt,
+                    token: token,
+                    moduleNo: currentModuleNo,
+                    logTag: '[PROFILE-ONLINE-RESTORE-LOCAL]',
+                  );
+                } catch (e) {
+                  print(
+                      '[PROFILE-ONLINE] ⚠️ Could not restart tracking from local state: $e');
+                }
+              }
+            } else {
+              print(
+                  '[PROFILE-ONLINE] ℹ️ No local today punches found, checking server state...');
+              serverPunchRemark = await Services().getCurrentPunchState(token);
+              print(
+                  '[PROFILE-ONLINE] 📊 Server punch state: $serverPunchRemark');
+
+              if (serverPunchRemark != null && serverPunchRemark.isNotEmpty) {
+                _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
+                print(
+                    '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=${_data!.isPunchIn}');
+
+                if (_data!.isPunchIn) {
+                  try {
+                    final currentModuleNo = _data?.profileSettings
+                            .firstWhere((e) => e.variable == 'currentModule',
+                                orElse: () =>
+                                    DatumSettings(variable: '', value: ''))
+                            .value ??
+                        '301';
+                    final syncIdInt = syncId;
+                    print(
+                        '[PROFILE-ONLINE] 🚀 Restarting location tracking from SERVER state (moduleNo=$currentModuleNo)');
+                    await locService.restartTracking(
+                      userCd: effectiveUserCd,
+                      syncId: syncIdInt,
+                      token: token,
+                      moduleNo: currentModuleNo,
+                      logTag: '[PROFILE-ONLINE-RESTORE-SERVER]',
+                    );
+                  } catch (e) {
+                    print(
+                        '[PROFILE-ONLINE] ⚠️ Could not restart tracking from server state: $e');
+                  }
+                }
+              } else {
+                await _restorePunchStateAndAutoCloseIfNeeded(
+                  userCd: effectiveUserCd,
+                  syncIdValue: syncId,
+                  locService: locService,
+                  canAutoPunchOut: true,
+                  logTag: '[PROFILE-ONLINE]',
+                );
+              }
+            }
+          } else {
+            print(
+                '[PROFILE-ONLINE] ⚠️ effectiveUserCd is empty, falling back to legacy restoration flow');
+            await _restorePunchStateAndAutoCloseIfNeeded(
+              userCd: effectiveUserCd,
+              syncIdValue: syncId,
+              locService: locService,
+              canAutoPunchOut: true,
+              logTag: '[PROFILE-ONLINE]',
+            );
+          }
         } catch (e) {
-          print('[PROFILE-ONLINE] ❌ Failed to restore punch state: $e');
+          print('[PROFILE-ONLINE] ❌ Punch state reconciliation failed: $e');
         }
 
         // Restore order session state from local order_tracking table
         try {
-          final syncIdInt = int.tryParse(ub.syncId ?? '0') ?? 0;
+          final syncIdInt = syncId;
           print('[PROFILE-ONLINE] 🔍 Checking order state: syncId=$syncIdInt');
           if (syncIdInt > 0) {
             final trackings =
@@ -266,7 +362,6 @@ class ProfileProvider extends DisposableProvider {
 
               if (trackingType == '1' && remark == 'IN') {
                 // Active order session - restore party info
-                pp.punchInOutPartyId = accCd;
                 // Try to find party name from cache, fallback to current ACC_NAME if already set
                 var partyName = ACC_NAME; // Start with current value
                 try {
@@ -280,15 +375,12 @@ class ProfileProvider extends DisposableProvider {
                 } catch (e) {
                   print('[PROFILE-ONLINE] Could not load party cache: $e');
                 }
-                pp.punchInOutParty = partyName;
                 // Set ProfileProvider ACC_Name and ACC_CD for this session
                 this.change(partyName, accCd);
                 print(
                     '[PROFILE-ONLINE] ✅ Restored active order session: party=$accCd, name="$partyName"');
               } else if (trackingType == '3' && remark == 'OUT') {
                 // Order ended - clear party info
-                pp.punchInOutParty = '';
-                pp.punchInOutPartyId = '';
                 this.change('', '');
                 print(
                     '[PROFILE-ONLINE] ✅ Restored ended order session (cleared party)');
@@ -312,11 +404,11 @@ class ProfileProvider extends DisposableProvider {
         try {
           final db = DatabaseHelper();
           final pendingTrackings = await db.getPendingOrderTrackings();
-          if (pendingTrackings.isNotEmpty && ub.token != null) {
+          if (pendingTrackings.isNotEmpty && token.isNotEmpty) {
             print(
                 '[PROFILE-ONLINE] 🔄 Found ${pendingTrackings.length} pending order tracking(s) — triggering sync');
             // Import and call sync service to push pending trackings
-            _triggerOrderTrackingSync(ub.token!);
+            _triggerOrderTrackingSync(token);
           }
         } catch (e) {
           print(
@@ -325,11 +417,9 @@ class ProfileProvider extends DisposableProvider {
 
         notifyListeners();
       } else {
-        ub.userSignout(context).then((value) {
-          print("Profile Page Call Before Logout");
-          Get.offAll(() => LoginPage());
-          print("Profile Page Call After Logout");
-        });
+        // Redirect to login if profile fetch failed
+        print("Profile fetch failed - redirecting to login");
+        Get.offAll(() => LoginPage());
       }
     } catch (e) {
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
@@ -428,26 +518,59 @@ class ProfileProvider extends DisposableProvider {
     }
   }
 
-  Future<void> _applyFirmModuleFilter(UserProvider ub) async {
+  /// Check if offline mode is enabled in settings for the CURRENT FIRM (sync ID)
+  /// Settings are loaded per-firm, so this check is firm-specific
+  /// Example:
+  ///   - Firm 1234 (syncId=1234): enableOfflineMode='Y' → returns TRUE
+  ///   - Firm 1235 (syncId=1235): enableOfflineMode='N' → returns FALSE
+  /// Returns true if enableOfflineMode setting value is 'Y' for current firm
+  bool isOfflineModeEnabled() {
+    if (_data?.profileSettings == null) {
+      print(
+          '[PROFILE] Profile settings is NULL - offline mode disabled by default');
+      return false; // Default to disabled if no settings
+    }
+
+    print('[PROFILE] Total settings loaded: ${_data!.profileSettings.length}');
+    for (var setting in _data!.profileSettings) {
+      print(
+          '[PROFILE] Setting: variable=${setting.variable}, value=${setting.value}');
+    }
+
+    try {
+      // Find the offline mode setting
+      for (var setting in _data!.profileSettings) {
+        if (setting.variable == 'enableOfflineMode') {
+          final isEnabled = setting.value?.toString().toUpperCase() == 'Y';
+          print(
+              '[PROFILE] 🔍 Found enableOfflineMode: value=${setting.value} → $isEnabled');
+          return isEnabled;
+        }
+      }
+      // Setting not found
+      print(
+          '[PROFILE] ⚠️ enableOfflineMode setting NOT found - defaulting to disabled');
+      return false;
+    } catch (e) {
+      print('[PROFILE] ❌ Error checking offline mode setting: $e');
+      return false;
+    }
+  }
+
+  Future<void> _applyFirmModuleFilter(int syncId) async {
     _ensureLegacyModuleNosFromModulesList();
 
-    final selectedSyncId = ub.syncId?.trim();
-    final token = ub.token?.trim();
-    final userRole = ub.role?.trim() ?? "";
+    // Get token from SharedPreferences
+    final sp = await SharedPreferences.getInstance();
+    final token = sp.getString('token')?.trim() ?? '';
 
-    // Master users should NOT have their modules filtered by firm restrictions
-    if (userRole == AppConfig.masteruser) {
+    if (syncId <= 0) {
       print(
-          '[PROFILE-ONLINE] ℹ️ Firm module filter skipped: Master user role detected');
+          '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: syncId is empty/invalid');
       return;
     }
 
-    if (selectedSyncId == null || selectedSyncId.isEmpty) {
-      print('[PROFILE-ONLINE] ⚠️ Firm module filter skipped: syncId is empty');
-      return;
-    }
-
-    if (token == null || token.isEmpty) {
+    if (token.isEmpty) {
       print('[PROFILE-ONLINE] ⚠️ Firm module filter skipped: token is empty');
       return;
     }
@@ -483,7 +606,7 @@ class ProfileProvider extends DisposableProvider {
       Map<String, dynamic>? selectedFirm;
       for (final firm in firms) {
         if (firm is Map<String, dynamic> &&
-            (firm['SYNC_ID']?.toString().trim() ?? '') == selectedSyncId) {
+            (firm['SYNC_ID']?.toString().trim() ?? '') == syncId.toString()) {
           selectedFirm = firm;
           break;
         }
@@ -491,17 +614,17 @@ class ProfileProvider extends DisposableProvider {
 
       if (selectedFirm == null) {
         print(
-            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: selected firm $selectedSyncId not found in /firm');
+            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: selected firm ${syncId.toString()} not found in /firm');
         return;
       }
 
       print(
-          '[PROFILE-ONLINE] Selected firm raw for syncId=$selectedSyncId => $selectedFirm');
+          '[PROFILE-ONLINE] Selected firm raw for syncId=${syncId.toString()} => $selectedFirm');
 
       final moduleNosRaw = selectedFirm['MODULE_NOS']?.toString().trim() ?? '';
       if (moduleNosRaw.isEmpty) {
         print(
-            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: MODULE_NOS empty for syncId=$selectedSyncId');
+            '[PROFILE-ONLINE] ⚠️ Firm module filter skipped: MODULE_NOS empty for syncId=${syncId.toString()}');
         return;
       }
 
@@ -525,7 +648,7 @@ class ProfileProvider extends DisposableProvider {
 
       _ensureLegacyModuleNosFromModulesList();
       print(
-          '[PROFILE-ONLINE] ✅ Applied firm module filter for syncId=$selectedSyncId (before=$before, after=$after)');
+          '[PROFILE-ONLINE] ✅ Applied firm module filter for syncId=${syncId.toString()} (before=$before, after=$after)');
     } catch (e) {
       print('[PROFILE-ONLINE] ❌ Failed to apply firm module filter: $e');
     }
@@ -558,22 +681,28 @@ class ProfileProvider extends DisposableProvider {
   /// Restore punch state from today's records.
   /// If day changed and previous state was still open, auto-run punch out online.
   Future<void> _restorePunchStateAndAutoCloseIfNeeded({
-    required UserProvider ub,
+    required String userCd,
+    required int syncIdValue,
     required LocationService locService,
     required bool canAutoPunchOut,
     required String logTag,
   }) async {
     if (_data == null) return;
 
-    final userCdStr = ub.syncId ?? '';
+    print('$logTag [SYNC-ID] syncIdValue=$syncIdValue');
     print(
-        '$logTag 🔍 Querying punches for userCd="$userCdStr" (from ub.syncId)');
-    if (userCdStr.isEmpty) {
-      print('$logTag ⚠️ userCdStr is empty, skipping punch restoration');
+        '$logTag [USER-CD] _data.userCd="${_data?.userCd}" | _userCode="$_userCode"');
+
+    // Prefer _userCode if available, otherwise use userCd parameter
+    final actualUserCd = _userCode ?? userCd;
+    print('$logTag 🔍 Querying punches for userCd="$actualUserCd"');
+
+    if (actualUserCd.isEmpty) {
+      print('$logTag ⚠️ userCd is empty, skipping punch restoration');
       return;
     }
 
-    final punches = await locService.getTodaysPunches(userCdStr);
+    final punches = await locService.getTodaysPunches(actualUserCd);
     print('$logTag 📊 Found ${punches.length} punches for today');
 
     if (punches.isNotEmpty) {
@@ -592,7 +721,8 @@ class ProfileProvider extends DisposableProvider {
     print(
         '$logTag ⚠️ No punches found for today, checking previous-day open state');
 
-    final latestPunch = await DatabaseHelper().getLatestPunchForUser(userCdStr);
+    final latestPunch =
+        await DatabaseHelper().getLatestPunchForUser(actualUserCd);
     final latestRemark = (latestPunch?['REMARK'] ?? '').toString();
     final latestDate = (latestPunch?['VOUCH_DT'] ?? '').toString();
 
@@ -620,14 +750,17 @@ class ProfileProvider extends DisposableProvider {
       return;
     }
 
-    final syncIdInt = int.tryParse(ub.syncId ?? '0') ?? 0;
+    final syncIdInt = syncIdValue;
     final vouchTime = now.toString().split(' ')[1].split('.').first;
+
+    final spForToken = await SharedPreferences.getInstance();
+    final token = spForToken.getString('token') ?? '';
 
     print('$logTag 🔄 Auto triggering day-change PUNCH OUT...');
     final autoPunchOutResult = await locService.punchOut(
-      userCd: userCdStr,
+      userCd: actualUserCd,
       syncId: syncIdInt,
-      token: ub.token ?? '',
+      token: token,
       vouchDt: todayStr,
       vouchTime: vouchTime,
       moduleNo: '301',

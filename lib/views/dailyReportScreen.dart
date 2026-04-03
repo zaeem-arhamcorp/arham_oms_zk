@@ -1,23 +1,30 @@
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/profileModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/offline_caching_service.dart'
+    show OfflineCachingService, CacheItemStatus;
+import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/company_management/firm_list.dart';
 import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
+import 'package:arham_corporation/views/referral/referral_view.dart';
+import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:arham_corporation/helper/helper.dart';
-import 'package:arham_corporation/services/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../models/dailReportListModal.dart';
 import 'About me.dart';
+import 'change_password/change_password_view.dart';
 
 class DailyReportScreen extends StatefulWidget {
   const DailyReportScreen({Key? key}) : super(key: key);
@@ -51,6 +58,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
   bool narrationUpdateRights = false;
   bool narrationDeleteRight = false;
   bool narrationPrintRights = false;
+
+  late ProfileProvider _profileProvider;
 
   getDate() {
     var f;
@@ -100,9 +109,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
   @override
   void initState() {
-
     final ProfileProvider p =
-    Provider.of<ProfileProvider>(context, listen: false);
+        Provider.of<ProfileProvider>(context, listen: false);
+    _profileProvider = p;
 
     // var receiptEntryModule =
     // p.data!.modulesList!.firstWhere((module) => module.mODULENO == "214");
@@ -118,8 +127,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
     var narrationEntryModule = p.data?.modulesList?.firstWhere(
           (module) => module.mODULENO == "109",
-      orElse: () => Modules(), // Default value in case not found
-    ) ??
+          orElse: () => Modules(), // Default value in case not found
+        ) ??
         Modules(); // Ensure that we get a default value if any part is null
 
     if (narrationEntryModule.mODULENO == "109") {
@@ -135,8 +144,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
     var receiptEntryModule = p.data?.modulesList?.firstWhere(
           (module) => module.mODULENO == "214",
-      orElse: () => Modules(), // Default value in case not found
-    ) ??
+          orElse: () => Modules(), // Default value in case not found
+        ) ??
         Modules(); // Ensure that we get a default value if any part is null
 
     if (receiptEntryModule.mODULENO == "214") {
@@ -152,7 +161,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
     var orderReportModule = p.data?.modulesList?.firstWhere(
             (module) => module.mODULENO == "304",
-        orElse: () => Modules()) ??
+            orElse: () => Modules()) ??
         Modules();
     if (orderReportModule.mODULENO == "304") {
       orderPrintRight = orderReportModule.pRINTRIGHT!;
@@ -163,9 +172,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
     var paymentEntryModule = p.data?.modulesList?.firstWhere(
             (module) => module.mODULENO == "215",
-        orElse: () =>
-            Modules() // Provide a default instance of the `Module` class
-    ) ??
+            orElse: () =>
+                Modules() // Provide a default instance of the `Module` class
+            ) ??
         Modules();
 
     if (paymentEntryModule.mODULENO == "215") {
@@ -180,7 +189,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
     // toDateController.text = DateFormat("yyyy-MM-dd").format(DateTime.now());
 
     fromdateController.text = Helper.toUi(Helper.getDefaultFromDate());
-    toDateController.text   = Helper.toUi(DateFormat("yyyy-MM-dd").format(DateTime.now()));
+    toDateController.text =
+        Helper.toUi(DateFormat("yyyy-MM-dd").format(DateTime.now()));
 
     getDate();
     super.initState();
@@ -196,7 +206,248 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
       appBar: CustomAppBar(
         title: 'Business Statistics',
       ),
+      // drawer: Drawer(
+      //   child: ListView(
+      //     padding: EdgeInsets.zero,
+      //     children: [
+      //       // DrawerHeader(
+      //       //   decoration: BoxDecoration(
+      //       //     color: Colors.white,
+      //       //   ),
+      //       //   child: Column(
+      //       //     mainAxisAlignment: MainAxisAlignment.start,
+      //       //     crossAxisAlignment: CrossAxisAlignment.start,
+      //       //     children: [
+      //       //       // Adjust the position of the image
+      //       //       Image.asset(
+      //       //         'assets/Arham-icon.png',
+      //       //         width: MediaQuery.of(context).size.width *
+      //       //             0.55, // Responsive width
+      //       //         height: MediaQuery.of(context).size.height *
+      //       //             0.14, // Responsive height
+      //       //       ),
+      //       //       // Text("hello")
+      //       //     ],
+      //       //   ),
+      //       // ),
+      //
+      //       DrawerHeader(
+      //         decoration: BoxDecoration(
+      //           color: Colors.white,
+      //         ),
+      //         child: Column(
+      //           mainAxisAlignment: MainAxisAlignment.start,
+      //           crossAxisAlignment: CrossAxisAlignment.start,
+      //           children: [
+      //             Flexible(
+      //               child: Image.asset(
+      //                 'assets/Arham-icon.png',
+      //                 fit: BoxFit.contain,
+      //                 width: MediaQuery.of(context).size.width * 0.55,
+      //                 // Don't use full screen height here
+      //                 height: MediaQuery.of(context).size.height * 0.14, // Reduce height
+      //               ),
+      //             ),
+      //           ],
+      //         ),
+      //       ),
+      //
+      //       // ListTile(
+      //       //   leading: Icon(
+      //       //     Icons.home,
+      //       //     size: 30,
+      //       //   ),
+      //       //   title: Text(
+      //       //     'Home',
+      //       //     style: TextStyle(
+      //       //       fontSize: 20,
+      //       //     ),
+      //       //   ),
+      //       //   onTap: () {
+      //       //     //Get.to(() => HomePage());
+      //       //
+      //       //     Get.offAll(() =>
+      //       //         BottomnavigationBarScreen()); // FAZAL Changes 15-12-2025
+      //       //   },
+      //       // ),
+      //       // ListTile(
+      //       //   leading: Icon(
+      //       //     Icons.widgets_outlined,
+      //       //     size: 30,
+      //       //   ),
+      //       //   title: Text(
+      //       //     'Menus',
+      //       //     style: TextStyle(
+      //       //       fontSize: 20,
+      //       //     ),
+      //       //   ),
+      //       //   onTap: () {
+      //       //     Get.to(() => NewMenu());
+      //       //   },
+      //       // ),
+      //       //if (p.data != null && p.data!.moduleNos.contains("01"))
+      //       // if (p.data != null &&
+      //       //     p.data!.modulesList!.any((module) => module.mODULENO == "301" && module.rEADRIGHT == true))
+      //       //   ListTile(
+      //       //     leading: Icon(
+      //       //       Icons.dashboard,
+      //       //       size: 30,
+      //       //     ),
+      //       //     title: Text(
+      //       //       'DashBoard',
+      //       //       style: TextStyle(fontSize: 20),
+      //       //     ),
+      //       //     onTap: () {
+      //       //       Get.to(() => DailyReportScreen());
+      //       //     },
+      //       //   ),
+      //       if (ub.role == AppConfig.masteruser &&
+      //           (p.data != null &&
+      //               p.data!.modulesList!
+      //                   .any((module) => module.mODULENO == "109" && module.rEADRIGHT == true)))
+      //         ListTile(
+      //           leading: Icon(
+      //             Icons.nat_rounded,
+      //             size: 30,
+      //           ),
+      //           title: Text(
+      //             'Narration',
+      //             style: TextStyle(fontSize: 20),
+      //           ),
+      //           onTap: () {
+      //             Get.to(NarrationView(), arguments: {
+      //               "ModuleNo": narrationModuleNo,
+      //               "ReadRight": narrationReadRight,
+      //               "WriteRight": narrationWriteRights,
+      //               "UpdateRight": narrationUpdateRights,
+      //               "DeleteRight": narrationDeleteRight,
+      //               "PrintRight": narrationPrintRights,
+      //             });
+      //           },
+      //         ),
+      //       if (ub.role == AppConfig.masteruser)
+      //         ListTile(
+      //           leading: Icon(
+      //             Icons.business_sharp,
+      //             size: 30,
+      //           ),
+      //           title: Text(
+      //             'Firm Management',
+      //             style: TextStyle(fontSize: 20),
+      //           ),
+      //           onTap: () {
+      //             Get.to(() => FirmListPage());
+      //           },
+      //         ),
+      //       if (ub.role == AppConfig.masteruser)
+      //         ListTile(
+      //           leading: Icon(
+      //             Icons.group,
+      //             size: 30,
+      //           ),
+      //           title: Text(
+      //             'User Management',
+      //             style: TextStyle(
+      //               fontSize: 20,
+      //             ),
+      //           ),
+      //           onTap: () {
+      //             Get.to(() => UserScreen());
+      //           },
+      //         ),
+      //       // ListTile(
+      //       //   leading: Icon(
+      //       //     Icons.account_circle,
+      //       //     size: 30,
+      //       //   ),
+      //       //   title: Text(
+      //       //     'Profile',
+      //       //     style: TextStyle(fontSize: 20),
+      //       //   ),
+      //       //   onTap: () {
+      //       //     Get.to(() => ProfilePage());
+      //       //   },
+      //       // ),
+      //       if (ub.role == AppConfig.masteruser)
+      //         ListTile(
+      //           leading: Icon(
+      //             Icons.settings,
+      //             size: 30,
+      //           ),
+      //           title: Text(
+      //             'Settings',
+      //             style: TextStyle(
+      //               fontSize: 20,
+      //             ),
+      //           ),
+      //           onTap: () {
+      //             Get.to(() => SettingScreen());
+      //           },
+      //         ),
+      //       ListTile(
+      //         leading: Icon(
+      //           Icons.info_outline,
+      //           size: 30,
+      //         ),
+      //         title: Text(
+      //           'About Us',
+      //           style: TextStyle(
+      //             fontSize: 20,
+      //           ),
+      //         ),
+      //         onTap: () {
+      //           Get.to(() => AboutPage());
+      //         },
+      //       ),
+      //       ListTile(
+      //         leading: Icon(
+      //           Icons.logout,
+      //           color: Colors.red,
+      //           size: 30,
+      //         ),
+      //         title: Text(
+      //           'Logout',
+      //           style: TextStyle(
+      //             fontSize: 20,
+      //           ),
+      //         ),
+      //         onTap: () {
+      //           // Show confirmation dialog
+      //           showDialog(
+      //             context: context,
+      //             builder: (BuildContext context) {
+      //               return AlertDialog(
+      //                 title: Text('Logout Confirmation'),
+      //                 content: Text('Are you sure you want to log out?'),
+      //                 actions: [
+      //                   TextButton(
+      //                     onPressed: () {
+      //                       // Cancel button: Close the dialog
+      //                       Navigator.of(context).pop();
+      //                     },
+      //                     child: Text('Cancel'),
+      //                   ),
+      //                   TextButton(
+      //                     onPressed: () {
+      //                       // Confirm logout
+      //                       Navigator.of(context).pop(); // Close the dialog
+      //                       ub.userSignout(context).then((value) {
+      //                         Get.offAll(() => LoginPage());
+      //                       });
+      //                     },
+      //                     child: Text('Logout'),
+      //                   ),
+      //                 ],
+      //               );
+      //             },
+      //           );
+      //         },
+      //       ),
+      //     ],
+      //   ),
+      // ),
       drawer: Drawer(
+        backgroundColor: Colors.white,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -235,13 +486,15 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       fit: BoxFit.contain,
                       width: MediaQuery.of(context).size.width * 0.55,
                       // Don't use full screen height here
-                      height: MediaQuery.of(context).size.height * 0.14, // Reduce height
+                      height: MediaQuery.of(context).size.height *
+                          0.14, // Reduce height
                     ),
                   ),
                 ],
               ),
             ),
 
+            // FAZAL Changes 15-12-2025
             // ListTile(
             //   leading: Icon(
             //     Icons.home,
@@ -255,11 +508,11 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
             //   ),
             //   onTap: () {
             //     //Get.to(() => HomePage());
-            //
             //     Get.offAll(() =>
-            //         BottomnavigationBarScreen()); // FAZAL Changes 15-12-2025
+            //         BottomnavigationBarScreen()); // FAZAL Changes 14-02-2025
             //   },
             // ),
+            // ADD : FAZAL Changes 15-12-2025
             // ListTile(
             //   leading: Icon(
             //     Icons.widgets_outlined,
@@ -275,9 +528,10 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
             //     Get.to(() => NewMenu());
             //   },
             // ),
-            //if (p.data != null && p.data!.moduleNos.contains("01"))
-            // if (p.data != null &&
-            //     p.data!.modulesList!.any((module) => module.mODULENO == "301" && module.rEADRIGHT == true))
+            // if (p.data?.modulesList != null &&
+            //     p.data!.modulesList!.any((module) =>
+            //         module.mODULENO == "301" &&
+            //         module.rEADRIGHT == true))
             //   ListTile(
             //     leading: Icon(
             //       Icons.dashboard,
@@ -291,10 +545,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
             //       Get.to(() => DailyReportScreen());
             //     },
             //   ),
-            if (ub.role == AppConfig.masteruser &&
-                (p.data != null &&
-                    p.data!.modulesList!
-                        .any((module) => module.mODULENO == "109" && module.rEADRIGHT == true)))
+            if (p.data != null &&
+                p.data!.modulesList!.any((module) =>
+                    module.mODULENO == "109" && module.rEADRIGHT == true))
               ListTile(
                 leading: Icon(
                   Icons.nat_rounded,
@@ -329,7 +582,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                   Get.to(() => FirmListPage());
                 },
               ),
-            if (ub.role == AppConfig.masteruser)
+            if (p.data != null &&
+                p.data!.modulesList!.any((module) =>
+                    module.mODULENO == "110" && module.rEADRIGHT == true))
               ListTile(
                 leading: Icon(
                   Icons.group,
@@ -372,6 +627,85 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                 ),
                 onTap: () {
                   Get.to(() => SettingScreen());
+                },
+              ),
+            // ✅ Show Go Offline button only if offline mode is enabled
+            Selector<ProfileProvider, bool>(
+              selector: (context, profileProvider) =>
+                  profileProvider.isOfflineModeEnabled(),
+              builder: (context, isOfflineModeEnabled, child) {
+                if (!isOfflineModeEnabled) {
+                  print(
+                      '[HomePage] Offline mode disabled - hiding Go Offline button');
+                  return SizedBox.shrink(); // Hide if offline mode disabled
+                }
+                print(
+                    '[HomePage] Offline mode enabled - showing Go Offline button');
+                return ListTile(
+                  leading: Icon(
+                    Icons.cloud_download,
+                    size: 30,
+                  ),
+                  title: Text(
+                    'Go Offline',
+                    style: TextStyle(
+                      fontSize: 20,
+                    ),
+                  ),
+                  onTap: () {
+                    _showOfflineCachingDialog();
+                  },
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.key,
+                size: 30,
+              ),
+              title: Text(
+                'Change Password',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => ChangePasswordView());
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.group_add,
+                size: 30,
+              ),
+              title: Text(
+                'Generate Referral',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => ReferralView());
+              },
+            ),
+            // Reimbursement (Module 231)
+            if (_profileProvider.data?.modulesList != null &&
+                _profileProvider.data!.modulesList!.any((module) =>
+                    module.mODULENO == "231" &&
+                    (module.rEADRIGHT == true || module.pRINTRIGHT == true)))
+              ListTile(
+                leading: Icon(
+                  Icons.attach_money,
+                  size: 30,
+                ),
+                title: Text(
+                  'Reimbursement',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  Get.to(() => GetExpenseView());
                 },
               ),
             ListTile(
@@ -457,8 +791,10 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                           controller: fromdateController,
                           readOnly: true, // prevent keyboard
                           decoration: InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 5),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: EdgeInsets.symmetric(
+                                vertical: 10.0, horizontal: 5),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
                             hintText: "Select date",
                             suffixIcon: GestureDetector(
                               onTap: () {
@@ -467,7 +803,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                                   //     DateFormat("yyyy-MM-dd")
                                   //         .format(DateTime.now());
 
-                                  fromdateController.text   = Helper.toUi(DateFormat("yyyy-MM-dd").format(DateTime.now()));
+                                  fromdateController.text = Helper.toUi(
+                                      DateFormat("yyyy-MM-dd")
+                                          .format(DateTime.now()));
                                 });
                                 getDate();
                               },
@@ -489,7 +827,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                                 setState(() {
                                   // fromdateController.text =
                                   //     DateFormat("yyyy-MM-dd").format(date);
-                                  fromdateController.text   = Helper.toUi(DateFormat("yyyy-MM-dd").format(date));
+                                  fromdateController.text = Helper.toUi(
+                                      DateFormat("yyyy-MM-dd").format(date));
                                 });
                                 getDate();
                               },
@@ -553,13 +892,17 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                           controller: toDateController,
                           readOnly: true, // prevent keyboard
                           decoration: InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 5),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: EdgeInsets.symmetric(
+                                vertical: 10.0, horizontal: 5),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
                             hintText: "Select date",
                             suffixIcon: GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  toDateController.text   = Helper.toUi(DateFormat("yyyy-MM-dd").format(DateTime.now()));
+                                  toDateController.text = Helper.toUi(
+                                      DateFormat("yyyy-MM-dd")
+                                          .format(DateTime.now()));
                                   // toDateController.text =
                                   //     DateFormat("yyyy-MM-dd").format(date);
                                 });
@@ -581,7 +924,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                               locale: LocaleType.en,
                               onConfirm: (date) {
                                 setState(() {
-                                  toDateController.text   = Helper.toUi(DateFormat("yyyy-MM-dd").format(date));
+                                  toDateController.text = Helper.toUi(
+                                      DateFormat("yyyy-MM-dd").format(date));
                                   // toDateController.text =
                                   //     DateFormat("yyyy-MM-dd").format(date);
                                 });
@@ -623,665 +967,677 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
             Divider(),
             Expanded(
               child: (noListitem == true &&
-                  noListparty == true &&
-                  noListtrangstion == true)
+                      noListparty == true &&
+                      noListtrangstion == true)
                   ? Center(
-                child: Text("No Data found"),
-              )
+                      child: Text("No Data found"),
+                    )
                   : data == null
-                  ? Center(
-                child: CircularProgressIndicator(),
-              )
-                  : ListView(
-                children: [
-                  if (data!.overview.account.isNotEmpty ||
-                      data!.overview.inventory.isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            "Company Overview",
-                            style: TextStyle(
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        if (data!.overview.inventory.length != 0)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                                left: 8, right: 8, top: 8),
-                            child: Container(
-                              width: double.infinity,
-                              height: 27.h,
-                              color: Color(0XFF2c9ed9),
-                              child: Center(
-                                child: Text(
-                                  "Inventory",
-                                  style: TextStyle(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ListView.builder(
-                            itemCount: data!.overview.inventory.length,
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemBuilder: (context, index) {
-                              return Container(
-                                padding: EdgeInsets.only(
-                                    left: 10.0,
-                                    right: 10.0,
-                                    top: 10.0,
-                                    bottom: 10.0),
-                                decoration: BoxDecoration(
-                                  color: index % 2 == 0
-                                      ? Colors.grey[200]
-                                      : Colors.white,
-                                ),
-                                child: Row(
-                                  // mainAxisAlignment:
-                                  //     MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        //"${Helper.trimValue(data!.overview.account[index].label, 30)}",
-                                          data!.overview
-                                              .inventory[index].label,
-                                          maxLines: null,
-                                          textAlign: TextAlign.start,
-                                          style: TextStyle(
-                                              overflow:
-                                              TextOverflow.visible,
-                                              fontWeight:
-                                              FontWeight.bold)),
-                                    ),
-                                    Visibility(
-                                      visible:false,
-                                      child: Expanded(
-                                        child: Text(
-                                            "(${data!.overview.inventory[index].record})",
-                                            textAlign: TextAlign.start,
-                                            style: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontWeight:
-                                                FontWeight.bold)),
-                                      ),
-                                    ),
-                                    Text(
-                                        "(${data!.overview.inventory[index].record})",
-                                        textAlign: TextAlign.start,
-                                        style: TextStyle(
-                                            color: Colors.grey[400],
-                                            fontWeight:
-                                            FontWeight.bold)),
-                                    Expanded(
-                                      child: Text(
-                                          "₹ ${Helper.parseNumericValue(data!.overview.inventory[index].vouchAmt)}",
-                                          textAlign: TextAlign.end,
-                                          style: TextStyle(
-                                              fontWeight:
-                                              FontWeight.bold)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                        if (data!.overview.account.length != 0)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                                left: 8, right: 8, top: 8),
-                            child: Container(
-                              width: double.infinity,
-                              height: 27.h,
-                              color: Color(0XFF2c9ed9),
-                              child: Center(
-                                child: Text(
-                                  "Accounts",
-                                  style: TextStyle(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: ListView.builder(
-                            itemCount: data!.overview.account.length,
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemBuilder: (context, index) {
-                              // Extract the account list
-                              var accountList = data!.overview.account;
-        
-                              // Find the index of the "Liquid Balance:" label
-                              var liquidBalanceIndex =
-                              accountList.indexWhere((item) =>
-                              item.label == "Liquid Balance:");
-        
-                              // Variable to store the sum of values below the Liquid Balance label
-                              double sumBelowLiquidBalance = 0.0;
-                              int countBelowLiquidBalance =
-                              0; // Variable to store the number of items below the Liquid Balance
-        
-                              // If Liquid Balance exists, sum the values of all items below it
-                              if (liquidBalanceIndex != -1) {
-                                var itemsBelowLiquidBalance = accountList
-                                    .sublist(liquidBalanceIndex +
-                                    1); // Get items after the Liquid Balance
-        
-                                countBelowLiquidBalance =
-                                    itemsBelowLiquidBalance.length;
-        
-                                //TODO : Comment Fazal 03/12/2025
-                                // Filter out invalid "VOUCH_AMT" values (e.g., ".") and sum the rest
-                                // sumBelowLiquidBalance =
-                                //     itemsBelowLiquidBalance
-                                //         .where((item) =>
-                                //     item.vouchAmt != ".")
-                                //         .map((item) =>
-                                //     double.tryParse(
-                                //         item.vouchAmt) ??
-                                //         0.0)
-                                //         .reduce((a, b) => a + b);
-        
-                                sumBelowLiquidBalance =
-                                    itemsBelowLiquidBalance
-                                        .where((item) => item.vouchAmt != ".")
-                                        .map((item) => double.tryParse(item.vouchAmt) ?? 0.0)
-                                        .fold(0.0, (a, b) => a + b);
-                              }
-        
-                              return Container(
-                                padding: EdgeInsets.only(
-                                    left: 10.0,
-                                    right: 10.0,
-                                    top: 10.0,
-                                    bottom: 10.0),
-                                decoration: BoxDecoration(
-                                  color: index % 2 == 0
-                                      ? Colors.grey[200]
-                                      : Colors.white,
-                                ),
-                                child: Row(
-                                  // mainAxisAlignment:
-                                  //     MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    // Label display
-                                    Expanded(
-                                      child: Text(
-                                        //data!.overview.account[index].label,
-                                        data!.overview.account[index]
-                                            .label
-                                            .replaceAll(':', ''),
-                                        maxLines: null,
-                                        textAlign: TextAlign.start,
-                                        style: TextStyle(
-                                            overflow:
-                                            TextOverflow.visible,
-                                            fontWeight:
-                                            FontWeight.bold),
-                                      ),
-                                    ),
-                                    // Record value display
-                                    Text(
-                                      "${data!.overview.account[index].record != '.' ? "(${data!.overview.account[index].record})" : ""}",
-                                      textAlign: TextAlign.start,
+                      ? Center(
+                          child: CircularProgressIndicator(),
+                        )
+                      : ListView(
+                          children: [
+                            if (data!.overview.account.isNotEmpty ||
+                                data!.overview.inventory.isNotEmpty)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      "Company Overview",
                                       style: TextStyle(
-                                          color: Colors.grey[400],
+                                          fontSize: 18.sp,
                                           fontWeight: FontWeight.bold),
                                     ),
-                                    // Amount display
-                                    Expanded(
-                                      child: Text(
-                                        "${data!.overview.account[index].vouchAmt != '.' ? '₹ ' + Helper.parseNumericValue(data!.overview.account[index].vouchAmt) : ""}",
-                                        textAlign: TextAlign.end,
-                                        style: TextStyle(
-                                            fontWeight:
-                                            FontWeight.bold),
-                                      ),
-                                    ),
-                                    //TODO: Liquid Balance: FAZAL ADD Comment 07/04/2025
-                                    // Display sum below Liquid Balance when it's found
-                                    if (data!.overview.account[index]
-                                        .label ==
-                                        "Liquid Balance:")
-                                      Visibility(
-                                        visible: false,
-                                        child: Text(
-                                          "(${countBelowLiquidBalance.toString()})",
-                                          textAlign: TextAlign.start,
-                                          style: TextStyle(
-                                              color: Colors.grey[400],
-                                              fontWeight:
-                                              FontWeight.bold),
-                                        ),
-                                      ),
-                                    if (data!.overview.account[index]
-                                        .label ==
-                                        "Liquid Balance:")
-                                      Text(
-                                        "₹ ${Helper.parseNumericValue(sumBelowLiquidBalance.toStringAsFixed(2))}",
-                                        textAlign: TextAlign.end,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                      ],
-                    ),
-                  if (data!.party.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Card(
-                            elevation: 2,
-                            child: Container(
-                              width: double.infinity,
-                              height: 27.h,
-                              color: Color(0XFF2c9ed9),
-                              child: Center(
-                                child: Text(
-                                  "Top Party",
-                                  style: TextStyle(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.bold,
                                   ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          ListView.builder(
-                              itemCount: data!.party.length,
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemBuilder: (context, index) {
-                                return Column(
-                                  children: [
-                                    if (index == 0)
-                                      Card(
-                                        elevation: 2,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                            BorderRadius.circular(
-                                                1),
-                                            side: BorderSide(
-                                                color: Colors.grey)),
-                                        child: Container(
-                                          color: Colors.white,
-                                          child: Padding(
-                                            padding:
-                                            const EdgeInsets.all(
-                                                8.0),
-                                            child: IntrinsicHeight(
-                                              child: Row(
-                                                children: <Widget>[
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
-                                                      children: [
-                                                        Text(
-                                                          "Acc Code",
-                                                          style: TextStyle(
-                                                              fontSize:
-                                                              12,
-                                                              fontWeight:
-                                                              FontWeight
-                                                                  .bold),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  VerticalDivider(),
-                                                  Expanded(
-                                                    flex: 3,
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
-                                                      children: [
-                                                        Text(
-                                                          "Account Name",
-                                                          style: TextStyle(
-                                                              fontSize:
-                                                              12,
-                                                              fontWeight:
-                                                              FontWeight
-                                                                  .bold),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  VerticalDivider(),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
-                                                      children: [
-                                                        Align(
-                                                          alignment:
-                                                          Alignment
-                                                              .topRight,
-                                                          child: Text(
-                                                            "Amount",
-                                                            style: TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                fontWeight:
-                                                                FontWeight.bold),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                  if (data!.overview.inventory.length != 0)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          left: 8, right: 8, top: 8),
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 27.h,
+                                        color: Color(0XFF2c9ed9),
+                                        child: Center(
+                                          child: Text(
+                                            "Inventory",
+                                            style: TextStyle(
+                                              fontSize: 15.sp,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                         ),
                                       ),
+                                    ),
+                                  ListView.builder(
+                                      itemCount:
+                                          data!.overview.inventory.length,
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemBuilder: (context, index) {
+                                        return Container(
+                                          padding: EdgeInsets.only(
+                                              left: 10.0,
+                                              right: 10.0,
+                                              top: 10.0,
+                                              bottom: 10.0),
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0
+                                                ? Colors.grey[200]
+                                                : Colors.white,
+                                          ),
+                                          child: Row(
+                                            // mainAxisAlignment:
+                                            //     MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                    //"${Helper.trimValue(data!.overview.account[index].label, 30)}",
+                                                    data!.overview
+                                                        .inventory[index].label,
+                                                    maxLines: null,
+                                                    textAlign: TextAlign.start,
+                                                    style: TextStyle(
+                                                        overflow: TextOverflow
+                                                            .visible,
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                              ),
+                                              Visibility(
+                                                visible: false,
+                                                child: Expanded(
+                                                  child: Text(
+                                                      "(${data!.overview.inventory[index].record})",
+                                                      textAlign:
+                                                          TextAlign.start,
+                                                      style: TextStyle(
+                                                          color:
+                                                              Colors.grey[400],
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                ),
+                                              ),
+                                              Text(
+                                                  "(${data!.overview.inventory[index].record})",
+                                                  textAlign: TextAlign.start,
+                                                  style: TextStyle(
+                                                      color: Colors.grey[400],
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                              Expanded(
+                                                child: Text(
+                                                    "₹ ${Helper.parseNumericValue(data!.overview.inventory[index].vouchAmt)}",
+                                                    textAlign: TextAlign.end,
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                  if (data!.overview.account.length != 0)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          left: 8, right: 8, top: 8),
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 27.h,
+                                        color: Color(0XFF2c9ed9),
+                                        child: Center(
+                                          child: Text(
+                                            "Accounts",
+                                            style: TextStyle(
+                                              fontSize: 15.sp,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: ListView.builder(
+                                      itemCount: data!.overview.account.length,
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemBuilder: (context, index) {
+                                        // Extract the account list
+                                        var accountList =
+                                            data!.overview.account;
+
+                                        // Find the index of the "Liquid Balance:" label
+                                        var liquidBalanceIndex =
+                                            accountList.indexWhere((item) =>
+                                                item.label ==
+                                                "Liquid Balance:");
+
+                                        // Variable to store the sum of values below the Liquid Balance label
+                                        double sumBelowLiquidBalance = 0.0;
+                                        int countBelowLiquidBalance =
+                                            0; // Variable to store the number of items below the Liquid Balance
+
+                                        // If Liquid Balance exists, sum the values of all items below it
+                                        if (liquidBalanceIndex != -1) {
+                                          var itemsBelowLiquidBalance = accountList
+                                              .sublist(liquidBalanceIndex +
+                                                  1); // Get items after the Liquid Balance
+
+                                          countBelowLiquidBalance =
+                                              itemsBelowLiquidBalance.length;
+
+                                          //TODO : Comment Fazal 03/12/2025
+                                          // Filter out invalid "VOUCH_AMT" values (e.g., ".") and sum the rest
+                                          // sumBelowLiquidBalance =
+                                          //     itemsBelowLiquidBalance
+                                          //         .where((item) =>
+                                          //     item.vouchAmt != ".")
+                                          //         .map((item) =>
+                                          //     double.tryParse(
+                                          //         item.vouchAmt) ??
+                                          //         0.0)
+                                          //         .reduce((a, b) => a + b);
+
+                                          sumBelowLiquidBalance =
+                                              itemsBelowLiquidBalance
+                                                  .where((item) =>
+                                                      item.vouchAmt != ".")
+                                                  .map((item) =>
+                                                      double.tryParse(
+                                                          item.vouchAmt) ??
+                                                      0.0)
+                                                  .fold(0.0, (a, b) => a + b);
+                                        }
+
+                                        return Container(
+                                          padding: EdgeInsets.only(
+                                              left: 10.0,
+                                              right: 10.0,
+                                              top: 10.0,
+                                              bottom: 10.0),
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0
+                                                ? Colors.grey[200]
+                                                : Colors.white,
+                                          ),
+                                          child: Row(
+                                            // mainAxisAlignment:
+                                            //     MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              // Label display
+                                              Expanded(
+                                                child: Text(
+                                                  //data!.overview.account[index].label,
+                                                  data!.overview.account[index]
+                                                      .label
+                                                      .replaceAll(':', ''),
+                                                  maxLines: null,
+                                                  textAlign: TextAlign.start,
+                                                  style: TextStyle(
+                                                      overflow:
+                                                          TextOverflow.visible,
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                              // Record value display
+                                              Text(
+                                                "${data!.overview.account[index].record != '.' ? "(${data!.overview.account[index].record})" : ""}",
+                                                textAlign: TextAlign.start,
+                                                style: TextStyle(
+                                                    color: Colors.grey[400],
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                              // Amount display
+                                              Expanded(
+                                                child: Text(
+                                                  "${data!.overview.account[index].vouchAmt != '.' ? '₹ ' + Helper.parseNumericValue(data!.overview.account[index].vouchAmt) : ""}",
+                                                  textAlign: TextAlign.end,
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                              //TODO: Liquid Balance: FAZAL ADD Comment 07/04/2025
+                                              // Display sum below Liquid Balance when it's found
+                                              if (data!.overview.account[index]
+                                                      .label ==
+                                                  "Liquid Balance:")
+                                                Visibility(
+                                                  visible: false,
+                                                  child: Text(
+                                                    "(${countBelowLiquidBalance.toString()})",
+                                                    textAlign: TextAlign.start,
+                                                    style: TextStyle(
+                                                        color: Colors.grey[400],
+                                                        fontWeight:
+                                                            FontWeight.bold),
+                                                  ),
+                                                ),
+                                              if (data!.overview.account[index]
+                                                      .label ==
+                                                  "Liquid Balance:")
+                                                Text(
+                                                  "₹ ${Helper.parseNumericValue(sumBelowLiquidBalance.toStringAsFixed(2))}",
+                                                  textAlign: TextAlign.end,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  )
+                                ],
+                              ),
+                            if (data!.party.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Card(
                                       elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                          BorderRadius.circular(1),
-                                          side: BorderSide(
-                                              color: Colors.grey)),
                                       child: Container(
-                                        color: Colors.white,
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(
-                                              12.0),
-                                          child: Column(
-                                            children: [
-                                              IntrinsicHeight(
-                                                child: Row(
-                                                  children: <Widget>[
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                        children: [
-                                                          Text(
-                                                            "${data!.party[index].accCd}",
-                                                            style: TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                color: Colors
-                                                                    .black),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    VerticalDivider(),
-                                                    Expanded(
-                                                      flex: 3,
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                        children: [
-                                                          Text(
-                                                            "${data!.party[index].accName}",
-                                                            style: TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                color: Colors
-                                                                    .black),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    VerticalDivider(),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                        children: [
-                                                          Align(
-                                                            alignment:
-                                                            Alignment
-                                                                .topRight,
-                                                            child: Text(
-                                                              "${Helper.parseNumericValue(data!.party[index].vouchAmt.toString())}",
-                                                              style:
-                                                              TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                color: Colors
-                                                                    .green,
-                                                              ),
-                                                            ),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
+                                        width: double.infinity,
+                                        height: 27.h,
+                                        color: Color(0XFF2c9ed9),
+                                        child: Center(
+                                          child: Text(
+                                            "Top Party",
+                                            style: TextStyle(
+                                              fontSize: 15.sp,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ],
-                                );
-                              }),
-                        ],
-                      ),
-                    ),
-                  if (data!.items.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Card(
-                            elevation: 2,
-                            child: Container(
-                              width: double.infinity,
-                              height: 27.h,
-                              color: Color(0XFF2c9ed9),
-                              child: Center(
-                                child: Text(
-                                  "Top Items",
-                                  style: TextStyle(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          ListView.builder(
-                              itemCount: data!.items.length,
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemBuilder: (context, index) {
-                                return Column(
-                                  children: [
-                                    if (index == 0)
-                                      Card(
-                                        child: Container(
-                                          color: Colors.white,
-                                          child: Padding(
-                                            padding:
-                                            const EdgeInsets.all(
-                                                8.0),
-                                            child: IntrinsicHeight(
-                                              child: Row(
-                                                children: <Widget>[
-                                                  Expanded(
-                                                    child: Column(
-                                                      children: [
-                                                        Text(
-                                                          "Item Code",
-                                                          style: TextStyle(
-                                                              fontSize:
-                                                              12,
-                                                              fontWeight:
-                                                              FontWeight
-                                                                  .bold),
+                                    ListView.builder(
+                                        itemCount: data!.party.length,
+                                        shrinkWrap: true,
+                                        physics: NeverScrollableScrollPhysics(),
+                                        itemBuilder: (context, index) {
+                                          return Column(
+                                            children: [
+                                              if (index == 0)
+                                                Card(
+                                                  elevation: 2,
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              1),
+                                                      side: BorderSide(
+                                                          color: Colors.grey)),
+                                                  child: Container(
+                                                    color: Colors.white,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8.0),
+                                                      child: IntrinsicHeight(
+                                                        child: Row(
+                                                          children: <Widget>[
+                                                            Expanded(
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Text(
+                                                                    "Acc Code",
+                                                                    style: TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                        fontWeight:
+                                                                            FontWeight.bold),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            VerticalDivider(),
+                                                            Expanded(
+                                                              flex: 3,
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Text(
+                                                                    "Account Name",
+                                                                    style: TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                        fontWeight:
+                                                                            FontWeight.bold),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            VerticalDivider(),
+                                                            Expanded(
+                                                              flex: 2,
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Align(
+                                                                    alignment:
+                                                                        Alignment
+                                                                            .topRight,
+                                                                    child: Text(
+                                                                      "Amount",
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          fontWeight:
+                                                                              FontWeight.bold),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
-                                                      ],
+                                                      ),
                                                     ),
                                                   ),
-                                                  VerticalDivider(),
-                                                  Expanded(
-                                                    flex: 3,
+                                                ),
+                                              Card(
+                                                elevation: 2,
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            1),
+                                                    side: BorderSide(
+                                                        color: Colors.grey)),
+                                                child: Container(
+                                                  color: Colors.white,
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12.0),
                                                     child: Column(
-                                                      crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
                                                       children: [
-                                                        Text(
-                                                          "Item Name",
-                                                          style: TextStyle(
-                                                              fontSize:
-                                                              12,
-                                                              fontWeight:
-                                                              FontWeight
-                                                                  .bold),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  VerticalDivider(),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
-                                                      children: [
-                                                        Align(
-                                                          alignment:
-                                                          Alignment
-                                                              .topRight,
-                                                          child: Text(
-                                                            "Amount",
-                                                            style: TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                fontWeight:
-                                                                FontWeight.bold),
+                                                        IntrinsicHeight(
+                                                          child: Row(
+                                                            children: <Widget>[
+                                                              Expanded(
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Text(
+                                                                      "${data!.party[index].accCd}",
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          color:
+                                                                              Colors.black),
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              VerticalDivider(),
+                                                              Expanded(
+                                                                flex: 3,
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Text(
+                                                                      "${data!.party[index].accName}",
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          color:
+                                                                              Colors.black),
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              VerticalDivider(),
+                                                              Expanded(
+                                                                flex: 2,
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Align(
+                                                                      alignment:
+                                                                          Alignment
+                                                                              .topRight,
+                                                                      child:
+                                                                          Text(
+                                                                        "${Helper.parseNumericValue(data!.party[index].vouchAmt.toString())}",
+                                                                        style:
+                                                                            TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          color:
+                                                                              Colors.green,
+                                                                        ),
+                                                                      ),
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       ],
                                                     ),
                                                   ),
-                                                ],
+                                                ),
                                               ),
+                                            ],
+                                          );
+                                        }),
+                                  ],
+                                ),
+                              ),
+                            if (data!.items.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Card(
+                                      elevation: 2,
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 27.h,
+                                        color: Color(0XFF2c9ed9),
+                                        child: Center(
+                                          child: Text(
+                                            "Top Items",
+                                            style: TextStyle(
+                                              fontSize: 15.sp,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                         ),
                                       ),
-                                    Card(
-                                      child: Container(
-                                        color: Colors.white,
-                                        child: Padding(
-                                          padding:
-                                          const EdgeInsets.all(8),
-                                          child: Column(
+                                    ),
+                                    ListView.builder(
+                                        itemCount: data!.items.length,
+                                        shrinkWrap: true,
+                                        physics: NeverScrollableScrollPhysics(),
+                                        itemBuilder: (context, index) {
+                                          return Column(
                                             children: [
-                                              IntrinsicHeight(
-                                                child: Row(
-                                                  children: <Widget>[
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text(
-                                                            "${data!.items[index].itemCd}",
-                                                            style: TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                color: Colors
-                                                                    .black),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    VerticalDivider(),
-                                                    Expanded(
-                                                      flex: 3,
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                        children: [
-                                                          Text(
-                                                            "${data!.items[index].itemName}",
-                                                            style: TextStyle(
-                                                                fontSize:
-                                                                12,
-                                                                color: Colors
-                                                                    .black),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    VerticalDivider(),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                        children: [
-                                                          Align(
-                                                            alignment:
-                                                            Alignment
-                                                                .topRight,
-                                                            child: Text(
-                                                              "${Helper.parseNumericValue(data!.items[index].vouchAmt.toString())}",
-                                                              style: TextStyle(
-                                                                  fontSize:
-                                                                  12,
-                                                                  color:
-                                                                  Colors.green),
+                                              if (index == 0)
+                                                Card(
+                                                  child: Container(
+                                                    color: Colors.white,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8.0),
+                                                      child: IntrinsicHeight(
+                                                        child: Row(
+                                                          children: <Widget>[
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text(
+                                                                    "Item Code",
+                                                                    style: TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                        fontWeight:
+                                                                            FontWeight.bold),
+                                                                  ),
+                                                                ],
+                                                              ),
                                                             ),
-                                                          )
-                                                        ],
+                                                            VerticalDivider(),
+                                                            Expanded(
+                                                              flex: 3,
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Text(
+                                                                    "Item Name",
+                                                                    style: TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                        fontWeight:
+                                                                            FontWeight.bold),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            VerticalDivider(),
+                                                            Expanded(
+                                                              flex: 2,
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Align(
+                                                                    alignment:
+                                                                        Alignment
+                                                                            .topRight,
+                                                                    child: Text(
+                                                                      "Amount",
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          fontWeight:
+                                                                              FontWeight.bold),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
-                                                  ],
+                                                  ),
+                                                ),
+                                              Card(
+                                                child: Container(
+                                                  color: Colors.white,
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(8),
+                                                    child: Column(
+                                                      children: [
+                                                        IntrinsicHeight(
+                                                          child: Row(
+                                                            children: <Widget>[
+                                                              Expanded(
+                                                                child: Column(
+                                                                  children: [
+                                                                    Text(
+                                                                      "${data!.items[index].itemCd}",
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          color:
+                                                                              Colors.black),
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              VerticalDivider(),
+                                                              Expanded(
+                                                                flex: 3,
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Text(
+                                                                      "${data!.items[index].itemName}",
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              12,
+                                                                          color:
+                                                                              Colors.black),
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              VerticalDivider(),
+                                                              Expanded(
+                                                                flex: 2,
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Align(
+                                                                      alignment:
+                                                                          Alignment
+                                                                              .topRight,
+                                                                      child:
+                                                                          Text(
+                                                                        "${Helper.parseNumericValue(data!.items[index].vouchAmt.toString())}",
+                                                                        style: TextStyle(
+                                                                            fontSize:
+                                                                                12,
+                                                                            color:
+                                                                                Colors.green),
+                                                                      ),
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                          );
+                                        }),
                                   ],
-                                );
-                              }),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
+                                ),
+                              ),
+                          ],
+                        ),
             ),
           ],
         ),
@@ -1339,7 +1695,260 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
           ),
         ),
       ),
+    );
+  }
 
+  void _showOfflineCachingDialog() {
+    bool isCaching = false;
+    bool cachingComplete = false;
+    List<CacheItemStatus> cacheItems = [];
+    String? failureMessage;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.cloud_download, color: Color(0xFF2c9ed9)),
+                  SizedBox(width: 8),
+                  Text('Go Offline'),
+                ],
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isCaching && !cachingComplete)
+                      Text(
+                        'Download all masters for offline use?',
+                        style: TextStyle(fontSize: 14),
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isCaching
+                                ? 'Caching data...'
+                                : (failureMessage != null
+                                    ? 'Caching failed!'
+                                    : 'Caching complete!'),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: (!isCaching && failureMessage != null)
+                                  ? Colors.red
+                                  : null,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          ...cacheItems.map((item) => _buildCacheItemRow(item)),
+                          if (failureMessage != null) ...[
+                            SizedBox(height: 16),
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                border: Border.all(color: Colors.red.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error_outline,
+                                      color: Colors.red, size: 20),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      failureMessage!,
+                                      style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (!isCaching && !cachingComplete)
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text('CANCEL'),
+                  ),
+                if (!isCaching && !cachingComplete)
+                  ElevatedButton(
+                    onPressed: () async {
+                      cacheItems = [
+                        CacheItemStatus(name: 'Profile'),
+                        CacheItemStatus(name: 'Departments'),
+                        CacheItemStatus(name: 'Products'),
+                        CacheItemStatus(name: 'Party'),
+                        CacheItemStatus(name: 'Cart'),
+                      ];
+                      failureMessage = null;
+                      cachingComplete = false;
+
+                      setDialogState(() {
+                        isCaching = true;
+                      });
+
+                      try {
+                        await OfflineCachingService.cacheAllDataForOffline(
+                          context,
+                          onProgress: (status) {
+                            if (mounted) {
+                              setDialogState(() {
+                                final index = cacheItems.indexWhere(
+                                    (item) => item.name == status.name);
+                                if (index != -1) {
+                                  cacheItems[index] = status;
+                                }
+
+                                if (!status.isSuccess && status.isComplete) {
+                                  failureMessage =
+                                      '${status.name} failed: ${status.errorMessage}';
+                                }
+                              });
+                            }
+                          },
+                        );
+                        if (mounted) {
+                          setDialogState(() {
+                            isCaching = false;
+                            cachingComplete = true;
+                          });
+                        }
+                      } catch (e) {
+                        print('Error during offline caching: $e');
+                        if (mounted) {
+                          setDialogState(() {
+                            isCaching = false;
+                            cachingComplete = true;
+                            failureMessage = 'Error: ${e.toString()}';
+                          });
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF2c9ed9),
+                    ),
+                    child: Text(
+                      'START',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                if (cachingComplete)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      final bool allSuccess =
+                          cacheItems.every((item) => item.isSuccess);
+                      AppSnackBar.showGetXCustomSnackBar(
+                        message: allSuccess
+                            ? 'All data cached successfully! You can now work offline.'
+                            : failureMessage ??
+                                'Caching failed. Please check your internet connection and try again.',
+                        backgroundColor: allSuccess ? Colors.green : Colors.red,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF2c9ed9),
+                    ),
+                    child: Text(
+                      'DONE',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCacheItemRow(CacheItemStatus item) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: item.isComplete
+                    ? (item.isSuccess
+                        ? Icon(Icons.check_circle,
+                            color: Colors.green, size: 24)
+                        : Icon(Icons.cancel, color: Colors.red, size: 24))
+                    : (item.isInProgress
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF2c9ed9)),
+                            ),
+                          )
+                        : Icon(Icons.schedule, color: Colors.grey, size: 24)),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                item.isComplete
+                    ? (item.isSuccess ? '100%' : 'Failed')
+                    : (item.isInProgress ? 'Loading...' : 'Waiting'),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: item.isComplete
+                      ? (item.isSuccess ? Colors.green : Colors.red)
+                      : (item.isInProgress ? Color(0xFF2c9ed9) : Colors.grey),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: item.isComplete ? 1.0 : (item.isInProgress ? 0.5 : 0.0),
+              minHeight: 4,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                item.isComplete
+                    ? (item.isSuccess ? Colors.green : Colors.red)
+                    : (item.isInProgress ? Color(0xFF2c9ed9) : Colors.grey),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

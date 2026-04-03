@@ -7,6 +7,7 @@ import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
+import 'package:arham_corporation/models/dashboard_v2_modal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
@@ -58,6 +59,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const MethodChannel _manufacturerChannel = MethodChannel('my_channel');
   DashboardModal? data;
+  DashboardV2Modal? dashboardV2Data;
   bool nolist = false;
   late ProfileProvider
       _profileProvider; // Store provider reference to avoid accessing during dispose
@@ -122,6 +124,55 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  getDashboardV2Data() async {
+    setState(() {
+      dashboardV2Data = null;
+    });
+
+    bool online = await NetworkHelper.hasInternet();
+
+    if (online) {
+      // Get today's date and 3 days back for dashboard v2
+      final today = DateTime.now();
+      final threeMonthsAgo = today.subtract(Duration(days: 90));
+      
+      final fromDate = '${threeMonthsAgo.year}-${threeMonthsAgo.month.toString().padLeft(2, '0')}-${threeMonthsAgo.day.toString().padLeft(2, '0')}';
+      final toDate = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      Services().getDashboardV2Data(context, fromDate, toDate).then((value) async {
+        if (value != null) {
+          setState(() {
+            dashboardV2Data = value;
+          });
+
+          // Cache dashboard v2 data for offline use
+          try {
+            await DatabaseHelper().cacheHomeData(
+              'dashboard_v2',
+              dashboardV2ModalToJson(value),
+            );
+            print("Dashboard V2 cached successfully");
+          } catch (e) {
+            print("Error caching dashboard v2 data: $e");
+          }
+        }
+      });
+    } else {
+      // Offline: load from cache
+      try {
+        final cached = await DatabaseHelper().getCachedHomeData('dashboard_v2');
+        if (cached != null && cached.isNotEmpty && cached != 'null') {
+          final cachedData = dashboardV2ModalFromJson(cached);
+          setState(() {
+            dashboardV2Data = cachedData;
+          });
+        }
+      } catch (e) {
+        print("Error loading cached dashboard v2: $e");
+      }
+    }
+  }
+
   List<Map<String, dynamic>> firmList = [];
   int? selectedSyncId; // Stores the selected sync ID
   String? selectedFirmName; // Stores the selected firm name
@@ -143,6 +194,7 @@ class _HomePageState extends State<HomePage> {
 
     loadData();
     getDashboarddata();
+    getDashboardV2Data();
 
     _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
 
@@ -158,6 +210,18 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
       if (ub.token != null && ub.syncId != null) {
+        final ProfileProvider pb =
+            Provider.of<ProfileProvider>(context, listen: false);
+
+        // ✅ Check if offline mode is enabled in settings
+        final isOfflineModeEnabled = pb.isOfflineModeEnabled();
+        print('[HomePage] Offline mode enabled: $isOfflineModeEnabled');
+
+        if (!isOfflineModeEnabled) {
+          print('[HomePage] Offline mode is disabled - skipping auto-cache');
+          return;
+        }
+
         final syncId = ub.syncId!;
         final prefs = await SharedPreferences.getInstance();
         final cacheKey = 'auto_cached_firm_$syncId';
@@ -716,7 +780,7 @@ class _HomePageState extends State<HomePage> {
                             context.read<ItemListProvider>().getItems(context);
                             context
                                 .read<ProfileProvider>()
-                                .getProfile(context)
+                                .getProfile()
                                 .then((value) {
                               // Load settings after profile is loaded
                               context
@@ -930,11 +994,9 @@ class _HomePageState extends State<HomePage> {
               //       Get.to(() => DailyReportScreen());
               //     },
               //   ),
-              if (ub.role == AppConfig.masteruser &&
-                  (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "109" &&
-                          module.rEADRIGHT == true)))
+              if (p.data != null &&
+                  p.data!.modulesList!.any((module) =>
+                      module.mODULENO == "109" && module.rEADRIGHT == true))
                 ListTile(
                   leading: Icon(
                     Icons.nat_rounded,
@@ -969,7 +1031,9 @@ class _HomePageState extends State<HomePage> {
                     Get.to(() => FirmListPage());
                   },
                 ),
-              if (ub.role == AppConfig.masteruser)
+              if (p.data != null &&
+                  p.data!.modulesList!.any((module) =>
+                      module.mODULENO == "110" && module.rEADRIGHT == true))
                 ListTile(
                   leading: Icon(
                     Icons.group,
@@ -1014,19 +1078,33 @@ class _HomePageState extends State<HomePage> {
                     Get.to(() => SettingScreen());
                   },
                 ),
-              ListTile(
-                leading: Icon(
-                  Icons.cloud_download,
-                  size: 30,
-                ),
-                title: Text(
-                  'Go Offline',
-                  style: TextStyle(
-                    fontSize: 20,
-                  ),
-                ),
-                onTap: () {
-                  _showOfflineCachingDialog();
+              // ✅ Show Go Offline button only if offline mode is enabled
+              Selector<ProfileProvider, bool>(
+                selector: (context, profileProvider) =>
+                    profileProvider.isOfflineModeEnabled(),
+                builder: (context, isOfflineModeEnabled, child) {
+                  if (!isOfflineModeEnabled) {
+                    print(
+                        '[HomePage] Offline mode disabled - hiding Go Offline button');
+                    return SizedBox.shrink(); // Hide if offline mode disabled
+                  }
+                  print(
+                      '[HomePage] Offline mode enabled - showing Go Offline button');
+                  return ListTile(
+                    leading: Icon(
+                      Icons.cloud_download,
+                      size: 30,
+                    ),
+                    title: Text(
+                      'Go Offline',
+                      style: TextStyle(
+                        fontSize: 20,
+                      ),
+                    ),
+                    onTap: () {
+                      _showOfflineCachingDialog();
+                    },
+                  );
                 },
               ),
               ListTile(
@@ -1472,6 +1550,164 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
+                  // Target Achievement Card (Dashboard V2)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Card(
+                      elevation: 20,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      child: Container(
+                        padding: EdgeInsets.all(15),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Target Achievement",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 15),
+                            if (dashboardV2Data != null)
+                              Column(
+                                children: [
+                                  // Target Amount
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Target Amount",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        "₹ ${dashboardV2Data!.data.targetAchievement.totals.targetAmount.toStringAsFixed(2)}",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 10),
+                                  // Achievement Percent
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Achievement %",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: dashboardV2Data!
+                                                      .data
+                                                      .targetAchievement
+                                                      .totals
+                                                      .achievementPercent >
+                                                  0
+                                              ? Colors.green.shade100
+                                              : Colors.grey.shade100,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          "${dashboardV2Data!.data.targetAchievement.totals.achievementPercent}%",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: dashboardV2Data!
+                                                        .data
+                                                        .targetAchievement
+                                                        .totals
+                                                        .achievementPercent >
+                                                    0
+                                                ? Colors.green.shade700
+                                                : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 10),
+                                  // Achieved Amount
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Achieved Amount",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        "₹ ${dashboardV2Data!.data.targetAchievement.totals.achievedAmount.toStringAsFixed(2)}",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 10),
+                                  // Remaining Amount
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Remaining Amount",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        "₹ ${dashboardV2Data!.data.targetAchievement.totals.remainingAmount.toStringAsFixed(2)}",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.orange.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            else
+                              Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -1756,6 +1992,7 @@ class _HomePageState extends State<HomePage> {
                                                           if (party.partyid
                                                               .isNotEmpty) {
                                                             getDashboarddata();
+                                                            getDashboardV2Data();
                                                           }
                                                         }
                                                       });
