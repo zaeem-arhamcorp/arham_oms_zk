@@ -36,6 +36,7 @@ import 'package:whatsapp_share/whatsapp_share.dart';
 import '../models/orderReportModal.dart';
 import '../providers/party_provider.dart';
 import '../widgets/pdfViewerScreen.dart';
+import '../widgets/user_search_dropdown.dart';
 
 class OrderReportScreen extends StatefulWidget {
   final String? selectedUserCd;
@@ -221,6 +222,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     }
 
     getDate();
+    _fetchUsers();
     checkWhatsappInstalled();
     checkWhatsappBussinessInstalled();
     _focusNode.requestFocus();
@@ -240,10 +242,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       final String baseUrl = AppConfig.baseURL;
 
       print(
-          '_fetchUsers: Fetching from ${baseUrl}users with token: ${token.substring(0, 20)}...');
+          '_fetchUsers: Fetching from ${baseUrl}users/children with token: ${token.substring(0, 20)}...');
 
       final response = await http.get(
-        Uri.parse('${baseUrl}users'),
+        Uri.parse('${baseUrl}users/children'),
         headers: {
           'Authorization': 'Bearer $token',
           'x-app-type': 'oms',
@@ -265,10 +267,13 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
             users.map((user) {
               final userCode = user['USER_CD'] ?? user['userCode'] ?? '';
               final userName = user['USER_NAME'] ?? user['userName'] ?? '';
-              print('_fetchUsers: Adding user - $userName ($userCode)');
+              final phone = (user['MOBILENO'] ?? user['phone'] ?? '').trim();
+              print(
+                  '_fetchUsers: Adding user - $userName ($userCode) / $phone');
               return {
                 'userCode': userCode,
                 'userName': userName,
+                'phone': phone,
               };
             }),
           );
@@ -291,6 +296,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     }
   }
 
+  /* Deprecated - using UserSearchDropdown widget instead
   List<DropdownMenuItem<String>> _buildUserDropdownItems() {
     // Trigger fetch on first dropdown open if users not yet fetched
     if (_users.isEmpty && !_loadingUsers && !_usersFetchInitiated) {
@@ -349,6 +355,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
     return items;
   }
+  */
 
   TextEditingController searchPartyClt = TextEditingController();
   FocusNode _focusNode = FocusNode();
@@ -1111,39 +1118,28 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                       children: [
                         Text("Filter by User"),
                         SizedBox(height: 5.h),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              underline: SizedBox(),
-                              hint: Text("Select User (All if empty)"),
-                              value: _selectedUserCode.isEmpty
-                                  ? null
-                                  : _selectedUserCode,
-                              items: _buildUserDropdownItems(),
-                              onChanged: (value) {
-                                print('Dropdown selected: $value');
-                                setState(() {
-                                  _selectedUserCode = value ?? '';
-                                  userController.text = value ?? '';
-                                  _selectedUserName = value == ''
-                                      ? 'All Users'
-                                      : _users.firstWhere(
-                                          (user) => user['userCode'] == value,
-                                          orElse: () => {'userName': 'Unknown'},
-                                        )['userName'];
-                                });
-                                print('Calling getDate from dropdown');
-                                getDate();
-                              },
-                            ),
-                          ),
+                        UserSearchDropdown(
+                          users: _users,
+                          selectedUserCode: _selectedUserCode.isEmpty
+                              ? null
+                              : _selectedUserCode,
+                          loading: _loadingUsers,
+                          hint: "Select User",
+                          onChanged: (value) {
+                            print('User selected: $value');
+                            setState(() {
+                              _selectedUserCode = value ?? '';
+                              userController.text = value ?? '';
+                              _selectedUserName = value == '' || value == null
+                                  ? 'All Users'
+                                  : _users.firstWhere(
+                                      (user) => user['userCode'] == value,
+                                      orElse: () => {'userName': 'Unknown'},
+                                    )['userName'];
+                            });
+                            print('Calling getDate from user selection');
+                            getDate();
+                          },
                         ),
                       ],
                     ),

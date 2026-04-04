@@ -80,9 +80,31 @@ class Services {
           'x-app-type': 'oms',
         },
       );
-      print("${AppConfig.baseURL}dashboard/v2?fromDate=$fromDate&toDate=$toDate");
+      print(
+          "${AppConfig.baseURL}dashboard/v2?fromDate=$fromDate&toDate=$toDate");
+      print("========== Dashboard V2 API Full Response ==========");
       print(response.body);
+      print("========== End Dashboard V2 API Response ==========");
+
       if (response.statusCode == 200) {
+        // Parse and log the targetAchievement data specifically
+        try {
+          final jsonData = jsonDecode(response.body);
+          if (jsonData['data'] != null &&
+              jsonData['data']['targetAchievement'] != null) {
+            final targetAchievement = jsonData['data']['targetAchievement'];
+            print("===== Target Achievement Totals =====");
+            print("Totals Object: ${targetAchievement['totals']}");
+            print(
+                "Achievement Percent (raw): ${targetAchievement['totals']?['achievementPercent']}");
+            print(
+                "Achievement Percent Type: ${targetAchievement['totals']?['achievementPercent'].runtimeType}");
+            print("=====================================");
+          }
+        } catch (parseError) {
+          print("Error parsing target achievement: $parseError");
+        }
+
         return dashboardV2ModalFromJson(response.body);
       } else {
         print('Dashboard v2 error: ${response.statusCode}');

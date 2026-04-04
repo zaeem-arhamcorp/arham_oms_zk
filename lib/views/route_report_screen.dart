@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import '../widgets/user_search_dropdown.dart';
 import 'trip_detail_map_screen.dart';
 
 class RouteReportScreen extends StatefulWidget {
@@ -39,6 +40,13 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       <int, Map<String, String>>{};
   final Set<int> _gapLoadingIds = <int>{};
 
+  // User dropdown state
+  List<Map<String, dynamic>> _users = [];
+  bool _loadingUsers = false;
+  String? _selectedUserName;
+  String _selectedUserCode = '';
+  bool _usersFetchInitiated = false;
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +55,66 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     _toDate = DateTime(now.year, now.month, now.day);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchUsers();
       _fetchTrips();
     });
+  }
+
+  Future<void> _fetchUsers() async {
+    setState(() {
+      _loadingUsers = true;
+    });
+    try {
+      final ub = Provider.of<UserProvider>(context, listen: false);
+      final token = ub.token;
+      if (token == null || token.isEmpty) {
+        setState(() {
+          _users = [];
+          _loadingUsers = false;
+        });
+        return;
+      }
+      final uri = Uri.parse('${AppConfig.baseURL}users/children');
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+      );
+      print(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final usersList = (data['data'] is List) ? data['data'] : [];
+
+        setState(() {
+          _users = List<Map<String, dynamic>>.from(
+            usersList.map((user) {
+              final userCode = user['USER_CD'] ?? '';
+              final userName = (user['USER_NAME'] ?? '').trim();
+              final phone = (user['MOBILENO'] ?? '').trim();
+              return {
+                'userCode': userCode,
+                'userName': userName,
+                'phone': phone,
+              };
+            }),
+          );
+          _loadingUsers = false;
+        });
+      } else {
+        setState(() {
+          _users = [];
+          _loadingUsers = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _users = [];
+        _loadingUsers = false;
+      });
+    }
   }
 
   String _fmtDate(DateTime d) {
@@ -131,7 +197,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Colors.white,
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade300),
         ),
@@ -477,12 +543,14 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
     final token = ub.token;
 
-    // Use selectedUserCd if provided (for master user viewing child user's trips),
-    // otherwise use the logged-in user's code
-    final userCd = widget.selectedUserCd ??
-        (profile.userCode?.trim().isNotEmpty == true
-            ? profile.userCode!.trim()
-            : '');
+    // Use _selectedUserCode if user selected from dropdown,
+    // otherwise use widget.selectedUserCd or logged-in user's code
+    final userCd = _selectedUserCode.isNotEmpty
+        ? _selectedUserCode
+        : (widget.selectedUserCd ??
+            (profile.userCode?.trim().isNotEmpty == true
+                ? profile.userCode!.trim()
+                : ''));
 
     final syncId = ub.syncId?.trim() ?? '';
 
@@ -860,18 +928,73 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     );
   }
 
+  // User dropdown for filtering trips by user
+  Widget _buildUserDropdown() {
+    if (_loadingUsers && _users.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            CircularProgressIndicator(strokeWidth: 2),
+            SizedBox(width: 12),
+            Text('Loading users...'),
+          ],
+        ),
+      );
+    }
+    if (_users.isEmpty) return SizedBox.shrink();
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Filter by User",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 5),
+          UserSearchDropdown(
+            users: _users,
+            selectedUserCode: _selectedUserCode,
+            loading: _loadingUsers,
+            hint: "Select User",
+            onChanged: (value) {
+              setState(() {
+                _selectedUserCode = value ?? '';
+                _selectedUserName = value == ''
+                    ? 'Everyone'
+                    : _users.firstWhere(
+                        (user) => user['userCode'] == value,
+                        orElse: () => {'userName': 'Unknown'},
+                      )['userName'];
+              });
+              _fetchTrips();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final title = widget.selectedUserName != null
-        ? '${widget.selectedUserName}\'s Route Report'
+    final title = _selectedUserName != null
+        // ? ' 0{_selectedUserName}\'s Route Report'
+        ? "$_selectedUserName's Route Report"
         : 'Route Report';
 
     return Scaffold(
       appBar: CustomAppBar(
         title: title,
       ),
+      backgroundColor: Colors.white,
       body: Column(
         children: [
+          _buildUserDropdown(),
           _buildDateRangeFilter(),
           if (_error != null)
             Padding(
@@ -897,5 +1020,3 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     );
   }
 }
-
-//API Key: https://maps.googleapis.com/maps/api/js?key=AIzaSyCHNYtneNSu_KZwoGAK7pFGWhJpKFVaiaI&libraries=maps,marke

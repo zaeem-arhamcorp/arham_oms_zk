@@ -48,13 +48,6 @@ class AppSnackBar {
     // Close previous snackbars (prevents stacking)
     Get.closeAllSnackbars();
 
-    // If this is the generic error shown by providers and we're on HomePage,
-    // show a clearer offline message instead so users don't think the app broke.
-    if (message == 'Something went wrong' && Global.isHomeActive) {
-      message = 'You are offline';
-      backgroundColor = Colors.orange;
-    }
-
     Get.showSnackbar(
       GetSnackBar(
         message: message,

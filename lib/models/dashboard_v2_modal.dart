@@ -60,7 +60,8 @@ class DashboardV2Data {
         recentOrders: RecentOrders.fromJson(json["recentOrders"] ?? {}),
         topPartiesBySales:
             TopPartiesBySales.fromJson(json["topPartiesBySales"] ?? {}),
-        topItemsBySales: TopItemsBySales.fromJson(json["topItemsBySales"] ?? {}),
+        topItemsBySales:
+            TopItemsBySales.fromJson(json["topItemsBySales"] ?? {}),
         highestOrderedItems:
             HighestOrderedItems.fromJson(json["highestOrderedItems"] ?? {}),
         targetAchievement:
@@ -201,7 +202,7 @@ class Growth {
   double lastDayAmount;
 
   factory Growth.fromJson(Map<String, dynamic> json) => Growth(
-        percent: json["percent"] ?? 0,
+        percent: ((json["percent"] as num?)?.toInt() ?? 0),
         label: json["label"] ?? "0%",
         firstDayAmount: (json["firstDayAmount"] as num?)?.toDouble() ?? 0.0,
         lastDayAmount: (json["lastDayAmount"] as num?)?.toDouble() ?? 0.0,
@@ -247,11 +248,10 @@ class RecentOrders {
   List<OrderRow> rows;
 
   factory RecentOrders.fromJson(Map<String, dynamic> json) => RecentOrders(
-        total: json["total"] ?? 0,
-        count: json["count"] ?? 0,
+        total: ((json["total"] as num?)?.toInt() ?? 0),
+        count: ((json["count"] as num?)?.toInt() ?? 0),
         rows: json["rows"] != null
-            ? List<OrderRow>.from(
-                json["rows"].map((x) => OrderRow.fromJson(x)))
+            ? List<OrderRow>.from(json["rows"].map((x) => OrderRow.fromJson(x)))
             : [],
       );
 
@@ -284,7 +284,7 @@ class OrderRow {
   double amount;
 
   factory OrderRow.fromJson(Map<String, dynamic> json) => OrderRow(
-        oId: json["oId"] ?? 0,
+        oId: ((json["oId"] as num?)?.toInt() ?? 0),
         orderNo: json["orderNo"] ?? "",
         orderDate: json["orderDate"] ?? "",
         orderTime: json["orderTime"] ?? "",
@@ -320,7 +320,7 @@ class TopPartiesBySales {
   factory TopPartiesBySales.fromJson(Map<String, dynamic> json) =>
       TopPartiesBySales(
         total: (json["total"] as num?)?.toDouble() ?? 0.0,
-        count: json["count"] ?? 0,
+        count: ((json["count"] as num?)?.toInt() ?? 0),
         rows: json["rows"] != null
             ? List<PartyRow>.from(json["rows"].map((x) => PartyRow.fromJson(x)))
             : [],
@@ -371,7 +371,7 @@ class TopItemsBySales {
   factory TopItemsBySales.fromJson(Map<String, dynamic> json) =>
       TopItemsBySales(
         total: (json["total"] as num?)?.toDouble() ?? 0.0,
-        count: json["count"] ?? 0,
+        count: ((json["count"] as num?)?.toInt() ?? 0),
         rows: json["rows"] != null
             ? List<ItemRow>.from(json["rows"].map((x) => ItemRow.fromJson(x)))
             : [],
@@ -401,7 +401,7 @@ class ItemRow {
         itemCode: json["itemCode"] ?? "",
         itemName: json["itemName"] ?? "",
         amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
-        quantity: json["quantity"] ?? 0,
+        quantity: ((json["quantity"] as num?)?.toInt() ?? 0),
       );
 
   Map<String, dynamic> toJson() => {
@@ -425,8 +425,8 @@ class HighestOrderedItems {
 
   factory HighestOrderedItems.fromJson(Map<String, dynamic> json) =>
       HighestOrderedItems(
-        totalQuantity: json["totalQuantity"] ?? 0,
-        count: json["count"] ?? 0,
+        totalQuantity: ((json["totalQuantity"] as num?)?.toInt() ?? 0),
+        count: ((json["count"] as num?)?.toInt() ?? 0),
         rows: json["rows"] != null
             ? List<ItemRow>.from(json["rows"].map((x) => ItemRow.fromJson(x)))
             : [],
@@ -452,7 +452,7 @@ class TargetAchievement {
 
   double targetAmount;
   double achievedAmount;
-  int achievementPercent;
+  double achievementPercent;
   double remainingAmount;
   List<TargetUser> users;
   int totalUsers;
@@ -462,13 +462,14 @@ class TargetAchievement {
       TargetAchievement(
         targetAmount: (json["targetAmount"] as num?)?.toDouble() ?? 0.0,
         achievedAmount: (json["achievedAmount"] as num?)?.toDouble() ?? 0.0,
-        achievementPercent: json["achievementPercent"] ?? 0,
+        achievementPercent:
+            ((json["achievementPercent"] as num?)?.toDouble() ?? 0.0),
         remainingAmount: (json["remainingAmount"] as num?)?.toDouble() ?? 0.0,
         users: json["users"] != null
             ? List<TargetUser>.from(
                 json["users"].map((x) => TargetUser.fromJson(x)))
             : [],
-        totalUsers: json["totalUsers"] ?? 0,
+        totalUsers: ((json["totalUsers"] as num?)?.toInt() ?? 0),
         totals: TargetTotals.fromJson(json["totals"] ?? {}),
       );
 
@@ -498,7 +499,7 @@ class TargetUser {
   String userName;
   double targetAmount;
   double achievedAmount;
-  int achievementPercent;
+  double achievementPercent;
   double remainingAmount;
   bool isSelf;
 
@@ -507,7 +508,8 @@ class TargetUser {
         userName: json["userName"] ?? "",
         targetAmount: (json["targetAmount"] as num?)?.toDouble() ?? 0.0,
         achievedAmount: (json["achievedAmount"] as num?)?.toDouble() ?? 0.0,
-        achievementPercent: ((json["achievementPercent"] as num?)?.toInt() ?? 0),
+        achievementPercent:
+            ((json["achievementPercent"] as num?)?.toDouble() ?? 0.0),
         remainingAmount: (json["remainingAmount"] as num?)?.toDouble() ?? 0.0,
         isSelf: json["isSelf"] ?? false,
       );
@@ -533,13 +535,14 @@ class TargetTotals {
 
   double targetAmount;
   double achievedAmount;
-  int achievementPercent;
+  double achievementPercent;
   double remainingAmount;
 
   factory TargetTotals.fromJson(Map<String, dynamic> json) => TargetTotals(
         targetAmount: (json["targetAmount"] as num?)?.toDouble() ?? 0.0,
         achievedAmount: (json["achievedAmount"] as num?)?.toDouble() ?? 0.0,
-        achievementPercent: ((json["achievementPercent"] as num?)?.toInt() ?? 0),
+        achievementPercent:
+            ((json["achievementPercent"] as num?)?.toDouble() ?? 0.0),
         remainingAmount: (json["remainingAmount"] as num?)?.toDouble() ?? 0.0,
       );
 

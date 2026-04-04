@@ -1,11 +1,8 @@
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/views/ItemWisePartyWisePurchaseReportScreen.dart';
-import 'package:arham_corporation/views/narration/narration_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/route_report_screen.dart';
-import 'package:arham_corporation/views/user_selection_screen.dart';
-import 'package:arham_corporation/views/change_password/change_password_view.dart';
-import 'package:arham_corporation/views/referral/referral_view.dart';
+// import 'package:arham_corporation/views/user_selection_screen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -14,7 +11,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/user_provider.dart';
-import '../About me.dart';
+import '../../widgets/common_app_drawer.dart';
 import '../OutStandingReportPayableScreen.dart';
 import '../OutStandingReportReceivableScreen.dart';
 import '../PartyWiseOutStandingReportPayableScreen.dart';
@@ -24,16 +21,12 @@ import '../accountLedgerScreen.dart';
 import '../itemLedgerScreen.dart';
 import '../itemWisePartyWiseSaleReportScreen.dart';
 import '../itemwiseSaleReportScreen.dart';
-import '../loginpage.dart';
 import '../orderReportScreen.dart';
 import '../partyWiseReport.dart';
 import '../payable_payment_settlement_page.dart';
 import '../receivable_receipt_settlement_page.dart';
 import '../salesRegisterReport.dart';
-import '../settingsScreen.dart';
 import '../stockReportScreen.dart';
-import '../userScreen.dart';
-import 'firm_list.dart';
 
 class NewMenu extends StatefulWidget {
   const NewMenu({super.key});
@@ -159,323 +152,13 @@ class _NewMenuState extends State<NewMenu> {
       //     'Menus',
       //     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
       //   ),
-      // ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // DrawerHeader(
-            //   decoration: BoxDecoration(
-            //     color: Colors.white,
-            //   ),
-            //   child: Column(
-            //     mainAxisAlignment: MainAxisAlignment.start,
-            //     crossAxisAlignment: CrossAxisAlignment.start,
-            //     children: [
-            //       // Adjust the position of the image
-            //       Image.asset(
-            //         'assets/Arham-icon.png',
-            //         width: MediaQuery.of(context).size.width *
-            //             0.55, // Responsive width
-            //         height: MediaQuery.of(context).size.height *
-            //             0.14, // Responsive height
-            //       ),
-            //       // Text("hello")
-            //     ],
-            //   ),
-            // ),
-
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.white,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Flexible(
-                    child: Image.asset(
-                      'assets/Arham-icon.png',
-                      fit: BoxFit.contain,
-                      width: MediaQuery.of(context).size.width * 0.55,
-                      // Don't use full screen height here
-                      height: MediaQuery.of(context).size.height *
-                          0.14, // Reduce height
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ListTile(
-            //   leading: Icon(
-            //     Icons.home,
-            //     size: 30,
-            //   ),
-            //   title: Text(
-            //     'Home',
-            //     style: TextStyle(
-            //       fontSize: 20,
-            //     ),
-            //   ),
-            //   onTap: () {
-            //     //Get.to(() => HomePage());
-            //
-            //     Get.offAll(() =>
-            //         BottomnavigationBarScreen()); // FAZAL Changes 15-12-2025
-            //   },
-            // ),
-            // ListTile(
-            //   leading: Icon(
-            //     Icons.widgets_outlined,
-            //     size: 30,
-            //   ),
-            //   title: Text(
-            //     'Menus',
-            //     style: TextStyle(
-            //       fontSize: 20,
-            //     ),
-            //   ),
-            //   onTap: () {
-            //     Get.to(() => NewMenu());
-            //   },
-            // ),
-            //if (p.data != null && p.data!.moduleNos.contains("01"))
-            // if (p.data != null &&
-            //     p.data!.modulesList!.any((module) => module.mODULENO == "301" && module.rEADRIGHT == true))
-            //   ListTile(
-            //     leading: Icon(
-            //       Icons.dashboard,
-            //       size: 30,
-            //     ),
-            //     title: Text(
-            //       'DashBoard',
-            //       style: TextStyle(fontSize: 20),
-            //     ),
-            //     onTap: () {
-            //       Get.to(() => DailyReportScreen());
-            //     },
-            //   ),
-            if (p.data != null &&
-                p.data!.modulesList!.any((module) =>
-                    module.mODULENO == "109" && module.rEADRIGHT == true))
-              ListTile(
-                leading: Icon(
-                  Icons.nat_rounded,
-                  size: 30,
-                ),
-                title: Text(
-                  'Narration',
-                  style: TextStyle(fontSize: 20),
-                ),
-                onTap: () {
-                  Get.to(NarrationView(), arguments: {
-                    "ModuleNo": narrationModuleNo,
-                    "ReadRight": narrationReadRight,
-                    "WriteRight": narrationWriteRights,
-                    "UpdateRight": narrationUpdateRights,
-                    "DeleteRight": narrationDeleteRight,
-                    "PrintRight": narrationPrintRights,
-                  });
-                },
-              ),
-            if (ub.role == AppConfig.masteruser)
-              ListTile(
-                leading: Icon(
-                  Icons.business_sharp,
-                  size: 30,
-                ),
-                title: Text(
-                  'Firm Management',
-                  style: TextStyle(fontSize: 20),
-                ),
-                onTap: () {
-                  Get.to(() => FirmListPage());
-                },
-              ),
-            if (p.data != null &&
-                p.data!.modulesList!.any((module) =>
-                    module.mODULENO == "110" && module.rEADRIGHT == true))
-              ListTile(
-                leading: Icon(
-                  Icons.group,
-                  size: 30,
-                ),
-                title: Text(
-                  'User Management',
-                  style: TextStyle(
-                    fontSize: 20,
-                  ),
-                ),
-                onTap: () {
-                  Get.to(() => UserScreen());
-                },
-              ),
-            // ListTile(
-            //   leading: Icon(
-            //     Icons.account_circle,
-            //     size: 30,
-            //   ),
-            //   title: Text(
-            //     'Profile',
-            //     style: TextStyle(fontSize: 20),
-            //   ),
-            //   onTap: () {
-            //     Get.to(() => ProfilePage());
-            //   },
-            // ),
-            if (ub.role == AppConfig.masteruser)
-              ListTile(
-                leading: Icon(
-                  Icons.settings,
-                  size: 30,
-                ),
-                title: Text(
-                  'Settings',
-                  style: TextStyle(
-                    fontSize: 20,
-                  ),
-                ),
-                onTap: () {
-                  Get.to(() => SettingScreen());
-                },
-              ),
-            // ✅ Show Go Offline button only if offline mode is enabled
-            Selector<ProfileProvider, bool>(
-              selector: (context, profileProvider) =>
-                  profileProvider.isOfflineModeEnabled(),
-              builder: (context, isOfflineModeEnabled, child) {
-                if (!isOfflineModeEnabled) {
-                  return SizedBox.shrink();
-                }
-                return ListTile(
-                  leading: Icon(
-                    Icons.cloud_download,
-                    size: 30,
-                  ),
-                  title: Text(
-                    'Go Offline',
-                    style: TextStyle(
-                      fontSize: 20,
-                    ),
-                  ),
-                  onTap: () {
-                    // TODO: Implement offline dialog
-                  },
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.key,
-                size: 30,
-              ),
-              title: Text(
-                'Change Password',
-                style: TextStyle(
-                  fontSize: 20,
-                ),
-              ),
-              onTap: () {
-                Get.to(() => ChangePasswordView());
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.group_add,
-                size: 30,
-              ),
-              title: Text(
-                'Generate Referral',
-                style: TextStyle(
-                  fontSize: 20,
-                ),
-              ),
-              onTap: () {
-                Get.to(() => ReferralView());
-              },
-            ),
-            // Reimbursement (Module 231)
-            if (_profileProvider.data?.modulesList != null &&
-                _profileProvider.data!.modulesList!.any((module) =>
-                    module.mODULENO == "231" &&
-                    (module.rEADRIGHT == true || module.pRINTRIGHT == true)))
-              ListTile(
-                leading: Icon(
-                  Icons.attach_money,
-                  size: 30,
-                ),
-                title: Text(
-                  'Reimbursement',
-                  style: TextStyle(
-                    fontSize: 20,
-                  ),
-                ),
-                onTap: () {
-                  Get.to(() => GetExpenseView());
-                },
-              ),
-            ListTile(
-              leading: Icon(
-                Icons.info_outline,
-                size: 30,
-              ),
-              title: Text(
-                'About Us',
-                style: TextStyle(
-                  fontSize: 20,
-                ),
-              ),
-              onTap: () {
-                Get.to(() => AboutPage());
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.logout,
-                color: Colors.red,
-                size: 30,
-              ),
-              title: Text(
-                'Logout',
-                style: TextStyle(
-                  fontSize: 20,
-                ),
-              ),
-              onTap: () {
-                // Show confirmation dialog
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text('Logout Confirmation'),
-                      content: Text('Are you sure you want to log out?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            // Cancel button: Close the dialog
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // Confirm logout
-                            Navigator.of(context).pop(); // Close the dialog
-                            ub.userSignout(context).then((value) {
-                              Get.offAll(() => LoginPage());
-                            });
-                          },
-                          child: Text('Logout'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-        ),
+      drawer: CommonAppDrawer(
+        narrationModuleNo: narrationModuleNo,
+        narrationReadRight: narrationReadRight,
+        narrationWriteRights: narrationWriteRights,
+        narrationUpdateRights: narrationUpdateRights,
+        narrationDeleteRight: narrationDeleteRight,
+        narrationPrintRights: narrationPrintRights,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -640,32 +323,8 @@ class _NewMenuState extends State<NewMenu> {
                       p.data!.modulesList!.any((module) =>
                           module.mODULENO == "321" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.account_balance, "Route Report",
-                        () async {
-                      // Route to UserSelectionScreen if master user or parent user with children
-                      final ub =
-                          Provider.of<UserProvider>(context, listen: false);
-                      if (ub.role == AppConfig.masteruser) {
-                        print(
-                            '[NewMenu] 👑 Master user detected - showing user selection');
-                        Get.to(() =>
-                            const UserSelectionScreen(isMasterUser: true));
-                      } else {
-                        // Check if operator is a parent user
-                        print(
-                            '[NewMenu] 👤 Operator user detected - checking if parent');
-                        final isParent = await ub.hasChildren();
-                        print('[NewMenu] Parent check result: $isParent');
-                        if (isParent) {
-                          print(
-                              '[NewMenu] ✅ Operator is a parent - showing child selection');
-                          Get.to(() =>
-                              const UserSelectionScreen(isMasterUser: false));
-                        } else {
-                          print(
-                              '[NewMenu] 📊 Operator is not a parent - showing own route');
-                          Get.to(() => const RouteReportScreen());
-                        }
-                      }
+                        () {
+                      Get.to(() => const RouteReportScreen());
                     }, iconUrl: "assets/icons/route_report.png"),
                 ]),
               ],

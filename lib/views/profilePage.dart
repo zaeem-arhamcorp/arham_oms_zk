@@ -1,21 +1,26 @@
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/company_management/firm_list.dart';
+import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
+import 'package:arham_corporation/views/referral/referral_view.dart';
+import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
+import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:arham_corporation/views/loginpage.dart';
 
+import '../services/offline_caching_service.dart';
 import 'About me.dart';
+import 'change_password/change_password_view.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -59,7 +64,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _setData(); // Renamed for convention (private method)
 
     final ProfileProvider p =
-    Provider.of<ProfileProvider>(context, listen: false);
+        Provider.of<ProfileProvider>(context, listen: false);
 
     // var receiptEntryModule =
     // p.data!.modulesList!.firstWhere((module) => module.mODULENO == "214");
@@ -75,8 +80,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var narrationEntryModule = p.data?.modulesList?.firstWhere(
           (module) => module.mODULENO == "109",
-      orElse: () => Modules(), // Default value in case not found
-    ) ??
+          orElse: () => Modules(), // Default value in case not found
+        ) ??
         Modules(); // Ensure that we get a default value if any part is null
 
     if (narrationEntryModule.mODULENO == "109") {
@@ -92,8 +97,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var receiptEntryModule = p.data?.modulesList?.firstWhere(
           (module) => module.mODULENO == "214",
-      orElse: () => Modules(), // Default value in case not found
-    ) ??
+          orElse: () => Modules(), // Default value in case not found
+        ) ??
         Modules(); // Ensure that we get a default value if any part is null
 
     if (receiptEntryModule.mODULENO == "214") {
@@ -109,7 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var orderReportModule = p.data?.modulesList?.firstWhere(
             (module) => module.mODULENO == "304",
-        orElse: () => Modules()) ??
+            orElse: () => Modules()) ??
         Modules();
     if (orderReportModule.mODULENO == "304") {
       orderPrintRight = orderReportModule.pRINTRIGHT!;
@@ -120,9 +125,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var paymentEntryModule = p.data?.modulesList?.firstWhere(
             (module) => module.mODULENO == "215",
-        orElse: () =>
-            Modules() // Provide a default instance of the `Module` class
-    ) ??
+            orElse: () =>
+                Modules() // Provide a default instance of the `Module` class
+            ) ??
         Modules();
 
     if (paymentEntryModule.mODULENO == "215") {
@@ -150,21 +155,21 @@ class _ProfilePageState extends State<ProfilePage> {
     // If this method could be called again later to refresh data *after* build,
     // then setState would be necessary.
     final ProfileProvider p =
-    Provider.of<ProfileProvider>(context, listen: false);
+        Provider.of<ProfileProvider>(context, listen: false);
     final UserProvider userProvider =
-    Provider.of<UserProvider>(context, listen: false);
+        Provider.of<UserProvider>(context, listen: false);
 
-    _nameClt.text =
-        p.data?.userName ?? 'No User Name';
+    _nameClt.text = p.data?.userName ?? 'No User Name';
     _codeClt.text = p.data?.userType ?? 'No User Type';
     _phoneNoClt.text = p.data?.mobileno ?? 'No User Mobile No';
-    _addressClt.text = userProvider.syncName ?? "No Company Name"; // Simplified null check
+    _addressClt.text =
+        userProvider.syncName ?? "No Company Name"; // Simplified null check
   }
 
   // Helper function to check connectivity
   Future<bool> _isConnected() async {
     final List<ConnectivityResult> connectivityResult =
-    await Connectivity().checkConnectivity();
+        await Connectivity().checkConnectivity();
     // Check if the list contains any of the connected types
     // and does not exclusively contain 'none'.
     if (connectivityResult.contains(ConnectivityResult.mobile) ||
@@ -196,26 +201,32 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.only(right: 12.0),
               child: GestureDetector(
                 onTap: () async {
-                  if (!mounted) return; // Check if the widget is still in the tree
+                  if (!mounted)
+                    return; // Check if the widget is still in the tree
 
                   if (await _isConnected()) {
                     // Show confirmation dialog
-                    final bool? confirmLogout = await showDialog<bool>( // Explicit type
+                    final bool? confirmLogout = await showDialog<bool>(
+                      // Explicit type
                       context: context,
-                      builder: (BuildContext dialogContext) { // Use a different context name
+                      builder: (BuildContext dialogContext) {
+                        // Use a different context name
                         return AlertDialog(
                           title: const Text('Confirm Logout'),
-                          content: const Text('Are you sure you want to log out?'),
+                          content:
+                              const Text('Are you sure you want to log out?'),
                           actions: [
                             TextButton(
                               onPressed: () {
-                                Navigator.of(dialogContext).pop(false); // Cancel
+                                Navigator.of(dialogContext)
+                                    .pop(false); // Cancel
                               },
                               child: const Text('Cancel'),
                             ),
                             TextButton(
                               onPressed: () {
-                                Navigator.of(dialogContext).pop(true); // Confirm
+                                Navigator.of(dialogContext)
+                                    .pop(true); // Confirm
                               },
                               child: const Text('Logout'),
                             ),
@@ -225,11 +236,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
 
                     // Proceed with logout if confirmed (and not null)
-                    if (confirmLogout == true) { // Explicitly check for true
+                    if (confirmLogout == true) {
+                      // Explicitly check for true
                       // No need for .then if you're not doing anything after the future completes here
                       await userProvider.userSignout(context);
                       if (!mounted) return;
-                      Get.offAll(() =>  LoginPage());
+                      Get.offAll(() => LoginPage());
                     }
                   } else {
                     if (!mounted) return;
@@ -247,249 +259,19 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // DrawerHeader(
-            //   decoration: BoxDecoration(
-            //     color: Colors.white,
-            //   ),
-            //   child: Column(
-            //     mainAxisAlignment: MainAxisAlignment.start,
-            //     crossAxisAlignment: CrossAxisAlignment.start,
-            //     children: [
-            //       // Adjust the position of the image
-            //       Image.asset(
-            //         'assets/Arham-icon.png',
-            //         width: MediaQuery.of(context).size.width *
-            //             0.55, // Responsive width
-            //         height: MediaQuery.of(context).size.height *
-            //             0.14, // Responsive height
-            //       ),
-            //       // Text("hello")
-            //     ],
-            //   ),
-            // ),
-
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.white,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Flexible(
-                    child: Image.asset(
-                      'assets/Arham-icon.png',
-                      fit: BoxFit.contain,
-                      width: MediaQuery.of(context).size.width * 0.55,
-                      // Don't use full screen height here
-                      height: MediaQuery.of(context).size.height * 0.14, // Reduce height
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ListTile(
-            //   leading: Icon(
-            //     Icons.home,
-            //     size: 30,
-            //   ),
-            //   title: Text(
-            //     'Home',
-            //     style: TextStyle(
-            //       fontSize: 20,
-            //     ),
-            //   ),
-            //   onTap: () {
-            //     //Get.to(() => HomePage());
-            //
-            //     Get.offAll(() =>
-            //         BottomnavigationBarScreen()); // FAZAL Changes 15-12-2025
-            //   },
-            // ),
-            // ListTile(
-            //   leading: Icon(
-            //     Icons.widgets_outlined,
-            //     size: 30,
-            //   ),
-            //   title: Text(
-            //     'Menus',
-            //     style: TextStyle(
-            //       fontSize: 20,
-            //     ),
-            //   ),
-            //   onTap: () {
-            //     Get.to(() => NewMenu());
-            //   },
-            // ),
-            //if (p.data != null && p.data!.moduleNos.contains("01"))
-            // if (p.data != null &&
-            //     p.data!.modulesList!.any((module) => module.mODULENO == "301" && module.rEADRIGHT == true))
-            //   ListTile(
-            //     leading: Icon(
-            //       Icons.dashboard,
-            //       size: 30,
-            //     ),
-            //     title: Text(
-            //       'DashBoard',
-            //       style: TextStyle(fontSize: 20),
-            //     ),
-            //     onTap: () {
-            //       Get.to(() => DailyReportScreen());
-            //     },
-            //   ),
-            if (ub.role == AppConfig.masteruser &&
-                (p.data != null &&
-                    p.data!.modulesList!
-                        .any((module) => module.mODULENO == "109" && module.rEADRIGHT == true)))
-              ListTile(
-                leading: Icon(
-                  Icons.nat_rounded,
-                  size: 30,
-                ),
-                title: Text(
-                  'Narration',
-                  style: TextStyle(fontSize: 20),
-                ),
-                onTap: () {
-                  Get.to(NarrationView(), arguments: {
-                    "ModuleNo": narrationModuleNo,
-                    "ReadRight": narrationReadRight,
-                    "WriteRight": narrationWriteRights,
-                    "UpdateRight": narrationUpdateRights,
-                    "DeleteRight": narrationDeleteRight,
-                    "PrintRight": narrationPrintRights,
-                  });
-                },
-              ),
-            if (ub.role == AppConfig.masteruser)
-              ListTile(
-                leading: Icon(
-                  Icons.business_sharp,
-                  size: 30,
-                ),
-                title: Text(
-                  'Firm Management',
-                  style: TextStyle(fontSize: 20),
-                ),
-                onTap: () {
-                  Get.to(() => FirmListPage());
-                },
-              ),
-            if (ub.role == AppConfig.masteruser)
-              ListTile(
-                leading: Icon(
-                  Icons.group,
-                  size: 30,
-                ),
-                title: Text(
-                  'User Management',
-                  style: TextStyle(
-                    fontSize: 20,
-                  ),
-                ),
-                onTap: () {
-                  Get.to(() => UserScreen());
-                },
-              ),
-            // ListTile(
-            //   leading: Icon(
-            //     Icons.account_circle,
-            //     size: 30,
-            //   ),
-            //   title: Text(
-            //     'Profile',
-            //     style: TextStyle(fontSize: 20),
-            //   ),
-            //   onTap: () {
-            //     Get.to(() => ProfilePage());
-            //   },
-            // ),
-            if (ub.role == AppConfig.masteruser)
-              ListTile(
-                leading: Icon(
-                  Icons.settings,
-                  size: 30,
-                ),
-                title: Text(
-                  'Settings',
-                  style: TextStyle(
-                    fontSize: 20,
-                  ),
-                ),
-                onTap: () {
-                  Get.to(() => SettingScreen());
-                },
-              ),
-            ListTile(
-              leading: Icon(
-                Icons.info_outline,
-                size: 30,
-              ),
-              title: Text(
-                'About Us',
-                style: TextStyle(
-                  fontSize: 20,
-                ),
-              ),
-              onTap: () {
-                Get.to(() => AboutPage());
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.logout,
-                color: Colors.red,
-                size: 30,
-              ),
-              title: Text(
-                'Logout',
-                style: TextStyle(
-                  fontSize: 20,
-                ),
-              ),
-              onTap: () {
-                // Show confirmation dialog
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text('Logout Confirmation'),
-                      content: Text('Are you sure you want to log out?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            // Cancel button: Close the dialog
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // Confirm logout
-                            Navigator.of(context).pop(); // Close the dialog
-                            ub.userSignout(context).then((value) {
-                              Get.offAll(() => LoginPage());
-                            });
-                          },
-                          child: Text('Logout'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-        ),
+      drawer: CommonAppDrawer(
+        narrationModuleNo: narrationModuleNo,
+        narrationReadRight: narrationReadRight,
+        narrationWriteRights: narrationWriteRights,
+        narrationUpdateRights: narrationUpdateRights,
+        narrationDeleteRight: narrationDeleteRight,
+        narrationPrintRights: narrationPrintRights,
       ),
       body: SafeArea(
-        child: SingleChildScrollView( // Added SingleChildScrollView for longer content
-          padding: const EdgeInsets.only(top: 15, left: 8, right: 8, bottom: 15), // Added bottom padding
+        child: SingleChildScrollView(
+          // Added SingleChildScrollView for longer content
+          padding: const EdgeInsets.only(
+              top: 15, left: 8, right: 8, bottom: 15), // Added bottom padding
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -513,28 +295,35 @@ class _ProfilePageState extends State<ProfilePage> {
                 label: "Phone No",
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 30.0), // Increased top padding
+                padding:
+                    const EdgeInsets.only(top: 30.0), // Increased top padding
                 child: Center(
                   child: Card(
-                    shadowColor: Colors.lightBlueAccent, // Slightly different color for variety
+                    shadowColor: Colors
+                        .lightBlueAccent, // Slightly different color for variety
                     elevation: 5,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: Colors.black54)), // Slightly less prominent border
+                        side: const BorderSide(
+                            color: Colors
+                                .black54)), // Slightly less prominent border
                     child: TextButton(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), // Added padding
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12), // Added padding
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(8), // Match card's border radius
+                          borderRadius: BorderRadius.circular(
+                              8), // Match card's border radius
                         ),
                       ),
                       child: const Text(
                         "Delete Account",
-                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.bold),
                       ),
                       onPressed: () {
-                        _showDeleteConfirmationDialog(context, userProvider); // Pass userProvider if needed for deletion
+                        _showDeleteConfirmationDialog(context,
+                            userProvider); // Pass userProvider if needed for deletion
                       },
                     ),
                   ),
@@ -553,7 +342,8 @@ class _ProfilePageState extends State<ProfilePage> {
     required String label,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0), // Consistent padding
+      padding: const EdgeInsets.symmetric(
+          vertical: 8.0, horizontal: 8.0), // Consistent padding
       child: Card(
         shadowColor: Colors.lightBlue,
         elevation: 5,
@@ -571,10 +361,13 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showDeleteConfirmationDialog(BuildContext context, UserProvider userProvider) {
-    showDialog<void>( // Explicit type
+  void _showDeleteConfirmationDialog(
+      BuildContext context, UserProvider userProvider) {
+    showDialog<void>(
+      // Explicit type
       context: context,
-      builder: (BuildContext dialogContext) { // Use a different context name
+      builder: (BuildContext dialogContext) {
+        // Use a different context name
         return AlertDialog(
           title: const Text("Confirm Deletion"),
           content: const Text(
@@ -588,14 +381,16 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             TextButton(
               child: const Text("Yes", style: TextStyle(color: Colors.red)),
-              onPressed: () async { // Make async if service call is async
+              onPressed: () async {
+                // Make async if service call is async
                 if (!mounted) return;
                 // Call the delete account service
                 // Assuming Services().deleteAccount might also need context or user info
-                await Services().deleteAccount(context /*, other params if needed, e.g., userProvider.user.id */);
+                await Services().deleteAccount(
+                    context /*, other params if needed, e.g., userProvider.user.id */);
                 if (!mounted) return;
                 Navigator.of(dialogContext).pop(); // Close the dialog FIRST
-                Get.offAll(() =>  LoginPage()); // Then navigate
+                Get.offAll(() => LoginPage()); // Then navigate
               },
             ),
           ],
@@ -608,7 +403,8 @@ class _ProfilePageState extends State<ProfilePage> {
   // ensure to update the connectivity check and use 'userProvider'
   // which you'd need to pass or access via Provider.of.
   // ignore: unused_element
-  void _showLogoutConfirmationDialog_Unused(BuildContext context, UserProvider userProvider) async {
+  void _showLogoutConfirmationDialog_Unused(
+      BuildContext context, UserProvider userProvider) async {
     if (!mounted) return;
 
     if (await _isConnected()) {
@@ -639,7 +435,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (confirmLogout == true) {
         await userProvider.userSignout(context);
         if (!mounted) return;
-        Get.offAll(() =>  LoginPage());
+        Get.offAll(() => LoginPage());
       }
     } else {
       if (!mounted) return;

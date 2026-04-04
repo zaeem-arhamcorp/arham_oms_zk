@@ -6,8 +6,8 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
-import 'package:arham_corporation/models/dashboardmodal.dart';
 import 'package:arham_corporation/models/dashboard_v2_modal.dart';
+import 'package:arham_corporation/models/dashboardmodal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
@@ -132,14 +132,27 @@ class _HomePageState extends State<HomePage> {
     bool online = await NetworkHelper.hasInternet();
 
     if (online) {
-      // Get today's date and 3 days back for dashboard v2
+      // Calculate financial year dates (April 1 to current date)
       final today = DateTime.now();
-      final threeMonthsAgo = today.subtract(Duration(days: 90));
-      
-      final fromDate = '${threeMonthsAgo.year}-${threeMonthsAgo.month.toString().padLeft(2, '0')}-${threeMonthsAgo.day.toString().padLeft(2, '0')}';
-      final toDate = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      late DateTime financialYearStart;
 
-      Services().getDashboardV2Data(context, fromDate, toDate).then((value) async {
+      // Financial year starts on April 1st
+      if (today.month >= 4) {
+        // Current financial year (April to December of current year, Jan to March of next year)
+        financialYearStart = DateTime(today.year, 4, 1);
+      } else {
+        // Previous financial year (we're in Jan-Mar, so FY started in April of last year)
+        financialYearStart = DateTime(today.year - 1, 4, 1);
+      }
+
+      final fromDate =
+          '${financialYearStart.year}-${financialYearStart.month.toString().padLeft(2, '0')}-${financialYearStart.day.toString().padLeft(2, '0')}';
+      final toDate =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      Services()
+          .getDashboardV2Data(context, fromDate, toDate)
+          .then((value) async {
         if (value != null) {
           setState(() {
             dashboardV2Data = value;
@@ -1406,7 +1419,7 @@ class _HomePageState extends State<HomePage> {
                                           0.42,
                                       height:
                                           MediaQuery.of(context).size.height *
-                                              0.12,
+                                              0.14,
                                       padding: EdgeInsets.symmetric(
                                           horizontal: 10, vertical: 15),
                                       decoration: BoxDecoration(
@@ -1482,7 +1495,7 @@ class _HomePageState extends State<HomePage> {
                                           0.42,
                                       height:
                                           MediaQuery.of(context).size.height *
-                                              0.12,
+                                              0.14,
                                       padding: EdgeInsets.symmetric(
                                           horizontal: 10, vertical: 15),
                                       decoration: BoxDecoration(
@@ -1537,6 +1550,124 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                             ],
                                           ),
+                                          if (dashboardV2Data != null &&
+                                              ub.role ==
+                                                  AppConfig.masteruser) ...[
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  "Achv Percent: ",
+                                                  style:
+                                                      TextStyle(fontSize: 13),
+                                                ),
+                                                Text(
+                                                  "${dashboardV2Data!.data.targetAchievement.totals.achievementPercent.toStringAsFixed(2)}%",
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: dashboardV2Data!
+                                                                .data
+                                                                .targetAchievement
+                                                                .totals
+                                                                .achievementPercent >
+                                                            0
+                                                        ? Colors.green.shade700
+                                                        : Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Row(
+                                              children: [
+                                                // Text(
+                                                //   "Target: ",
+                                                //   style:
+                                                //       TextStyle(fontSize: 13),
+                                                // ),
+                                                Text(
+                                                  "Target: ₹${dashboardV2Data!.data.targetAchievement.totals.targetAmount}",
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    // fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ] else if (dashboardV2Data != null &&
+                                              dashboardV2Data!
+                                                  .data
+                                                  .targetAchievement
+                                                  .users
+                                                  .isNotEmpty &&
+                                              ub.role !=
+                                                  AppConfig.masteruser) ...[
+                                            Builder(
+                                              builder: (BuildContext context) {
+                                                final profileProvider = context
+                                                    .watch<ProfileProvider>();
+                                                final currentUserCd =
+                                                    profileProvider.userCode;
+
+                                                // Find current operator user in the users array
+                                                final currentOperatorUser =
+                                                    dashboardV2Data!.data
+                                                        .targetAchievement.users
+                                                        .cast<TargetUser?>()
+                                                        .firstWhere(
+                                                          (user) =>
+                                                              user?.userCd ==
+                                                              currentUserCd,
+                                                          orElse: () => null,
+                                                        );
+
+                                                if (currentOperatorUser !=
+                                                    null) {
+                                                  return Column(
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Text(
+                                                            "Achv Percent: ",
+                                                            style: TextStyle(
+                                                                fontSize: 13),
+                                                          ),
+                                                          Text(
+                                                            "${currentOperatorUser.achievementPercent.toStringAsFixed(2)}%",
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: currentOperatorUser
+                                                                          .achievementPercent >
+                                                                      0
+                                                                  ? Colors.green
+                                                                      .shade700
+                                                                  : Colors.grey
+                                                                      .shade700,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Row(
+                                                        children: [
+                                                          Text(
+                                                            "Target: ₹${currentOperatorUser.targetAmount}",
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  );
+                                                } else {
+                                                  // User not found in target users array
+                                                  return SizedBox.shrink();
+                                                }
+                                              },
+                                            ),
+                                          ]
                                         ],
                                       ),
                                     ),
@@ -1551,162 +1682,162 @@ class _HomePageState extends State<HomePage> {
                   ),
 
                   // Target Achievement Card (Dashboard V2)
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Card(
-                      elevation: 20,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
-                      child: Container(
-                        padding: EdgeInsets.all(15),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Target Achievement",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 15),
-                            if (dashboardV2Data != null)
-                              Column(
-                                children: [
-                                  // Target Amount
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "Target Amount",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      Text(
-                                        "₹ ${dashboardV2Data!.data.targetAchievement.totals.targetAmount.toStringAsFixed(2)}",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 10),
-                                  // Achievement Percent
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "Achievement %",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: dashboardV2Data!
-                                                      .data
-                                                      .targetAchievement
-                                                      .totals
-                                                      .achievementPercent >
-                                                  0
-                                              ? Colors.green.shade100
-                                              : Colors.grey.shade100,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          "${dashboardV2Data!.data.targetAchievement.totals.achievementPercent}%",
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: dashboardV2Data!
-                                                        .data
-                                                        .targetAchievement
-                                                        .totals
-                                                        .achievementPercent >
-                                                    0
-                                                ? Colors.green.shade700
-                                                : Colors.grey.shade700,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 10),
-                                  // Achieved Amount
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "Achieved Amount",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      Text(
-                                        "₹ ${dashboardV2Data!.data.targetAchievement.totals.achievedAmount.toStringAsFixed(2)}",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.blue.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 10),
-                                  // Remaining Amount
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "Remaining Amount",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      Text(
-                                        "₹ ${dashboardV2Data!.data.targetAchievement.totals.remainingAmount.toStringAsFixed(2)}",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.orange.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              )
-                            else
-                              Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: CircularProgressIndicator(),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Padding(
+                  //   padding: const EdgeInsets.all(8.0),
+                  //   child: Card(
+                  //     elevation: 20,
+                  //     shape: RoundedRectangleBorder(
+                  //         borderRadius: BorderRadius.circular(15)),
+                  //     child: Container(
+                  //       padding: EdgeInsets.all(15),
+                  //       child: Column(
+                  //         crossAxisAlignment: CrossAxisAlignment.start,
+                  //         children: [
+                  //           Row(
+                  //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //             children: [
+                  //               Text(
+                  //                 "Target Achievement",
+                  //                 style: TextStyle(
+                  //                   fontSize: 16,
+                  //                   fontWeight: FontWeight.w700,
+                  //                   color: Colors.black,
+                  //                 ),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //           SizedBox(height: 15),
+                  //           if (dashboardV2Data != null)
+                  //             Column(
+                  //               children: [
+                  //                 // Target Amount
+                  //                 Row(
+                  //                   mainAxisAlignment:
+                  //                       MainAxisAlignment.spaceBetween,
+                  //                   children: [
+                  //                     Text(
+                  //                       "Target Amount",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         color: Colors.grey.shade700,
+                  //                       ),
+                  //                     ),
+                  //                     Text(
+                  //                       "₹ ${dashboardV2Data!.data.targetAchievement.totals.targetAmount.toStringAsFixed(2)}",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         fontWeight: FontWeight.w600,
+                  //                         color: Colors.black,
+                  //                       ),
+                  //                     ),
+                  //                   ],
+                  //                 ),
+                  //                 SizedBox(height: 10),
+                  //                 // Achievement Percent
+                  //                 Row(
+                  //                   mainAxisAlignment:
+                  //                       MainAxisAlignment.spaceBetween,
+                  //                   children: [
+                  //                     Text(
+                  //                       "Achievement %",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         color: Colors.grey.shade700,
+                  //                       ),
+                  //                     ),
+                  //                     Container(
+                  //                       padding: EdgeInsets.symmetric(
+                  //                           horizontal: 12, vertical: 6),
+                  //                       decoration: BoxDecoration(
+                  //                         color: dashboardV2Data!
+                  //                                     .data
+                  //                                     .targetAchievement
+                  //                                     .totals
+                  //                                     .achievementPercent >
+                  //                                 0
+                  //                             ? Colors.green.shade100
+                  //                             : Colors.grey.shade100,
+                  //                         borderRadius:
+                  //                             BorderRadius.circular(8),
+                  //                       ),
+                  //                       child: Text(
+                  //                         "${dashboardV2Data!.data.targetAchievement.totals.achievementPercent}%",
+                  //                         style: TextStyle(
+                  //                           fontSize: 14,
+                  //                           fontWeight: FontWeight.w600,
+                  //                           color: dashboardV2Data!
+                  //                                       .data
+                  //                                       .targetAchievement
+                  //                                       .totals
+                  //                                       .achievementPercent >
+                  //                                   0
+                  //                               ? Colors.green.shade700
+                  //                               : Colors.grey.shade700,
+                  //                         ),
+                  //                       ),
+                  //                     ),
+                  //                   ],
+                  //                 ),
+                  //                 SizedBox(height: 10),
+                  //                 // Achieved Amount
+                  //                 Row(
+                  //                   mainAxisAlignment:
+                  //                       MainAxisAlignment.spaceBetween,
+                  //                   children: [
+                  //                     Text(
+                  //                       "Achieved Amount",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         color: Colors.grey.shade700,
+                  //                       ),
+                  //                     ),
+                  //                     Text(
+                  //                       "₹ ${dashboardV2Data!.data.targetAchievement.totals.achievedAmount.toStringAsFixed(2)}",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         fontWeight: FontWeight.w600,
+                  //                         color: Colors.blue.shade700,
+                  //                       ),
+                  //                     ),
+                  //                   ],
+                  //                 ),
+                  //                 SizedBox(height: 10),
+                  //                 // Remaining Amount
+                  //                 Row(
+                  //                   mainAxisAlignment:
+                  //                       MainAxisAlignment.spaceBetween,
+                  //                   children: [
+                  //                     Text(
+                  //                       "Remaining Amount",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         color: Colors.grey.shade700,
+                  //                       ),
+                  //                     ),
+                  //                     Text(
+                  //                       "₹ ${dashboardV2Data!.data.targetAchievement.totals.remainingAmount.toStringAsFixed(2)}",
+                  //                       style: TextStyle(
+                  //                         fontSize: 14,
+                  //                         fontWeight: FontWeight.w600,
+                  //                         color: Colors.orange.shade700,
+                  //                       ),
+                  //                     ),
+                  //                   ],
+                  //                 ),
+                  //               ],
+                  //             )
+                  //           else
+                  //             Center(
+                  //               child: Padding(
+                  //                 padding: EdgeInsets.all(16),
+                  //                 child: CircularProgressIndicator(),
+                  //               ),
+                  //             ),
+                  //         ],
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
 
                   Expanded(
                     child: Container(
