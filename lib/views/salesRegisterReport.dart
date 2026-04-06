@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -37,7 +37,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class SalesRegisterReportScreen extends StatefulWidget {
   @override
@@ -2017,7 +2017,7 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
         );
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(
         message: e.toString(),
       );
@@ -2186,3 +2186,4 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
     );
   }
 }
+

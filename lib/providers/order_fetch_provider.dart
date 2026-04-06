@@ -1,4 +1,4 @@
-﻿//import 'package:fluttertoast/fluttertoast.dart';
+//import 'package:fluttertoast/fluttertoast.dart';
 import 'dart:convert';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
@@ -15,7 +15,7 @@ import 'package:http/http.dart' as http;
 
 import '../services/database_helper.dart';
 import '../views/loginpage.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class OrderFetchProvider extends DisposableProvider {
   List<DatumOrderList> _data = [];
@@ -95,7 +95,7 @@ class OrderFetchProvider extends DisposableProvider {
         await _appendLocalPendingOrders();
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in orderfetchProvider getOrders data ${e.toString()}");
     }
@@ -156,3 +156,4 @@ class OrderFetchProvider extends DisposableProvider {
     notifyListeners();
   }
 }
+

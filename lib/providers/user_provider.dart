@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:arham_corporation/providers/app_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -97,6 +98,10 @@ class UserProvider extends ChangeNotifier {
     print('[UserProvider] ✅ Saved token to SharedPreferences: token=$token');
     _role = role;
     _token = token;
+    await CrashlyticsService.logAction(
+      'user_auth_data_saved',
+      context: {'role': role?.toString() ?? ''},
+    );
     notifyListeners();
   }
 
@@ -122,6 +127,7 @@ class UserProvider extends ChangeNotifier {
 
   Future userSignout(context) async {
     print('[UserProvider] 🔴 User logout initiated');
+    await CrashlyticsService.logAction('user_logout_initiated');
     final logoutToken = _token;
 
     // Step 1: Stop background location tracking service
@@ -162,6 +168,14 @@ class UserProvider extends ChangeNotifier {
     _syncId = null;
     _syncName = null;
     _custId = null;
+
+    await CrashlyticsService.setUserContext(
+      userId: 'signed_out',
+      userName: '',
+      userEmail: '',
+      userPhone: '',
+      userRole: '',
+    );
 
     print('[UserProvider] ✅ User logout completed');
     notifyListeners();

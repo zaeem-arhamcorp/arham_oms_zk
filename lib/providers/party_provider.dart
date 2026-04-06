@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 
@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import '../config/app_config.dart';
 import '../models/partynameModal.dart';
 import '../views/loginpage.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class PartyProvider extends DisposableProvider {
   String _party = "";
@@ -175,7 +175,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
     }
@@ -211,7 +211,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
@@ -298,7 +298,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
@@ -352,7 +352,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
@@ -404,7 +404,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
@@ -458,7 +458,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
@@ -509,7 +509,7 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
@@ -667,7 +667,7 @@ class PartyProvider extends DisposableProvider {
         notifyListeners();
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(
           message: 'Please Enable Location Permission');
 
@@ -686,3 +686,4 @@ class PartyProvider extends DisposableProvider {
     notifyListeners();
   }
 }
+

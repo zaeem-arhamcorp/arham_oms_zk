@@ -6,7 +6,7 @@ import 'package:arham_corporation/models/signupresponse.dart';
 import 'package:arham_corporation/network.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/global.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -52,7 +52,7 @@ class AuthServices {
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       print("Error: $e");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       return null;
     }
   }
@@ -95,7 +95,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices login ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -143,7 +143,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices login ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
     return null;
   }
@@ -198,7 +198,7 @@ class AuthServices {
         );
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       return SignupResponse(
         status: false,
         message: "Something went wrong",
@@ -239,7 +239,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Verify OTP ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -277,7 +277,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Resend OTP ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -316,7 +316,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Is Verified Mobile OTP ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -339,7 +339,7 @@ class AuthServices {
         print(response.body);
 
         if (response.statusCode == 200) {
-          return json.decode(response.body); // ✅ return Map
+          return json.decode(response.body); // return Map
         } else {
           global.loadinglogin(false);
           AppSnackBar.showGetXCustomSnackBar(
@@ -357,7 +357,7 @@ class AuthServices {
         message: "Something went wrong",
       );
       print("Error in AuthServices Is Verified USER CODE ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
     return null;
   }
@@ -397,7 +397,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Login With Number ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -438,7 +438,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Login With Number & OTP ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -476,7 +476,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Forgot Password ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 
@@ -499,7 +499,7 @@ class AuthServices {
         print(response.body);
 
         if (response.statusCode == 200) {
-          return json.decode(response.body); // ✅ return Map
+          return json.decode(response.body); // return Map
         } else {
           global.loadinglogin(false);
           AppSnackBar.showGetXCustomSnackBar(
@@ -517,7 +517,7 @@ class AuthServices {
         message: "Something went wrong",
       );
       print("Error in AuthServices Is Verified MOBILE NUMBER ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
     return null;
   }
@@ -564,7 +564,7 @@ class AuthServices {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in AuthServices Reset Password ${e.toString()}");
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
     }
   }
 }

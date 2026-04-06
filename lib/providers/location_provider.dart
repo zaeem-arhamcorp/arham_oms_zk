@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/location_service.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class LocationProvider extends ChangeNotifier {
   Timer? timer;
@@ -294,7 +294,7 @@ class LocationProvider extends ChangeNotifier {
       }
     } catch (e, stack) {
       print('[LocationProvider] 🔴 EXCEPTION: ${e.toString()} | Stack: $stack');
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(
         message: 'Error during punch: ${e.toString()}',
         backgroundColor: Colors.red,
@@ -324,3 +324,4 @@ class LocationProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
@@ -25,7 +25,7 @@ import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
 import '../providers/global.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -696,7 +696,7 @@ class _SignUpPageState extends State<SignUpPage> {
         userErrorMsg.value = '';
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       userErrorMsg.value = '';
     } finally {
       isUserExitsLoading(false);
@@ -798,3 +798,4 @@ class _SignUpPageState extends State<SignUpPage> {
 // isVerified.value = responseData['data']['user']['IS_VERIFIED'];
 // isVerified.value = response.data['data']['IS_VERIFIED'];
 }
+

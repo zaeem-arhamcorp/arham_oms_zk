@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -15,7 +16,6 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/splashScreen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -29,89 +29,115 @@ import 'constants/constants.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/connectivity_service.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/location_tracking_workmanager.dart';
 import 'package:arham_corporation/services/heartbeat_workmanager.dart';
 import 'package:workmanager/workmanager.dart';
 
-void main() async {
-  SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(statusBarColor: Color(0XFF2c9ed9)));
+void main() {
+  runZonedGuarded(() async {
+    SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(statusBarColor: Color(0XFF2c9ed9)));
 
-  WidgetsFlutterBinding.ensureInitialized();
+    WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
-  // Pass all uncaught "fatal" errors from the framework to Crashlytics
-  // FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  FlutterError.onError = (errorDetails) {
-    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-  };
-  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
+    await Firebase.initializeApp();
 
-  // ✅ Initialize Hive BEFORE building widgets
-  Directory directory = await getApplicationDocumentsDirectory();
-  Hive.initFlutter();
-  Hive.init(directory.path);
-  Hive.registerAdapter(OrdermodalAdapter());
-  Hive.registerAdapter(OrderItmAdapter());
-  Hive.registerAdapter(DatumOrderListAdapter());
-  Hive.registerAdapter(DataOrdritmAdapter());
-  await Hive.openBox<Ordermodal>(Constants.addOrder);
-  await Hive.openBox<DatumOrderList>(Constants.orderFetch);
+    FlutterError.onError = (errorDetails) {
+      FlutterError.presentError(errorDetails);
+      unawaited(CrashlyticsService.recordFlutterFatal(
+        errorDetails,
+        reason: 'flutter_framework_uncaught',
+      ));
+    };
 
-  // ✅ Initialize SQLite database BEFORE building widgets
-  await DatabaseHelper().database;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      unawaited(CrashlyticsService.recordFatal(
+        error,
+        stack,
+        reason: 'platform_dispatcher_uncaught',
+      ));
+      return true;
+    };
 
-  // ✅ Initialize background location service BEFORE building widgets
-  print('[Main] Initializing background location service...');
-  await BackgroundLocationService().initialize();
-  print('[Main] ✅ Background location service initialized');
+    // ✅ Initialize Hive BEFORE building widgets
+    Directory directory = await getApplicationDocumentsDirectory();
+    Hive.initFlutter();
+    Hive.init(directory.path);
+    Hive.registerAdapter(OrdermodalAdapter());
+    Hive.registerAdapter(OrderItmAdapter());
+    Hive.registerAdapter(DatumOrderListAdapter());
+    Hive.registerAdapter(DataOrdritmAdapter());
+    await Hive.openBox<Ordermodal>(Constants.addOrder);
+    await Hive.openBox<DatumOrderList>(Constants.orderFetch);
 
-  // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
-  print('[Main] Initializing Workmanager core...');
-  try {
-    await Workmanager().initialize(
-      locationTrackingCallbackDispatcher,
-      isInDebugMode: false,
-    );
-    print('[Main] ✅ Workmanager core initialized');
-  } catch (e) {
-    print('[Main] ⚠️ Workmanager init warning: $e');
-  }
+    // ✅ Initialize SQLite database BEFORE building widgets
+    await DatabaseHelper().database;
 
-  print('[Main] Initializing location tracking WorkManager...');
-  await LocationTrackingWorkmanager.initialize();
-  await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
-  await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
-  print('[Main] ✅ Location tracking WorkManager initialized');
+    // ✅ Initialize background location service BEFORE building widgets
+    print('[Main] Initializing background location service...');
+    await BackgroundLocationService().initialize();
+    print('[Main] ✅ Background location service initialized');
 
-  // ✅ Initialize heartbeat workmanager BEFORE building widgets
-  print('[Main] Initializing heartbeat WorkManager...');
-  await HeartbeatWorkmanager.initialize();
-  await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
-  await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
-  print('[Main] ✅ Heartbeat WorkManager initialized');
-
-  // ✅ Attempt immediate resume if app was killed with active tracking
-  print('[Main] Checking for active trip to resume...');
-  try {
-    final resumed =
-        await BackgroundLocationService().resumeTrackingIfActiveTrip();
-    if (resumed) {
-      print('[Main] ✅ Active trip resumed on app startup');
-    } else {
-      print('[Main] ℹ️ No active trip to resume');
+    // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
+    print('[Main] Initializing Workmanager core...');
+    try {
+      await Workmanager().initialize(
+        locationTrackingCallbackDispatcher,
+        isInDebugMode: false,
+      );
+      print('[Main] ✅ Workmanager core initialized');
+    } catch (e, stack) {
+      print('[Main] ⚠️ Workmanager init warning: $e');
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'workmanager_init_warning',
+      );
     }
-  } catch (e) {
-    print('[Main] ⚠️ Error resuming active trip: $e');
-  }
 
-  // ✅ NOW set orientation and build app (all initialization done)
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(MyApp());
+    print('[Main] Initializing location tracking WorkManager...');
+    await LocationTrackingWorkmanager.initialize();
+    await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
+    await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
+    print('[Main] ✅ Location tracking WorkManager initialized');
+
+    // ✅ Initialize heartbeat workmanager BEFORE building widgets
+    print('[Main] Initializing heartbeat WorkManager...');
+    await HeartbeatWorkmanager.initialize();
+    await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
+    await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
+    print('[Main] ✅ Heartbeat WorkManager initialized');
+
+    // ✅ Attempt immediate resume if app was killed with active tracking
+    print('[Main] Checking for active trip to resume...');
+    try {
+      final resumed =
+          await BackgroundLocationService().resumeTrackingIfActiveTrip();
+      if (resumed) {
+        print('[Main] ✅ Active trip resumed on app startup');
+      } else {
+        print('[Main] ℹ️ No active trip to resume');
+      }
+    } catch (e, stack) {
+      print('[Main] ⚠️ Error resuming active trip: $e');
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'resume_active_trip_failed',
+      );
+    }
+
+    // ✅ NOW set orientation and build app (all initialization done)
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    runApp(const MyApp());
+  }, (error, stack) {
+    unawaited(CrashlyticsService.recordFatal(
+      error,
+      stack,
+      reason: 'run_zoned_guarded_uncaught',
+    ));
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -155,6 +181,12 @@ class MyApp extends StatelessWidget {
 
           return GetMaterialApp(
             title: 'Arham OMS',
+            routingCallback: (routing) {
+              final currentScreen = routing?.current;
+              if (currentScreen != null && currentScreen.isNotEmpty) {
+                unawaited(CrashlyticsService.setScreenName(currentScreen));
+              }
+            },
             theme: ThemeData(
                 appBarTheme: AppBarTheme(
                   elevation: 0,

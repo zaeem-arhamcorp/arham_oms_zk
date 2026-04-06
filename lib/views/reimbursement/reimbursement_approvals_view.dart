@@ -260,7 +260,7 @@ class _ReimbursementApprovalsViewState
       debugPrint('[Reimbursement][Approvals][API] PUT $uri');
       debugPrint('[Reimbursement][Approvals][API] Action payload: $payload');
 
-      final http.Response response = await http.put(
+      final http.Response response = await http.post(
         uri,
         headers: {
           'Authorization': 'Bearer $token',

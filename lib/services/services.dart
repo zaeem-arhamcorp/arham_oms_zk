@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:developer';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
@@ -34,9 +34,8 @@ import '../models/orderReportModal.dart';
 import '../models/productModal.dart';
 import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
-import '../models/dashboard_v2_modal.dart';
 import '../providers/user_provider.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'database_helper.dart';
 
 class Services {
@@ -61,63 +60,9 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       print("Error in Services getDashboard data Dashboard ${e.toString()}");
-    }
-    return null;
-  }
-
-  Future<DashboardV2Modal?> getDashboardV2Data(
-      BuildContext context, String fromDate, String toDate) async {
-    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    try {
-      final http.Response response = await http.get(
-        Uri.parse(
-            "${AppConfig.baseURL}dashboard/v2?fromDate=$fromDate&toDate=$toDate"),
-        headers: {
-          "Authorization": "Bearer ${ub.token}",
-          'x-app-type': 'oms',
-        },
-      );
-      print(
-          "${AppConfig.baseURL}dashboard/v2?fromDate=$fromDate&toDate=$toDate");
-      print("========== Dashboard V2 API Full Response ==========");
-      print(response.body);
-      print("========== End Dashboard V2 API Response ==========");
-
-      if (response.statusCode == 200) {
-        // Parse and log the targetAchievement data specifically
-        try {
-          final jsonData = jsonDecode(response.body);
-          if (jsonData['data'] != null &&
-              jsonData['data']['targetAchievement'] != null) {
-            final targetAchievement = jsonData['data']['targetAchievement'];
-            print("===== Target Achievement Totals =====");
-            print("Totals Object: ${targetAchievement['totals']}");
-            print(
-                "Achievement Percent (raw): ${targetAchievement['totals']?['achievementPercent']}");
-            print(
-                "Achievement Percent Type: ${targetAchievement['totals']?['achievementPercent'].runtimeType}");
-            print("=====================================");
-          }
-        } catch (parseError) {
-          print("Error parsing target achievement: $parseError");
-        }
-
-        return dashboardV2ModalFromJson(response.body);
-      } else {
-        print('Dashboard v2 error: ${response.statusCode}');
-        if (response.statusCode == 401) {
-          ub.userSignout(context).then((value) {
-            Get.offAll(() => LoginPage());
-          });
-        }
-      }
-    } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
-      print("Error in Services getDashboardV2 data Dashboard ${e.toString()}");
     }
     return null;
   }
@@ -159,7 +104,7 @@ class Services {
       getProduct(page, search, deptCd, context, null);
       print("cancelled Expeption");
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       // Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getProduct data ${e.toString()}");
     }
@@ -200,7 +145,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       print("Error in API Call: ${e.toString()}");
     }
 
@@ -278,7 +223,7 @@ class Services {
         }
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       print('[DEPARTMENTS] Error in getDeptment: $e');
 
       // Fallback: try to load from cache even if error occurs
@@ -349,7 +294,7 @@ class Services {
         };
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addItemtoCart data ${e.toString()}");
@@ -398,7 +343,7 @@ class Services {
         };
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addItemtoCart data ${e.toString()}");
@@ -426,7 +371,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services bulkUpdateCartItem data ${e.toString()}");
@@ -488,7 +433,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services getDashboard data add to cart ${e.toString()}");
@@ -516,7 +461,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services getDashboard data delete cart ${e.toString()}");
@@ -640,7 +585,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addOrder data ${e.toString()}");
@@ -705,7 +650,7 @@ class Services {
         // });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services updateOrder  ${e.toString()}");
@@ -734,7 +679,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services deleteOrder  ${e.toString()}");
@@ -775,7 +720,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -812,7 +757,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -842,15 +787,18 @@ class Services {
       print(response.statusCode);
       log(response.body);
       if (response.statusCode == 200) {
-        return json.decode(response.body)["data"];
+        final pdfUrl = json.decode(response.body)["data"];
+        print("[Order Export] PDF URL for partyId=$partyCd: $pdfUrl");
+        return pdfUrl;
       } else {
-        print('print 14');
+        print(
+            '[Order Export] API returned status ${response.statusCode} for partyId=$partyCd');
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -890,7 +838,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getAccountLeagerReport data ${e.toString()}");
@@ -927,7 +875,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getAccountLeagerReport data ${e.toString()}");
@@ -967,7 +915,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1005,7 +953,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1039,7 +987,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getDailyReport data ${e.toString()}");
@@ -1072,7 +1020,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemLeagerReport data ${e.toString()}");
@@ -1105,7 +1053,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1151,7 +1099,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getStockReport data ${e.toString()}");
@@ -1194,7 +1142,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1238,7 +1186,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1281,7 +1229,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1322,7 +1270,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1364,7 +1312,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1405,7 +1353,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1447,7 +1395,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1528,7 +1476,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1570,7 +1518,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1612,7 +1560,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -1651,7 +1599,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1690,7 +1638,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1731,7 +1679,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1770,7 +1718,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1810,7 +1758,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1850,7 +1798,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -1890,7 +1838,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1930,7 +1878,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -1964,7 +1912,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -2022,7 +1970,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -2054,7 +2002,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -2112,7 +2060,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
     }
@@ -2151,7 +2099,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOutStandingReport data ${e.toString()}");
@@ -2189,7 +2137,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2228,7 +2176,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2267,7 +2215,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2310,7 +2258,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemWiseReport data ${e.toString()}");
@@ -2354,7 +2302,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2393,7 +2341,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemWiseReport data ${e.toString()}");
@@ -2432,7 +2380,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getPartyWiseReport data ${e.toString()}");
@@ -2469,7 +2417,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2506,7 +2454,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getPartyWiseDetailReport data ${e.toString()}");
@@ -2546,7 +2494,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2587,7 +2535,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2629,7 +2577,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -2668,7 +2616,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2712,7 +2660,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2753,7 +2701,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
@@ -2787,7 +2735,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getSettings data ${e.toString()}");
@@ -2828,7 +2776,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services updateSetting data ${e.toString()}");
@@ -2855,7 +2803,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services syncSetting  ${e.toString()}");
@@ -2884,7 +2832,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services syncSetting  ${e.toString()}");
@@ -2912,7 +2860,7 @@ class Services {
         print('print 63');
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getUtlity data ${e.toString()}");
@@ -2938,7 +2886,7 @@ class Services {
         return utlityModalFromJson(response.body);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getUtlity data ${e.toString()}");
@@ -2971,7 +2919,7 @@ class Services {
         // });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getNarration data ${e.toString()}");
@@ -3012,7 +2960,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
@@ -3047,7 +2995,7 @@ class Services {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getPartyExportFile data ${e.toString()}");
@@ -3157,7 +3105,7 @@ class Services {
       }
     } catch (e, stack) {
       print('[Services] ❌ [PUNCH_STATE] Exception: $e');
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       return null;
     }
   }
@@ -3229,7 +3177,7 @@ class Services {
             message: json.decode(response.body)["message"]);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3296,7 +3244,7 @@ class Services {
         );
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3363,7 +3311,7 @@ class Services {
             message: json.decode(response.body)["message"]);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3429,7 +3377,7 @@ class Services {
             message: json.decode(response.body)["message"]);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3475,7 +3423,7 @@ class Services {
             message: json.decode(response.body)["message"]);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");
@@ -3521,7 +3469,7 @@ class Services {
             message: json.decode(response.body)["message"]);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong for firmId: $e");
       AppSnackBar.showGetXCustomSnackBar(
           message: "Something went wrong for firmId: $e");

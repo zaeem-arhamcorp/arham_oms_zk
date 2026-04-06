@@ -1,4 +1,4 @@
-﻿//
+//
 // import 'dart:io';
 // import 'dart:math';
 //
@@ -342,7 +342,7 @@ import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:dio/dio.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -480,7 +480,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         text: "Here's your PDF: ${widget.fileName}",
       );
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       if (kDebugMode) {
         print("Error sharing PDF: $e");
       }
@@ -539,7 +539,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       }
       return false;
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       return false;
     } finally {
       if (mounted) {
@@ -562,3 +562,4 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     return false;
   }
 }
+

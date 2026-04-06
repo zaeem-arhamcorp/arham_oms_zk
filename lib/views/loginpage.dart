@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
@@ -32,7 +32,7 @@ import '../providers/item_list_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/party_provider.dart';
 import '../providers/user_provider.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 
 class LoginPage extends StatefulWidget {
@@ -116,6 +116,13 @@ class _LoginPageState extends State<LoginPage> {
         resendSeconds.value--;
       }
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    CrashlyticsService.setScreenName('LoginPage');
+    CrashlyticsService.logAction('login_screen_opened');
   }
 
   @override
@@ -819,6 +826,13 @@ class _LoginPageState extends State<LoginPage> {
     } else {
       FocusManager.instance.primaryFocus?.unfocus();
       global.loadinglogin(true);
+      CrashlyticsService.logAction(
+        'login_attempt_started',
+        context: {
+          'method': 'user_code',
+          'user_code': _emailClt.text,
+        },
+      );
 
       //TODO : OLD LOGIN API CALL
       // Authservices()
@@ -895,6 +909,13 @@ class _LoginPageState extends State<LoginPage> {
     if (selectedFirmName == null) {
       AppSnackBar.showGetXCustomSnackBar(message: 'Please Select Firm');
     } else {
+      CrashlyticsService.logAction(
+        'firm_change_login_triggered',
+        context: {
+          'sync_id': selectedSyncId,
+          'firm_name': selectedFirmName,
+        },
+      );
       FocusManager.instance.primaryFocus?.unfocus();
       global.loadingfetchlogin(true);
       AuthServices()
@@ -956,6 +977,17 @@ class _LoginPageState extends State<LoginPage> {
             });
           });
         }
+      }).catchError((e, stack) async {
+        global.loadingfetchlogin(false);
+        global.loadinglogin(false);
+        await CrashlyticsService.recordNonFatal(
+          e,
+          stack ?? StackTrace.current,
+          reason: 'firm_change_login_failed',
+        );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Unable to complete login for selected firm',
+        );
       });
     }
   }
@@ -964,6 +996,8 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _fetchFirmDropdown(String tempToken) async {
     final url =
         Uri.parse(AppConfig.baseURL + 'firm'); // Replace with your API URL
+
+    await CrashlyticsService.logAction('firm_list_api_triggered');
 
     try {
       final response = await http.get(
@@ -1020,7 +1054,11 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception('Failed to load data');
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'firm_list_fetch_failed',
+      );
       print("Error fetching data: $e");
       setState(() {
         isLoading = false;

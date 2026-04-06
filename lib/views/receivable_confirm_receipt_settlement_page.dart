@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:arham_corporation/models/receipt_confim_model.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
@@ -16,7 +16,7 @@ import '../providers/user_provider.dart';
 import '../services/services.dart';
 import '../widgets/custom_app_bar.dart';
 import 'package:http/http.dart' as http;
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class ReceivableConfirmReceiptSettlementPage extends StatefulWidget {
   @override
@@ -1176,9 +1176,10 @@ class _ReceivableConfirmReceiptSettlementPageState
         AppSnackBar.showGetXCustomSnackBar(message: message);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong: $e");
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong: $e");
     }
   }
 }
+

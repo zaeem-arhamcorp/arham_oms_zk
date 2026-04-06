@@ -1,4 +1,4 @@
-﻿import 'package:arham_corporation/models/personModal.dart';
+import 'package:arham_corporation/models/personModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:flutter/cupertino.dart';
 //import 'package:fluttertoast/fluttertoast.dart';
@@ -14,7 +14,7 @@ import 'package:http/http.dart' as http;
 import '../models/deptmentListModal.dart';
 import '../models/itemListModal.dart';
 import '../views/loginpage.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class ItemListProvider extends DisposableProvider {
   List<DatumItemList> _data = [];
@@ -72,7 +72,7 @@ class ItemListProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in ItemListProvider getItems  ${e.toString()}");
@@ -105,7 +105,7 @@ class ItemListProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in ItemListProvider getDeptment  ${e.toString()}");
@@ -137,7 +137,7 @@ class ItemListProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in ItemListProvider getCity  ${e.toString()}");
@@ -171,7 +171,7 @@ class ItemListProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       //Fluttertoast.showToast(msg: "Something went wrong");
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in ItemListProvider getOpUsers  ${e.toString()}");
@@ -264,3 +264,4 @@ class ItemListProvider extends DisposableProvider {
     notifyListeners();
   }
 }
+

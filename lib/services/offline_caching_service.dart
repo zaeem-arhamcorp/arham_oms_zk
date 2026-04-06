@@ -6,6 +6,7 @@ import '../providers/profile_provider.dart';
 import '../providers/party_provider.dart';
 import '../providers/item_list_provider.dart';
 import '../providers/user_provider.dart';
+import 'crashlytics_service.dart';
 import 'database_helper.dart';
 import 'services.dart';
 
@@ -127,12 +128,22 @@ class OfflineCachingService {
           print('[OFFLINE CACHE] ✓ Settings cached');
         } catch (e) {
           print('[OFFLINE CACHE] ✗ Failed to cache settings: $e');
+          await CrashlyticsService.recordNonFatal(
+            e,
+            StackTrace.current,
+            reason: 'offline_cache_settings_failed',
+          );
           throw e; // Propagate to catch block
         }
 
         _reportProgress(cacheItems[0], onProgress, success: true);
       } catch (e) {
         print('[OFFLINE CACHE] ✗ Failed to cache profile: $e');
+        await CrashlyticsService.recordNonFatal(
+          e,
+          StackTrace.current,
+          reason: 'offline_cache_profile_failed',
+        );
         cacheItems[0].errorMessage = e.toString();
         _reportProgress(cacheItems[0], onProgress,
             success: false, error: e.toString());
@@ -155,6 +166,12 @@ class OfflineCachingService {
         _reportProgress(cacheItems[1], onProgress, success: true);
       } catch (e) {
         print('[OFFLINE CACHE] ✗ Failed to cache departments: $e');
+        await CrashlyticsService.recordNonFatal(
+          e,
+          StackTrace.current,
+          reason: 'offline_cache_departments_failed',
+          context: {'cache_item': 'departments'},
+        );
         cacheItems[1].errorMessage = e.toString();
         _reportProgress(cacheItems[1], onProgress,
             success: false, error: e.toString());
@@ -216,6 +233,12 @@ class OfflineCachingService {
         _reportProgress(cacheItems[2], onProgress, success: true);
       } catch (e) {
         print('[OFFLINE CACHE] ✗ Failed to cache products: $e');
+        await CrashlyticsService.recordNonFatal(
+          e,
+          StackTrace.current,
+          reason: 'offline_cache_products_failed',
+          context: {'cache_item': 'products'},
+        );
         cacheItems[2].errorMessage = e.toString();
         _reportProgress(cacheItems[2], onProgress,
             success: false, error: e.toString());
@@ -235,6 +258,12 @@ class OfflineCachingService {
         _reportProgress(cacheItems[3], onProgress, success: true);
       } catch (e) {
         print('[OFFLINE CACHE] ✗ Failed to cache parties: $e');
+        await CrashlyticsService.recordNonFatal(
+          e,
+          StackTrace.current,
+          reason: 'offline_cache_parties_failed',
+          context: {'cache_item': 'parties'},
+        );
         cacheItems[3].errorMessage = e.toString();
         _reportProgress(cacheItems[3], onProgress,
             success: false, error: e.toString());
@@ -258,6 +287,12 @@ class OfflineCachingService {
         _reportProgress(cacheItems[4], onProgress, success: true);
       } catch (e) {
         print('[OFFLINE CACHE] ✗ Failed to cache cart/items: $e');
+        await CrashlyticsService.recordNonFatal(
+          e,
+          StackTrace.current,
+          reason: 'offline_cache_cart_items_failed',
+          context: {'cache_item': 'cart_items'},
+        );
         cacheItems[4].errorMessage = e.toString();
         _reportProgress(cacheItems[4], onProgress,
             success: false, error: e.toString());
@@ -268,6 +303,11 @@ class OfflineCachingService {
       return true;
     } catch (e) {
       print('[OFFLINE CACHE] ✗ Error during offline caching: $e');
+      await CrashlyticsService.recordNonFatal(
+        e,
+        StackTrace.current,
+        reason: 'offline_cache_critical_error',
+      );
       return false;
     }
   }

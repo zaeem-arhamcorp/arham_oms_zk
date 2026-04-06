@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/profileModal.dart';
 import '../models/settingmodal.dart';
+import '../services/crashlytics_service.dart';
 import '../services/services.dart';
 import '../services/sync_service.dart';
 import '../views/loginpage.dart';
@@ -100,6 +101,14 @@ class ProfileProvider extends DisposableProvider {
     final syncIdStr = sp.getString('SyncId') ?? '';
     final syncId = int.tryParse(syncIdStr) ?? 0;
 
+    await CrashlyticsService.logAction(
+      'profile_api_triggered',
+      context: {
+        'has_token': token.isNotEmpty,
+        'sync_id': syncId,
+      },
+    );
+
     final bool online = await NetworkHelper.hasInternet();
     if (!online) {
       // Load cached profile if available
@@ -118,6 +127,15 @@ class ProfileProvider extends DisposableProvider {
           // Restore username and user code from SharedPreferences
           await getUserCode();
           await getUserName();
+
+          await CrashlyticsService.setUserContext(
+            userId: (_data?.userCd ?? _userCode ?? '').toString(),
+            userName: (_data?.userName ?? _userName ?? '').toString(),
+            userEmail: '',
+            userPhone: (_data?.mobileno ?? '').toString(),
+            userRole: (_data?.userType ?? '').toString(),
+          );
+          await CrashlyticsService.logAction('profile_loaded_from_cache');
 
           // Restore punch state from local locations table (today's punches)
           try {
@@ -218,6 +236,15 @@ class ProfileProvider extends DisposableProvider {
         saveUserCode(_data!.userCd.toString());
         saveUserName(_data!.userName.toString());
         print('Profile Data :' + response.body);
+
+        await CrashlyticsService.setUserContext(
+          userId: (_data?.userCd ?? '').toString(),
+          userName: (_data?.userName ?? '').toString(),
+          userEmail: '',
+          userPhone: (_data?.mobileno ?? '').toString(),
+          userRole: (_data?.userType ?? '').toString(),
+        );
+        await CrashlyticsService.logAction('profile_loaded_from_api');
 
         getUserCode();
         getUserName();
@@ -421,9 +448,14 @@ class ProfileProvider extends DisposableProvider {
         print("Profile fetch failed - redirecting to login");
         Get.offAll(() => LoginPage());
       }
-    } catch (e) {
+    } catch (e, stack) {
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in ProfileProvider getProfile  ${e.toString()}");
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'profile_fetch_failed',
+      );
     }
     notifyListeners();
   }

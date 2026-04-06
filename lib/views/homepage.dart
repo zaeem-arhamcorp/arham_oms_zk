@@ -6,7 +6,6 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
-import 'package:arham_corporation/models/dashboard_v2_modal.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
@@ -17,6 +16,7 @@ import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/battery_optimization_service.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/location_permission_service.dart';
 import 'package:arham_corporation/views/About%20me.dart';
@@ -38,6 +38,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:whatsapp_share/whatsapp_share.dart';
 
 import '../providers/item_list_provider.dart';
 import '../services/authservices.dart';
@@ -56,11 +57,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static const MethodChannel _manufacturerChannel = MethodChannel('my_channel');
   DashboardModal? data;
-  DashboardV2Modal? dashboardV2Data;
   bool nolist = false;
+  bool _isOrderShareDialogVisible = false;
+  String? _queuedSecondarySharePhone;
+  String? _queuedSecondaryShareFilePath;
+  String _queuedSecondaryShareLabel = 'stockist';
+  bool _isHandlingQueuedSecondaryShare = false;
   late ProfileProvider
       _profileProvider; // Store provider reference to avoid accessing during dispose
 
@@ -124,68 +129,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  getDashboardV2Data() async {
-    setState(() {
-      dashboardV2Data = null;
-    });
-
-    bool online = await NetworkHelper.hasInternet();
-
-    if (online) {
-      // Calculate financial year dates (April 1 to current date)
-      final today = DateTime.now();
-      late DateTime financialYearStart;
-
-      // Financial year starts on April 1st
-      if (today.month >= 4) {
-        // Current financial year (April to December of current year, Jan to March of next year)
-        financialYearStart = DateTime(today.year, 4, 1);
-      } else {
-        // Previous financial year (we're in Jan-Mar, so FY started in April of last year)
-        financialYearStart = DateTime(today.year - 1, 4, 1);
-      }
-
-      final fromDate =
-          '${financialYearStart.year}-${financialYearStart.month.toString().padLeft(2, '0')}-${financialYearStart.day.toString().padLeft(2, '0')}';
-      final toDate =
-          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
-      Services()
-          .getDashboardV2Data(context, fromDate, toDate)
-          .then((value) async {
-        if (value != null) {
-          setState(() {
-            dashboardV2Data = value;
-          });
-
-          // Cache dashboard v2 data for offline use
-          try {
-            await DatabaseHelper().cacheHomeData(
-              'dashboard_v2',
-              dashboardV2ModalToJson(value),
-            );
-            print("Dashboard V2 cached successfully");
-          } catch (e) {
-            print("Error caching dashboard v2 data: $e");
-          }
-        }
-      });
-    } else {
-      // Offline: load from cache
-      try {
-        final cached = await DatabaseHelper().getCachedHomeData('dashboard_v2');
-        if (cached != null && cached.isNotEmpty && cached != 'null') {
-          final cachedData = dashboardV2ModalFromJson(cached);
-          setState(() {
-            dashboardV2Data = cachedData;
-          });
-        }
-      } catch (e) {
-        print("Error loading cached dashboard v2: $e");
-      }
-    }
-  }
-
   List<Map<String, dynamic>> firmList = [];
   int? selectedSyncId; // Stores the selected sync ID
   String? selectedFirmName; // Stores the selected firm name
@@ -200,6 +143,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
+    CrashlyticsService.setScreenName('HomePage');
+    CrashlyticsService.logAction('home_screen_opened');
+
     // Mark HomePage active for conditional snack bar behavior
     Global.isHomeActive = true;
     //fetchData();
@@ -207,7 +154,6 @@ class _HomePageState extends State<HomePage> {
 
     loadData();
     getDashboarddata();
-    getDashboardV2Data();
 
     _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
 
@@ -217,6 +163,11 @@ class _HomePageState extends State<HomePage> {
     // Check for any existing warning at init time
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handlePendingWarning();
+    });
+
+    // Show post-order WhatsApp share popup on homepage (if pending payload exists)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkAndShowPendingOrderSharePopup();
     });
 
     // Auto-cache data on first login or firm switch (checked via SharedPreferences)
@@ -336,6 +287,57 @@ class _HomePageState extends State<HomePage> {
     super.initState();
   }
 
+  void _queueSecondaryShare({
+    required String phone,
+    required String filePath,
+    required String label,
+  }) {
+    _queuedSecondarySharePhone = phone;
+    _queuedSecondaryShareFilePath = filePath;
+    _queuedSecondaryShareLabel = label;
+  }
+
+  Future<void> _triggerQueuedSecondaryShareIfAny() async {
+    if (!mounted || _isHandlingQueuedSecondaryShare) return;
+
+    final phone = _queuedSecondarySharePhone;
+    final filePath = _queuedSecondaryShareFilePath;
+    final label = _queuedSecondaryShareLabel;
+
+    if (phone == null || filePath == null) return;
+
+    _isHandlingQueuedSecondaryShare = true;
+    _queuedSecondarySharePhone = null;
+    _queuedSecondaryShareFilePath = null;
+
+    try {
+      final shared = await _sharePdfToRecipient(
+        phone: phone,
+        filePath: filePath,
+      );
+
+      if (shared) {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Opened WhatsApp share for $label',
+          backgroundColor: Colors.green,
+        );
+      } else {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Could not open WhatsApp share for $label',
+        );
+      }
+    } finally {
+      _isHandlingQueuedSecondaryShare = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _triggerQueuedSecondaryShareIfAny();
+    }
+  }
+
   Future<String> getManufacturer() async {
     if (!Platform.isAndroid) return 'unknown';
 
@@ -433,6 +435,303 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.orange,
       );
       _profileProvider.clearPendingWarning();
+    }
+  }
+
+  Future<String?> _downloadOrderReportPdfForShare(String reportUrl) async {
+    final reportName =
+        'Order_Report_${DateFormat('dd-MM-yyyy_HH-mm-ss').format(DateTime.now())}';
+
+    if (Platform.isIOS) {
+      return Helper.saveFileIOS(
+        reportUrl,
+        reportName,
+        'PDF downloaded for sharing',
+      );
+    }
+
+    return Helper.saveFileAndroid(
+      reportUrl,
+      reportName,
+      'PDF downloaded for sharing',
+    );
+  }
+
+  Future<bool> _sharePdfToRecipient({
+    required String phone,
+    required String filePath,
+  }) async {
+    final normalizedPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (normalizedPhone.isEmpty) return false;
+
+    try {
+      await WhatsappShare.shareFile(
+        phone: normalizedPhone,
+        filePath: [filePath],
+        package: Package.whatsapp,
+      );
+      return true;
+    } catch (e) {
+      print('[HomePage] PDF share failed for $normalizedPhone: $e');
+      return false;
+    }
+  }
+
+  Future<void> _checkAndShowPendingOrderSharePopup() async {
+    if (!mounted || _isOrderShareDialogVisible) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final payloadString = prefs.getString('pending_order_share_payload');
+    if (payloadString == null || payloadString.trim().isEmpty) return;
+
+    Map<String, dynamic> payload;
+    try {
+      payload = jsonDecode(payloadString) as Map<String, dynamic>;
+    } catch (e) {
+      print('[HomePage] Invalid pending share payload: $e');
+      await prefs.remove('pending_order_share_payload');
+      return;
+    }
+
+    final reportUrl = (payload['reportUrl'] ?? '').toString().trim();
+    final partyName = (payload['partyName'] ?? 'Party').toString().trim();
+    final partyNumber = (payload['partyNumber'] ?? '').toString().trim();
+    final partyDisplayNumber =
+        (payload['partyDisplayNumber'] ?? '').toString().trim();
+
+    final stockistName =
+        (payload['stockistName'] ?? 'Stockist').toString().trim();
+    final stockistNumber = (payload['stockistNumber'] ?? '').toString().trim();
+    final stockistDisplayNumber =
+        (payload['stockistDisplayNumber'] ?? '').toString().trim();
+
+    final hasParty = partyNumber.isNotEmpty;
+    final hasStockist = stockistNumber.isNotEmpty;
+
+    // Consume payload once so popup appears only once after success redirect
+    await prefs.remove('pending_order_share_payload');
+
+    if (reportUrl.isEmpty || (!hasParty && !hasStockist)) {
+      print('[HomePage] Pending share payload has no valid report/recipient');
+      return;
+    }
+
+    bool shareParty = hasParty;
+    bool shareStockist = hasStockist;
+    String validationError = '';
+    _isOrderShareDialogVisible = true;
+
+    try {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Row(
+                  children: [
+                    Image.asset(
+                      "assets/whatsapp_icon.png",
+                      height: 30,
+                    ),
+                    const Text('Share Order Report'),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Share PDF on WhatsApp to:',
+                      style: TextStyle(
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: shareParty,
+                      onChanged: hasParty
+                          ? (val) {
+                              setDialogState(() {
+                                shareParty = val ?? false;
+                                validationError = '';
+                              });
+                            }
+                          : null,
+                      title: Text('Party: $partyName'),
+                      subtitle: Text(
+                        hasParty
+                            ? 'Number: $partyDisplayNumber'
+                            : 'No WhatsApp/Phone number available',
+                      ),
+                    ),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: shareStockist,
+                      onChanged: hasStockist
+                          ? (val) {
+                              setDialogState(() {
+                                shareStockist = val ?? false;
+                                validationError = '';
+                              });
+                            }
+                          : null,
+                      title: Text(
+                          'Stockist: ${stockistName.isEmpty ? 'N/A' : stockistName}'),
+                      subtitle: Text(
+                        hasStockist
+                            ? 'Number: $stockistDisplayNumber'
+                            : 'No WhatsApp/Phone number available',
+                      ),
+                    ),
+                    if (validationError.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          validationError,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text(
+                      'Skip',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (!shareParty && !shareStockist) {
+                        setDialogState(() {
+                          validationError =
+                              'Please select at least one recipient';
+                        });
+                        return;
+                      }
+
+                      Navigator.of(dialogContext).pop();
+
+                      final filePath =
+                          await _downloadOrderReportPdfForShare(reportUrl);
+                      if (filePath == null || filePath.trim().isEmpty) {
+                        AppSnackBar.showGetXCustomSnackBar(
+                          message: 'Unable to download PDF for sharing',
+                        );
+                        return;
+                      }
+
+                      int openedCount = 0;
+                      int failedCount = 0;
+
+                      final shareBothSelected = shareParty &&
+                          hasParty &&
+                          shareStockist &&
+                          hasStockist;
+
+                      if (shareBothSelected) {
+                        final partyShared = await _sharePdfToRecipient(
+                          phone: partyNumber,
+                          filePath: filePath,
+                        );
+
+                        if (partyShared) {
+                          openedCount++;
+                          _queueSecondaryShare(
+                            phone: stockistNumber,
+                            filePath: filePath,
+                            label: stockistName.isEmpty
+                                ? 'stockist'
+                                : stockistName,
+                          );
+                          AppSnackBar.showGetXCustomSnackBar(
+                            message:
+                                'Party share opened. Return to app to open stockist share.',
+                            backgroundColor: Colors.orange,
+                          );
+                        } else {
+                          failedCount++;
+                          final stockistShared = await _sharePdfToRecipient(
+                            phone: stockistNumber,
+                            filePath: filePath,
+                          );
+                          if (stockistShared) {
+                            openedCount++;
+                          } else {
+                            failedCount++;
+                          }
+                        }
+                      } else {
+                        if (shareParty && hasParty) {
+                          final shared = await _sharePdfToRecipient(
+                            phone: partyNumber,
+                            filePath: filePath,
+                          );
+                          if (shared) {
+                            openedCount++;
+                          } else {
+                            failedCount++;
+                          }
+                        }
+
+                        if (shareStockist && hasStockist) {
+                          final shared = await _sharePdfToRecipient(
+                            phone: stockistNumber,
+                            filePath: filePath,
+                          );
+                          if (shared) {
+                            openedCount++;
+                          } else {
+                            failedCount++;
+                          }
+                        }
+                      }
+
+                      if (openedCount > 0) {
+                        AppSnackBar.showGetXCustomSnackBar(
+                          message: 'Opening WhatsApp share...',
+                          backgroundColor: Colors.green,
+                        );
+                      }
+                      if (failedCount > 0) {
+                        AppSnackBar.showGetXCustomSnackBar(
+                          message: 'Could not open some WhatsApp links',
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          "assets/whatsapp_icon.png",
+                          height: 20,
+                        ),
+                        SizedBox(
+                          width: 5,
+                        ),
+                        Text('Share'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _isOrderShareDialogVisible = false;
     }
   }
 
@@ -542,6 +841,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Remove listener to prevent memory leaks
     _profileProvider.removeListener(_handlePendingWarning);
     // Unmark HomePage active
@@ -574,7 +874,8 @@ class _HomePageState extends State<HomePage> {
           ),
           title: GestureDetector(
               onTap: () {
-                log(ub.token.toString());
+                log('Home title tapped');
+                CrashlyticsService.logAction('home_title_tapped');
               },
               //child: Text(p.data != null
               //    ? Helper.trimValue(p.data!.compName.toString(), 30)
@@ -1550,122 +1851,50 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                             ],
                                           ),
-                                          if (dashboardV2Data != null &&
-                                              ub.role ==
-                                                  AppConfig.masteruser) ...[
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  "Achv Percent: ",
-                                                  style:
-                                                      TextStyle(fontSize: 13),
-                                                ),
-                                                Text(
-                                                  "${dashboardV2Data!.data.targetAchievement.totals.achievementPercent.toStringAsFixed(2)}%",
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: dashboardV2Data!
-                                                                .data
-                                                                .targetAchievement
-                                                                .totals
-                                                                .achievementPercent >
-                                                            0
-                                                        ? Colors.green.shade700
-                                                        : Colors.grey.shade700,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Row(
-                                              children: [
-                                                // Text(
-                                                //   "Target: ",
-                                                //   style:
-                                                //       TextStyle(fontSize: 13),
-                                                // ),
-                                                Text(
-                                                  "Target: ₹${dashboardV2Data!.data.targetAchievement.totals.targetAmount}",
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    // fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ] else if (dashboardV2Data != null &&
-                                              dashboardV2Data!
-                                                  .data
-                                                  .targetAchievement
-                                                  .users
-                                                  .isNotEmpty &&
-                                              ub.role !=
-                                                  AppConfig.masteruser) ...[
+                                          if (data?.data.labelData
+                                                  .targetAchievement !=
+                                              null) ...[
                                             Builder(
-                                              builder: (BuildContext context) {
-                                                final profileProvider = context
-                                                    .watch<ProfileProvider>();
-                                                final currentUserCd =
-                                                    profileProvider.userCode;
-
-                                                // Find current operator user in the users array
-                                                final currentOperatorUser =
-                                                    dashboardV2Data!.data
-                                                        .targetAchievement.users
-                                                        .cast<TargetUser?>()
-                                                        .firstWhere(
-                                                          (user) =>
-                                                              user?.userCd ==
-                                                              currentUserCd,
-                                                          orElse: () => null,
-                                                        );
-
-                                                if (currentOperatorUser !=
-                                                    null) {
-                                                  return Column(
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          Text(
-                                                            "Achv Percent: ",
-                                                            style: TextStyle(
-                                                                fontSize: 13),
-                                                          ),
-                                                          Text(
-                                                            "${currentOperatorUser.achievementPercent.toStringAsFixed(2)}%",
-                                                            style: TextStyle(
-                                                              fontSize: 13,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color: currentOperatorUser
-                                                                          .achievementPercent >
-                                                                      0
-                                                                  ? Colors.green
-                                                                      .shade700
-                                                                  : Colors.grey
-                                                                      .shade700,
-                                                            ),
-                                                          ),
-                                                        ],
+                                              builder: (context) {
+                                                final targetAchievement = data!
+                                                    .data
+                                                    .labelData
+                                                    .targetAchievement!;
+                                                return Row(
+                                                  children: [
+                                                    Text(
+                                                      "Achv Percent: ",
+                                                      style: TextStyle(
+                                                          fontSize: 13),
+                                                    ),
+                                                    Text(
+                                                      "${targetAchievement.percent.toStringAsFixed(2)}%",
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: targetAchievement
+                                                                    .percent >
+                                                                0
+                                                            ? Colors
+                                                                .green.shade700
+                                                            : Colors
+                                                                .grey.shade700,
                                                       ),
-                                                      Row(
-                                                        children: [
-                                                          Text(
-                                                            "Target: ₹${currentOperatorUser.targetAmount}",
-                                                            style: TextStyle(
-                                                              fontSize: 13,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  );
-                                                } else {
-                                                  // User not found in target users array
-                                                  return SizedBox.shrink();
-                                                }
+                                                    ),
+                                                  ],
+                                                );
                                               },
+                                            ),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  "Target: ₹${data!.data.labelData.targetAchievement!.target.toStringAsFixed(2)}",
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ]
                                         ],
@@ -1680,165 +1909,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-
-                  // Target Achievement Card (Dashboard V2)
-                  // Padding(
-                  //   padding: const EdgeInsets.all(8.0),
-                  //   child: Card(
-                  //     elevation: 20,
-                  //     shape: RoundedRectangleBorder(
-                  //         borderRadius: BorderRadius.circular(15)),
-                  //     child: Container(
-                  //       padding: EdgeInsets.all(15),
-                  //       child: Column(
-                  //         crossAxisAlignment: CrossAxisAlignment.start,
-                  //         children: [
-                  //           Row(
-                  //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  //             children: [
-                  //               Text(
-                  //                 "Target Achievement",
-                  //                 style: TextStyle(
-                  //                   fontSize: 16,
-                  //                   fontWeight: FontWeight.w700,
-                  //                   color: Colors.black,
-                  //                 ),
-                  //               ),
-                  //             ],
-                  //           ),
-                  //           SizedBox(height: 15),
-                  //           if (dashboardV2Data != null)
-                  //             Column(
-                  //               children: [
-                  //                 // Target Amount
-                  //                 Row(
-                  //                   mainAxisAlignment:
-                  //                       MainAxisAlignment.spaceBetween,
-                  //                   children: [
-                  //                     Text(
-                  //                       "Target Amount",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         color: Colors.grey.shade700,
-                  //                       ),
-                  //                     ),
-                  //                     Text(
-                  //                       "₹ ${dashboardV2Data!.data.targetAchievement.totals.targetAmount.toStringAsFixed(2)}",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         fontWeight: FontWeight.w600,
-                  //                         color: Colors.black,
-                  //                       ),
-                  //                     ),
-                  //                   ],
-                  //                 ),
-                  //                 SizedBox(height: 10),
-                  //                 // Achievement Percent
-                  //                 Row(
-                  //                   mainAxisAlignment:
-                  //                       MainAxisAlignment.spaceBetween,
-                  //                   children: [
-                  //                     Text(
-                  //                       "Achievement %",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         color: Colors.grey.shade700,
-                  //                       ),
-                  //                     ),
-                  //                     Container(
-                  //                       padding: EdgeInsets.symmetric(
-                  //                           horizontal: 12, vertical: 6),
-                  //                       decoration: BoxDecoration(
-                  //                         color: dashboardV2Data!
-                  //                                     .data
-                  //                                     .targetAchievement
-                  //                                     .totals
-                  //                                     .achievementPercent >
-                  //                                 0
-                  //                             ? Colors.green.shade100
-                  //                             : Colors.grey.shade100,
-                  //                         borderRadius:
-                  //                             BorderRadius.circular(8),
-                  //                       ),
-                  //                       child: Text(
-                  //                         "${dashboardV2Data!.data.targetAchievement.totals.achievementPercent}%",
-                  //                         style: TextStyle(
-                  //                           fontSize: 14,
-                  //                           fontWeight: FontWeight.w600,
-                  //                           color: dashboardV2Data!
-                  //                                       .data
-                  //                                       .targetAchievement
-                  //                                       .totals
-                  //                                       .achievementPercent >
-                  //                                   0
-                  //                               ? Colors.green.shade700
-                  //                               : Colors.grey.shade700,
-                  //                         ),
-                  //                       ),
-                  //                     ),
-                  //                   ],
-                  //                 ),
-                  //                 SizedBox(height: 10),
-                  //                 // Achieved Amount
-                  //                 Row(
-                  //                   mainAxisAlignment:
-                  //                       MainAxisAlignment.spaceBetween,
-                  //                   children: [
-                  //                     Text(
-                  //                       "Achieved Amount",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         color: Colors.grey.shade700,
-                  //                       ),
-                  //                     ),
-                  //                     Text(
-                  //                       "₹ ${dashboardV2Data!.data.targetAchievement.totals.achievedAmount.toStringAsFixed(2)}",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         fontWeight: FontWeight.w600,
-                  //                         color: Colors.blue.shade700,
-                  //                       ),
-                  //                     ),
-                  //                   ],
-                  //                 ),
-                  //                 SizedBox(height: 10),
-                  //                 // Remaining Amount
-                  //                 Row(
-                  //                   mainAxisAlignment:
-                  //                       MainAxisAlignment.spaceBetween,
-                  //                   children: [
-                  //                     Text(
-                  //                       "Remaining Amount",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         color: Colors.grey.shade700,
-                  //                       ),
-                  //                     ),
-                  //                     Text(
-                  //                       "₹ ${dashboardV2Data!.data.targetAchievement.totals.remainingAmount.toStringAsFixed(2)}",
-                  //                       style: TextStyle(
-                  //                         fontSize: 14,
-                  //                         fontWeight: FontWeight.w600,
-                  //                         color: Colors.orange.shade700,
-                  //                       ),
-                  //                     ),
-                  //                   ],
-                  //                 ),
-                  //               ],
-                  //             )
-                  //           else
-                  //             Center(
-                  //               child: Padding(
-                  //                 padding: EdgeInsets.all(16),
-                  //                 child: CircularProgressIndicator(),
-                  //               ),
-                  //             ),
-                  //         ],
-                  //       ),
-                  //     ),
-                  //   ),
-                  // ),
-
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -2014,9 +2084,37 @@ class _HomePageState extends State<HomePage> {
                                             false) &&
                                         location.isLoading == false)
                                       ElevatedButton(
-                                        onPressed: () {
+                                        onPressed: () async {
                                           if (p.data?.isPunchIn == true) {
-                                            // PUNCH OUT clicked
+                                            final hasActiveOrder =
+                                                p.ACC_NAME.trim().isNotEmpty &&
+                                                    p.ACC_CD.trim().isNotEmpty;
+
+                                            if (hasActiveOrder) {
+                                              await party.startEndOrder(
+                                                p.ACC_NAME,
+                                                p.ACC_CD,
+                                                context,
+                                                "3",
+                                                id: 1,
+                                              );
+
+                                              final isOrderStillActive = p
+                                                      .ACC_NAME
+                                                      .trim()
+                                                      .isNotEmpty &&
+                                                  p.ACC_CD.trim().isNotEmpty;
+                                              if (isOrderStillActive) {
+                                                AppSnackBar
+                                                    .showGetXCustomSnackBar(
+                                                  message:
+                                                      'Unable to end active order. Please try again.',
+                                                );
+                                                return;
+                                              }
+                                            }
+
+                                            // PUNCH OUT clicked after order is ended
                                             location.setRemarks("PUNCH OUT");
                                             // Clear stockist selection on punch out
                                             final productController = Get
@@ -2033,7 +2131,7 @@ class _HomePageState extends State<HomePage> {
                                           final userProvider =
                                               Provider.of<UserProvider>(context,
                                                   listen: false);
-                                          location
+                                          await location
                                               .checkServiceEnable(userProvider);
                                           //location.checkServiceEnable(context);
                                         },
@@ -2123,7 +2221,6 @@ class _HomePageState extends State<HomePage> {
                                                           if (party.partyid
                                                               .isNotEmpty) {
                                                             getDashboarddata();
-                                                            getDashboardV2Data();
                                                           }
                                                         }
                                                       });

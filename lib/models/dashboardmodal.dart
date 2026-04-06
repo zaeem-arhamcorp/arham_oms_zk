@@ -56,6 +56,7 @@ class LabelData {
     required this.month,
     required this.transaction,
     required this.today,
+    this.targetAchievement,
   });
 
   String totalSales;
@@ -63,6 +64,7 @@ class LabelData {
   String month;
   String today;
   List<Transaction> transaction;
+  TargetAchievement? targetAchievement;
 
   factory LabelData.fromJson(Map<String, dynamic> json) => LabelData(
         totalSales: json["total_sales"] ?? "0",
@@ -73,6 +75,9 @@ class LabelData {
             ? List<Transaction>.from(
                 json["transaction"].map((x) => Transaction.fromJson(x)))
             : [],
+        targetAchievement: json["targetAchievement"] != null
+            ? TargetAchievement.fromJson(json["targetAchievement"])
+            : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -81,7 +86,55 @@ class LabelData {
         "month": month,
         "today": today,
         "transaction": List<dynamic>.from(transaction.map((x) => x.toJson())),
+        "targetAchievement": targetAchievement?.toJson(),
       };
+}
+
+class TargetAchievement {
+  TargetAchievement({
+    required this.userCd,
+    required this.userName,
+    required this.target,
+    required this.achieved,
+    required this.percent,
+    required this.remaining,
+  });
+
+  String userCd;
+  String userName;
+  double target;
+  double achieved;
+  double percent;
+  double remaining;
+
+  factory TargetAchievement.fromJson(Map<String, dynamic> json) =>
+      TargetAchievement(
+        userCd: json["userCd"]?.toString() ?? "",
+        userName: json["userName"]?.toString() ?? "",
+        target: _toDouble(json["target"]),
+        achieved: _toDouble(json["achieved"]),
+        percent: _toDouble(json["percent"]),
+        remaining: _toDouble(json["remaining"]),
+      );
+
+  Map<String, dynamic> toJson() => {
+        "userCd": userCd,
+        "userName": userName,
+        "target": target,
+        "achieved": achieved,
+        "percent": percent,
+        "remaining": remaining,
+      };
+}
+
+double _toDouble(dynamic value) {
+  if (value == null) {
+    return 0.0;
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  return double.tryParse(value.toString()) ?? 0.0;
 }
 
 class Transaction {

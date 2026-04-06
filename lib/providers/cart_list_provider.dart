@@ -1,4 +1,4 @@
-﻿import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +13,7 @@ import 'package:http/http.dart' as http;
 import '../services/cart_service.dart';
 import '../services/database_helper.dart';
 import '../views/loginpage.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class CartListProvider extends DisposableProvider {
   final List<DatumCartList> _data = [];
@@ -50,7 +50,7 @@ class CartListProvider extends DisposableProvider {
   //         });
   //       }
   //     } catch (e, stack) {
-  //       FirebaseCrashlytics.instance.recordError(e, stack);
+  //       CrashlyticsService.recordNonFatal(e, stack);
   //       //Fluttertoast.showToast(msg: "Something went wrong");
   //       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
   //     }
@@ -163,7 +163,7 @@ class CartListProvider extends DisposableProvider {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       // If server fails, try loading from local DB as fallback
       try {
         final localCart =
@@ -288,7 +288,7 @@ class CartListProvider extends DisposableProvider {
   //       );
   //     }
   //   } catch (e, stack) {
-  //     FirebaseCrashlytics.instance.recordError(e, stack);
+  //     CrashlyticsService.recordNonFatal(e, stack);
   //     AppSnackBar.showGetXCustomSnackBar(
   //       message: online ? 'Something went wrong' : 'Failed to add item offline',
   //     );
@@ -309,7 +309,7 @@ class CartListProvider extends DisposableProvider {
 
       await getCartItem(context, partyId);
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
     }
   }
@@ -328,7 +328,7 @@ class CartListProvider extends DisposableProvider {
 
       await getCartItem(context, partyId);
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
     }
   }
@@ -339,3 +339,4 @@ class CartListProvider extends DisposableProvider {
     notifyListeners();
   }
 }
+

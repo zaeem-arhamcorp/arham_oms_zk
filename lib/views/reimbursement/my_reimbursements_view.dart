@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/views/reimbursement/reimbursement_edit_page.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -175,6 +176,19 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
     return DateFormat('dd MMM yyyy').format(parsed);
   }
 
+  bool _isWithin24Hours(dynamic createdAt) {
+    if (createdAt == null) return false;
+    final String text = createdAt.toString();
+    if (text.isEmpty) return false;
+
+    final DateTime? createdDate = DateTime.tryParse(text);
+    if (createdDate == null) return false;
+
+    final DateTime now = DateTime.now();
+    final Duration difference = now.difference(createdDate);
+    return difference.inHours < 24;
+  }
+
   Widget _buildFilters() {
     return Card(
       margin: const EdgeInsets.all(12),
@@ -239,6 +253,7 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
     final String amount = (request['AMOUNT'] ?? '-').toString();
     final String notes = (request['NOTES'] ?? '-').toString();
     final String actionNote = (request['ACTION_NOTE'] ?? '').toString();
+    final bool isEditable = _isWithin24Hours(request['CREATED_AT']);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -271,6 +286,25 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
                     ),
                   ),
                 ),
+                if (isEditable) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ReimbursementEditPage(
+                            request: request,
+                            onSave: _fetchReimbursements,
+                          ),
+                        ),
+                      );
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 8),

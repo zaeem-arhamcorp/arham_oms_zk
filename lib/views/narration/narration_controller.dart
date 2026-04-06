@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/views/narration/narration_model.dart';
@@ -16,7 +16,7 @@ import '../../config/app_config.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/common_button.dart';
 import '../loginpage.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class NarrationController extends GetxController {
   var isLoading = false.obs;
@@ -203,7 +203,7 @@ class NarrationController extends GetxController {
         );
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       ScaffoldMessenger.of(Get.context!).showSnackBar(
         SnackBar(
             backgroundColor: Colors.red,
@@ -266,7 +266,7 @@ class NarrationController extends GetxController {
         );
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       ScaffoldMessenger.of(Get.context!).showSnackBar(
         SnackBar(
             backgroundColor: Colors.red,
@@ -321,7 +321,7 @@ class NarrationController extends GetxController {
         });
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       print(e);
       AppSnackBar.showGetXCustomSnackBar(
           message: "Error fetching narration: $e");
@@ -689,9 +689,10 @@ class NarrationController extends GetxController {
         //Fluttertoast.showToast(msg: message);
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong: $e");
       //Fluttertoast.showToast(msg: "Something went wrong: $e");
     }
   }
 }
+

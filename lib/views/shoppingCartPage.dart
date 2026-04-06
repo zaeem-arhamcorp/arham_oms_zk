@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/generated/assets.dart';
@@ -23,13 +25,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:arham_corporation/services/offline_order_service.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:hive/hive.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import '../constants/constants.dart';
 import '../models/cartListModal.dart';
 import '../models/ordermodal.dart';
+import '../models/partynameModal.dart';
 import '../models/settingmodal.dart';
 import '../providers/party_provider.dart';
 import '../services/services.dart';
@@ -752,7 +757,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
               ),
 
               //Additional add
-              // 🔹 Top border only
+              // Top border only
               border: Border(
                 top: BorderSide(
                   color: Color(0xFFE0E0E0), // light grey
@@ -761,7 +766,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
               ),
 
               //Additional add
-              // 🔹 Shadow coming from top (not bottom)
+              // Shadow coming from top (not bottom)
               // boxShadow: const [
               //   BoxShadow(
               //     color: Colors.black12,
@@ -1634,6 +1639,142 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   final orderAddHive1 = Hive.box<Ordermodal>(Constants.addOrder);
 
+  DatumPartyname? _findPartyById(List<DatumPartyname> parties, String partyId) {
+    for (final p in parties) {
+      if (p.accCd.toString() == partyId.toString()) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  String _preferredContact(String? whatsappNo, String? phoneNo) {
+    final wa = (whatsappNo ?? '').trim();
+    if (wa.isNotEmpty) return wa;
+    return (phoneNo ?? '').trim();
+  }
+
+  String _toWaMePhone(String input) {
+    var digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+    while (digits.startsWith('0') && digits.length > 10) {
+      digits = digits.substring(1);
+    }
+    if (digits.startsWith('00') && digits.length > 2) {
+      digits = digits.substring(2);
+    }
+    if (digits.length == 10) {
+      digits = '91$digits';
+    }
+    return digits;
+  }
+
+  Future<Map<String, String>?> _getStockistContact() async {
+    final selectedStockistId = controller.selectedStockistId.value.trim();
+    final selectedStockistName = controller.selectedStockistName.value.trim();
+
+    if (selectedStockistId.isEmpty && selectedStockistName.isEmpty) {
+      return null;
+    }
+
+    DatumPartyname? stockist = _findPartyById(
+      controller.stockists,
+      selectedStockistId,
+    );
+
+    if (stockist == null && selectedStockistId.isNotEmpty) {
+      try {
+        await controller.fetchStockists(groupCd: '136');
+        stockist = _findPartyById(controller.stockists, selectedStockistId);
+      } catch (e) {
+        print('[Order Share] Failed to refresh stockists: $e');
+      }
+    }
+
+    final wa = (stockist?.whNo ?? '').trim();
+    final mobile =
+        (stockist?.mobile ?? controller.selectedStockistMobile.value).trim();
+    final preferred = _preferredContact(wa, mobile);
+
+    return {
+      'name': stockist?.accName ?? selectedStockistName,
+      'wa': wa,
+      'phone': mobile,
+      'preferred': preferred,
+      'wame': _toWaMePhone(preferred),
+    };
+  }
+
+  Future<String?> _buildOrderReportUrl(String partyId) async {
+    if (partyId.trim().isEmpty) return null;
+    final today = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    return Services().getOrderExportFileItem(
+      context,
+      partyId,
+      today,
+      today,
+      null,
+      'pdf',
+    );
+  }
+
+  Future<void> _savePendingOrderSharePayloadIfPossible({
+    required String partyId,
+    required String partyName,
+  }) async {
+    final PartyProvider partyProvider =
+        Provider.of<PartyProvider>(context, listen: false);
+
+    final selectedParty = _findPartyById(partyProvider.data, partyId);
+    final partyPreferred = _preferredContact(
+      selectedParty?.whNo,
+      selectedParty?.mobile,
+    );
+    final partyContact = <String, String>{
+      'name': selectedParty?.accName ?? partyName,
+      'wa': (selectedParty?.whNo ?? '').trim(),
+      'phone': (selectedParty?.mobile ?? '').trim(),
+      'preferred': partyPreferred,
+      'wame': _toWaMePhone(partyPreferred),
+    };
+
+    final stockistContact = await _getStockistContact();
+
+    final hasAnyRecipient = (partyContact['wame'] ?? '').isNotEmpty ||
+        ((stockistContact?['wame'] ?? '').isNotEmpty);
+
+    if (!hasAnyRecipient) {
+      print('[Order Share] Skipping share popup: no recipient numbers');
+      print(
+          '[Order Share] DEBUG - Party: whNo=${selectedParty?.whNo}, mobile=${selectedParty?.mobile}');
+      print(
+          '[Order Share] DEBUG - Stockist: whNo=${stockistContact?['wa']}, mobile=${stockistContact?['phone']}');
+      return;
+    }
+
+    final reportUrl = await _buildOrderReportUrl(partyId);
+    if (reportUrl == null || reportUrl.trim().isEmpty) {
+      print('[Order Share] Report url is empty, skipping pending payload save');
+      print('[Order Share] DEBUG: partyId=$partyId, reportUrl=$reportUrl');
+      return;
+    }
+    print('[Order Share] DEBUG: reportUrl=$reportUrl');
+
+    final payload = <String, dynamic>{
+      'reportUrl': reportUrl,
+      'partyName': partyContact['name'] ?? 'Party',
+      'partyNumber': partyContact['wame'] ?? '',
+      'partyDisplayNumber': partyContact['preferred'] ?? '',
+      'stockistName': stockistContact?['name'] ?? 'Stockist',
+      'stockistNumber': stockistContact?['wame'] ?? '',
+      'stockistDisplayNumber': stockistContact?['preferred'] ?? '',
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pending_order_share_payload', jsonEncode(payload));
+    print('[Order Share] Pending share payload saved for homepage');
+  }
+
   _handelAddOrder(items) async {
     bool result = await InternetConnectionChecker.instance.hasConnection;
 
@@ -1717,11 +1858,26 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                         : '0',
                 context,
                 orderRemarks.text)
-            .then((value) {
+            .then((value) async {
           if (value != null) {
             //Fluttertoast.showToast(msg: value);
             AppSnackBar.showGetXCustomSnackBar(
                 message: value, backgroundColor: Colors.green);
+
+            final selectedPartyId =
+                profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+            final selectedPartyName =
+                profile.YN == "Y" ? party.punchInOutParty : party.party;
+
+            try {
+              await _savePendingOrderSharePayloadIfPossible(
+                partyId: selectedPartyId,
+                partyName: selectedPartyName,
+              );
+            } catch (e, stack) {
+              CrashlyticsService.recordNonFatal(e, stack);
+              print('[Order Share] Failed to show share popup: $e');
+            }
 
             getCart();
             setState(() {
@@ -1798,7 +1954,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           final DateTime orderPlacementTime = DateTime.now();
 
           print(
-              '[ShoppingCart] 📍 Creating PLACE ORDER tracking (type=2) immediately...');
+              '[ShoppingCart] Creating PLACE ORDER tracking (type=2) immediately...');
           print('[ShoppingCart]   Party: $partyId | Location: ($lat, $long)');
           print('[ShoppingCart]   Order placement time: $orderPlacementTime');
 
@@ -1818,10 +1974,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           );
 
           print(
-              '[ShoppingCart] ✅ PLACE ORDER tracking created at placement time');
+              '[ShoppingCart] PLACE ORDER tracking created at placement time');
         } catch (e) {
           print(
-              '[ShoppingCart] ⚠️ Warning: Could not create PLACE ORDER tracking: $e');
+              '[ShoppingCart] Warning: Could not create PLACE ORDER tracking: $e');
           // Continue anyway - order was saved, tracking is secondary
         }
 
@@ -1839,7 +1995,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             // Check if limit is EXACTLY hit
             if (warningMsg.contains('LIMIT_HIT:')) {
               print(
-                  '[OFFLINE_ORDER] ⛔ EXACT LIMIT HIT - showing popup and resetting count');
+                  '[OFFLINE_ORDER] EXACT LIMIT HIT - showing popup and resetting count');
               isLimitHit = true;
 
               // Show popup immediately
@@ -1869,7 +2025,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
               try {
                 final db = DatabaseHelper();
                 await db.resetOfflineOrderCount(syncId);
-                print('[OFFLINE_ORDER] ✅ Reset offline_order_count to 0');
+                print('[OFFLINE_ORDER] Reset offline_order_count to 0');
               } catch (e) {
                 print(
                     '[OFFLINE_ORDER] Warning: Could not reset offline_order_count: $e');
@@ -1886,7 +2042,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         // Order saved successfully - no post-save license check needed
         // Blacklisting will be handled AFTER sync when server confirms limit exceeded
         print(
-            '[OFFLINE_ORDER] ✅ Order saved locally (will be synced when online)');
+            '[OFFLINE_ORDER] Order saved locally (will be synced when online)');
 
         // Clear cart UI
         getCart();
@@ -1899,12 +2055,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         Get.to(() => OrderConformationPage(),
             arguments: {'offline': true, 'orderId': orderId});
       } catch (e, stack) {
-        FirebaseCrashlytics.instance.recordError(e, stack);
+        CrashlyticsService.recordNonFatal(e, stack);
 
         final errorMsg = e.toString();
 
         // Show generic error message
-        print('[OFFLINE_ORDER] ❌ Error saving offline order: $errorMsg');
+        print('[OFFLINE_ORDER] Error saving offline order: $errorMsg');
 
         AppSnackBar.showGetXCustomSnackBar(
           message: 'Failed to save order. Please try again.',

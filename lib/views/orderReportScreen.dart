@@ -1,4 +1,4 @@
-﻿//import 'package:fluttertoast/fluttertoast.dart';
+//import 'package:fluttertoast/fluttertoast.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,12 +13,12 @@ import 'package:arham_corporation/product/ui/product_page.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/widgets/common_text.dart';
 import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -110,16 +110,29 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     bool online = await NetworkHelper.hasInternet();
 
     if (online) {
-      print(party.partyid);
-      Services()
-          .getOrderReport(
-              context,
-              party.partyid,
-              Helper.toApi(fromdateController.text),
-              Helper.toApi(toDateController.text),
-              userController.text,
-              radiocheck)
-          .then((value) async {
+      try {
+        await CrashlyticsService.logAction(
+          'order_report_api_triggered',
+          context: {
+            'party_id': party.partyid,
+            'from_date': Helper.toApi(fromdateController.text),
+            'to_date': Helper.toApi(toDateController.text),
+            'user_code': userController.text,
+            'report_type': radiocheck,
+          },
+        );
+
+        final value = await Services().getOrderReport(
+          context,
+          party.partyid,
+          Helper.toApi(fromdateController.text),
+          Helper.toApi(toDateController.text),
+          userController.text,
+          radiocheck,
+        );
+
+        if (!mounted) return;
+
         setState(() {
           if (value != null) {
             data.addAll(value.data);
@@ -140,11 +153,26 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
             );
             print(
                 "Order report cached successfully (${value.data.length} items)");
-          } catch (e) {
+          } catch (e, stack) {
             print("Error caching order report: $e");
+            await CrashlyticsService.recordNonFatal(
+              e,
+              stack,
+              reason: 'order_report_cache_failed',
+            );
           }
         }
-      });
+      } catch (e, stack) {
+        await CrashlyticsService.recordNonFatal(
+          e,
+          stack,
+          reason: 'order_report_fetch_failed',
+        );
+        if (!mounted) return;
+        setState(() {
+          noList = true;
+        });
+      }
     } else {
       // Offline: load from cache
       try {
@@ -179,6 +207,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
   @override
   void initState() {
+    CrashlyticsService.setScreenName('OrderReportScreen');
+    CrashlyticsService.logAction('order_report_opened');
+
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
 
@@ -241,6 +272,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       final String token = userProvider.token ?? '';
       final String baseUrl = AppConfig.baseURL;
 
+      await CrashlyticsService.logAction('order_report_users_api_triggered');
       print(
           '_fetchUsers: Fetching from ${baseUrl}users/children with token: ${token.substring(0, 20)}...');
 
@@ -288,11 +320,16 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         print('Failed to fetch users: ${response.statusCode}');
         print('Response: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stack) {
       setState(() {
         _loadingUsers = false;
       });
       print('Error fetching users: $e');
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'order_report_users_fetch_failed',
+      );
     }
   }
 
@@ -1126,6 +1163,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                           loading: _loadingUsers,
                           hint: "Select User",
                           onChanged: (value) {
+                            CrashlyticsService.logAction(
+                              'order_report_user_filter_changed',
+                              context: {'selected_user_cd': value ?? ''},
+                            );
                             print('User selected: $value');
                             setState(() {
                               _selectedUserCode = value ?? '';
@@ -2713,7 +2754,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         );
       }
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack);
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'order_report_upload_failed',
+      );
       AppSnackBar.showGetXCustomSnackBar(
         message: e.toString(),
       );

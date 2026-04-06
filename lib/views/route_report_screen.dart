@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -50,6 +51,9 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   @override
   void initState() {
     super.initState();
+    CrashlyticsService.setScreenName('RouteReportScreen');
+    CrashlyticsService.logAction('route_report_opened');
+
     final now = DateTime.now();
     _fromDate = DateTime(now.year, now.month, 1);
     _toDate = DateTime(now.year, now.month, now.day);
@@ -65,6 +69,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       _loadingUsers = true;
     });
     try {
+      await CrashlyticsService.logAction('route_report_users_api_triggered');
       final ub = Provider.of<UserProvider>(context, listen: false);
       final token = ub.token;
       if (token == null || token.isEmpty) {
@@ -109,11 +114,16 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           _loadingUsers = false;
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
       setState(() {
         _users = [];
         _loadingUsers = false;
       });
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'route_report_users_fetch_failed',
+      );
     }
   }
 
@@ -530,7 +540,13 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           'transitKm': transitKm,
         };
       });
-    } catch (_) {
+    } catch (e, stack) {
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'route_report_trip_gap_fetch_failed',
+        context: {'trip_id': tripId},
+      );
       // Keep UI fallback as '-'
     } finally {
       _gapLoadingIds.remove(tripId);
@@ -573,6 +589,15 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       _error = null;
     });
     try {
+      await CrashlyticsService.logAction(
+        'route_report_trips_api_triggered',
+        context: {
+          'user_cd': userCd,
+          'from_date': _fmtDate(_fromDate),
+          'to_date': _fmtDate(_toDate),
+        },
+      );
+
       final uri = Uri.parse('${AppConfig.baseURL}location/trip').replace(
         queryParameters: {
           'fromDate': _fmtDate(_fromDate),
@@ -629,11 +654,16 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           _trips = <Map<String, dynamic>>[];
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
       setState(() {
         _error = 'Failed to fetch trip history: $e';
         _trips = <Map<String, dynamic>>[];
       });
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'route_report_trips_fetch_failed',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -694,6 +724,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
     return GestureDetector(
       onTap: () {
+        CrashlyticsService.logAction(
+          'route_report_trip_opened',
+          context: {'trip_id': tripId},
+        );
         Get.to(
           () => TripDetailMapScreen(
             tripId: tripId,
@@ -963,6 +997,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
             loading: _loadingUsers,
             hint: "Select User",
             onChanged: (value) {
+              CrashlyticsService.logAction(
+                'route_report_user_filter_changed',
+                context: {'selected_user_cd': value ?? ''},
+              );
               setState(() {
                 _selectedUserCode = value ?? '';
                 _selectedUserName = value == ''
