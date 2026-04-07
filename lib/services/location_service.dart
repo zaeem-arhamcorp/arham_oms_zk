@@ -1,14 +1,11 @@
-import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'database_helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import '../config/app_config.dart';
 import 'background_location_service.dart';
 import 'location_sync_service.dart';
-import 'package:provider/provider.dart';
-import 'package:arham_corporation/providers/user_provider.dart';
-import 'package:flutter/material.dart';
 
 class LocationService {
   final DatabaseHelper db = DatabaseHelper();
@@ -417,7 +414,9 @@ class LocationService {
   /// The punch record already exists on the server - we just restart tracking.
   ///
   /// Parameters:
-  /// - context: BuildContext for accessing providers
+  /// - userCd: User code
+  /// - syncId: Sync id
+  /// - token: Auth token
   /// - moduleNo: Module number (defaults to '301')
   /// - logTag: Log tag prefix for debugging
   ///
@@ -428,7 +427,7 @@ class LocationService {
   Future<Map<String, dynamic>> restartTracking({
     required String userCd,
     required int syncId,
-    required String? token,
+    required String token,
     String moduleNo = '301',
     String logTag = '[LocationService]',
   }) async {
@@ -436,20 +435,9 @@ class LocationService {
       print(
           '$logTag 🔄 RESTART TRACKING - User logged back in (was previously punched in)');
 
-      // Safety check: Prevent double-starting if already running
-      if (_backgroundService.isRunning) {
-        print('$logTag ℹ️ Background service already running - skipping restart');
-        return {
-          'success': true,
-          'message': 'Background tracking already active',
-          'already_running': true,
-        };
-      }
-
-      // Validate user data
-      if (userCd.isEmpty || token == null || token.isEmpty || syncId <= 0) {
+      if (userCd.isEmpty || token.isEmpty || syncId <= 0) {
         print(
-            '$logTag ❌ Missing user data: userCd=$userCd, syncId=$syncId, hasToken=${token != null}');
+            '$logTag ❌ Missing user data: userCd=$userCd, syncId=$syncId, hasToken=${token.isNotEmpty}');
         return {
           'success': false,
           'message': 'Missing user data',
@@ -459,39 +447,39 @@ class LocationService {
 
       print('$logTag ℹ️ User: $userCd | Sync ID: $syncId');
 
-      // Step 1: Get current GPS location (or last known) - with aggressive timeout
-      double currentLat = 0, currentLng = 0;
+      // Step 2: Get current GPS location (or last known)
+      late double currentLat, currentLng;
       try {
+        final Position position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.bestForNavigation)
+            .timeout(const Duration(seconds: 15));
+        currentLat = position.latitude;
+        currentLng = position.longitude;
+        print('$logTag 📍 Current GPS location: $currentLat, $currentLng');
+      } catch (e) {
+        print('$logTag ⚠️ Could not get current GPS: $e - trying last known');
+        // Try to get last known position
         try {
-          final Position position = await Geolocator.getCurrentPosition(
-                  desiredAccuracy: LocationAccuracy.bestForNavigation)
-              .timeout(const Duration(seconds: 5)); // Reduced timeout
-          currentLat = position.latitude;
-          currentLng = position.longitude;
-          print('$logTag 📍 Current GPS location: $currentLat, $currentLng');
-        } on TimeoutException {
-          print('$logTag ⚠️ GPS timeout (5s) - trying last known');
-          final Position? lastKnown = await Geolocator.getLastKnownPosition()
-              .timeout(const Duration(seconds: 3));
+          final Position? lastKnown = await Geolocator.getLastKnownPosition();
           if (lastKnown != null) {
             currentLat = lastKnown.latitude;
             currentLng = lastKnown.longitude;
             print(
                 '$logTag 📍 Last known GPS location: $currentLat, $currentLng');
           } else {
-            print('$logTag ⚠️ No last known position - using (0,0)');
+            print('$logTag ⚠️ No last known position available');
             currentLat = 0;
             currentLng = 0;
           }
+        } catch (e2) {
+          print('$logTag ⚠️ Could not get last known position either: $e2');
+          currentLat = 0;
+          currentLng = 0;
         }
-      } catch (e) {
-        print('$logTag ⚠️ GPS retrieval failed completely: $e - using (0,0)');
-        currentLat = 0;
-        currentLng = 0;
       }
 
-      // Step 2: Start background location tracking service
-      print('$logTag 🚀 Starting background location tracking service...');
+      // Step 3: Start background location tracking service
+      print('$logTag 🚀 Restarting background location tracking service...');
       final trackingResult = await _backgroundService.startTracking(
         userCd: userCd,
         syncId: syncId,
@@ -527,6 +515,54 @@ class LocationService {
       return {
         'success': false,
         'message': 'Failed to restart tracking: $e',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// Resume an existing active trip without creating a new one
+  /// Called when user logs back in and we found an active trip on server
+  Future<Map<String, dynamic>> resumeExistingTrip(
+      {required int tripId,
+      required String userCd,
+      required int syncId,
+      required String token}) async {
+    try {
+      print('[LocationService] 🔄 RESUME EXISTING TRIP - trip_id=$tripId');
+
+      // Store trip data in SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('active_trip_id', tripId);
+      await prefs.setString('active_user_cd', userCd);
+      await prefs.setInt('active_sync_id', syncId);
+      await prefs.setString('token', token);
+      print('[LocationService] ✅ Trip data stored in SharedPreferences');
+
+      // Resume background service with existing trip_id
+      final resumeSuccess =
+          await _backgroundService.resumeTrackingIfActiveTrip();
+
+      if (resumeSuccess) {
+        print('[LocationService] ✅ RESUME TRACKING SUCCESSFUL');
+        return {
+          'success': true,
+          'trip_id': tripId,
+          'message': 'Trip tracking resumed successfully',
+          'resumed': true,
+        };
+      } else {
+        print('[LocationService] ⚠️ Resume tracking failed');
+        return {
+          'success': false,
+          'message': 'Failed to resume tracking',
+          'error': 'Service resume failed',
+        };
+      }
+    } catch (e) {
+      print('[LocationService] ❌ Resume trip error: $e');
+      return {
+        'success': false,
+        'message': 'Failed to resume trip: $e',
         'error': e.toString(),
       };
     }

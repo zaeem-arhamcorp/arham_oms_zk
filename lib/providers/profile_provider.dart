@@ -54,6 +54,21 @@ class ProfileProvider extends DisposableProvider {
 
   String? get userName => _userName;
 
+  int? _lastResumedTripId;
+  DateTime? _lastResumedTripAt;
+
+  bool _shouldSkipDuplicateResume(int tripId) {
+    final now = DateTime.now();
+    if (_lastResumedTripId == tripId &&
+        _lastResumedTripAt != null &&
+        now.difference(_lastResumedTripAt!).inSeconds < 20) {
+      return true;
+    }
+    _lastResumedTripId = tripId;
+    _lastResumedTripAt = now;
+    return false;
+  }
+
   Future saveUserCode(userCode) async {
     final SharedPreferences sp = await SharedPreferences.getInstance();
     await sp.setString("UserCode", userCode);
@@ -285,25 +300,36 @@ class ProfileProvider extends DisposableProvider {
 
               if (_data!.isPunchIn) {
                 try {
-                  final currentModuleNo = _data?.profileSettings
-                          .firstWhere((e) => e.variable == 'currentModule',
-                              orElse: () =>
-                                  DatumSettings(variable: '', value: ''))
-                          .value ??
-                      '301';
-                  final syncIdInt = syncId;
                   print(
-                      '[PROFILE-ONLINE] 🚀 Restarting location tracking from LOCAL state (moduleNo=$currentModuleNo)');
-                  await locService.restartTracking(
-                    userCd: effectiveUserCd,
-                    syncId: syncIdInt,
-                    token: token,
-                    moduleNo: currentModuleNo,
-                    logTag: '[PROFILE-ONLINE-RESTORE-LOCAL]',
-                  );
+                      '[PROFILE-ONLINE] 🔍 Checking for active trip on server...');
+                  final activeTrip = await Services()
+                      .getActiveTripStatus(effectiveUserCd, syncId, token);
+
+                  if (activeTrip != null) {
+                    final tripId = activeTrip['trip_id'] is int
+                        ? activeTrip['trip_id'] as int
+                        : int.tryParse(activeTrip['trip_id']?.toString() ?? '');
+                    if (tripId == null) {
+                      print(
+                          '[PROFILE-ONLINE] ⚠️ Active trip found but trip_id is invalid: ${activeTrip['trip_id']}');
+                    } else if (_shouldSkipDuplicateResume(tripId)) {
+                      print(
+                          '[PROFILE-ONLINE] ℹ️ Duplicate resume skipped for trip_id=$tripId');
+                    } else {
+                      print(
+                          '[PROFILE-ONLINE] ✅ Found active trip ($tripId) - RESUMING');
+                      await locService.resumeExistingTrip(
+                          tripId: tripId,
+                          userCd: effectiveUserCd,
+                          syncId: syncId,
+                          token: token);
+                    }
+                  } else {
+                    print('[PROFILE-ONLINE] ℹ️ No active trip found on server');
+                  }
                 } catch (e) {
                   print(
-                      '[PROFILE-ONLINE] ⚠️ Could not restart tracking from local state: $e');
+                      '[PROFILE-ONLINE] ⚠️ Could not check/resume active trip: $e');
                 }
               }
             } else {
@@ -320,25 +346,38 @@ class ProfileProvider extends DisposableProvider {
 
                 if (_data!.isPunchIn) {
                   try {
-                    final currentModuleNo = _data?.profileSettings
-                            .firstWhere((e) => e.variable == 'currentModule',
-                                orElse: () =>
-                                    DatumSettings(variable: '', value: ''))
-                            .value ??
-                        '301';
-                    final syncIdInt = syncId;
                     print(
-                        '[PROFILE-ONLINE] 🚀 Restarting location tracking from SERVER state (moduleNo=$currentModuleNo)');
-                    await locService.restartTracking(
-                      userCd: effectiveUserCd,
-                      syncId: syncIdInt,
-                      token: token,
-                      moduleNo: currentModuleNo,
-                      logTag: '[PROFILE-ONLINE-RESTORE-SERVER]',
-                    );
+                        '[PROFILE-ONLINE] 🔍 Checking for active trip on server...');
+                    final activeTrip = await Services()
+                        .getActiveTripStatus(effectiveUserCd, syncId, token);
+
+                    if (activeTrip != null) {
+                      final tripId = activeTrip['trip_id'] is int
+                          ? activeTrip['trip_id'] as int
+                          : int.tryParse(
+                              activeTrip['trip_id']?.toString() ?? '');
+                      if (tripId == null) {
+                        print(
+                            '[PROFILE-ONLINE] ⚠️ Active trip found but trip_id is invalid: ${activeTrip['trip_id']}');
+                      } else if (_shouldSkipDuplicateResume(tripId)) {
+                        print(
+                            '[PROFILE-ONLINE] ℹ️ Duplicate resume skipped for trip_id=$tripId');
+                      } else {
+                        print(
+                            '[PROFILE-ONLINE] ✅ Found active trip ($tripId) - RESUMING');
+                        await locService.resumeExistingTrip(
+                            tripId: tripId,
+                            userCd: effectiveUserCd,
+                            syncId: syncId,
+                            token: token);
+                      }
+                    } else {
+                      print(
+                          '[PROFILE-ONLINE] ℹ️ No active trip found on server');
+                    }
                   } catch (e) {
                     print(
-                        '[PROFILE-ONLINE] ⚠️ Could not restart tracking from server state: $e');
+                        '[PROFILE-ONLINE] ⚠️ Could not check/resume active trip: $e');
                   }
                 }
               } else {

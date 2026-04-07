@@ -402,20 +402,25 @@ class _ReimbursementApprovalsViewState
             const SizedBox(height: 8),
             Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Amount: ₹$amount'),
-                    Text('Date: ${_formatDate(request['EXPENSE_DT'])}'),
-                    const SizedBox(height: 4),
-                    Text('Notes: $notes'),
-                    const SizedBox(height: 4),
-                    Text(
-                        'Requester: ${(request['REQUESTER_NAME'] ?? '-').toString()}'),
-                    const SizedBox(height: 10),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Amount: ₹$amount'),
+                      Text('Date: ${_formatDate(request['EXPENSE_DT'])}'),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Notes: $notes',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                          'Requester: ${(request['REQUESTER_NAME'] ?? '-').toString()}'),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
                 ),
-                Spacer(),
                 IconButton(
                   onPressed: () => _openActionBottomSheet(request),
                   icon: const Icon(Icons.edit_outlined),

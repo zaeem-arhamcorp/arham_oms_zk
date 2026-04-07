@@ -40,6 +40,13 @@ class BackgroundLocationService {
   String? _token;
   int? _currentTripId;
 
+  // Guard against duplicate background tracking loops when resume/start is
+  // triggered multiple times (for example, profile refresh + reconnect).
+  static int _trackingLoopGeneration = 0;
+  static bool _trackingLoopRunning = false;
+  static int? _activeLoopTripId;
+  static bool _commandListenersAttached = false;
+
   /// Check if background service is currently running
   bool get isRunning => _isRunning;
 
@@ -423,7 +430,14 @@ class BackgroundLocationService {
         });
       } else {
         print(
-            '[BackgroundLocationService] Background service already running. Resume not required. ');
+            '[BackgroundLocationService] Background service already running. Reinitializing with new trip_id=$tripId');
+        // Service is running but we need to update it with the new trip_id
+        _service.invoke('startLocationTracking', {
+          'userCd': userCd,
+          'syncId': syncId,
+          'token': token,
+          'tripId': tripId,
+        });
       }
 
       _isRunning = true;
@@ -646,6 +660,13 @@ class BackgroundLocationService {
   static Future<void> _onStart(ServiceInstance service) async {
     print('[BackgroundLocationService] [Background] Service started');
 
+    if (_commandListenersAttached) {
+      print(
+          '[BackgroundLocationService] [Background] Command listeners already attached, skipping re-attach');
+      return;
+    }
+    _commandListenersAttached = true;
+
     // Handle service commands
     service.on('startLocationTracking').listen((event) async {
       final userCd = event?['userCd'] as String?;
@@ -654,16 +675,32 @@ class BackgroundLocationService {
       final tripId = event?['tripId'] as int?;
 
       if (userCd != null && syncId != null && token != null && tripId != null) {
+        if (_trackingLoopRunning && _activeLoopTripId == tripId) {
+          print(
+              '[BackgroundLocationService] [Background] Duplicate start ignored for trip_id=$tripId');
+          return;
+        }
+
+        final generation = ++_trackingLoopGeneration;
         print(
             '[BackgroundLocationService] [Background] Starting location tracking');
         print(
             '[BackgroundLocationService] [Background]   User: $userCd, Sync: $syncId, Trip: $tripId');
+
+        if (_trackingLoopRunning) {
+          print(
+              '[BackgroundLocationService] [Background] Restarting active loop with new generation=$generation');
+        }
+
         await _backgroundLocationTracking(
-            service, userCd, syncId, token, tripId);
+            service, userCd, syncId, token, tripId, generation);
       }
     });
 
     service.on('stopLocationTracking').listen((event) {
+      _trackingLoopGeneration++;
+      _trackingLoopRunning = false;
+      _activeLoopTripId = null;
       print('[BackgroundLocationService] [Background] Received stop signal');
       // This will be handled by returning from _backgroundLocationTracking
     });
@@ -684,8 +721,11 @@ class BackgroundLocationService {
     int syncId,
     String token,
     int tripId,
+    int generation,
   ) async {
     final db = DatabaseHelper();
+    _trackingLoopRunning = true;
+    _activeLoopTripId = tripId;
 
     print(
         '[BackgroundLocationService] [Background] 🟢 Location tracking loop started');
@@ -897,15 +937,7 @@ class BackgroundLocationService {
     }
 
     // Main tracking loop
-    bool shouldContinue = true;
-    service.on('stopLocationTracking').listen((event) {
-      shouldContinue = false;
-      print(
-          '[HEARTBEAT] ACTIVE_TRIP_STOP: stopping heartbeat with tracking stop');
-      print('[BackgroundLocationService] [Background] Received stop signal');
-    });
-
-    while (shouldContinue) {
+    while (generation == _trackingLoopGeneration) {
       try {
         final autoPunchedOutBeforeCapture = await tryAutoPunchOutAt11Pm();
         if (autoPunchedOutBeforeCapture) {
@@ -983,7 +1015,7 @@ class BackgroundLocationService {
         print(
             '[BackgroundLocationService] [Background] ⏳ Waiting 40 seconds before next capture cycle...');
         for (int i = 0; i < _captureInterval.inSeconds; i++) {
-          if (!shouldContinue) {
+          if (generation != _trackingLoopGeneration) {
             print(
                 '[BackgroundLocationService] [Background] Service stopped, exiting loop');
             return;
@@ -1005,6 +1037,12 @@ class BackgroundLocationService {
         // Continue trying even on errors
         await Future.delayed(const Duration(seconds: 10));
       }
+    }
+
+    // Only the active generation may clear loop state.
+    if (generation == _trackingLoopGeneration) {
+      _trackingLoopRunning = false;
+      _activeLoopTripId = null;
     }
 
     print(

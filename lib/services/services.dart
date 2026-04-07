@@ -3110,6 +3110,170 @@ class Services {
     }
   }
 
+  /// Get active trip status for a user
+  /// Returns trip details if active trip exists, null otherwise
+  Future<Map<String, dynamic>?> getActiveTripStatus(
+      String userCd, int syncId, String token) async {
+    if (token.isEmpty || userCd.isEmpty) {
+      print('[Services] [TRIP_STATUS] Invalid parameters: userCd=$userCd');
+      return null;
+    }
+
+    Map<String, dynamic>? normalizeTrip(dynamic rawTrip) {
+      if (rawTrip is! Map) {
+        return null;
+      }
+
+      final rawTripId =
+          rawTrip['trip_id'] ?? rawTrip['tripId'] ?? rawTrip['id'];
+      int? tripId;
+      if (rawTripId is int) {
+        tripId = rawTripId;
+      } else if (rawTripId is String) {
+        tripId = int.tryParse(rawTripId);
+      }
+
+      if (tripId == null || tripId <= 0) {
+        return null;
+      }
+
+      final rawStatus = (rawTrip['status'] ??
+              rawTrip['trip_status'] ??
+              rawTrip['tripStatus'] ??
+              '')
+          .toString()
+          .toLowerCase();
+
+      if (rawStatus.isNotEmpty &&
+          rawStatus != 'active' &&
+          rawStatus != 'paused' &&
+          rawStatus != 'started' &&
+          rawStatus != 'in_progress' &&
+          rawStatus != 'ongoing') {
+        return null;
+      }
+
+      final rawSyncId = rawTrip['sync_id'] ?? rawTrip['syncId'];
+      int? parsedSyncId;
+      if (rawSyncId is int) {
+        parsedSyncId = rawSyncId;
+      } else if (rawSyncId is String) {
+        parsedSyncId = int.tryParse(rawSyncId);
+      }
+
+      return {
+        'trip_id': tripId,
+        'user_cd': rawTrip['user_cd'] ?? rawTrip['userCd'] ?? userCd,
+        'sync_id': parsedSyncId ?? syncId,
+        'start_time': rawTrip['start_time'] ?? rawTrip['startTime'],
+        'trip_name': rawTrip['trip_name'] ?? rawTrip['tripName'],
+        'status': rawTrip['status'] ?? 'active',
+      };
+    }
+
+    Map<String, dynamic>? extractActiveTrip(dynamic decodedBody) {
+      if (decodedBody is! Map) {
+        return null;
+      }
+
+      final candidates = <dynamic>[
+        decodedBody['trip'],
+        decodedBody['data'],
+        decodedBody['result'],
+      ];
+
+      final dataNode = decodedBody['data'];
+      if (dataNode is Map) {
+        candidates.add(dataNode['trip']);
+        candidates.add(dataNode['active_trip']);
+      }
+
+      for (final candidate in candidates) {
+        final normalized = normalizeTrip(candidate);
+        if (normalized != null) {
+          return normalized;
+        }
+      }
+
+      return null;
+    }
+
+    Future<http.Response?> fetchTripStatus({required bool includeSync}) async {
+      final uri = includeSync && syncId > 0
+          ? Uri.parse(
+              '${AppConfig.baseURL}location/trip/status?user_cd=$userCd&sync_id=$syncId')
+          : Uri.parse(
+              '${AppConfig.baseURL}location/trip/status?user_cd=$userCd');
+
+      return http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+      ).timeout(const Duration(seconds: 10));
+    }
+
+    try {
+      print('[Services] [TRIP_STATUS] Fetching active trip status...');
+      print('[Services] [TRIP_STATUS] UserCd=$userCd, SyncId=$syncId');
+
+      final response = await fetchTripStatus(includeSync: true);
+      if (response == null) {
+        return null;
+      }
+
+      print('[Services] [TRIP_STATUS] Response: ${response.statusCode}');
+      print('[Services] [TRIP_STATUS] Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        final activeTrip = extractActiveTrip(decoded);
+
+        if (activeTrip != null) {
+          print('[Services] [TRIP_STATUS] ✅ Found active trip:');
+          print('[Services] [TRIP_STATUS]   trip_id=${activeTrip['trip_id']}');
+          return activeTrip;
+        }
+
+        print(
+            '[Services] [TRIP_STATUS] No active trip in sync-filtered response');
+      }
+
+      if (syncId > 0) {
+        print(
+            '[Services] [TRIP_STATUS] Retrying without sync_id filter for resilience...');
+        final fallbackResponse = await fetchTripStatus(includeSync: false);
+
+        if (fallbackResponse != null) {
+          print(
+              '[Services] [TRIP_STATUS] Fallback response: ${fallbackResponse.statusCode}');
+          print(
+              '[Services] [TRIP_STATUS] Fallback body: ${fallbackResponse.body}');
+
+          if (fallbackResponse.statusCode == 200) {
+            final fallbackDecoded = json.decode(fallbackResponse.body);
+            final fallbackTrip = extractActiveTrip(fallbackDecoded);
+
+            if (fallbackTrip != null) {
+              print('[Services] [TRIP_STATUS] ✅ Found active trip (fallback):');
+              print(
+                  '[Services] [TRIP_STATUS]   trip_id=${fallbackTrip['trip_id']}');
+              return fallbackTrip;
+            }
+          }
+        }
+      }
+
+      print('[Services] [TRIP_STATUS] No active trip found');
+      return null;
+    } catch (e, stack) {
+      print('[Services] [TRIP_STATUS] Exception: $e');
+      CrashlyticsService.recordNonFatal(e, stack);
+      return null;
+    }
+  }
+
   Future finalReceivableReceiptPaymentQuickSave(
       BuildContext context,
       String date,

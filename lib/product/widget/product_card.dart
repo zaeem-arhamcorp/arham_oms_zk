@@ -101,7 +101,14 @@ class _ProductCardState extends State<ProductCard> {
             children: [
               _buildHeader(),
               _buildInfoRows(),
-              _buildDepartmentAndCodes(),
+              if (!(Provider.of<ProfileProvider>(context)
+                      .data
+                      ?.profileSettings
+                      ?.any((e) =>
+                          e.variable == 'omsWithoutErpSync' &&
+                          e.value == 'Y') ??
+                  false))
+                _buildDepartmentAndCodes(),
               _buildInputFieldsAndDropdowns(
                 size,
                 profile,
@@ -153,38 +160,46 @@ class _ProductCardState extends State<ProductCard> {
   }
 
   Widget _buildInfoRows() {
-    // Determine color for Avl Stk based on value
     final avlStkValue = double.tryParse(widget.product.avlStk ?? '');
     Color? avlStkColor;
 
     if (avlStkValue != null) {
-      if (avlStkValue > 0) {
-        avlStkColor = Colors.green.shade800;
-      } else if (avlStkValue <= 0) {
-        avlStkColor = Colors.red.shade800;
-      }
+      avlStkColor =
+          avlStkValue > 0 ? Colors.green.shade800 : Colors.red.shade800;
     }
 
     return Column(
       children: [
         _buildRow(
-          ['MRP :', widget.product.srate3],
-          ['Rate :', widget.product.srate1],
-          ['N.Rate :', widget.product.nrate],
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _infoRow('Cl. Stk :', widget.product.cStk),
-            _infoRow('P.Order:', widget.product.orStk),
-            _infoRow('Avl Stk :', widget.product.avlStk,
-                labelColor: avlStkColor, valueColor: avlStkColor),
-          ],
-        ),
+            ['MRP :', widget.product.srate3],
+            ['Rate :', widget.product.srate1],
+            widget.product.nrate != '0'
+                ? ['N.Rate :', widget.product.nrate]
+                : null),
+        if (!(Provider.of<ProfileProvider>(context).data?.profileSettings?.any(
+                (e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+            false))
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _infoRow('Cl. Stk :', widget.product.cStk),
+              _infoRow('P.Order:', widget.product.orStk),
+              _infoRow(
+                'Avl Stk :',
+                widget.product.avlStk,
+                labelColor: avlStkColor,
+                valueColor: avlStkColor,
+              ),
+            ],
+          ),
         _buildRow(
-          ['Disc :', widget.product.sdisc],
-          ['Cd% :', widget.product.sdisc1],
-          ['Margin :', widget.product.frmlSrt1],
+          widget.product.sdisc != "0" ? ['Disc :', widget.product.sdisc] : [],
+          widget.product.sdisc1 != "0"
+              ? ['Cd% :', widget.product.sdisc1]
+              : null,
+          widget.product.frmlSrt1 != null
+              ? ['Margin :', widget.product.frmlSrt1]
+              : null,
         ),
         _buildRow(
           [
@@ -192,6 +207,10 @@ class _ProductCardState extends State<ProductCard> {
             widget.product.exDt != null
                 ? Helper.convertToFormat(widget.product.exDt!, 'dd-MM-yyyy')
                 : '',
+          ],
+          [
+            'Scheme :',
+            widget.product.itemDesc != null ? widget.product.itemDesc : null,
           ],
         ),
       ],
@@ -256,6 +275,7 @@ class _ProductCardState extends State<ProductCard> {
 
   Widget _buildDepartmentAndCodes() {
     print("Department Name :${widget.product.deptment.deptName}");
+
     return Text(
       "(${widget.product.deptment.deptName}) (${widget.product.itemCd})",
       style: TextStyle(
@@ -638,9 +658,10 @@ class _ProductCardState extends State<ProductCard> {
                         controller: quantityController,
                         decoration: const InputDecoration(
                             hintText: 'Qty', labelText: 'Qty'),
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                         ],
                         onChanged: (value) {
                           cartController.setQuantity(

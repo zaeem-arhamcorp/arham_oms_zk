@@ -79,6 +79,11 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
 
+                    "stopForegroundService" -> {
+                        stopForegroundLocationService()
+                        result.success(true)
+                    }
+
                     else -> {
                         result.notImplemented()
                     }
@@ -224,6 +229,37 @@ class MainActivity : FlutterActivity() {
                 description = "General app notifications"
             }
             manager.createNotificationChannel(appChannel)
+        }
+    }
+
+    /**
+     * Stops the foreground location tracking service.
+     * This is called from Dart when the user punches out or logs out.
+     * It stops the background service, dismisses the notification,
+     * and ensures the watchdog won't restart it.
+     */
+    private fun stopForegroundLocationService() {
+        try {
+            android.util.Log.d("TrackingControl", "🛑 Stopping foreground location service...")
+            
+            // Step 1: Stop the FlutterBackgroundService
+            val serviceIntent = Intent(this, id.flutter.flutter_background_service.BackgroundService::class.java)
+            stopService(serviceIntent)
+            android.util.Log.d("TrackingControl", "✅ Background service stopped")
+            
+            // Step 2: Cancel the ongoing notification
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(888)  // Use the same ID as flutter_background_service plugin
+            android.util.Log.d("TrackingControl", "✅ Location tracking notification dismissed")
+
+            // Step 3: Make sure watchdog is disabled (already should be from Dart side)
+            TrackingRecoveryManager.stopWatchdog(applicationContext)
+            android.util.Log.d("TrackingControl", "✅ Watchdog disabled")
+            
+            android.util.Log.d("TrackingControl", "✅ Foreground location service completely stopped")
+        } catch (e: Exception) {
+            android.util.Log.e("TrackingControl", "❌ Error stopping foreground service: ${e.message}")
+            e.printStackTrace()
         }
     }
 }

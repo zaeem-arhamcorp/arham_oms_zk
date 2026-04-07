@@ -1198,8 +1198,18 @@ class _ProductPageState extends State<ProductPage> {
                                                             ],
                                                           ),
                                                         if (dataProduct[index]
-                                                                .cStk !=
-                                                            null)
+                                                                    .cStk !=
+                                                                null &&
+                                                            !(Provider.of<ProfileProvider>(
+                                                                        context)
+                                                                    .data
+                                                                    ?.profileSettings
+                                                                    ?.any((e) =>
+                                                                        e.variable ==
+                                                                            'omsWithoutErpSync' &&
+                                                                        e.value ==
+                                                                            'Y') ??
+                                                                false))
                                                           Wrap(
                                                             children: [
                                                               Text(
@@ -1358,8 +1368,18 @@ class _ProductPageState extends State<ProductPage> {
                                                             ],
                                                           ),
                                                         if (dataProduct[index]
-                                                                .orStk !=
-                                                            null)
+                                                                    .orStk !=
+                                                                null &&
+                                                            !(Provider.of<ProfileProvider>(
+                                                                        context)
+                                                                    .data
+                                                                    ?.profileSettings
+                                                                    ?.any((e) =>
+                                                                        e.variable ==
+                                                                            'omsWithoutErpSync' &&
+                                                                        e.value ==
+                                                                            'Y') ??
+                                                                false))
                                                           Wrap(
                                                             children: [
                                                               Text(
@@ -1390,8 +1410,18 @@ class _ProductPageState extends State<ProductPage> {
                                                             ],
                                                           ),
                                                         if (dataProduct[index]
-                                                                .cStk !=
-                                                            null)
+                                                                    .cStk !=
+                                                                null &&
+                                                            !(Provider.of<ProfileProvider>(
+                                                                        context)
+                                                                    .data
+                                                                    ?.profileSettings
+                                                                    ?.any((e) =>
+                                                                        e.variable ==
+                                                                            'omsWithoutErpSync' &&
+                                                                        e.value ==
+                                                                            'Y') ??
+                                                                false))
                                                           Wrap(
                                                             children: [
                                                               Text(
