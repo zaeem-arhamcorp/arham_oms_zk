@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 17,
+      version: 18,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -84,6 +84,10 @@ class DatabaseHelper {
       // ✅ Ensure offline_order_items has stockist column (transferred from cart)
       await _ensureColumnExists(
           db, 'offline_order_items', 'stockist', "TEXT DEFAULT ''");
+
+      // ✅ Ensure location_tracking has activity_type column for activity recognition
+      await _ensureColumnExists(
+          db, 'location_tracking', 'activity_type', "TEXT DEFAULT 'UNKNOWN'");
     } catch (e) {
       print('[DATABASE] ⚠️ Schema check error (non-fatal): $e');
     }
@@ -325,6 +329,16 @@ class DatabaseHelper {
             '[DATABASE] ✅ Added trip_id, accuracy, speed, altitude columns to location_tracking');
       } catch (e) {
         print('[DATABASE] ℹ️ GPS quality columns may already exist: $e');
+      }
+    }
+    if (oldVersion < 18) {
+      // v17 to v18: Add activity_type column for activity recognition (walking, driving, etc.)
+      try {
+        await db.execute(
+            'ALTER TABLE location_tracking ADD COLUMN activity_type TEXT DEFAULT "UNKNOWN"');
+        print('[DATABASE] ✅ Added activity_type column to location_tracking');
+      } catch (e) {
+        print('[DATABASE] ℹ️ Activity type column may already exist: $e');
       }
     }
   }
@@ -1398,6 +1412,7 @@ class DatabaseHelper {
   /// - synced (int 0/1)
   /// - user_cd (TEXT)
   /// - sync_id (int)
+  /// - activity_type: User activity (WALKING, DRIVING, STATIONARY, UNKNOWN)
   Future<void> _createLocationTrackingTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS location_tracking (
@@ -1412,6 +1427,7 @@ class DatabaseHelper {
         accuracy REAL DEFAULT 0.0,
         speed REAL DEFAULT 0.0,
         altitude REAL DEFAULT 0.0,
+        activity_type TEXT DEFAULT 'UNKNOWN',
         created_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -1778,6 +1794,7 @@ class DatabaseHelper {
     double accuracy = 0.0,
     double speed = 0.0,
     double altitude = 0.0,
+    String activityType = 'UNKNOWN',
   }) async {
     final db = await database;
     return await db.insert('location_tracking', {
@@ -1791,6 +1808,7 @@ class DatabaseHelper {
       'accuracy': accuracy,
       'speed': speed,
       'altitude': altitude,
+      'activity_type': activityType,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
   }

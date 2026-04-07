@@ -811,6 +811,9 @@ class ProductController extends GetxController {
             prefs.getString('selectedStockistPersonName') ?? '';
         selectedStockistPincode.value =
             prefs.getString('selectedStockistPincode') ?? '';
+        // Keep stockist header visible immediately after page reopen,
+        // even before stockist API call completes.
+        hasStockistAccess.value = true;
         print('[Stockist] Restored selection: $name ($id)');
       }
     } catch (e) {

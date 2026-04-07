@@ -96,6 +96,10 @@ class _ProductsPageState extends State<ProductsPage> {
       final profile = Provider.of<ProfileProvider>(context, listen: false);
       final party = Provider.of<PartyProvider>(context, listen: false);
 
+      // Restore stockist selection first so UI can show it immediately
+      // while stockist list refresh runs in background.
+      await controller.restoreStockistSelection();
+
       controller.selectedPartyName.value = Helper.trimValue(
           profile.YN == 'Y' ? party.punchInOutParty : party.party, 25);
       controller.selectedPartyId.value = Helper.trimValue(
@@ -117,11 +121,8 @@ class _ProductsPageState extends State<ProductsPage> {
             cartController.productAddedStates.length;
       }
 
-      // Fetch stockists for groupCd=136 if available
-      await controller.fetchStockists(groupCd: '136');
-
-      // Restore previously selected stockist (if any)
-      await controller.restoreStockistSelection();
+      // Refresh stockists in background; don't block initial selected value paint.
+      controller.fetchStockists(groupCd: '136');
 
       // Initialize filteredDepartments by copying contents from deptment
       controller.filteredDepartments.assignAll(controller.deptment);
@@ -232,7 +233,10 @@ class _ProductsPageState extends State<ProductsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildStockistHeader(),
+                      if (profile.data!.profileSettings.any((e) =>
+                          e.variable == 'showStockistUserLink' &&
+                          e.value == 'Y'))
+                        _buildStockistHeader(),
                       _buildPartyHeader(profile),
                       _buildChipSelector(),
                       Expanded(child: _buildProductList()),
@@ -251,7 +255,7 @@ class _ProductsPageState extends State<ProductsPage> {
     final party = context.watch<PartyProvider>();
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         // Label for the party header
         const Padding(
@@ -261,7 +265,7 @@ class _ProductsPageState extends State<ProductsPage> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
-        const SizedBox(width: 2),
+        const SizedBox(width: 8),
         // Party name with reactive updates
         Obx(() {
           final punchValue = profile.data?.profileSettings
@@ -325,15 +329,15 @@ class _ProductsPageState extends State<ProductsPage> {
           controller.selectedPartyId.value = Helper.trimValue(
               isPunchEnabled ? party.punchInOutPartyId : party.partyid, 25);
 
-          return Flexible(
+          return Expanded(
             child: Text(
               Helper.trimValue(partyName, 35),
-              //Helper.trimValue(a, 35),
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 14),
             ),
           );
         }),
+
         // Dynamic action button based on state
         if (profile.YN == "Y")
           profile.ACC_NAME.isEmpty && profile.ACC_CD.isEmpty
@@ -473,7 +477,17 @@ class _ProductsPageState extends State<ProductsPage> {
   /// **Stockist Header Widget** - Shows stockist selection when groupCd=136 is available
   Widget _buildStockistHeader() {
     return Obx(() {
-      if (!controller.hasStockistAccess.value) {
+      final profile = Provider.of<ProfileProvider>(context, listen: false);
+      final showStockistUserLinkIsN = profile.data?.profileSettings.any(
+              (e) => e.variable == 'showStockistUserLink' && e.value == 'N') ??
+          false;
+
+      final shouldHide = (!controller.hasStockistAccess.value &&
+          !controller.isStockistLoading.value &&
+          controller.selectedStockistName.value.isEmpty &&
+          showStockistUserLinkIsN);
+
+      if (shouldHide) {
         return const SizedBox.shrink();
       }
 

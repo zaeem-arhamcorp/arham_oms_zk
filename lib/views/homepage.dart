@@ -2114,7 +2114,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               }
                                             }
 
-                                            // PUNCH OUT clicked after order is ended
+                                            // Show confirmation dialog before punch out
+                                            final confirmed =
+                                                await showDialog<bool>(
+                                                      context: context,
+                                                      barrierDismissible: false,
+                                                      builder: (BuildContext
+                                                              dialogContext) =>
+                                                          AlertDialog(
+                                                        title: const Text(
+                                                          'Confirm Punch Out',
+                                                          style: TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        content: const Text(
+                                                          'Thank you for your outstanding service today!\n\nAre you sure you want to punch out?',
+                                                          style: TextStyle(
+                                                              fontSize: 16),
+                                                        ),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () {
+                                                              Navigator.of(
+                                                                      dialogContext)
+                                                                  .pop(false);
+                                                            },
+                                                            child: const Text(
+                                                                'Cancel'),
+                                                          ),
+                                                          ElevatedButton(
+                                                            onPressed: () {
+                                                              Navigator.of(
+                                                                      dialogContext)
+                                                                  .pop(true);
+                                                            },
+                                                            style:
+                                                                ElevatedButton
+                                                                    .styleFrom(
+                                                              backgroundColor:
+                                                                  Colors.red,
+                                                            ),
+                                                            child: const Text(
+                                                              'Confirm Punch Out',
+                                                              style: TextStyle(
+                                                                  color: Colors
+                                                                      .white),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ) ??
+                                                    false;
+
+                                            if (!confirmed) {
+                                              return; // User cancelled
+                                            }
+
+                                            // PUNCH OUT confirmed - execute punch out logic
                                             location.setRemarks("PUNCH OUT");
                                             // Clear stockist selection on punch out
                                             final productController = Get

@@ -6,6 +6,7 @@ import 'package:arham_corporation/helper/network_helper.dart';
 import '../config/app_config.dart';
 import 'background_location_service.dart';
 import 'location_sync_service.dart';
+import 'activity_recognition_service.dart';
 
 class LocationService {
   final DatabaseHelper db = DatabaseHelper();
@@ -329,7 +330,21 @@ class LocationService {
       final startLat = punchResult['lat'] as double;
       final startLng = punchResult['longi'] as double;
 
-      // Step 3: Start background location tracking service
+      // Step 3: Request activity recognition permission on main thread
+      // This must be done here (main thread) before background service starts
+      print(
+          '[LocationService] 🎤 Requesting activity recognition permission...');
+      final activityRecognition = ActivityRecognitionService();
+      try {
+        await activityRecognition.initialize();
+        print('[LocationService] ✅ Activity recognition permission handled');
+      } catch (e) {
+        print(
+            '[LocationService] ℹ️ Activity recognition permission setup (non-blocking): $e');
+        // Continue anyway - activity detection will use UNKNOWN
+      }
+
+      // Step 4: Start background location tracking service
       print('[LocationService] 🚀 Starting background location tracking...');
       final trackingResult = await _backgroundService.startTracking(
         userCd: userCd,

@@ -16,18 +16,68 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.NotificationChannel
 import android.os.Build
+import android.util.Log
 
 class MainActivity : FlutterActivity() {
     private val BATTERY_CHANNEL = "com.arhamerp.app/battery"
     private val NOTIFICATION_CHANNEL = "com.arhamerp.app/notification"
     private val TRACKING_CONTROL_CHANNEL = "com.arhamerp.app/tracking_control"
+    private val ACTIVITY_RECOGNITION_CHANNEL = "com.arhamerp.app/activity_recognition"
     private val MY_CHANNEL = "my_channel"
+    
+    private lateinit var activityRecognitionManager: ActivityRecognitionManager
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         GeneratedPluginRegistrant.registerWith(flutterEngine)
 
+        // Initialize activity recognition manager
+        activityRecognitionManager = ActivityRecognitionManager(this)
+        ActivityRecognitionManager.setInstance(activityRecognitionManager)  // Register static instance
+        activityRecognitionManager.initialize()  // CRITICAL: Start activity detection
+        ActivityRecognitionReceiver.activityManager = activityRecognitionManager
+
         // Ensure notification channel is created
         createNotificationChannels()
+
+        // Activity Recognition channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ACTIVITY_RECOGNITION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "initializeActivityRecognition" -> {
+                        try {
+                            val initialized = activityRecognitionManager.initialize()
+                            Log.d("ActivityRecognitionChannel", "initializeActivityRecognition: $initialized")
+                            result.success(initialized)
+                        } catch (e: Exception) {
+                            Log.e("ActivityRecognitionChannel", "Error initializing activity recognition: ${e.message}", e)
+                            result.success(false)
+                        }
+                    }
+                    "getCurrentActivity" -> {
+                        try {
+                            val activity = activityRecognitionManager.getCurrentActivity()
+                            Log.d("ActivityRecognitionChannel", "getCurrentActivity: $activity")
+                            result.success(activity)
+                        } catch (e: Exception) {
+                            Log.e("ActivityRecognitionChannel", "Error getting current activity: ${e.message}", e)
+                            result.success("UNKNOWN")
+                        }
+                    }
+                    "getActivityConfidence" -> {
+                        try {
+                            val confidence = activityRecognitionManager.getActivityConfidence()
+                            Log.d("ActivityRecognitionChannel", "getActivityConfidence: $confidence")
+                            result.success(confidence)
+                        } catch (e: Exception) {
+                            Log.e("ActivityRecognitionChannel", "Error getting confidence: ${e.message}", e)
+                            result.success(0)
+                        }
+                    }
+                    else -> {
+                        result.notImplemented()
+                    }
+                }
+            }
 
         // Battery optimization channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BATTERY_CHANNEL)
@@ -97,7 +147,6 @@ class MainActivity : FlutterActivity() {
                     "getManufacturer" -> {
                         result.success(Build.MANUFACTURER ?: "")
                     }
-
                     else -> {
                         result.notImplemented()
                     }

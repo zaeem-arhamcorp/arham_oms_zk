@@ -12,6 +12,7 @@ import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/services/user_status_repository.dart';
+import 'activity_recognition_service.dart';
 import 'location_sync_service.dart';
 
 /// Background Location Tracking Service
@@ -74,6 +75,17 @@ class BackgroundLocationService {
     return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}T${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}$sign$offsetHours:$offsetMinutes';
   }
 
+  // Fallback classifier when native activity recognition is unavailable in background isolate.
+  // GPS speed is often noisy and underestimated, so thresholds are calibrated conservatively:
+  // - DRIVING: 3.0 m/s ≈ 10.8 km/h (typical car city speed, well above normal walking)
+  // - WALKING: 0.5 m/s ≈ 1.8 km/h (very slow walk, accounts for GPS lag and urban canyon effects)
+  // - STATIONARY: < 0.5 m/s (includes minor GPS jitter at rest)
+  static String _inferActivityFromSpeed(double speedMps) {
+    if (speedMps >= 3.0) return 'DRIVING';
+    if (speedMps >= 0.5) return 'WALKING';
+    return 'STATIONARY';
+  }
+
   /// Check if the app has "Allow all the time" location permission
   /// Required for background location tracking to work
   Future<bool> hasBackgroundLocationPermission() async {
@@ -125,6 +137,24 @@ class BackgroundLocationService {
       print('[BackgroundLocationService] ✅ Background service initialized');
     } catch (e) {
       print('[BackgroundLocationService] ❌ Error initializing: $e');
+    }
+  }
+
+  /// Update notification with current activity status
+  /// Shows user what activity is being detected (WALKING, DRIVING, etc.)
+  Future<void> updateNotificationWithActivity(String activityType) async {
+    try {
+      final message = activityType == 'UNKNOWN'
+          ? 'Location tracking active (detecting activity...)'
+          : 'Tracking: $activityType 📍';
+
+      await setNotificationOngoing(
+        title: 'Activity Recognition',
+        message: message,
+      );
+    } catch (e) {
+      print(
+          '[BackgroundLocationService] ⚠️ Error updating activity notification: $e');
     }
   }
 
@@ -301,6 +331,7 @@ class BackgroundLocationService {
           await prefs.setString('active_user_cd', userCd);
           await prefs.setInt('active_sync_id', syncId);
           await prefs.setString('token', token);
+          await prefs.setBool('tracking_explicitly_stopped', false);
           print(
               '[BackgroundLocationService] ✅ Trip data saved to SharedPreferences');
         } catch (e) {
@@ -387,6 +418,9 @@ class BackgroundLocationService {
       _currentSyncId = syncId;
       _token = token;
 
+      // Clear explicit-stop marker when we are intentionally resuming.
+      await prefs.setBool('tracking_explicitly_stopped', false);
+
       bool serviceRunning = false;
       try {
         serviceRunning = await _service.isRunning();
@@ -431,6 +465,22 @@ class BackgroundLocationService {
       } else {
         print(
             '[BackgroundLocationService] Background service already running. Reinitializing with new trip_id=$tripId');
+
+        // Ensure the notification is set even when service is already running
+        // (on resume/login to active trip scenario)
+        try {
+          await setNotificationOngoing(
+            title: 'Route Tracking Active',
+            message:
+                'Your location is being tracked during this route. Please DO NOT remove the app from background',
+          );
+          print(
+              '[BackgroundLocationService] ✅ Notification set for already-running service');
+        } catch (e) {
+          print(
+              '[BackgroundLocationService] ⚠️ Could not set notification: $e');
+        }
+
         // Service is running but we need to update it with the new trip_id
         _service.invoke('startLocationTracking', {
           'userCd': userCd,
@@ -455,8 +505,23 @@ class BackgroundLocationService {
     try {
       print('[BackgroundLocationService] 🛑 Stopping background tracking...');
 
+      // Mark tracking as explicitly stopped so any accidental plugin/service
+      // restart can self-terminate in _onStart.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('tracking_explicitly_stopped', true);
+      } catch (e) {
+        print(
+            '[BackgroundLocationService] ⚠️ Could not persist explicit-stop marker: $e');
+      }
+
       // Signal the service to stop (tracking loop will exit)
       _service.invoke('stopLocationTracking');
+
+      // Ask background isolate to stop its service instance explicitly.
+      // This prevents plugin-level restart behavior that can re-show
+      // the default "Background Service / Preparing..." notification.
+      _service.invoke('terminateService');
 
       // Disable native watchdog so it does not restart tracking after punch-out.
       try {
@@ -470,7 +535,7 @@ class BackgroundLocationService {
       }
 
       // Wait a moment for the service to stop
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(Duration(milliseconds: 700));
       print('[BackgroundLocationService] ✅ Foreground service stopping...');
 
       // Try to get trip_id and token from memory first, then SharedPreferences
@@ -660,6 +725,30 @@ class BackgroundLocationService {
   static Future<void> _onStart(ServiceInstance service) async {
     print('[BackgroundLocationService] [Background] Service started');
 
+    // Hard guard: if there is no active trip context or tracking was explicitly
+    // stopped, do not allow the plugin service to remain alive.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final explicitlyStopped =
+          prefs.getBool('tracking_explicitly_stopped') ?? false;
+      final hasTrip = prefs.getInt('active_trip_id') != null;
+      final hasUser = (prefs.getString('active_user_cd') ?? '').isNotEmpty;
+      final hasSync = prefs.getInt('active_sync_id') != null;
+      final hasToken = (prefs.getString('token') ?? '').isNotEmpty;
+
+      if (explicitlyStopped || !(hasTrip && hasUser && hasSync && hasToken)) {
+        print(
+            '[BackgroundLocationService] [Background] No valid active trip context (or explicitly stopped); stopping self');
+        await service.stopSelf();
+        return;
+      }
+    } catch (e) {
+      print(
+          '[BackgroundLocationService] [Background] Guard check failed, stopping service to avoid ghost notification: $e');
+      await service.stopSelf();
+      return;
+    }
+
     if (_commandListenersAttached) {
       print(
           '[BackgroundLocationService] [Background] Command listeners already attached, skipping re-attach');
@@ -704,6 +793,15 @@ class BackgroundLocationService {
       print('[BackgroundLocationService] [Background] Received stop signal');
       // This will be handled by returning from _backgroundLocationTracking
     });
+
+    service.on('terminateService').listen((event) async {
+      _trackingLoopGeneration++;
+      _trackingLoopRunning = false;
+      _activeLoopTripId = null;
+      print(
+          '[BackgroundLocationService] [Background] Terminate command received, stopping service self');
+      await service.stopSelf();
+    });
   }
 
   /// Callback for iOS background
@@ -724,8 +822,14 @@ class BackgroundLocationService {
     int generation,
   ) async {
     final db = DatabaseHelper();
+    final activityRecognition = ActivityRecognitionService();
     _trackingLoopRunning = true;
     _activeLoopTripId = tripId;
+
+    // Initialize activity recognition service
+    print(
+        '[BackgroundLocationService] [Background] Initializing activity recognition...');
+    await activityRecognition.initialize();
 
     print(
         '[BackgroundLocationService] [Background] 🟢 Location tracking loop started');
@@ -954,11 +1058,47 @@ class BackgroundLocationService {
             timeLimit: const Duration(seconds: 10),
           );
 
+          // Capture user activity (walking, driving, stationary)
+          final activityType =
+              await activityRecognition.getActivityTypeForApi();
+
+          // Determine resolved activity: use speed-based detection if native returns UNKNOWN or STATIONARY
+          // (STATIONARY from native might be stale; speed is a reliable real-time indicator of motion)
+          final speedBasedActivity = _inferActivityFromSpeed(position.speed);
+          final resolvedActivityType = (activityType == 'UNKNOWN' ||
+                  (activityType == 'STATIONARY' &&
+                      speedBasedActivity != 'STATIONARY'))
+              ? speedBasedActivity
+              : activityType;
+
+          // Add detailed speed logging
+          print(
+              '[BackgroundLocationService] [Background] 🔍 Activity Resolution: native=$activityType, gpsSpeed=${position.speed.toStringAsFixed(2)}m/s, speedDetected=$speedBasedActivity, resolved=$resolvedActivityType');
+
+          // Update foreground notification from background isolate.
+          // MethodChannels registered in MainActivity are unavailable here.
+          try {
+            final message = resolvedActivityType == 'UNKNOWN'
+                ? 'Location tracking active (detecting activity...)'
+                : 'Tracking: $resolvedActivityType';
+            if (service is AndroidServiceInstance) {
+              (service as AndroidServiceInstance).setForegroundNotificationInfo(
+                title: 'Activity Recognition',
+                content: message,
+              );
+            }
+          } catch (e) {
+            print(
+                '[BackgroundLocationService] [Background] ⚠️ Could not update notification: $e');
+          }
+
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           print(
               '[BackgroundLocationService] [Background] 📍 Captured location: ${position.latitude}, ${position.longitude}');
           print(
               '[BackgroundLocationService] [Background]   Accuracy: ${position.accuracy}m, Speed: ${position.speed}m/s, Altitude: ${position.altitude}m');
+          print(
+              '[BackgroundLocationService] [Background]   Activity: $resolvedActivityType');
           final timestampDateTime =
               DateTime.fromMillisecondsSinceEpoch(timestamp)
                   .toLocal()
@@ -980,6 +1120,7 @@ class BackgroundLocationService {
               accuracy: position.accuracy,
               speed: position.speed,
               altitude: position.altitude,
+              activityType: resolvedActivityType,
             );
             print('[BackgroundLocationService] [Background] ✅ LOCAL DB STORED');
             print('[BackgroundLocationService] [Background]    Record ID: $id');
@@ -987,6 +1128,8 @@ class BackgroundLocationService {
                 '[BackgroundLocationService] [Background]    Trip ID: $tripId');
             print(
                 '[BackgroundLocationService] [Background]    User: $userCd | Sync: $syncId');
+            print(
+                '[BackgroundLocationService] [Background]    Activity: $resolvedActivityType');
 
             // Step 2: Immediately try to sync this single location to server
             print(
@@ -1001,7 +1144,8 @@ class BackgroundLocationService {
                 position.speed,
                 position.altitude,
                 tripId,
-                token);
+                token,
+                activityType: resolvedActivityType);
           } catch (e) {
             print(
                 '[BackgroundLocationService] [Background] ❌ Error storing location: $e');
@@ -1062,8 +1206,9 @@ class BackgroundLocationService {
     double speed,
     double altitude,
     int tripId,
-    String token,
-  ) async {
+    String token, {
+    String activityType = 'UNKNOWN',
+  }) async {
     try {
       final syncStartTime = DateTime.now();
 
@@ -1093,6 +1238,7 @@ class BackgroundLocationService {
         'altitude': altitude != 0 ? altitude : null,
         'timestamp': timestampSeconds,
         'timestamp_datetime': timestampDateTime,
+        'activity_type': activityType,
       };
 
       print(
@@ -1116,6 +1262,8 @@ class BackgroundLocationService {
           '[BackgroundLocationService] [Background]           \"speed\": \"${payload['speed']}\",');
       print(
           '[BackgroundLocationService] [Background]           \"altitude\": \"${payload['altitude']}\",');
+      print(
+          '[BackgroundLocationService] [Background]           \"activity_type\": \"${payload['activity_type']}\",');
       print(
           '[BackgroundLocationService] [Background]           \"timestamp\": \"${payload['timestamp']}\",');
       print(
