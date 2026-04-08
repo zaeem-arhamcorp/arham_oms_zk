@@ -1053,9 +1053,20 @@ class BackgroundLocationService {
 
         // Capture current location
         try {
+          // Check internet status to determine appropriate timeout
+          final isOnline = await NetworkHelper.hasInternet();
+          final gpsTimeout = isOnline
+              ? const Duration(
+                  seconds: 10) // Online: GPS can use assisted location
+              : const Duration(
+                  seconds: 25); // Offline: Pure GPS needs more time
+
+          print(
+              '[BackgroundLocationService] [Background] 🌐 Internet: ${isOnline ? "ONLINE" : "OFFLINE"} - GPS timeout: ${gpsTimeout.inSeconds}s');
+
           final position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 10),
+            timeLimit: gpsTimeout,
           );
 
           // Capture user activity (walking, driving, stationary)
@@ -1092,19 +1103,16 @@ class BackgroundLocationService {
                 '[BackgroundLocationService] [Background] ⚠️ Could not update notification: $e');
           }
 
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final timestamp =
+              (DateTime.now().millisecondsSinceEpoch / 1000).round();
           print(
               '[BackgroundLocationService] [Background] 📍 Captured location: ${position.latitude}, ${position.longitude}');
           print(
               '[BackgroundLocationService] [Background]   Accuracy: ${position.accuracy}m, Speed: ${position.speed}m/s, Altitude: ${position.altitude}m');
           print(
               '[BackgroundLocationService] [Background]   Activity: $resolvedActivityType');
-          final timestampDateTime =
-              DateTime.fromMillisecondsSinceEpoch(timestamp)
-                  .toLocal()
-                  .toIso8601String();
           print(
-              '[BackgroundLocationService] [Background]   Timestamp: $timestampDateTime');
+              '[BackgroundLocationService] [Background]   Timestamp: $timestamp');
 
           // Store location in SQLite first (always, regardless of internet)
           try {
@@ -1152,6 +1160,83 @@ class BackgroundLocationService {
           }
         } catch (e) {
           print('[BackgroundLocationService] [Background] ⚠️ GPS error: $e');
+
+          // Fallback: Try to get last known location when current position fails
+          try {
+            print(
+                '[BackgroundLocationService] [Background] 🔄 Attempting fallback: Using last known location...');
+            final lastKnownPosition = await Geolocator.getLastKnownPosition();
+
+            if (lastKnownPosition != null) {
+              print(
+                  '[BackgroundLocationService] [Background] ✅ Got last known location: ${lastKnownPosition.latitude}, ${lastKnownPosition.longitude}');
+
+              // Store the last known location anyway (better than nothing for offline tracking)
+              final activityType =
+                  await activityRecognition.getActivityTypeForApi();
+              final speedBasedActivity =
+                  _inferActivityFromSpeed(lastKnownPosition.speed);
+              final resolvedActivityType = (activityType == 'UNKNOWN' ||
+                      (activityType == 'STATIONARY' &&
+                          speedBasedActivity != 'STATIONARY'))
+                  ? speedBasedActivity
+                  : activityType;
+
+              final timestamp =
+                  (DateTime.now().millisecondsSinceEpoch / 1000).round();
+
+              print(
+                  '[BackgroundLocationService] [Background] 📍 Using fallback location: ${lastKnownPosition.latitude}, ${lastKnownPosition.longitude}');
+              print(
+                  '[BackgroundLocationService] [Background]   Accuracy: ${lastKnownPosition.accuracy}m, Speed: ${lastKnownPosition.speed}m/s, Altitude: ${lastKnownPosition.altitude}m');
+              print(
+                  '[BackgroundLocationService] [Background]   Activity: $resolvedActivityType');
+              print(
+                  '[BackgroundLocationService] [Background]   Timestamp: $timestamp');
+
+              try {
+                print(
+                    '[BackgroundLocationService] [Background] 💾 Storing fallback location in local database...');
+                final id = await db.insertLocationTracking(
+                  latitude: lastKnownPosition.latitude,
+                  longitude: lastKnownPosition.longitude,
+                  timestamp: timestamp,
+                  userCd: userCd,
+                  syncId: syncId,
+                  tripId: tripId,
+                  accuracy: lastKnownPosition.accuracy,
+                  speed: lastKnownPosition.speed,
+                  altitude: lastKnownPosition.altitude,
+                  activityType: resolvedActivityType,
+                );
+                print(
+                    '[BackgroundLocationService] [Background] ✅ FALLBACK STORED');
+                print(
+                    '[BackgroundLocationService] [Background]    Record ID: $id');
+                print(
+                    '[BackgroundLocationService] [Background]    Trip ID: $tripId');
+                print(
+                    '[BackgroundLocationService] [Background]    User: $userCd | Sync: $syncId');
+                print(
+                    '[BackgroundLocationService] [Background]    Activity: $resolvedActivityType');
+                print(
+                    '[BackgroundLocationService] [Background]    Note: Location services disabled, using last known position');
+              } catch (storageError) {
+                print(
+                    '[BackgroundLocationService] [Background] ❌ Error storing fallback location: $storageError');
+              }
+            } else {
+              print(
+                  '[BackgroundLocationService] [Background] ⚠️ No last known location available (device may have just enabled GPS)');
+              print(
+                  '[BackgroundLocationService] [Background]    This is normal on first capture attempt. Will retry in next cycle.');
+            }
+          } catch (fallbackError) {
+            print(
+                '[BackgroundLocationService] [Background] ⚠️ Fallback attempt also failed: $fallbackError');
+            print(
+                '[BackgroundLocationService] [Background]    💡 Tip: Enable Location Services on your device for better results');
+          }
         }
 
         // Wait for the capture interval before next capture
@@ -1225,10 +1310,6 @@ class BackgroundLocationService {
       }
       print('[BackgroundLocationService] [Background]    ✅ Internet available');
 
-      // Keep epoch seconds for backend validation and include ISO datetime.
-      final timestampSeconds = timestamp ~/ 1000;
-      final timestampDateTime = _formatDateTimeForApi(timestamp);
-
       final payload = {
         'trip_id': tripId,
         'lat': latitude,
@@ -1236,8 +1317,7 @@ class BackgroundLocationService {
         'accuracy': accuracy > 0 ? accuracy : null,
         'speed': speed > 0 ? speed : null,
         'altitude': altitude != 0 ? altitude : null,
-        'timestamp': timestampSeconds,
-        'timestamp_datetime': timestampDateTime,
+        'timestamp': timestamp,
         'activity_type': activityType,
       };
 
@@ -1367,14 +1447,10 @@ class BackgroundLocationService {
           final id = location['id'] as int;
           final latitude = location['latitude'] as double;
           final longitude = location['longitude'] as double;
-          final timestamp = location['timestamp'] as int; // milliseconds
+          final timestamp = location['timestamp'] as int;
           final accuracy = location['accuracy'] as double? ?? 0.0;
           final speed = location['speed'] as double? ?? 0.0;
           final altitude = location['altitude'] as double? ?? 0.0;
-
-          // Keep epoch seconds for backend validation and include ISO datetime.
-          final timestampSeconds = timestamp ~/ 1000;
-          final timestampDateTime = _formatDateTimeForApi(timestamp);
 
           // Send to server via /api/location/update endpoint
           print(
@@ -1393,8 +1469,7 @@ class BackgroundLocationService {
               'accuracy': accuracy > 0 ? accuracy : null,
               'speed': speed > 0 ? speed : null,
               'altitude': altitude != 0 ? altitude : null,
-              'timestamp': timestampSeconds,
-              'timestamp_datetime': timestampDateTime,
+              'timestamp': timestamp,
             }),
           );
 

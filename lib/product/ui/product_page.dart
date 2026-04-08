@@ -233,10 +233,10 @@ class _ProductsPageState extends State<ProductsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (profile.data!.profileSettings.any((e) =>
-                          e.variable == 'showStockistUserLink' &&
-                          e.value == 'Y'))
-                        _buildStockistHeader(),
+                      // if (profile.data!.profileSettings.any((e) =>
+                      //     e.variable == 'showStockistUserLink' &&
+                      //     e.value == 'Y'))
+                      _buildStockistHeader(),
                       _buildPartyHeader(profile),
                       _buildChipSelector(),
                       Expanded(child: _buildProductList()),
@@ -351,7 +351,10 @@ class _ProductsPageState extends State<ProductsPage> {
                     }
 
                     // Validation 2: Check if stockist is required but not selected
-                    if (controller.hasStockistAccess.value &&
+                    // Only require stockist selection if module 205 is available (stockist feature enabled)
+                    final hasModule136 = profile.data?.modulesList?.any((module) => module.mODULENO == "136") ?? false;
+                    if (hasModule136 &&
+                        controller.hasStockistAccess.value &&
                         controller.selectedStockistId.value.isEmpty) {
                       AppSnackBar.showGetXCustomSnackBar(
                           message: 'Please Select Stockist');
@@ -483,9 +486,9 @@ class _ProductsPageState extends State<ProductsPage> {
           false;
 
       final shouldHide = (!controller.hasStockistAccess.value &&
-          !controller.isStockistLoading.value &&
-          controller.selectedStockistName.value.isEmpty &&
-          showStockistUserLinkIsN);
+              !controller.isStockistLoading.value &&
+              controller.selectedStockistName.value.isEmpty) ||
+          showStockistUserLinkIsN;
 
       if (shouldHide) {
         return const SizedBox.shrink();

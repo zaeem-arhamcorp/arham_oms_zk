@@ -61,10 +61,22 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
       }
       debugPrint('[Reimbursement][MyRequests][API] Token: $token');
 
+      final String? syncId =
+          Provider.of<UserProvider>(context, listen: false).syncId;
+      if (syncId == null || syncId.isEmpty) {
+        debugPrint('[Reimbursement][MyRequests][API] Missing syncId');
+        setState(() {
+          _errorMessage = 'Firm information not found. Please login again.';
+          _isLoading = false;
+        });
+        return;
+      }
+
       final uri = Uri.parse('${AppConfig.baseURL}users/reimbursements').replace(
         queryParameters: {
           'fromDate': _apiDateFormat.format(_fromDate),
           'toDate': _apiDateFormat.format(_toDate),
+          'sync_Id': syncId,
         },
       );
       debugPrint('[Reimbursement][MyRequests][API] GET $uri');
@@ -74,6 +86,9 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
         headers: {
           'Authorization': 'Bearer $token',
           'x-app-type': 'oms',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       );
 
@@ -83,23 +98,43 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
         '[Reimbursement][MyRequests][API] Response status: ${response.statusCode}',
       );
       debugPrint(
-          '[Reimbursement][MyRequests][API] Response body: ${response.body}');
+          '[Reimbursement][MyRequests][API] Response length: ${response.body.length} bytes');
+
+      final dynamic rawData = decoded['data'];
+      final List<Map<String, dynamic>> allRecords = (rawData is List)
+          ? rawData
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
+
+      debugPrint(
+          '[Reimbursement][MyRequests][API] Total records from API: ${allRecords.length}');
+
+      if (allRecords.isNotEmpty) {
+        final syncIds = allRecords.map((e) => e['SYNC_ID']).join(', ');
+        debugPrint(
+            '[Reimbursement][MyRequests][API] SYNC_IDs in response: $syncIds');
+      }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final dynamic data = decoded['data'];
-        final List<Map<String, dynamic>> parsed = (data is List)
-            ? data
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList()
-            : <Map<String, dynamic>>[];
+        final List<Map<String, dynamic>> parsed = allRecords.where((e) {
+          // Client-side filtering: only include records for current firm
+          final recordSyncId = (e['SYNC_ID']?.toString() ?? '');
+          final matches = recordSyncId == syncId;
+          if (!matches) {
+            debugPrint(
+                '[Reimbursement][MyRequests][API] Filtering out EXPENSE_ID=${e['EXPENSE_ID']}, SYNC_ID=$recordSyncId (expected $syncId)');
+          }
+          return matches;
+        }).toList();
 
         setState(() {
           _requests = parsed;
           _isLoading = false;
         });
         debugPrint(
-            '[Reimbursement][MyRequests][API] Parsed ${parsed.length} records');
+            '[Reimbursement][MyRequests][API] After filtering: ${parsed.length} of ${allRecords.length} records');
       } else {
         setState(() {
           _errorMessage =

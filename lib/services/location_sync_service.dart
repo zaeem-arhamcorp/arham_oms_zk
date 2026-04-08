@@ -9,6 +9,39 @@ import 'database_helper.dart';
 class LocationSyncService {
   final DatabaseHelper _db = DatabaseHelper();
 
+  /// Safely parse timestamp from both string (ISO8601) and int (epoch seconds) formats
+  /// Handles migration from old string timestamps to new int format
+  int? _parseTimestamp(dynamic timestamp) {
+    if (timestamp == null) return null;
+    
+    // If already an int, return directly
+    if (timestamp is int) return timestamp;
+    
+    // If it's a string, try multiple parse strategies
+    if (timestamp is String) {
+      try {
+        // Try parsing as integer seconds first (new format)
+        return int.parse(timestamp);
+      } catch (_) {
+        try {
+          // Try parsing as ISO8601 datetime string (old format)
+          final dateTime = DateTime.parse(timestamp);
+          return dateTime.millisecondsSinceEpoch ~/ 1000;
+        } catch (e) {
+          print('[LocationSyncService] ⚠️ Failed to parse timestamp "$timestamp": $e');
+          return null;
+        }
+      }
+    }
+    
+    // If it's a double or other numeric type, convert to int
+    if (timestamp is num) {
+      return (timestamp as num).toInt();
+    }
+    
+    return null;
+  }
+
   /// Sync background location tracking records in BULK
   /// Groups locations by trip_id and sends in batch format for efficiency
   /// Offline scenarios: Instead of 50+ individual API calls, sends 1-2 bulk calls
@@ -28,6 +61,38 @@ class LocationSyncService {
 
       print(
           '[LocationSyncService] 📊 Found ${unsyncedLocations.length} unsynced tracking records');
+      print(
+          '[LocationSyncService] 📍 OFFLINE SYNC: Syncing previously stored locations...');
+
+      // Print details of each unsynced location
+      for (var location in unsyncedLocations) {
+        final id = location['id'] as int;
+        final latitude = (location['latitude'] as num?)?.toDouble() ?? 0.0;
+        final longitude = (location['longitude'] as num?)?.toDouble() ?? 0.0;
+        final accuracy = (location['accuracy'] as num?)?.toDouble() ?? 0.0;
+        final speed = (location['speed'] as num?)?.toDouble() ?? 0.0;
+        final altitude = (location['altitude'] as num?)?.toDouble() ?? 0.0;
+        final activityType = location['activity_type'] ?? 'UNKNOWN';
+        final timestamp = _parseTimestamp(location['timestamp']);
+        final tripId = location['trip_id'] as int?;
+
+        if (timestamp != null) {
+          final timestampDateTime =
+              DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
+                  .toLocal()
+                  .toIso8601String();
+
+          print(
+              '[LocationSyncService] [OFFLINE] 📍 Queued location: $latitude, $longitude');
+          print(
+              '[LocationSyncService] [OFFLINE]   Accuracy: ${accuracy}m, Speed: ${speed}m/s, Altitude: ${altitude}m');
+          print('[LocationSyncService] [OFFLINE]   Activity: $activityType');
+          print(
+              '[LocationSyncService] [OFFLINE]   Timestamp: $timestampDateTime');
+          print(
+              '[LocationSyncService] [OFFLINE]   Record ID: $id | Trip ID: $tripId');
+        }
+      }
 
       // Group locations by trip_id for bulk sync
       final Map<int, List<Map>> locationsByTrip = {};
@@ -69,9 +134,7 @@ class LocationSyncService {
             final accuracy = (location['accuracy'] as num?)?.toDouble() ?? 0.0;
             final speed = (location['speed'] as num?)?.toDouble() ?? 0.0;
             final altitude = (location['altitude'] as num?)?.toDouble() ?? 0.0;
-            final timestampMs = (location['timestamp'] as num?)?.toInt() ?? 0;
-            final timestampSeconds =
-                timestampMs > 0 ? (timestampMs ~/ 1000) : null;
+            final timestamp = _parseTimestamp(location['timestamp']);
 
             return {
               'lat': latitude,
@@ -79,15 +142,17 @@ class LocationSyncService {
               'accuracy': accuracy > 0 ? accuracy : null,
               'speed': speed > 0 ? speed : null,
               'altitude': altitude != 0 ? altitude : null,
-              'timestamp': timestampSeconds,
+              'timestamp': timestamp,
             };
           }).toList();
 
           // Send bulk request
           print(
-              '[LocationSyncService] 📤 Sending bulk request to /location/update');
+              '[LocationSyncService] 📤 Sending OFFLINE SYNC bulk request to /location/update');
           print('[LocationSyncService]    trip_id: $tripId');
           print('[LocationSyncService]    locations: ${batch.length}');
+          print('[LocationSyncService]    Method: POST');
+          print('[LocationSyncService]    Content-Type: application/json');
           print(
               '[LocationSyncService] API HIT: ${AppConfig.baseURL}location/update');
 
@@ -109,23 +174,32 @@ class LocationSyncService {
             await _db.markLocationTrackingsSynced(ids);
             totalSynced += ids.length;
             print(
-                '[LocationSyncService] ✅ Bulk sync successful for trip_id=$tripId');
-            print('[LocationSyncService]    Synced: ${ids.length} locations');
-            print('[LocationSyncService]    Response: ${response.body}');
+                '[LocationSyncService] ✅ OFFLINE SYNC SUCCESS for trip_id=$tripId');
+            print(
+                '[LocationSyncService]    Status Code: ${response.statusCode}');
+            print('[LocationSyncService]    Records synced: ${ids.length}');
+            print('[LocationSyncService]    Record IDs: ${ids.join(', ')}');
+            print(
+                '[LocationSyncService]    Action: All marked as synced in local DB');
+            print('[LocationSyncService]    Server Response: ${response.body}');
           } else {
             totalFailed += ids.length;
             print(
-                '[LocationSyncService] ⚠️ Server error ${response.statusCode} for trip_id=$tripId');
+                '[LocationSyncService] ⚠️ OFFLINE SYNC FAILED - Server error ${response.statusCode} for trip_id=$tripId');
             print('[LocationSyncService]    Response: ${response.body}');
+            print(
+                '[LocationSyncService]    Action: Will retry on next sync attempt');
           }
         } catch (e) {
           totalFailed += ids.length;
           print(
-              '[LocationSyncService] ❌ Error syncing bulk for trip_id=$tripId: $e');
+              '[LocationSyncService] ❌ OFFLINE SYNC EXCEPTION for trip_id=$tripId: $e');
+          print(
+              '[LocationSyncService]    Action: Will retry on next sync attempt');
         }
       }
 
-      print('[LocationSyncService] 📊 Location tracking sync complete');
+      print('[LocationSyncService] 📊 OFFLINE LOCATION TRACKING SYNC COMPLETE');
       print('[LocationSyncService]   ✅ Total synced: $totalSynced');
       print('[LocationSyncService]   ❌ Total failed: $totalFailed');
 

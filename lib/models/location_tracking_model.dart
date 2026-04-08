@@ -4,7 +4,7 @@ class LocationTrackingModel {
   final int? id;
   final double latitude;
   final double longitude;
-  final int timestamp; // milliseconds since epoch
+  final int timestamp; // seconds since epoch
   final int synced; // 0 = not synced, 1 = synced
   final String userId;
   final int syncId;
@@ -44,7 +44,7 @@ class LocationTrackingModel {
       id: map['id'],
       latitude: map['latitude'] ?? 0.0,
       longitude: map['longitude'] ?? 0.0,
-      timestamp: map['timestamp'] ?? 0,
+      timestamp: map['timestamp'] ?? DateTime.now().toLocal().toIso8601String(),
       synced: map['synced'] ?? 0,
       userId: map['userId'] ?? '',
       syncId: map['syncId'] ?? 0,
@@ -57,5 +57,5 @@ class LocationTrackingModel {
 
   @override
   String toString() =>
-      'LocationTracking(lat=$latitude, lng=$longitude, time=$timestamp, synced=$synced)';
+      'LocationTracking(lat=$latitude, lng=$longitude, timestamp=$timestamp, synced=$synced)';
 }
