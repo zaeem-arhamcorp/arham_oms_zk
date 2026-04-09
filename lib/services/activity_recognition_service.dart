@@ -139,17 +139,31 @@ class ActivityRecognitionService {
   }
 
   /// Read activity from SharedPreferences (for background isolate fallback)
+  /// Note: Native code saves to "FlutterSharedPreferences" store with "flutter." prefix
   Future<String> _getCurrentActivityFromPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final activity = prefs.getString('current_activity') ?? 'UNKNOWN';
-      final updatedAtRaw = prefs.get('activity_updated_at');
+      // Try flutter-prefixed key first (saved by native code to FlutterSharedPreferences store)
+      var activity = prefs.getString('flutter.current_activity');
+      var updatedAtRaw = prefs.get('flutter.activity_updated_at');
+      var source = 'flutter.current_activity';
+
+      // Fallback to non-prefixed key (legacy/direct native access)
+      if (activity == null) {
+        print(
+            '[ActivityRecognitionService] ℹ️ flutter.current_activity not found, trying current_activity fallback...');
+        activity = prefs.getString('current_activity');
+        updatedAtRaw = prefs.get('activity_updated_at');
+        source = 'current_activity';
+      }
+
+      activity ??= 'UNKNOWN';
       final updatedAt = updatedAtRaw is int
           ? updatedAtRaw
           : (updatedAtRaw is double ? updatedAtRaw.toInt() : 0);
 
       print(
-          '[ActivityRecognitionService] ✅ Activity from SharedPreferences: $activity (updated ${DateTime.fromMillisecondsSinceEpoch(updatedAt)})');
+          '[ActivityRecognitionService] ✅ Activity from SharedPreferences ($source): $activity (updated ${DateTime.fromMillisecondsSinceEpoch(updatedAt)})');
 
       _currentActivity = activity;
       return activity;
@@ -208,6 +222,38 @@ class ActivityRecognitionService {
       print(
           '[ActivityRecognitionService] ⚠️ Error getting activity for API: $e');
       return 'UNKNOWN';
+    }
+  }
+
+  /// Check if activity recognition is working (diagnostic)
+  /// Returns number of updates received since initialization
+  Future<int> getDiagnosticUpdateCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Check both stores for update count
+      final count = prefs.getInt('flutter.activity_updates_count') ??
+          prefs.getInt('activity_updates_count') ??
+          0;
+      return count;
+    } catch (e) {
+      print('[ActivityRecognitionService] ⚠️ Error getting update count: $e');
+      return 0;
+    }
+  }
+
+  /// Get last activity update timestamp (diagnostic)
+  Future<DateTime?> getDiagnosticLastUpdateTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ts = prefs.getInt('flutter.activity_updated_at') ??
+          prefs.getInt('activity_updated_at');
+      if (ts != null && ts > 0) {
+        return DateTime.fromMillisecondsSinceEpoch(ts);
+      }
+      return null;
+    } catch (e) {
+      print('[ActivityRecognitionService] ⚠️ Error getting last update: $e');
+      return null;
     }
   }
 }

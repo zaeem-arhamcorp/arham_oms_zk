@@ -831,6 +831,25 @@ class BackgroundLocationService {
         '[BackgroundLocationService] [Background] Initializing activity recognition...');
     await activityRecognition.initialize();
 
+    // Check if activity recognition is actually receiving updates (diagnostic)
+    final initialUpdateCount =
+        await activityRecognition.getDiagnosticUpdateCount();
+    final lastUpdateTime =
+        await activityRecognition.getDiagnosticLastUpdateTime();
+    if (initialUpdateCount == 0) {
+      print(
+          '[BackgroundLocationService] [Background] ⚠️ WARNING: Activity Recognition may not be working - 0 updates received since app start');
+      print(
+          '[BackgroundLocationService] [Background]    Last activity update: ${lastUpdateTime ?? "NEVER"}');
+      print(
+          '[BackgroundLocationService] [Background]    Will fallback to GPS speed-based detection');
+    } else {
+      print(
+          '[BackgroundLocationService] [Background] ✅ Activity Recognition initialized - $initialUpdateCount updates received');
+      print(
+          '[BackgroundLocationService] [Background]    Last update: $lastUpdateTime');
+    }
+
     print(
         '[BackgroundLocationService] [Background] 🟢 Location tracking loop started');
     print(
@@ -1083,8 +1102,15 @@ class BackgroundLocationService {
               : activityType;
 
           // Add detailed speed logging
+          final speedStatus = activityType == 'UNKNOWN'
+              ? '⚠️ (native not working, using GPS)'
+              : (activityType == 'STATIONARY' &&
+                      speedBasedActivity != 'STATIONARY')
+                  ? '✅ (overridden by GPS)'
+                  : '';
+
           print(
-              '[BackgroundLocationService] [Background] 🔍 Activity Resolution: native=$activityType, gpsSpeed=${position.speed.toStringAsFixed(2)}m/s, speedDetected=$speedBasedActivity, resolved=$resolvedActivityType');
+              '[BackgroundLocationService] [Background] 🔍 Activity Resolution: native=$activityType, gpsSpeed=${position.speed.toStringAsFixed(2)}m/s, speedDetected=$speedBasedActivity, resolved=$resolvedActivityType $speedStatus');
 
           // Update foreground notification from background isolate.
           // MethodChannels registered in MainActivity are unavailable here.

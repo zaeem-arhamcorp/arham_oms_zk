@@ -44,10 +44,15 @@ class _ReferralViewState extends State<ReferralView> {
                   child: Column(
                     children: [
                       const Spacer(),
+                      Image.asset(
+                        "assets/Arham-icon.png",
+                        width: MediaQuery.of(context).size.width,
+                      ),
+                      Divider(),
                       Icon(
                         Icons.card_giftcard_rounded,
                         size: 80,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Color(0xff2c4ea5),
                       ),
                       const SizedBox(height: 24),
                       CommonText(
@@ -118,7 +123,7 @@ class _ReferralViewState extends State<ReferralView> {
                                 : '---',
                             fontSize: 22,
                             fontWeight: AppFontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Color(0xff2c4ea5),
                           ),
                         ),
                       ),

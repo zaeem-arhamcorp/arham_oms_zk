@@ -202,14 +202,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           print('[HomePage] Auto-cache already done for firm $syncId');
           // Still show battery dialog even if caching was already done
           await Future.delayed(Duration(milliseconds: 1500));
-          _checkAndShowBatteryOptimizationDialog();
+          final isPunchEnabled = _isPunchInOutEnabled();
+          if (isPunchEnabled) {
+            _checkAndShowBatteryOptimizationDialog();
+          } else {
+            print(
+                '[HomePage] punchInOut is disabled - skipping battery and location dialogs');
+          }
         }
       } else {
         print(
             '[HomePage] Auto-cache check skipped: token=${ub.token}, syncId=${ub.syncId}');
       }
     });
-
+//punchInOut
     // Sync license info on dashboard initialization
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
@@ -1245,7 +1251,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   children: [
                     Flexible(
                       child: Image.asset(
-                        'assets/Arham-icon.png',
+                        'assets/arhamOMS_icon.png',
                         fit: BoxFit.contain,
                         width: MediaQuery.of(context).size.width * 0.55,
                         // Don't use full screen height here
@@ -2843,8 +2849,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       );
 
                       // ✅ Show battery optimization dialog AFTER offline caching dialog closes
+                      // But skip if punchInOut is disabled
                       await Future.delayed(Duration(milliseconds: 500));
-                      _checkAndShowBatteryOptimizationDialog();
+                      final isPunchEnabled = _isPunchInOutEnabled();
+                      if (isPunchEnabled) {
+                        _checkAndShowBatteryOptimizationDialog();
+                      } else {
+                        print(
+                            '[HomePage] punchInOut is disabled - skipping battery and location dialogs');
+                      }
                     });
                   }
                 } catch (e) {
@@ -3268,6 +3281,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       print('[HomePage] Error checking location permission: $e');
+    }
+  }
+
+  /// Check if punchInOut feature is enabled in profile settings
+  bool _isPunchInOutEnabled() {
+    try {
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      final isPunchEnabled = profileProvider.data?.profileSettings.any(
+            (e) => e.variable == 'punchInOut' && e.value == 'Y',
+          ) ??
+          false;
+      return isPunchEnabled;
+    } catch (e) {
+      print('[HomePage] Error checking punchInOut setting: $e');
+      return true; // Default to true to show dialogs if there's an error
     }
   }
 }

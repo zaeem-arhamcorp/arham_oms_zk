@@ -16,11 +16,16 @@ class ActivityRecognitionReceiver : BroadcastReceiver() {
         // Static reference to the manager for updates
         // This should be set from MainActivity during app initialization
         var activityManager: ActivityRecognitionManager? = null
+        private var updateCount = 0
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
         try {
             Log.d(TAG, "🔔 onReceive() called by system")
+            Log.d(TAG, "   App: ${context?.packageName}")
+            Log.d(TAG, "   Thread: ${Thread.currentThread().name}")
+            updateCount++
+            Log.d(TAG, "   Update #$updateCount received at ${System.currentTimeMillis()}")
             
             if (intent == null) {
                 Log.w(TAG, "⚠️ Intent is null")
@@ -43,6 +48,7 @@ class ActivityRecognitionReceiver : BroadcastReceiver() {
                         Log.d(TAG, "✅ Manager updated with activity result")
                     } else {
                         Log.e(TAG, "❌ activityManager is NULL - cannot update!")
+                        Log.e(TAG, "   This indicates MainActivity.configureFlutterEngine() may not have been called yet")
                     }
                 } else {
                     Log.w(TAG, "⚠️ Could not extract ActivityRecognitionResult from intent")

@@ -5,11 +5,12 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/utlityModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/providers/global.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/authservices.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/signuppage.dart';
 import 'package:arham_corporation/widgets/app_dimensions.dart';
 import 'package:arham_corporation/widgets/app_font_weight.dart';
@@ -32,8 +33,6 @@ import '../providers/item_list_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/party_provider.dart';
 import '../providers/user_provider.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
-import 'package:arham_corporation/services/database_helper.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -176,11 +175,11 @@ class _LoginPageState extends State<LoginPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: screenHeight * 0.1,
+          height: screenHeight * 0.06,
         ),
         Image.asset(
-          'assets/login_img.png',
-          width: screenWidth * 0.3,
+          'assets/arhamOMS_icon.png',
+          width: screenWidth * 0.8,
         ),
         SizedBox(
           height: screenHeight * 0.05,

@@ -59,6 +59,7 @@ class ActivityRecognitionManager(private val context: Context) {
             Log.d(TAG, "🚀 Initializing activity recognition...")
             Log.d(TAG, "   Package name: ${context.packageName}")
             Log.d(TAG, "   Update interval: ${UPDATE_INTERVAL_MS}ms")
+            Log.d(TAG, "   Device API Level: ${android.os.Build.VERSION.SDK_INT}")
             
             // Save initial state to SharedPreferences
             saveActivityToPreferences()
@@ -72,9 +73,15 @@ class ActivityRecognitionManager(private val context: Context) {
                 )
             Log.d(TAG, "   Permission check: ${if (hasPermission) "✅ GRANTED" else "❌ DENIED"}")
             
+            if (!hasPermission) {
+                Log.e(TAG, "❌ FAILED: ACTIVITY_RECOGNITION permission not granted at native level!")
+                return false
+            }
+            
             // Request activity updates
             val pendingIntent = getActivityDetectionPendingIntent()
-            Log.d(TAG, "   Created PendingIntent for receiver")
+            Log.d(TAG, "   Created PendingIntent for receiver: ${pendingIntent.intentSender}")
+            Log.d(TAG, "   Requesting activity updates from Google Play Services...")
             
             ActivityRecognition.getClient(context)
                 .requestActivityUpdates(UPDATE_INTERVAL_MS, pendingIntent)
@@ -172,6 +179,7 @@ class ActivityRecognitionManager(private val context: Context) {
                 putString("current_activity", currentActivity)
                 putInt("activity_confidence", currentActivityConfidence)
                 putLong("activity_updated_at", updatedAt)
+                putInt("total_updates_received", (prefs.getInt("total_updates_received", 0) + 1))
                 apply()
             }
 
@@ -183,7 +191,13 @@ class ActivityRecognitionManager(private val context: Context) {
                 putLong("flutter.activity_updated_at", updatedAt)
                 apply()
             }
-            Log.d(TAG, "✅ Activity saved to SharedPreferences: $currentActivity @ $updatedAt")
+            Log.d(TAG, "✅ Activity saved to SharedPreferences: $currentActivity (confidence: $currentActivityConfidence%) @ $updatedAt")
+            
+            // Log count of updates received (diagnostic for debugging)
+            val totalUpdates = prefs.getInt("total_updates_received", 0)
+            if (totalUpdates % 5 == 0) {
+                Log.d(TAG, "📊 Total activity updates received: $totalUpdates")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "⚠️ Error saving to SharedPreferences: ${e.message}", e)
         }

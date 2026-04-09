@@ -1,14 +1,14 @@
-import 'package:flutter/material.dart';
 import 'package:arham_corporation/helper/helper.dart';
-import 'package:arham_corporation/widgets/ErrorPage.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/intropage.dart';
+import 'package:arham_corporation/widgets/ErrorPage.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../helper/network_helper.dart';
 import 'package:provider/provider.dart';
 
+import '../helper/network_helper.dart';
 import '../providers/item_list_provider.dart';
 import '../providers/party_provider.dart';
 import '../services/services.dart';
@@ -214,7 +214,7 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Image.asset('assets/intro_img.png')),
+              Expanded(child: Image.asset('assets/arhamOMS_icon.png')),
               SizedBox(
                 width: double.infinity,
                 height: 80.0,
