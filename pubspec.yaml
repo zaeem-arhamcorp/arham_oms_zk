@@ -89,6 +89,7 @@ dependencies:
   app_settings: ^7.0.0
   pedometer: ^4.2.0
   flutter_activity_recognition: ^4.0.0
+  timeline_tile: ^2.0.0
 
 dev_dependencies:
   flutter_test:

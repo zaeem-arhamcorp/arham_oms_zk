@@ -1,6 +1,7 @@
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/views/ItemWisePartyWisePurchaseReportScreen.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
+import 'package:arham_corporation/views/route%20timeline/route_map_view.dart';
 import 'package:arham_corporation/views/route_report_screen.dart';
 // import 'package:arham_corporation/views/user_selection_screen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -325,6 +326,12 @@ class _NewMenuState extends State<NewMenu> {
                     _buildIconTextBox(Icons.account_balance, "Route Report",
                         () {
                       Get.to(() => const RouteReportScreen());
+                    }, iconUrl: "assets/icons/route_report.png"),
+                  if (p.data != null &&
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "321" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.account_balance, "Map Route", () {
+                      Get.to(() => const RouteMapView());
                     }, iconUrl: "assets/icons/route_report.png"),
                 ]),
               ],
