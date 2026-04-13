@@ -1483,10 +1483,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                 InputDecoration(
                                                                               labelText: 'Free',
                                                                               isDense: true,
-                                                                              suffixIcon:
-                                                                                  DropdownButtonHideUnderline(
-                                                                                child:
-                                                                                    DropdownButton<String>(
+                                                                              suffixIcon: DropdownButtonHideUnderline(
+                                                                                child: DropdownButton<String>(
                                                                                   icon: const Icon(Icons.arrow_drop_down),
                                                                                   onChanged: (String? newValue) {
                                                                                     if (newValue != null) {
@@ -1521,7 +1519,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                 ),
                                                                               ),
                                                                             ),
-                                                                            onChanged: (value) {
+                                                                            onChanged:
+                                                                                (value) {
                                                                               setState(() {
                                                                                 item.otherDesc = value;
                                                                               });
@@ -1641,7 +1640,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                               (value) {
                                                                             FocusManager.instance.primaryFocus?.unfocus();
 
-                                                                            if (value != null) {
+                                                                            if (value !=
+                                                                                null) {
                                                                               cartController.setRemark(
                                                                                 item.itemCd,
                                                                                 value.toString(),
@@ -1923,6 +1923,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             AppSnackBar.showGetXCustomSnackBar(
                 message: value, backgroundColor: Colors.green);
 
+            // Order placed successfully: clear stockist selection for next order.
+            await controller.clearStockistSelection();
+
             final selectedPartyId =
                 profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
             final selectedPartyName =
@@ -2102,6 +2105,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         // Blacklisting will be handled AFTER sync when server confirms limit exceeded
         print(
             '[OFFLINE_ORDER] Order saved locally (will be synced when online)');
+
+        // Offline order is also a successful placement: clear stockist selection.
+        await controller.clearStockistSelection();
 
         // Clear cart UI
         getCart();

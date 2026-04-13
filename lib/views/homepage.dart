@@ -1869,7 +1869,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                 return Row(
                                                   children: [
                                                     Text(
-                                                      "Achv Percent: ",
+                                                      "Progress: ",
                                                       style: TextStyle(
                                                           fontSize: 13),
                                                     ),

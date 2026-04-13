@@ -53,11 +53,14 @@ class Services {
       print(response.body);
       if (response.statusCode == 200) {
         return dashboardModalFromJson(response.body);
-      } else {
+      } else if (response.statusCode == 401) {
         print('print 1');
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());
         });
+      } else {
+        print(
+            '[Services:getDashboarddata] Non-auth failure: status=${response.statusCode}');
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
@@ -94,11 +97,14 @@ class Services {
 
       if (response.statusCode == 200) {
         return productModalFromJson(response.body);
-      } else {
+      } else if (response.statusCode == 401) {
         print('print 2');
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());
         });
+      } else {
+        print(
+            '[Services:getProduct] Non-auth failure: status=${response.statusCode}');
       }
     } on httpc.CancelledException {
       getProduct(page, search, deptCd, context, null);
@@ -137,12 +143,15 @@ class Services {
         }
 
         return ProductResponse.fromJson(decodedJson);
-      } else {
+      } else if (response.statusCode == 401) {
         print("API error: ${response.statusCode}");
         print('print 3');
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());
         });
+      } else {
+        print(
+            '[Services:getProductNew] Non-auth failure: status=${response.statusCode}');
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
@@ -190,11 +199,14 @@ class Services {
           }
 
           return deptList;
-        } else {
+        } else if (response.statusCode == 401) {
           print('[DEPARTMENTS] API returned status ${response.statusCode}');
           ub.userSignout(context).then((value) {
             Get.offAll(() => LoginPage());
           });
+          return null;
+        } else {
+          print('[DEPARTMENTS] Non-auth failure status=${response.statusCode}');
           return null;
         }
       } else {

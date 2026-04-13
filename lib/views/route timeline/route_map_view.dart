@@ -193,6 +193,9 @@ class _RouteMapViewState extends State<RouteMapView> {
               .toLowerCase();
           final tripStatus = _extractTripStatusFromUserPayload(user);
           final tripId = _extractTripIdFromUserPayload(user);
+          final lastGpsAt = (user['lastGpsAt'] ?? user['LAST_GPS_AT'] ?? '')
+              .toString()
+              .trim();
 
           usersWithData.add({
             'userCode': userCode,
@@ -202,6 +205,7 @@ class _RouteMapViewState extends State<RouteMapView> {
             'status': status,
             'tripStatus': tripStatus,
             'tripId': tripId,
+            'lastGpsAt': lastGpsAt,
             'punchInTime': '', // Will be populated by trip fetch
             'punchOutTime': '',
             'punchStatus': 'absent',
@@ -244,6 +248,7 @@ class _RouteMapViewState extends State<RouteMapView> {
             token2,
             knownTripId: tripId,
             knownTripStatus: tripStatus,
+            knownLastGpsAt: user['lastGpsAt']?.toString(),
           );
         }
 
@@ -341,12 +346,22 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   int _extractTripIdFromUserPayload(Map<String, dynamic> user) {
+    // Important: never use generic user `id` fields as trip IDs.
+    // Some user payloads do not include current trip id; falling back to user id
+    // can fetch an unrelated/old trip and show stale punch-out status.
     final candidates = [
       user['tripId'],
       user['trip_id'],
       user['TRIP_ID'],
-      user['id'],
-      user['ID'],
+      user['activeTripId'],
+      user['active_trip_id'],
+      user['ACTIVE_TRIP_ID'],
+      user['currentTripId'],
+      user['current_trip_id'],
+      user['CURRENT_TRIP_ID'],
+      user['lastTripId'],
+      user['last_trip_id'],
+      user['LAST_TRIP_ID'],
     ];
 
     for (final candidate in candidates) {
@@ -1343,7 +1358,10 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Future<void> _fetchAndShowPartyHistory(
-      String userCode, String partyCode) async {
+    String userCode,
+    String partyCode, {
+    String partyName = '',
+  }) async {
     if (userCode.isEmpty || partyCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User or party information missing')),
@@ -1358,7 +1376,7 @@ class _RouteMapViewState extends State<RouteMapView> {
       return;
     }
 
-    _showPartyHistoryDialog(userCode, partyCode, token);
+    _showPartyHistoryDialog(userCode, partyCode, partyName, token);
   }
 
   Future<List<Map<String, dynamic>>> _fetchProductivePartyHistory({
@@ -1443,6 +1461,7 @@ class _RouteMapViewState extends State<RouteMapView> {
   void _showPartyHistoryDialog(
     String userCode,
     String partyCode,
+    String partyName,
     String token,
   ) {
     String filterType = 'Productive';
@@ -1519,6 +1538,19 @@ class _RouteMapViewState extends State<RouteMapView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      partyName.trim().isNotEmpty
+                          ? 'Party: $partyName'
+                          : 'Party Code: $partyCode',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
                   Row(
                     children: [
                       Expanded(
@@ -1813,6 +1845,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     String? token, {
     int? knownTripId,
     String? knownTripStatus,
+    String? knownLastGpsAt,
   }) async {
     final normalizedUserCode = _normalizeCode(userCode);
     if (normalizedUserCode.isEmpty || token == null || token.isEmpty) {
@@ -1859,6 +1892,49 @@ class _RouteMapViewState extends State<RouteMapView> {
           final summary = data?['summary'] as Map<String, dynamic>?;
           final startTime =
               _extractTripStartTimeFromTripAndSummary(tripMap, summary);
+
+          final knownActive = normalizedTripStatus == 'active';
+          final activeReferenceTime = _hasTimestampValue(startTime)
+              ? startTime
+              : ((knownLastGpsAt ?? '').toString().trim());
+
+          // Source-of-truth rule: users/children is already per-user and carries
+          // live trip state (often from redis). If it says active, keep user in
+          // punched-in state even when trip detail payload is stale/inconsistent.
+          if (knownActive) {
+            _updateUserPunchStatus(
+              normalizedUserCode,
+              punchStatus: 'punched_in',
+              punchInTime: activeReferenceTime,
+              punchOutTime: '',
+              tripStatus: 'active',
+              tripId: activeTripId,
+              reason: 'children-active-override',
+            );
+
+            if (!mounted) return;
+            setState(() {
+              if (summary != null) {
+                _tripSummaryData[activeTripId] = summary;
+              }
+            });
+
+            if (summary != null) {
+              final lastPoint = summary['last_point'];
+              if (lastPoint is Map<String, dynamic>) {
+                final lat = lastPoint['lat'] as num?;
+                final lng = lastPoint['lng'] as num?;
+                if (lat != null && lng != null) {
+                  _addUserMarkerToMap(
+                      activeTripId,
+                      LatLng(lat.toDouble(), lng.toDouble()),
+                      normalizedUserCode);
+                }
+              }
+            }
+
+            return;
+          }
 
           if ((startTime?.toString().trim() ?? '').isEmpty) {
             _markUserAbsent(normalizedUserCode,
@@ -2981,6 +3057,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                             _fetchAndShowPartyHistory(
                               _selectedUser?['userCode'] as String? ?? '',
                               item['party_code'] as String? ?? '',
+                              partyName: partyName,
                             );
                           },
                           child: Row(

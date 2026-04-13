@@ -96,9 +96,21 @@ class _ProductsPageState extends State<ProductsPage> {
       final profile = Provider.of<ProfileProvider>(context, listen: false);
       final party = Provider.of<PartyProvider>(context, listen: false);
 
-      // Restore stockist selection first so UI can show it immediately
-      // while stockist list refresh runs in background.
-      await controller.restoreStockistSelection();
+      // Ensure latest settings are merged into ProfileProvider before deciding
+      // stockist visibility/requirement.
+      await profile.loadSettings(context);
+      if (!mounted) return;
+
+      final isStockistEnabled = _isStockistUserLinkEnabled(profile);
+
+      // Restore persisted stockist only when user setting allows stockist link.
+      if (isStockistEnabled) {
+        await controller.restoreStockistSelection();
+      } else {
+        await controller.clearStockistSelection();
+        controller.stockists.clear();
+        controller.hasStockistAccess.value = false;
+      }
 
       controller.selectedPartyName.value = Helper.trimValue(
           profile.YN == 'Y' ? party.punchInOutParty : party.party, 25);
@@ -121,8 +133,10 @@ class _ProductsPageState extends State<ProductsPage> {
             cartController.productAddedStates.length;
       }
 
-      // Refresh stockists in background; don't block initial selected value paint.
-      controller.fetchStockists(groupCd: '136');
+      // Refresh stockists only when stockist link is enabled for this user.
+      if (isStockistEnabled) {
+        controller.fetchStockists(groupCd: '136');
+      }
 
       // Initialize filteredDepartments by copying contents from deptment
       controller.filteredDepartments.assignAll(controller.deptment);
@@ -130,6 +144,40 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Timer? timer;
+
+  bool _isStockistUserLinkEnabled(ProfileProvider profile) {
+    final settings = profile.data?.profileSettings;
+    if (settings == null || settings.isEmpty) {
+      return true;
+    }
+
+    final stockistSetting = settings.firstWhereOrNull(
+      (e) =>
+          (e.variable?.toString().trim().toLowerCase() ?? '') ==
+          'showstockistuserlink',
+    );
+
+    if (stockistSetting == null) {
+      return true;
+    }
+
+    final normalizedValue =
+        stockistSetting.value?.toString().trim().toUpperCase() ?? '';
+    return normalizedValue != 'N' &&
+        normalizedValue != '0' &&
+        normalizedValue != 'FALSE';
+  }
+
+  bool _requiresStockistSelection(ProfileProvider profile) {
+    if (!_isStockistUserLinkEnabled(profile)) {
+      return false;
+    }
+
+    final hasStockistOptions =
+        controller.hasStockistAccess.value || controller.stockists.isNotEmpty;
+
+    return hasStockistOptions && controller.selectedStockistId.value.isEmpty;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -351,11 +399,7 @@ class _ProductsPageState extends State<ProductsPage> {
                     }
 
                     // Validation 2: Check if stockist is required but not selected
-                    // Only require stockist selection if module 205 is available (stockist feature enabled)
-                    final hasModule136 = profile.data?.modulesList?.any((module) => module.mODULENO == "136") ?? false;
-                    if (hasModule136 &&
-                        controller.hasStockistAccess.value &&
-                        controller.selectedStockistId.value.isEmpty) {
+                    if (_requiresStockistSelection(profile)) {
                       AppSnackBar.showGetXCustomSnackBar(
                           message: 'Please Select Stockist');
                       return;
@@ -438,7 +482,14 @@ class _ProductsPageState extends State<ProductsPage> {
                 )
         else
           TextButton(
-            onPressed: showMenu,
+            onPressed: () {
+              if (_requiresStockistSelection(profile)) {
+                AppSnackBar.showGetXCustomSnackBar(
+                    message: 'Please Select Stockist');
+                return;
+              }
+              showMenu();
+            },
             child: const Text("Change"),
           ),
       ],
@@ -481,14 +532,17 @@ class _ProductsPageState extends State<ProductsPage> {
   Widget _buildStockistHeader() {
     return Obx(() {
       final profile = Provider.of<ProfileProvider>(context, listen: false);
-      final showStockistUserLinkIsN = profile.data?.profileSettings.any(
-              (e) => e.variable == 'showStockistUserLink' && e.value == 'N') ??
-          false;
+      final hasStockistAccess = controller.hasStockistAccess.value;
+      final isStockistLoading = controller.isStockistLoading.value;
+      final selectedStockistName = controller.selectedStockistName.value;
 
-      final shouldHide = (!controller.hasStockistAccess.value &&
-              !controller.isStockistLoading.value &&
-              controller.selectedStockistName.value.isEmpty) ||
-          showStockistUserLinkIsN;
+      if (!_isStockistUserLinkEnabled(profile)) {
+        return const SizedBox.shrink();
+      }
+
+      final shouldHide = (!hasStockistAccess &&
+          !isStockistLoading &&
+          selectedStockistName.isEmpty);
 
       if (shouldHide) {
         return const SizedBox.shrink();
@@ -516,19 +570,19 @@ class _ProductsPageState extends State<ProductsPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    controller.selectedStockistName.value.isNotEmpty
-                        ? controller.selectedStockistName.value
+                    selectedStockistName.isNotEmpty
+                        ? selectedStockistName
                         : 'Select Stockist',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      color: controller.selectedStockistName.value.isEmpty
+                      color: selectedStockistName.isEmpty
                           ? Colors.grey
                           : Colors.black,
                     ),
                   ),
                 ),
-                if (controller.selectedStockistName.value.isNotEmpty)
+                if (selectedStockistName.isNotEmpty)
                   // TextButton(
                   //   onPressed: () async {
                   //     await controller.clearStockistSelection();
@@ -562,6 +616,11 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   void showStockistMenu() {
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    if (!_isStockistUserLinkEnabled(profile)) {
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -882,6 +941,12 @@ class _ProductsPageState extends State<ProductsPage> {
         Provider.of<CartListProvider>(context, listen: false);
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
+
+    if (_requiresStockistSelection(p)) {
+      AppSnackBar.showGetXCustomSnackBar(message: 'Please Select Stockist');
+      return;
+    }
+
     // Capture page-level context BEFORE the bottom sheet opens
     final BuildContext pageContext = context;
 

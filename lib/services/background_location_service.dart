@@ -31,6 +31,7 @@ class BackgroundLocationService {
   final DatabaseHelper _db = DatabaseHelper();
   final FlutterBackgroundService _service = FlutterBackgroundService();
   static const Duration _captureInterval = Duration(seconds: 40);
+  static const String _activeTripTokenKey = 'active_trip_token';
   static const platform = MethodChannel('com.arhamerp.app/notification');
   static const trackingControlPlatform =
       MethodChannel('com.arhamerp.app/tracking_control');
@@ -330,7 +331,7 @@ class BackgroundLocationService {
           await prefs.setInt('active_trip_id', tripId);
           await prefs.setString('active_user_cd', userCd);
           await prefs.setInt('active_sync_id', syncId);
-          await prefs.setString('token', token);
+          await prefs.setString(_activeTripTokenKey, token);
           await prefs.setBool('tracking_explicitly_stopped', false);
           print(
               '[BackgroundLocationService] ✅ Trip data saved to SharedPreferences');
@@ -405,7 +406,8 @@ class BackgroundLocationService {
       final tripId = prefs.getInt('active_trip_id');
       final userCd = prefs.getString('active_user_cd');
       final syncId = prefs.getInt('active_sync_id');
-      final token = prefs.getString('token');
+      final token =
+          prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
 
       if (tripId == null || userCd == null || syncId == null || token == null) {
         print(
@@ -549,7 +551,8 @@ class BackgroundLocationService {
         try {
           final prefs = await SharedPreferences.getInstance();
           tripIdToUse = prefs.getInt('active_trip_id');
-          tokenToUse = prefs.getString('token');
+          tokenToUse =
+              prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
           syncIdToUse = prefs.getInt('active_sync_id');
           if (tripIdToUse != null &&
               tokenToUse != null &&
@@ -604,7 +607,7 @@ class BackgroundLocationService {
               await prefs.remove('active_trip_id');
               await prefs.remove('active_user_cd');
               await prefs.remove('active_sync_id');
-              await prefs.remove('token');
+              await prefs.remove(_activeTripTokenKey);
               print(
                   '[BackgroundLocationService] ✅ Cleared trip data from SharedPreferences');
             } catch (e) {
@@ -668,7 +671,8 @@ class BackgroundLocationService {
       if (tripIdToUse == null || tokenToUse == null || syncIdToUse == null) {
         final prefs = await SharedPreferences.getInstance();
         tripIdToUse = prefs.getInt('active_trip_id');
-        tokenToUse = prefs.getString('token');
+        tokenToUse =
+            prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
         syncIdToUse = prefs.getInt('active_sync_id');
       }
 
@@ -705,7 +709,7 @@ class BackgroundLocationService {
         await prefs.remove('active_trip_id');
         await prefs.remove('active_user_cd');
         await prefs.remove('active_sync_id');
-        await prefs.remove('token');
+        await prefs.remove(_activeTripTokenKey);
         print(
             '[BackgroundLocationService] ✅ Trip ended and SharedPreferences cleared');
         return true;
@@ -734,7 +738,10 @@ class BackgroundLocationService {
       final hasTrip = prefs.getInt('active_trip_id') != null;
       final hasUser = (prefs.getString('active_user_cd') ?? '').isNotEmpty;
       final hasSync = prefs.getInt('active_sync_id') != null;
-      final hasToken = (prefs.getString('token') ?? '').isNotEmpty;
+      final hasToken = (prefs.getString(_activeTripTokenKey) ??
+              prefs.getString('token') ??
+              '')
+          .isNotEmpty;
 
       if (explicitlyStopped || !(hasTrip && hasUser && hasSync && hasToken)) {
         print(

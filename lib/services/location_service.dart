@@ -9,6 +9,7 @@ import 'location_sync_service.dart';
 import 'activity_recognition_service.dart';
 
 class LocationService {
+  static const String _activeTripTokenKey = 'active_trip_token';
   final DatabaseHelper db = DatabaseHelper();
   final BackgroundLocationService _backgroundService =
       BackgroundLocationService();
@@ -550,7 +551,7 @@ class LocationService {
       await prefs.setInt('active_trip_id', tripId);
       await prefs.setString('active_user_cd', userCd);
       await prefs.setInt('active_sync_id', syncId);
-      await prefs.setString('token', token);
+      await prefs.setString(_activeTripTokenKey, token);
       print('[LocationService] ✅ Trip data stored in SharedPreferences');
 
       // Resume background service with existing trip_id
