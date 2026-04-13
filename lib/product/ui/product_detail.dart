@@ -93,8 +93,7 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                     Icons.branding_watermark, "Brand", widget.data.itemBrand),
                 _buildDetailRow(Icons.medical_information, "Drug Contain",
                     widget.data.itemLname),
-                _buildDetailRow(
-                    Icons.sync, "HSN Code", widget.data.hsnNo),
+                _buildDetailRow(Icons.sync, "HSN Code", widget.data.hsnNo),
               ]),
               SizedBox(height: 8.h),
 
@@ -150,6 +149,8 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                     Icons.card_giftcard, "Bulk Scheme", widget.data.itemDesc),
                 _buildDetailRow(
                     Icons.local_shipping, "Pack", widget.data.itemSname),
+                _buildDetailRow(Icons.local_shipping, "Box Packing",
+                    widget.data.itemBoxPacking),
                 if (_canLabelSettings(context.read<ProfileProvider>()))
                   _buildDetailRow(
                       Icons.science, "Margin", widget.data.frmlSrt1),

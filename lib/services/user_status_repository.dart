@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../config/app_config.dart';
 
 /// Repository for user status and heartbeat API calls
@@ -25,7 +26,7 @@ class UserStatusRepository {
       print(
           '[UserStatusRepository] DEBUG: Token format check - starts with "eyJ": ${token.startsWith('eyJ')}');
 
-      final url = Uri.parse('${AppConfig.baseURL}${AppConfig.heartbeat}');
+      final url = Uri.parse(AppConfig.heartbeatURL);
       print('[UserStatusRepository] Heartbeat URL: $url');
 
       final response = await http.post(

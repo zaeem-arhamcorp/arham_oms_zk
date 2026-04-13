@@ -554,11 +554,7 @@ class PartyProvider extends DisposableProvider {
             long,
           );
           party.distanceInMeters = distanceInMeters;
-          print(
-              '[Party] ${party.accName}: ${(distanceInMeters / 1000).toStringAsFixed(2)} km');
         } else {
-          print(
-              '[Party] ${party.accName}: Missing coordinates (Lat=$lat, Long=$long)');
           party.distanceInMeters = null;
         }
       }

@@ -1382,16 +1382,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                 (value) {
                                                                               double? quantity = double.tryParse(value);
                                                                               if (quantity != null && quantity > 0) {
-                                                                                // double price = 0.0;
-                                                                                // if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'lrateSetting').value == 'Y') {
-                                                                                //   price = double.tryParse(item.lrate.toString()) ?? 0.0;
-                                                                                // } else {
-                                                                                //   price = double.tryParse(item.rate.toString()) ?? 0.0;
-                                                                                // }
-
                                                                                 final lrateSetting = profile.data?.profileSettings.firstWhere(
                                                                                   (element) => element.variable == 'lrateSetting',
-                                                                                  orElse: () => DatumSettings(variable: 'lrateSetting', value: 'N'), // Default fallback
+                                                                                  orElse: () => DatumSettings(variable: 'lrateSetting', value: 'N'),
                                                                                 );
 
                                                                                 double price = 0.0;
@@ -1408,6 +1401,11 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                   item.quantity = quantity.toString();
                                                                                   calculateNetAmount();
                                                                                 });
+
+                                                                                cartController.setQuantity(
+                                                                                  item.itemCd,
+                                                                                  value,
+                                                                                );
 
                                                                                 updateitemtoCart(
                                                                                   item.itemCd,
@@ -1478,27 +1476,71 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                           flex:
                                                                               2.5.toInt(),
                                                                           child:
-                                                                              DropdownMenu<dynamic>(
+                                                                              TextFormField(
                                                                             controller:
                                                                                 freeQtyController,
-                                                                            requestFocusOnTap:
-                                                                                true,
-                                                                            enableFilter:
-                                                                                true,
-                                                                            label:
-                                                                                const Text('Free'),
-                                                                            dropdownMenuEntries: otherDescOptions
-                                                                                .map((e) => DropdownMenuEntry<dynamic>(
-                                                                                      value: e.NARR_NAME,
-                                                                                      label: e.NARR_NAME,
-                                                                                    ))
-                                                                                .toList(),
-                                                                            inputDecorationTheme:
-                                                                                const InputDecorationTheme(
+                                                                            decoration:
+                                                                                InputDecoration(
+                                                                              labelText: 'Free',
                                                                               isDense: true,
+                                                                              suffixIcon:
+                                                                                  DropdownButtonHideUnderline(
+                                                                                child:
+                                                                                    DropdownButton<String>(
+                                                                                  icon: const Icon(Icons.arrow_drop_down),
+                                                                                  onChanged: (String? newValue) {
+                                                                                    if (newValue != null) {
+                                                                                      freeQtyController.text = newValue;
+
+                                                                                      setState(() {
+                                                                                        item.otherDesc = newValue;
+                                                                                      });
+
+                                                                                      cartController.setFreeQuantity(
+                                                                                        item.itemCd,
+                                                                                        newValue,
+                                                                                      );
+
+                                                                                      updateitemtoCart(
+                                                                                        item.itemCd,
+                                                                                        qtyController.text,
+                                                                                        newValue,
+                                                                                        rateController?.text ?? '',
+                                                                                        item.lrate ?? '',
+                                                                                        remarksController?.text ?? '',
+                                                                                        item.cId,
+                                                                                      );
+                                                                                    }
+                                                                                  },
+                                                                                  items: otherDescOptions
+                                                                                      .map((e) => DropdownMenuItem<String>(
+                                                                                            value: e.NARR_NAME,
+                                                                                            child: Text(e.NARR_NAME),
+                                                                                          ))
+                                                                                      .toList(),
+                                                                                ),
+                                                                              ),
                                                                             ),
-                                                                            enableSearch:
-                                                                                true,
+                                                                            onChanged: (value) {
+                                                                              setState(() {
+                                                                                item.otherDesc = value;
+                                                                              });
+
+                                                                              cartController.setFreeQuantity(
+                                                                                item.itemCd,
+                                                                                value,
+                                                                              );
+
+                                                                              updateitemtoCart(
+                                                                                item.itemCd,
+                                                                                qtyController.text,
+                                                                                freeQtyController.text,
+                                                                                rateController?.text ?? '',
+                                                                                item.lrate ?? '',
+                                                                                remarksController?.text ?? '',
+                                                                                item.cId,
+                                                                              );
+                                                                            },
                                                                           ),
                                                                         ),
 
@@ -1598,6 +1640,23 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                           onSelected:
                                                                               (value) {
                                                                             FocusManager.instance.primaryFocus?.unfocus();
+
+                                                                            if (value != null) {
+                                                                              cartController.setRemark(
+                                                                                item.itemCd,
+                                                                                value.toString(),
+                                                                              );
+
+                                                                              updateitemtoCart(
+                                                                                item.itemCd,
+                                                                                qtyController.text,
+                                                                                freeQtyController.text,
+                                                                                rateController?.text ?? '',
+                                                                                item.lrate ?? '',
+                                                                                value.toString(),
+                                                                                item.cId,
+                                                                              );
+                                                                            }
                                                                           },
                                                                         ),
                                                                       ),

@@ -1,13 +1,12 @@
-import 'package:flutter/cupertino.dart';
-import 'package:arham_corporation/providers/app_provider.dart';
-import 'package:arham_corporation/services/services.dart';
+import 'dart:convert';
+
+import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
-import 'package:arham_corporation/services/database_helper.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:arham_corporation/services/services.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
-import 'package:arham_corporation/config/app_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProvider extends ChangeNotifier {
   UserProvider() {
@@ -191,7 +190,7 @@ class UserProvider extends ChangeNotifier {
     }
 
     try {
-      final uri = Uri.parse('${AppConfig.baseURL}users/children');
+      final uri = Uri.parse('${AppConfig.childrenURL}');
       print('[UserProvider] 📡 Calling children API: $uri');
 
       final response = await http.get(

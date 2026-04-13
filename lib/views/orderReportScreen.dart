@@ -274,10 +274,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
       await CrashlyticsService.logAction('order_report_users_api_triggered');
       print(
-          '_fetchUsers: Fetching from ${baseUrl}users/children with token: ${token.substring(0, 20)}...');
+          '_fetchUsers: Fetching from ${AppConfig.childrenURL} with token: ${token.substring(0, 20)}...');
 
       final response = await http.get(
-        Uri.parse('${baseUrl}users/children'),
+        Uri.parse(AppConfig.childrenURL),
         headers: {
           'Authorization': 'Bearer $token',
           'x-app-type': 'oms',

@@ -1,10 +1,11 @@
+import 'dart:io';
+
 import 'package:get/get.dart';
 
 import '../../../config/app_config.dart';
 import '../../../config/app_log.dart';
-import '../services/api_service.dart';
 import '../models/account_model.dart';
-import 'dart:io';
+import '../services/api_service.dart';
 
 class AccountRepository extends GetxService {
   late ApiService _apiService;
@@ -19,7 +20,7 @@ class AccountRepository extends GetxService {
       {String? token}) async {
     try {
       final response = await _apiService.post(
-        AppConfig.createAccountt,
+        AppConfig.createAccounttURL,
         headers: {
           if (token != null) 'Authorization': 'Bearer $token',
           'x-app-type': 'oms'
@@ -63,7 +64,7 @@ class AccountRepository extends GetxService {
       String filePath, String token) async {
     try {
       final response = await _apiService.post(
-        AppConfig.uploadImage,
+        AppConfig.uploadImageURL,
         headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
         body: {'file': filePath},
       );
@@ -110,7 +111,7 @@ class AccountRepository extends GetxService {
       );
 
       final response = await _apiService.postMultipart(
-        AppConfig.uploadAccountImage,
+        AppConfig.uploadAccountImageURL,
         headers: {
           'Authorization': 'Bearer $token',
           'x-app-type': 'oms',

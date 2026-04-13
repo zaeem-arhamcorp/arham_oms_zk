@@ -170,6 +170,16 @@ class _ProductCardState extends State<ProductCard> {
 
     return Column(
       children: [
+        if ((Provider.of<ProfileProvider>(context).data?.profileSettings?.any(
+                (e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+            false))
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _infoRow('Pack : ', widget.product.itemSname),
+              _infoRow('Box Pack : ', widget.product.itemBoxPacking!),
+            ],
+          ),
         _buildRow(
             ['MRP :', widget.product.srate3],
             ['Rate :', widget.product.srate1],

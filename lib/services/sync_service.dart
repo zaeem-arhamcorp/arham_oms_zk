@@ -160,6 +160,88 @@ class SyncService {
     }
   }
 
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  bool _isEmptyOrderId(dynamic value) {
+    if (value == null) return true;
+    final text = value.toString().trim().toLowerCase();
+    if (text.isEmpty || text == 'null') return true;
+    final parsed = int.tryParse(text);
+    return parsed == null || parsed <= 0;
+  }
+
+  Future<void> _linkServerOrderIdToPendingTrackings({
+    required int localOrderId,
+    required String accCd,
+    required int serverOrderId,
+    int? orderDateMs,
+  }) async {
+    if (accCd.trim().isEmpty || serverOrderId <= 0) {
+      print(
+          '[SyncService] ⚠️ Skipping oId linkage: invalid accCd/serverOrderId');
+      return;
+    }
+
+    final dbInst = await db.database;
+    final anchorMs = orderDateMs ?? DateTime.now().millisecondsSinceEpoch;
+
+    final pendingRows = await dbInst.query(
+      'order_tracking',
+      where: "sync_status = 'pending' AND ACC_CD = ? AND tracking_type = '2'",
+      whereArgs: [accCd],
+      orderBy: 'CAST(CREATED_AT as INTEGER) ASC',
+    );
+
+    if (pendingRows.isEmpty) {
+      print(
+          '[SyncService] ℹ️ No pending type=2 tracking found for party=$accCd to attach oId=$serverOrderId');
+      return;
+    }
+
+    final emptyOidRows =
+        pendingRows.where((r) => _isEmptyOrderId(r['oId'])).toList();
+    if (emptyOidRows.isEmpty) {
+      print(
+          '[SyncService] ℹ️ Pending trackings already have oId for party=$accCd');
+      return;
+    }
+
+    Map<String, dynamic>? selectedPlaceTracking;
+    final placeCandidates = emptyOidRows;
+
+    if (placeCandidates.isNotEmpty) {
+      placeCandidates.sort((a, b) {
+        final aTs = _toInt(a['CREATED_AT']) ?? anchorMs;
+        final bTs = _toInt(b['CREATED_AT']) ?? anchorMs;
+        return (aTs - anchorMs).abs().compareTo((bTs - anchorMs).abs());
+      });
+
+      selectedPlaceTracking = placeCandidates.first;
+
+      await dbInst.update(
+        'order_tracking',
+        {'oId': serverOrderId},
+        where: 'locId = ?',
+        whereArgs: [selectedPlaceTracking['locId']],
+      );
+
+      print(
+          '[SyncService] 🔗 Linked server oId=$serverOrderId to PLACE ORDER tracking #${selectedPlaceTracking['locId']} (localOrderId=$localOrderId)');
+    } else {
+      print(
+          '[SyncService] ℹ️ No pending PLACE ORDER tracking found for party=$accCd (localOrderId=$localOrderId)');
+      return;
+    }
+
+    print(
+        '[SyncService] ℹ️ By design, oId is linked only to ORDER PLACED (type=2); IN/OUT trackings keep oId=NULL');
+  }
+
   /// Attempt sync with retries. Returns true on success, false on failure.
   Future<bool> _syncOrderWithRetry(Map<String, dynamic> order, String token,
       {int? syncId, int maxRetries = 3}) async {
@@ -329,6 +411,9 @@ class SyncService {
       "moduleNo": "205",
     };
 
+    print(
+        '[SyncService] 🚀 Syncing local offline order id=${order['id']} via /orders');
+    print('[SyncService]   POST URL: ${AppConfig.baseURL}orders');
     print('[SyncService] POST orders: $orderPayload');
 
     var response = await http.post(
@@ -375,6 +460,20 @@ class SyncService {
         }
       } catch (e) {
         print('[SyncService] ⚠️ Failed to parse oId: $e');
+      }
+
+      final localOrderId = _toInt(order['id']) ?? 0;
+      final orderDateMs = _toInt(order['order_date']);
+      if (serverOrderId != null && serverOrderId > 0) {
+        await _linkServerOrderIdToPendingTrackings(
+          localOrderId: localOrderId,
+          accCd: partyCd,
+          serverOrderId: serverOrderId,
+          orderDateMs: orderDateMs,
+        );
+      } else {
+        print(
+            '[SyncService] ⚠️ No valid serverOrderId for localOrderId=$localOrderId; cannot attach oId to pending tracking rows');
       }
 
       await db.updateOrderStatus(order['id'], 'synced', serverOrderId);
@@ -837,12 +936,24 @@ class SyncService {
           trackingType = isOut ? '3' : '1';
         }
 
+        // Business rule: IN/OUT (type 1/3) must never carry oId.
+        if (trackingType != '2' && !_isEmptyOrderId(tracking['oId'])) {
+          final dbInst = await db.database;
+          await dbInst.update(
+            'order_tracking',
+            {'oId': null},
+            where: 'locId = ?',
+            whereArgs: [trackingId],
+          );
+          print(
+              '[SyncService] 🧹 Cleared unexpected oId from non-PLACE tracking #$trackingId (type=$trackingType)');
+        }
+
         // Match EXACT same structure as online payload (order_tracking_service.dart)
         final payload = {
           'accCd': accCd,
           'lat': tracking['LAT']?.toString() ?? '0.0',
           'longi': tracking['LONGI']?.toString() ?? '0.0',
-          'oId': tracking['oId']?.toString() ?? '',
           'type': trackingType,
           'moduleNo': tracking['MODULE_NO']?.toString() ?? '205',
           'remark': remarkVal,
@@ -855,8 +966,7 @@ class SyncService {
         };
 
         print('[SyncService] 📤 Syncing order tracking #$trackingId');
-        print(
-            '[SyncService]   Party: ${payload['accCd']} | oId: ${payload['oId']}');
+        print('[SyncService]   Party: ${payload['accCd']}');
         print('[SyncService]   GPS: (${payload['lat']}, ${payload['longi']})');
         print('[SyncService]   REMARK: $remarkVal | type: ${payload['type']}');
         print('[SyncService]   📅 SYNC TIME:');
@@ -973,7 +1083,8 @@ class SyncService {
 
         print('[SyncService] 📤 Syncing PLACE ORDER tracking #$trackingId');
         print(
-            '[SyncService]   Party: ${payload['accCd']} | VOUCH_DT=$vouchDt, VOUCH_TIME=$cleanTime');
+            '[SyncService]   Party: ${payload['accCd']} | oId: ${payload['oId']} | VOUCH_DT=$vouchDt, VOUCH_TIME=$cleanTime');
+        print('[SyncService]   Full payload: $payload');
 
         var response = await http.post(
           Uri.parse("${AppConfig.baseURL}orders-tracking"),
@@ -986,6 +1097,18 @@ class SyncService {
         );
 
         print('[SyncService] 📥 Server response: ${response.statusCode}');
+        print('[SyncService]   Body: ${response.body}');
+
+        try {
+          final respData = jsonDecode(response.body);
+          final serverRemark = respData['data']?['REMARK']?.toString() ?? 'N/A';
+          final serverOId = respData['data']?['oId']?.toString() ?? 'null';
+          final serverLocId = respData['data']?['locId']?.toString() ?? 'N/A';
+          print(
+              '[SyncService] ✅ PLACE ORDER server stored: locId=$serverLocId, REMARK=$serverRemark, oId=$serverOId');
+        } catch (e) {
+          print('[SyncService] Could not parse PLACE ORDER response: $e');
+        }
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           await db.updateOrderTrackingStatus(trackingId, 'synced', null);

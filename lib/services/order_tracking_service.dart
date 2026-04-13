@@ -35,21 +35,24 @@ class OrderTrackingService {
       // DEBUG: Log the timestamp being captured
       final isUsingPassedTime = orderDateTime != null;
       print('[OrderTrackingService] ⏰ TIMESTAMP CAPTURE DEBUG:');
-      print('[OrderTrackingService]   Passed orderDateTime: ${orderDateTime?.toString() ?? "NULL"}');
+      print(
+          '[OrderTrackingService]   Passed orderDateTime: ${orderDateTime?.toString() ?? "NULL"}');
       print('[OrderTrackingService]   Using passed time: $isUsingPassedTime');
       print('[OrderTrackingService]   BaseDateTime used: $baseDateTime');
-      print('[OrderTrackingService]   VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
+      print(
+          '[OrderTrackingService]   VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
 
       // Save locally first - map to server schema
       // Set REMARK based on whether it's START or END order
       final remark =
-      isEndOrder == null ? 'Order Tracking' : (isEndOrder ? 'OUT' : 'IN');
+          isEndOrder == null ? 'Order Tracking' : (isEndOrder ? 'OUT' : 'IN');
+      final parsedOId = type == '2' ? int.tryParse((oId ?? '').trim()) : null;
 
       final orderTrackingData = {
         'ACC_CD': accCd,
         'LAT': latitude,
         'LONGI': longitude,
-        'oId': null, // Tracking records NEVER have oId
+        'oId': parsedOId,
         'VOUCH_DT': vouchDt,
         'VOUCH_TIME': vouchTime,
         'MODULE_NO': moduleNo,
@@ -62,7 +65,7 @@ class OrderTrackingService {
         'CREATED_APP_TYPE': 'oms',
         'REMARK': remark,
         'tracking_type':
-        type, // Store original type: 1=IN, 2=ORDER PLACED, 3=OUT
+            type, // Store original type: 1=IN, 2=ORDER PLACED, 3=OUT
         'sync_status': 'pending',
       };
 
@@ -70,22 +73,24 @@ class OrderTrackingService {
       print('[OrderTrackingService] ✅ ORDER TRACKING SAVED TO LOCAL DB');
       print(
           '[OrderTrackingService]   trackingId=$trackingId | party=$accCd | type=$type');
+      print('[OrderTrackingService]   local oId stored: ${parsedOId ?? ""}');
       print('[OrderTrackingService]   lat=$latitude, lng=$longitude');
       print('[OrderTrackingService]   REMARK=$remark | isEndOrder=$isEndOrder');
       print(
           '[OrderTrackingService]   📅 LOCAL TIME STORED: VOUCH_DT=$vouchDt, VOUCH_TIME=$vouchTime');
-      print('[OrderTrackingService]   ⚠️ Using ${isUsingPassedTime ? "PASSED TIME (correct)" : "CURRENT TIME (may not be original)"}');
+      print(
+          '[OrderTrackingService]   ⚠️ Using ${isUsingPassedTime ? "PASSED TIME (correct)" : "CURRENT TIME (may not be original)"}');
       print('[OrderTrackingService]   status=pending (waiting for sync)');
 
       // If online, immediately push to server
       final isOnline = await NetworkHelper.hasInternet();
       if (isOnline) {
         try {
+          final cleanedOId = (oId ?? '').trim();
           final body = {
             'accCd': accCd,
             'lat': latitude.toString(),
             'longi': longitude.toString(),
-            'oId': oId ?? '', // Include oId if provided (for END/OUT order)
             'type': type, // Keep original type value (should be "3")
             'moduleNo': moduleNo,
             'remark': remark,
@@ -96,6 +101,11 @@ class OrderTrackingService {
             'USER_CD': userCd,
             'SYNC_ID': syncId.toString(),
           };
+
+          // Business rule: send oId only for ORDER PLACED (type=2).
+          if (type == '2' && cleanedOId.isNotEmpty) {
+            body['oId'] = cleanedOId;
+          }
 
           print(
               '[OrderTrackingService] 📤 ONLINE DETECTED - Pushing to server...');

@@ -7,6 +7,8 @@ class CommonTimelineTile extends StatelessWidget {
   final String subtitle;
   final bool isFirst;
   final bool isLast;
+  final Widget? bulletWidget;
+  final Widget? actionButtons;
 
   const CommonTimelineTile({
     super.key,
@@ -16,6 +18,8 @@ class CommonTimelineTile extends StatelessWidget {
     required this.subtitle,
     required this.isFirst,
     required this.isLast,
+    this.bulletWidget,
+    this.actionButtons,
   });
 
   @override
@@ -49,15 +53,16 @@ class CommonTimelineTile extends StatelessWidget {
                 color: Colors.grey,
               ),
 
-              // Dot
-              Container(
-                width: 12,
-                height: 12,
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              // Bullet Widget (custom or default dot)
+              bulletWidget ??
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
 
               // Bottom line
               Expanded(
@@ -78,17 +83,27 @@ class CommonTimelineTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Logged In",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Text(title),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  // Add action buttons if provided
+                  if (actionButtons != null) ...[
+                    const SizedBox(height: 12),
+                    actionButtons!,
+                  ],
                 ],
               ),
             ),

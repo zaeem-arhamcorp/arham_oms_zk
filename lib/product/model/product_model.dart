@@ -27,6 +27,7 @@ class ProductItem {
   final String itemCd;
   final String itemName;
   final String itemSname;
+  final String? itemBoxPacking;
   final String? itemLname;
   final String deptCd;
   final String srate1;
@@ -59,6 +60,7 @@ class ProductItem {
     required this.itemCd,
     required this.itemName,
     required this.itemSname,
+    required this.itemBoxPacking,
     this.itemLname,
     required this.deptCd,
     required this.srate1,
@@ -99,6 +101,7 @@ class ProductItem {
       'itemCd': itemCd,
       'itemName': itemName,
       'itemSname': itemSname,
+      'itemBoxPacking': itemBoxPacking,
       'itemLname': itemLname,
       'deptCd': deptCd,
       'srate1': srate1,
@@ -134,6 +137,7 @@ class ProductItem {
       itemCd: json['ITEM_CD']?.toString() ?? "",
       itemName: json['ITEM_NAME']?.toString() ?? "",
       itemSname: json['ITEM_SNAME']?.toString() ?? "",
+      itemBoxPacking: json['ITEM_BOX_PACKING']?.toString() ?? "",
       itemLname: json['ITEM_LNAME']?.toString(),
       deptCd: json['DEPT_CD']?.toString() ?? "",
       srate1: json['SRATE1']?.toString() ?? "",

@@ -885,10 +885,7 @@ class _ProductsPageState extends State<ProductsPage> {
     // Capture page-level context BEFORE the bottom sheet opens
     final BuildContext pageContext = context;
 
-    // Fetch parties and sort by distance BEFORE showing bottom sheet
-    await pp.getPartyNameProductPage(context);
-    await pp.sortPartiesByDistance();
-
+    // Show bottom sheet immediately
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -903,6 +900,15 @@ class _ProductsPageState extends State<ProductsPage> {
           return Consumer<PartyProvider>(
             builder: (context, party, child) {
               return StatefulBuilder(builder: (context, StateSetter setStatee) {
+                // Load parties inside the sheet if not loaded yet
+                if (party.data.isEmpty && !party.nolistParty) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    await pp.getPartyNameProductPage(context);
+                    await pp.sortPartiesByDistance();
+                    setStatee(() {});
+                  });
+                }
+
                 return Padding(
                   padding: MediaQuery.of(context).viewInsets,
                   child: SizedBox(

@@ -25,10 +25,9 @@ class AppConfig {
   //        Old Commit                                 New Commit
   //77f08058cf3f204c343128a5b54e2c4786eee775 8d57534bdd366b9607b0f73d16b6e5f1a5b7f1eb
 
-  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
-  static const String baseURL =
-      "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  // static const String baseURL = "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // static const String baseURL =
   //     "https://api.arhamcorp.in/api/"; //TODO: Production
@@ -55,10 +54,16 @@ class AppConfig {
       "${baseURL}transaction-images/upload";
   static String generateReferralCodeURL = "${baseURL}referral/generate-code";
 
-  static const String createAccountt = 'master-entry/account';
-  static const String uploadImage = 'master-entry/account/upload-image';
-  static const String uploadAccountImage = 'account-image';
+  static const String createAccounttURL = '${baseURL}master-entry/account';
+  static const String uploadImageURL =
+      '${baseURL}master-entry/account/upload-image';
+  static const String uploadAccountImageURL = '${baseURL}account-image';
 
   // User status & heartbeat
-  static const String heartbeat = 'heartbeat';
+  static const String heartbeatURL = '${baseURL}heartbeat';
+
+  static const String tripStartURL = '${baseURL}location/trip/start';
+  static const String tripEndURL = '${baseURL}location/trip/end';
+  static const String childrenURL = '${baseURL}users/children';
+  static const String timelineURL = '${baseURL}timeline';
 }
