@@ -24,6 +24,8 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _requests = <Map<String, dynamic>>[];
+  int _myRequestCount = 0;
+  double _myAmountTotal = 0.0;
 
   @override
   bool get wantKeepAlive => true;
@@ -34,7 +36,7 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
     debugPrint('[Reimbursement][MyRequests] Screen initialized');
     final DateTime now = DateTime.now();
     _fromDate = DateTime(now.year, now.month, 1);
-    _toDate = DateTime(now.year, now.month + 1, 0);
+    _toDate = now;
     debugPrint(
       '[Reimbursement][MyRequests] Default date range: ${_apiDateFormat.format(_fromDate)} to ${_apiDateFormat.format(_toDate)}',
     );
@@ -129,12 +131,29 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
           return matches;
         }).toList();
 
+        // Parse stats
+        final dynamic stats = decoded['stats'];
+        int requestCount = 0;
+        double amountTotal = 0.0;
+
+        if (stats is Map<String, dynamic>) {
+          requestCount = (stats['myRequestCount'] ?? 0) as int;
+          final amountValue = stats['myAmountTotal'] ?? 0;
+          amountTotal = (amountValue is int)
+              ? amountValue.toDouble()
+              : (amountValue as double?)?.toDouble() ?? 0.0;
+        }
+
         setState(() {
           _requests = parsed;
+          _myRequestCount = requestCount;
+          _myAmountTotal = amountTotal;
           _isLoading = false;
         });
         debugPrint(
             '[Reimbursement][MyRequests][API] After filtering: ${parsed.length} of ${allRecords.length} records');
+        debugPrint(
+            '[Reimbursement][MyRequests][API] Stats: count=$requestCount, total=$amountTotal');
       } else {
         setState(() {
           _errorMessage =
@@ -288,7 +307,8 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
     final String amount = (request['AMOUNT'] ?? '-').toString();
     final String notes = (request['NOTES'] ?? '-').toString();
     final String actionNote = (request['ACTION_NOTE'] ?? '').toString();
-    final bool isEditable = _isWithin24Hours(request['CREATED_AT']);
+    final bool isEditable = status.toUpperCase() == 'PENDING' &&
+        _isWithin24Hours(request['CREATED_AT']);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -389,10 +409,74 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
 
     return RefreshIndicator(
       onRefresh: _fetchReimbursements,
-      child: ListView.builder(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _requests.length,
-        itemBuilder: (context, index) => _buildRequestCard(_requests[index]),
+        children: [
+          // Stats Card
+          Card(
+            margin: const EdgeInsets.all(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Requests',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _myRequestCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Amount',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₹${_myAmountTotal.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Requests List
+          ListView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            itemCount: _requests.length,
+            itemBuilder: (context, index) =>
+                _buildRequestCard(_requests[index]),
+          ),
+        ],
       ),
     );
   }

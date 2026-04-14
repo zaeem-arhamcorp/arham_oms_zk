@@ -33,6 +33,8 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
   late String _selectedExpenseType;
   late TextEditingController _amountController;
   late TextEditingController _notesController;
+  late TextEditingController _dateController;
+  late DateTime _selectedDate;
 
   bool _isLoading = false;
 
@@ -48,12 +50,23 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
         text: (widget.request['AMOUNT'] ?? '').toString());
     _notesController =
         TextEditingController(text: (widget.request['NOTES'] ?? '').toString());
+
+    // Initialize date
+    final String? dateString = widget.request['DATE']?.toString();
+    if (dateString != null && dateString.isNotEmpty) {
+      _selectedDate = DateTime.tryParse(dateString) ?? DateTime.now();
+    } else {
+      _selectedDate = DateTime.now();
+    }
+    _dateController =
+        TextEditingController(text: _displayDateFormat.format(_selectedDate));
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _notesController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
@@ -70,6 +83,13 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
     if (_selectedExpenseType.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select expense type')),
+      );
+      return;
+    }
+
+    if (_dateController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select date')),
       );
       return;
     }
@@ -108,6 +128,7 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
 
       final body = <String, dynamic>{
         'expenseType1': _selectedExpenseType,
+        'date1': _apiDateFormat.format(_selectedDate),
         'amount1': _amountController.text.trim(),
         'notes1': _notesController.text.trim(),
       };
@@ -209,7 +230,29 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Date Field
+            Text(
+              'Date',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _dateController,
+              readOnly: true,
+              decoration: InputDecoration(
+                hintText: 'Select date',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.calendar_today),
+                  onPressed: _selectDate,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Expense Type Dropdown
             Text(
@@ -318,6 +361,22 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
         return Colors.red;
       default:
         return Colors.orange;
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = _displayDateFormat.format(_selectedDate);
+      });
     }
   }
 }
