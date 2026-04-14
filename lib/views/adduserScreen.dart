@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/config/app_config.dart';
@@ -7,12 +8,14 @@ import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/widgets/common_app_input.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/personModal.dart';
@@ -30,15 +33,22 @@ class AddUserScreen extends StatefulWidget {
 }
 
 class _AddUserScreenState extends State<AddUserScreen> {
+  static const int _maxImageSize = 2 * 1024 * 1024;
+
   TextEditingController userCdClt = TextEditingController();
   TextEditingController passwordClt = TextEditingController();
   TextEditingController userNameClt = TextEditingController();
   TextEditingController mobileNumberClt = TextEditingController();
+  TextEditingController emailClt = TextEditingController();
+
+  final ImagePicker _userImagePicker = ImagePicker();
+  XFile? _selectedUserImage;
 
   FocusNode userCdFocusNode = FocusNode();
   FocusNode passwordFocusNode = FocusNode();
   FocusNode userNameFocusNode = FocusNode();
   FocusNode mobileNumberFocusNode = FocusNode();
+  FocusNode emailFocusNode = FocusNode();
 
   bool activeuser = false;
   Role? selectRole;
@@ -112,6 +122,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
         mobileNumberClt.clear();
       }
     });
+    emailFocusNode.addListener(() {
+      if (emailFocusNode.hasFocus) {
+        // Clear the text field when focused
+        emailClt.clear();
+      }
+    });
 
     if (widget.screenId != 0) {
       setData();
@@ -125,6 +141,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     passwordFocusNode.dispose();
     userNameFocusNode.dispose();
     mobileNumberFocusNode.dispose();
+    emailFocusNode.dispose();
     super.dispose();
   }
 
@@ -222,6 +239,46 @@ class _AddUserScreenState extends State<AddUserScreen> {
               ListView(
                 padding: EdgeInsets.all(10),
                 children: [
+                  Center(
+                    child: GestureDetector(
+                      onTap: _pickUserImage,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey.shade100,
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: ClipOval(
+                          child: _selectedUserImage != null
+                              ? Image.file(
+                                  File(_selectedUserImage!.path),
+                                  fit: BoxFit.cover,
+                                )
+                              : Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 34,
+                                  color: Colors.grey.shade600,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 8.h,
+                  ),
+                  Center(
+                    child: Text(
+                      _selectedUserImage == null
+                          ? "Tap to add image"
+                          : "Tap to change image",
+                      style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 10.h,
+                  ),
                   if (widget.screenId == 0)
                     UserTextField(
                       action: TextInputAction.next,
@@ -266,6 +323,15 @@ class _AddUserScreenState extends State<AddUserScreen> {
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                     ],
+                  ),
+                  SizedBox(
+                    height: 5.h,
+                  ),
+                  UserTextField(
+                    action: TextInputAction.done,
+                    clt: emailClt,
+                    hint: "Email",
+                    type: TextInputType.emailAddress,
                   ),
                   SizedBox(
                     height: 5.h,
@@ -714,8 +780,18 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         AppSnackBar.showGetXCustomSnackBar(
                             message: "Please select firm");
                       } else {
+                        final String addUserUrl = AppConfig.baseURL + "users";
+                        final String userImageUrl =
+                            AppConfig.baseURL + "users/image";
+
                         person.changeLoading(true);
                         if (widget.screenId == 0) {
+                          print("[AddUserScreen] Add User button clicked");
+                          print("[AddUserScreen] API URL: $addUserUrl");
+                          print("[AddUserScreen] Image API URL: $userImageUrl");
+                          print(
+                              "[AddUserScreen] Image selected: ${_selectedUserImage?.path != null}");
+
                           person
                               .addPerson(
                                   context,
@@ -726,7 +802,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   selectRole!.id,
                                   !activeuser,
                                   selectModules,
-                                  selectedFirmIds)
+                                  selectedFirmIds,
+                                  emailClt.text,
+                                  imagePath: _selectedUserImage?.path)
                               .then((value) {
                             person.changeLoading(false);
                             if (value == true) {
@@ -734,6 +812,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
                             }
                           });
                         } else {
+                          print("[AddUserScreen] Update User button clicked");
+                          print("[AddUserScreen] API URL: $addUserUrl");
+                          print("[AddUserScreen] Image API URL: $userImageUrl");
+                          print(
+                              "[AddUserScreen] Image selected: ${_selectedUserImage?.path != null}");
+
                           person
                               .updatePerson(
                                   context,
@@ -744,7 +828,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   selectRole!.id,
                                   !activeuser,
                                   selectModules,
-                                  selectedFirmIds)
+                                  selectedFirmIds,
+                                  emailClt.text,
+                                  imagePath: _selectedUserImage?.path)
                               .then((value) {
                             person.changeLoading(false);
                             if (value == true) {
@@ -782,6 +868,79 @@ class _AddUserScreenState extends State<AddUserScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickUserImage() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Capture from Camera'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image = await _userImagePicker.pickImage(
+                    source: ImageSource.camera,
+                  );
+                  if (image != null) {
+                    await _handleUserImage(image.path);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_open),
+                title: const Text('Select from Files'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.image,
+                    allowMultiple: false,
+                  );
+
+                  if (result != null && result.files.isNotEmpty) {
+                    final path = result.files.first.path;
+                    if (path != null && path.isNotEmpty) {
+                      await _handleUserImage(path);
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleUserImage(String imagePath) async {
+    final allowed = ['jpg', 'jpeg', 'png', 'webp'];
+    final ext = imagePath.split('.').last.toLowerCase();
+
+    if (!allowed.contains(ext)) {
+      AppSnackBar.showGetXCustomSnackBar(
+          message: "Only JPG, PNG, JPEG, WEBP allowed");
+      return;
+    }
+
+    final file = File(imagePath);
+    final size = await file.length();
+
+    if (size > _maxImageSize) {
+      AppSnackBar.showGetXCustomSnackBar(
+          message: "Image must be less than 2MB");
+      return;
+    }
+
+    setState(() {
+      _selectedUserImage = XFile(imagePath);
+    });
   }
 
   Widget _buildRightCheckbox(

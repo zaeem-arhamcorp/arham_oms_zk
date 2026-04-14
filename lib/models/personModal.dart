@@ -155,6 +155,8 @@ class DatumPerson {
   dynamic validUpto;
   dynamic firmUsers;
   dynamic modules;
+  dynamic userImageUrl;
+  dynamic email;
 
   DatumPerson({
     required this.userCd,
@@ -175,6 +177,8 @@ class DatumPerson {
     this.validUpto,
     this.firmUsers,
     this.modules,
+    this.userImageUrl,
+    this.email,
   });
 
   factory DatumPerson.fromJson(Map<String, dynamic> json) => DatumPerson(
@@ -196,6 +200,8 @@ class DatumPerson {
         validUpto: json["VALID_UPTO"],
         firmUsers: json["firm_user_links"],
         modules: json["modules"],
+        userImageUrl: json["USER_IMAGE_URL"],
+        email: json["emailID"],
       );
 
   Map<String, dynamic> toJson() => {
@@ -217,6 +223,8 @@ class DatumPerson {
         "VALID_UPTO": validUpto,
         "firm_user_links": firmUsers,
         "modules": modules,
+        "USER_IMAGE_URL": userImageUrl,
+        "emailID": email,
       };
 }
 

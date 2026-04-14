@@ -21,6 +21,8 @@ class RouteMapView extends StatefulWidget {
 }
 
 class _RouteMapViewState extends State<RouteMapView> {
+  static const String _statusLogicVersion = 'route-status-v4-2026-04-14';
+
   GoogleMapController? _mapController;
   static const LatLng _defaultCenter = LatLng(23.0225, 72.5714);
 
@@ -71,6 +73,7 @@ class _RouteMapViewState extends State<RouteMapView> {
   @override
   void initState() {
     super.initState();
+    print('[RouteMapView] status_logic=$_statusLogicVersion');
     _sheetController = DraggableScrollableController();
     _usersListScrollController = ScrollController();
     _sheetController.addListener(() {
@@ -193,6 +196,9 @@ class _RouteMapViewState extends State<RouteMapView> {
               .toLowerCase();
           final tripStatus = _extractTripStatusFromUserPayload(user);
           final tripId = _extractTripIdFromUserPayload(user);
+          final knownPunchStatus = _extractPunchStatusFromUserPayload(user);
+          final knownPunchInTime = _extractPunchInTimeFromUserPayload(user);
+          final knownPunchOutTime = _extractPunchOutTimeFromUserPayload(user);
           final lastGpsAt = (user['lastGpsAt'] ?? user['LAST_GPS_AT'] ?? '')
               .toString()
               .trim();
@@ -205,6 +211,9 @@ class _RouteMapViewState extends State<RouteMapView> {
             'status': status,
             'tripStatus': tripStatus,
             'tripId': tripId,
+            'knownPunchStatus': knownPunchStatus,
+            'knownPunchInTime': knownPunchInTime,
+            'knownPunchOutTime': knownPunchOutTime,
             'lastGpsAt': lastGpsAt,
             'punchInTime': '', // Will be populated by trip fetch
             'punchOutTime': '',
@@ -249,6 +258,9 @@ class _RouteMapViewState extends State<RouteMapView> {
             knownTripId: tripId,
             knownTripStatus: tripStatus,
             knownLastGpsAt: user['lastGpsAt']?.toString(),
+            knownPunchStatus: user['knownPunchStatus']?.toString(),
+            knownPunchInTime: user['knownPunchInTime']?.toString(),
+            knownPunchOutTime: user['knownPunchOutTime']?.toString(),
           );
         }
 
@@ -338,6 +350,128 @@ class _RouteMapViewState extends State<RouteMapView> {
     for (final candidate in candidates) {
       final value = candidate?.toString().trim().toLowerCase() ?? '';
       if (value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  String _canonicalPunchStatus(dynamic raw) {
+    if (raw is bool) {
+      return raw ? 'punched_in' : 'absent';
+    }
+
+    final value = raw?.toString().trim().toLowerCase() ?? '';
+    if (value.isEmpty) {
+      return '';
+    }
+
+    if (value.contains('punch out') ||
+        value.contains('punched out') ||
+        value == 'punched_out' ||
+        value == 'out' ||
+        value == 'checkout' ||
+        value == 'check out') {
+      return 'punched_out';
+    }
+
+    if (value.contains('punch in') ||
+        value.contains('punched in') ||
+        value == 'punched_in' ||
+        value == 'in' ||
+        value == 'checkin' ||
+        value == 'check in' ||
+        value == 'true' ||
+        value == '1' ||
+        value == 'y' ||
+        value == 'yes') {
+      return 'punched_in';
+    }
+
+    if (value == 'false' || value == '0' || value == 'n' || value == 'no') {
+      return 'absent';
+    }
+
+    return '';
+  }
+
+  String _extractPunchStatusFromUserPayload(Map<String, dynamic> user) {
+    final candidates = [
+      user['punchStatus'],
+      user['PUNCH_STATUS'],
+      user['punch_status'],
+      user['punchState'],
+      user['PUNCH_STATE'],
+      user['punch_state'],
+      user['remark'],
+      user['REMARK'],
+      user['lastRemark'],
+      user['LAST_REMARK'],
+      user['isPunchIn'],
+      user['IS_PUNCH_IN'],
+      user['is_punch_in'],
+      user['IS_PUNCHIN'],
+      user['isPunchedIn'],
+      user['IS_PUNCHED_IN'],
+      user['is_punched_in'],
+    ];
+
+    for (final candidate in candidates) {
+      final canonical = _canonicalPunchStatus(candidate);
+      if (canonical.isNotEmpty) {
+        return canonical;
+      }
+    }
+
+    return '';
+  }
+
+  String _extractPunchInTimeFromUserPayload(Map<String, dynamic> user) {
+    final candidates = [
+      user['punchInTime'],
+      user['PUNCH_IN_TIME'],
+      user['punch_in_time'],
+      user['punchInAt'],
+      user['PUNCH_IN_AT'],
+      user['punch_in_at'],
+      user['inTime'],
+      user['IN_TIME'],
+      user['in_time'],
+      user['lastPunchInAt'],
+      user['LAST_PUNCH_IN_AT'],
+      user['last_punch_in_at'],
+    ];
+
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  String _extractPunchOutTimeFromUserPayload(Map<String, dynamic> user) {
+    final candidates = [
+      user['punchOutTime'],
+      user['PUNCH_OUT_TIME'],
+      user['punch_out_time'],
+      user['punchOutAt'],
+      user['PUNCH_OUT_AT'],
+      user['punch_out_at'],
+      user['outTime'],
+      user['OUT_TIME'],
+      user['out_time'],
+      user['lastPunchOutAt'],
+      user['LAST_PUNCH_OUT_AT'],
+      user['last_punch_out_at'],
+    ];
+
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
         return value;
       }
     }
@@ -480,6 +614,86 @@ class _RouteMapViewState extends State<RouteMapView> {
     return _isSameCalendarDate(parsed, targetDate);
   }
 
+  /// Prefer a same-day primary timestamp, then a same-day fallback timestamp.
+  /// Returns empty when both are missing/stale so UI does not show old "Xd ago".
+  String _resolveTodayReferenceTime({
+    String? primaryTime,
+    String? secondaryTime,
+    required DateTime today,
+  }) {
+    final primary = (primaryTime ?? '').toString().trim();
+    if (_isTimestampOnDate(primary, today)) {
+      return primary;
+    }
+
+    final secondary = (secondaryTime ?? '').toString().trim();
+    if (_isTimestampOnDate(secondary, today)) {
+      return secondary;
+    }
+
+    return '';
+  }
+
+  bool _applyChildrenPunchFallback(
+    String normalizedUserCode, {
+    required DateTime today,
+    required String normalizedTripStatus,
+    String? knownLastGpsAt,
+    String? knownPunchStatus,
+    String? knownPunchInTime,
+    String? knownPunchOutTime,
+    int? tripId,
+    String reasonPrefix = 'children-punch-fallback',
+  }) {
+    final canonicalStatus = _canonicalPunchStatus(knownPunchStatus);
+    final safeTripId = (tripId ?? 0) > 0 ? tripId : null;
+
+    if (canonicalStatus == 'punched_in') {
+      final inTime = _resolveTodayReferenceTime(
+        primaryTime: knownPunchInTime,
+        secondaryTime: knownLastGpsAt,
+        today: today,
+      );
+
+      _updateUserPunchStatus(
+        normalizedUserCode,
+        punchStatus: 'punched_in',
+        punchInTime: inTime,
+        punchOutTime: '',
+        tripStatus:
+            normalizedTripStatus.isNotEmpty ? normalizedTripStatus : 'active',
+        tripId: safeTripId,
+        reason: _hasTimestampValue(inTime)
+            ? '$reasonPrefix-punched-in'
+            : '$reasonPrefix-punched-in-no-timestamp',
+      );
+      return true;
+    }
+
+    if (canonicalStatus == 'punched_out') {
+      final outTime = _resolveTodayReferenceTime(
+        primaryTime: knownPunchOutTime,
+        secondaryTime: knownLastGpsAt,
+        today: today,
+      );
+
+      _updateUserPunchStatus(
+        normalizedUserCode,
+        punchStatus: 'punched_out',
+        punchInTime: '',
+        punchOutTime: outTime,
+        tripStatus: 'completed',
+        tripId: safeTripId,
+        reason: _hasTimestampValue(outTime)
+            ? '$reasonPrefix-punched-out'
+            : '$reasonPrefix-punched-out-no-timestamp',
+      );
+      return true;
+    }
+
+    return false;
+  }
+
   String _extractTripStartTimeFromTripAndSummary(
     Map<String, dynamic> trip,
     Map<String, dynamic>? summary,
@@ -563,9 +777,29 @@ class _RouteMapViewState extends State<RouteMapView> {
       final userIndex = _users.indexWhere(
           (u) => _normalizeCode(u['userCode']) == normalizedUserCode);
       if (userIndex >= 0) {
-        _users[userIndex]['punchStatus'] = punchStatus;
-        _users[userIndex]['punchInTime'] = punchInTime;
-        _users[userIndex]['punchOutTime'] = punchOutTime;
+        final normalizedStatus = punchStatus.trim().toLowerCase();
+        final today = DateTime.now();
+        var sanitizedPunchInTime = punchInTime.trim();
+        var sanitizedPunchOutTime = punchOutTime.trim();
+
+        // Never keep stale timestamps on user cards; they produce misleading
+        // multi-day "Punched in Xd ago" labels when backend trip rows lag.
+        if (normalizedStatus == 'punched_in' &&
+            !_isTimestampOnDate(sanitizedPunchInTime, today)) {
+          sanitizedPunchInTime = '';
+        }
+        if (normalizedStatus == 'punched_out' &&
+            !_isTimestampOnDate(sanitizedPunchOutTime, today)) {
+          sanitizedPunchOutTime = '';
+        }
+        if (normalizedStatus == 'absent') {
+          sanitizedPunchInTime = '';
+          sanitizedPunchOutTime = '';
+        }
+
+        _users[userIndex]['punchStatus'] = normalizedStatus;
+        _users[userIndex]['punchInTime'] = sanitizedPunchInTime;
+        _users[userIndex]['punchOutTime'] = sanitizedPunchOutTime;
 
         if (tripStatus != null && tripStatus.trim().isNotEmpty) {
           _users[userIndex]['tripStatus'] = tripStatus.trim().toLowerCase();
@@ -576,7 +810,7 @@ class _RouteMapViewState extends State<RouteMapView> {
         }
 
         print(
-            '[RouteMapView] Updated punch status for $normalizedUserCode (${_users[userIndex]['userName']}) => $punchStatus | in=$punchInTime | out=$punchOutTime${reason != null && reason.isNotEmpty ? ' | reason=$reason' : ''}');
+            '[RouteMapView] Updated punch status for $normalizedUserCode (${_users[userIndex]['userName']}) => $normalizedStatus | in=$sanitizedPunchInTime | out=$sanitizedPunchOutTime${reason != null && reason.isNotEmpty ? ' | reason=$reason' : ''}');
       } else {
         print(
             '[RouteMapView] Could not update punch status - user not found for userCode=$normalizedUserCode');
@@ -1846,6 +2080,9 @@ class _RouteMapViewState extends State<RouteMapView> {
     int? knownTripId,
     String? knownTripStatus,
     String? knownLastGpsAt,
+    String? knownPunchStatus,
+    String? knownPunchInTime,
+    String? knownPunchOutTime,
   }) async {
     final normalizedUserCode = _normalizeCode(userCode);
     if (normalizedUserCode.isEmpty || token == null || token.isEmpty) {
@@ -1857,6 +2094,30 @@ class _RouteMapViewState extends State<RouteMapView> {
     try {
       final activeTripId = knownTripId ?? 0;
       final today = DateTime.now();
+      final knownOpenTrip =
+          normalizedTripStatus == 'active' || normalizedTripStatus == 'paused';
+
+      // Some users can be marked active/paused in children payload while trip rows are
+      // delayed/missing. Keep active state, but only use same-day timestamps.
+      if (knownOpenTrip && activeTripId <= 0) {
+        final activeReferenceTime = _resolveTodayReferenceTime(
+          secondaryTime: knownLastGpsAt,
+          today: today,
+        );
+
+        _updateUserPunchStatus(
+          normalizedUserCode,
+          punchStatus: 'punched_in',
+          punchInTime: activeReferenceTime,
+          punchOutTime: '',
+          tripStatus:
+              normalizedTripStatus.isNotEmpty ? normalizedTripStatus : 'active',
+          reason: _hasTimestampValue(activeReferenceTime)
+              ? 'children-open-no-tripId'
+              : 'children-open-no-tripId-no-timestamp',
+        );
+        return;
+      }
 
       // Prefer children API tripId as source-of-truth per user and fetch direct trip details.
       if (activeTripId > 0) {
@@ -1885,6 +2146,19 @@ class _RouteMapViewState extends State<RouteMapView> {
           if (tripUserCode.isNotEmpty && tripUserCode != normalizedUserCode) {
             print(
                 '[RouteMapView] Trip user mismatch for tripId=$activeTripId. requested=$normalizedUserCode, response=$tripUserCode');
+            if (_applyChildrenPunchFallback(
+              normalizedUserCode,
+              today: today,
+              normalizedTripStatus: normalizedTripStatus,
+              knownLastGpsAt: knownLastGpsAt,
+              knownPunchStatus: knownPunchStatus,
+              knownPunchInTime: knownPunchInTime,
+              knownPunchOutTime: knownPunchOutTime,
+              tripId: activeTripId,
+              reasonPrefix: 'trip-user-mismatch-fallback',
+            )) {
+              return;
+            }
             _markUserAbsent(normalizedUserCode, reason: 'trip-user-mismatch');
             return;
           }
@@ -1893,23 +2167,26 @@ class _RouteMapViewState extends State<RouteMapView> {
           final startTime =
               _extractTripStartTimeFromTripAndSummary(tripMap, summary);
 
-          final knownActive = normalizedTripStatus == 'active';
-          final activeReferenceTime = _hasTimestampValue(startTime)
-              ? startTime
-              : ((knownLastGpsAt ?? '').toString().trim());
+          final activeReferenceTime = _resolveTodayReferenceTime(
+            primaryTime: startTime,
+            secondaryTime: knownLastGpsAt,
+            today: today,
+          );
 
           // Source-of-truth rule: users/children is already per-user and carries
-          // live trip state (often from redis). If it says active, keep user in
+          // live trip state (often from redis). If it says active/paused, keep user in
           // punched-in state even when trip detail payload is stale/inconsistent.
-          if (knownActive) {
+          if (knownOpenTrip) {
             _updateUserPunchStatus(
               normalizedUserCode,
               punchStatus: 'punched_in',
               punchInTime: activeReferenceTime,
               punchOutTime: '',
-              tripStatus: 'active',
+              tripStatus: normalizedTripStatus,
               tripId: activeTripId,
-              reason: 'children-active-override',
+              reason: _hasTimestampValue(activeReferenceTime)
+                  ? 'children-open-override'
+                  : 'children-open-override-no-timestamp',
             );
 
             if (!mounted) return;
@@ -1937,12 +2214,38 @@ class _RouteMapViewState extends State<RouteMapView> {
           }
 
           if ((startTime?.toString().trim() ?? '').isEmpty) {
+             if (_applyChildrenPunchFallback(
+              normalizedUserCode,
+              today: today,
+              normalizedTripStatus: normalizedTripStatus,
+              knownLastGpsAt: knownLastGpsAt,
+              knownPunchStatus: knownPunchStatus,
+              knownPunchInTime: knownPunchInTime,
+              knownPunchOutTime: knownPunchOutTime,
+              tripId: activeTripId,
+              reasonPrefix: 'tripId-empty-start-fallback',
+            )) {
+              return;
+            }
             _markUserAbsent(normalizedUserCode,
                 reason: 'empty-start-time-from-tripId');
             return;
           }
 
           if (!_isTimestampOnDate(startTime, today)) {
+            if (_applyChildrenPunchFallback(
+              normalizedUserCode,
+              today: today,
+              normalizedTripStatus: normalizedTripStatus,
+              knownLastGpsAt: knownLastGpsAt,
+              knownPunchStatus: knownPunchStatus,
+              knownPunchInTime: knownPunchInTime,
+              knownPunchOutTime: knownPunchOutTime,
+              tripId: activeTripId,
+              reasonPrefix: 'tripId-start-not-today-fallback',
+            )) {
+              return;
+            }
             _markUserAbsent(normalizedUserCode,
                 reason: 'tripId-start-not-today');
             return;
@@ -1992,6 +2295,40 @@ class _RouteMapViewState extends State<RouteMapView> {
 
         print(
             '[RouteMapView] Failed trip details by tripId for $normalizedUserCode: HTTP ${response.statusCode}');
+        if (knownOpenTrip) {
+          final activeReferenceTime = _resolveTodayReferenceTime(
+            secondaryTime: knownLastGpsAt,
+            today: today,
+          );
+
+          _updateUserPunchStatus(
+            normalizedUserCode,
+            punchStatus: 'punched_in',
+            punchInTime: activeReferenceTime,
+            punchOutTime: '',
+            tripStatus: normalizedTripStatus.isNotEmpty
+                ? normalizedTripStatus
+                : 'active',
+            tripId: activeTripId,
+            reason: _hasTimestampValue(activeReferenceTime)
+                ? 'children-open-tripId-http-failed'
+                : 'children-open-tripId-http-failed-no-timestamp',
+          );
+          return;
+        }
+        if (_applyChildrenPunchFallback(
+          normalizedUserCode,
+          today: today,
+          normalizedTripStatus: normalizedTripStatus,
+          knownLastGpsAt: knownLastGpsAt,
+          knownPunchStatus: knownPunchStatus,
+          knownPunchInTime: knownPunchInTime,
+          knownPunchOutTime: knownPunchOutTime,
+          tripId: activeTripId,
+          reasonPrefix: 'tripId-http-failed-fallback',
+        )) {
+          return;
+        }
         _markUserAbsent(normalizedUserCode, reason: 'tripId-http-failed');
         return;
       }
@@ -2036,6 +2373,18 @@ class _RouteMapViewState extends State<RouteMapView> {
               .trim();
 
           if (!_isTimestampOnDate(startTime, today)) {
+            if (_applyChildrenPunchFallback(
+              normalizedUserCode,
+              today: today,
+              normalizedTripStatus: normalizedTripStatus,
+              knownLastGpsAt: knownLastGpsAt,
+              knownPunchStatus: knownPunchStatus,
+              knownPunchInTime: knownPunchInTime,
+              knownPunchOutTime: knownPunchOutTime,
+              reasonPrefix: 'list-start-not-today-fallback',
+            )) {
+              return;
+            }
             _markUserAbsent(normalizedUserCode,
                 reason: 'list-api-start-not-today');
             return;
@@ -2075,13 +2424,52 @@ class _RouteMapViewState extends State<RouteMapView> {
         } else {
           print(
               '[RouteMapView] No matching trips today for $normalizedUserCode');
+          if (_applyChildrenPunchFallback(
+            normalizedUserCode,
+            today: today,
+            normalizedTripStatus: normalizedTripStatus,
+            knownLastGpsAt: knownLastGpsAt,
+            knownPunchStatus: knownPunchStatus,
+            knownPunchInTime: knownPunchInTime,
+            knownPunchOutTime: knownPunchOutTime,
+            reasonPrefix: 'no-matching-trip-fallback',
+          )) {
+            return;
+          }
           _markUserAbsent(normalizedUserCode,
               reason: 'no-matching-trip-in-list-api');
         }
+      } else {
+        if (_applyChildrenPunchFallback(
+          normalizedUserCode,
+          today: today,
+          normalizedTripStatus: normalizedTripStatus,
+          knownLastGpsAt: knownLastGpsAt,
+          knownPunchStatus: knownPunchStatus,
+          knownPunchInTime: knownPunchInTime,
+          knownPunchOutTime: knownPunchOutTime,
+          reasonPrefix: 'list-http-failed-fallback',
+        )) {
+          return;
+        }
+        _markUserAbsent(normalizedUserCode,
+            reason: 'list-api-http-${response.statusCode}');
       }
     } catch (e) {
       print(
           '[RouteMapView] Error fetching today\'s trip for $normalizedUserCode: $e');
+      if (_applyChildrenPunchFallback(
+        normalizedUserCode,
+        today: DateTime.now(),
+        normalizedTripStatus: normalizedTripStatus,
+        knownLastGpsAt: knownLastGpsAt,
+        knownPunchStatus: knownPunchStatus,
+        knownPunchInTime: knownPunchInTime,
+        knownPunchOutTime: knownPunchOutTime,
+        reasonPrefix: 'exception-fallback',
+      )) {
+        return;
+      }
       _markUserAbsent(normalizedUserCode, reason: 'exception');
     }
   }
@@ -2724,19 +3112,18 @@ class _RouteMapViewState extends State<RouteMapView> {
     String statusText;
     Color statusColor;
     FontWeight statusWeight = FontWeight.normal;
+    final now = DateTime.now();
 
     if (punchStatus == 'punched_out') {
+      final canShowRelativeTime = _isTimestampOnDate(punchOutTimeStr, now);
       final timeAgo = _calculateTimeAgo(punchOutTimeStr);
-      statusText = _hasTimestampValue(punchOutTimeStr)
-          ? 'Punched out $timeAgo'
-          : 'Punched out';
+      statusText = canShowRelativeTime ? 'Punched out $timeAgo' : 'Punched out';
       statusColor = Colors.deepOrange;
       statusWeight = FontWeight.w600;
     } else if (punchStatus == 'punched_in') {
+      final canShowRelativeTime = _isTimestampOnDate(punchInTimeStr, now);
       final timeAgo = _calculateTimeAgo(punchInTimeStr);
-      statusText = _hasTimestampValue(punchInTimeStr)
-          ? 'Punched in $timeAgo'
-          : 'Punched in';
+      statusText = canShowRelativeTime ? 'Punched in $timeAgo' : 'Punched in';
       statusColor = Colors.green;
     } else {
       statusText = 'Absent';
