@@ -11,7 +11,10 @@ object TrackingRecoveryManager {
     private const val TAG = "TrackingRecovery"
     private const val PREFS_FILE = "FlutterSharedPreferences"
     private const val KEY_ACTIVE_TRIP_ID = "flutter.active_trip_id"
-    private const val KEY_ACTIVE_TOKEN = "flutter.active_token"
+    // Backward-compatible token keys used by Flutter shared_preferences.
+    private const val KEY_ACTIVE_TRIP_TOKEN = "flutter.active_trip_token"
+    private const val KEY_ACTIVE_TOKEN_LEGACY = "flutter.active_token"
+    private const val KEY_LOGIN_TOKEN = "flutter.token"
     private const val KEY_WATCHDOG_ENABLED = "tracking_watchdog_enabled"
     private const val REQUEST_CODE_ALARM = 31041
     private const val INTERVAL_MS = 5 * 60 * 1000L
@@ -93,9 +96,26 @@ object TrackingRecoveryManager {
     private fun hasActiveTrip(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
         val tripId = prefs.getLong(KEY_ACTIVE_TRIP_ID, -1L)
-        val token = prefs.getString(KEY_ACTIVE_TOKEN, null)
+        var tokenSource = "none"
+        val token = when {
+            !prefs.getString(KEY_ACTIVE_TRIP_TOKEN, null).isNullOrBlank() -> {
+                tokenSource = KEY_ACTIVE_TRIP_TOKEN
+                prefs.getString(KEY_ACTIVE_TRIP_TOKEN, null)
+            }
+            !prefs.getString(KEY_ACTIVE_TOKEN_LEGACY, null).isNullOrBlank() -> {
+                tokenSource = KEY_ACTIVE_TOKEN_LEGACY
+                prefs.getString(KEY_ACTIVE_TOKEN_LEGACY, null)
+            }
+            else -> {
+                tokenSource = KEY_LOGIN_TOKEN
+                prefs.getString(KEY_LOGIN_TOKEN, null)
+            }
+        }
         val isActive = tripId > 0 && !token.isNullOrBlank()
-        Log.d(TAG, "hasActiveTrip=$isActive tripId=$tripId")
+        Log.d(
+            TAG,
+            "hasActiveTrip=$isActive tripId=$tripId hasToken=${!token.isNullOrBlank()} tokenKey=$tokenSource"
+        )
         return isActive
     }
 

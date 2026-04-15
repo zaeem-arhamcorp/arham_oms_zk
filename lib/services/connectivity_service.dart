@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:arham_corporation/services/sync_service.dart';
 import 'package:arham_corporation/services/location_sync_service.dart';
+import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:provider/provider.dart';
@@ -81,6 +82,22 @@ class ConnectivityService {
             await _syncService.syncLocations(userProvider.token!);
         print(
             "[ConnectivityService] ✅ Locations: ${locationResult['synced']} synced, ${locationResult['failed']} failed");
+
+        final hasDeferredAutoPunchOut =
+            await BackgroundLocationService().hasPendingAutoPunchOut();
+        if (hasDeferredAutoPunchOut) {
+          print(
+              '[ConnectivityService] ℹ️ Offline auto punch-out queued; attempting deferred sync with stored offline timestamp.');
+        }
+
+        final deferredAutoPunchOutSynced = await BackgroundLocationService()
+            .syncPendingAutoPunchOutIfNeeded(userProvider.token!);
+        if (deferredAutoPunchOutSynced) {
+          await BackgroundLocationService()
+              .dismissTrackingForegroundArtifacts();
+          print(
+              '[ConnectivityService] ✅ Deferred auto punch-out trip-end synced');
+        }
 
         // Sync background location tracking data (continuous GPS tracking)
         final trackingResult = await _locationSyncService

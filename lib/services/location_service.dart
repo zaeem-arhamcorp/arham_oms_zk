@@ -546,6 +546,19 @@ class LocationService {
     try {
       print('[LocationService] 🔄 RESUME EXISTING TRIP - trip_id=$tripId');
 
+      final deferredAutoPunchOutPending =
+          await _backgroundService.hasPendingAutoPunchOut();
+      if (deferredAutoPunchOutPending) {
+        print(
+            '[LocationService] ⏸️ Resume skipped: deferred auto punch-out sync is pending');
+        return {
+          'success': false,
+          'message':
+              'Deferred auto punch-out sync pending. Trip resume skipped.',
+          'deferred_auto_punch_out_pending': true,
+        };
+      }
+
       // Store trip data in SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('active_trip_id', tripId);

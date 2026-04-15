@@ -32,6 +32,15 @@ class BackgroundLocationService {
   final FlutterBackgroundService _service = FlutterBackgroundService();
   static const Duration _captureInterval = Duration(seconds: 40);
   static const String _activeTripTokenKey = 'active_trip_token';
+  static const String _pendingAutoPunchOutKey = 'pending_auto_punch_out';
+  static const String _pendingAutoPunchOutTripIdKey =
+      'pending_auto_punch_out_trip_id';
+  static const String _pendingAutoPunchOutSyncIdKey =
+      'pending_auto_punch_out_sync_id';
+  static const String _pendingAutoPunchOutTimeMsKey =
+      'pending_auto_punch_out_time_ms';
+  static const String _pendingAutoPunchOutLocIdKey =
+      'pending_auto_punch_out_loc_id';
   static const platform = MethodChannel('com.arhamerp.app/notification');
   static const trackingControlPlatform =
       MethodChannel('com.arhamerp.app/tracking_control');
@@ -74,6 +83,14 @@ class BackgroundLocationService {
     final offsetMinutes = (absOffset.inMinutes % 60).toString().padLeft(2, '0');
 
     return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}T${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}$sign$offsetHours:$offsetMinutes';
+  }
+
+  static String _formatLocalDate(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _autoPunchOutDoneKeyForDate(DateTime dt) {
+    return 'auto_punch_out_done_${_formatLocalDate(dt)}';
   }
 
   // Fallback classifier when native activity recognition is unavailable in background isolate.
@@ -408,6 +425,36 @@ class BackgroundLocationService {
       final syncId = prefs.getInt('active_sync_id');
       final token =
           prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
+      final explicitlyStopped =
+          prefs.getBool('tracking_explicitly_stopped') ?? false;
+      final deferredAutoPunchOutPending =
+          prefs.getBool(_pendingAutoPunchOutKey) ?? false;
+      final autoPunchOutCompletedToday = await isAutoPunchOutCompletedToday();
+
+      if (autoPunchOutCompletedToday) {
+        print(
+            '[BackgroundLocationService] Resume skipped: auto punch-out already completed today. Clearing stale active-trip context.');
+        await prefs.setBool('tracking_explicitly_stopped', true);
+        await prefs.remove('active_trip_id');
+        await prefs.remove('active_user_cd');
+        await prefs.remove('active_sync_id');
+        await prefs.remove(_activeTripTokenKey);
+
+        _isRunning = false;
+        _currentUserCd = null;
+        _currentSyncId = null;
+        _token = null;
+        _currentTripId = null;
+
+        await dismissTrackingForegroundArtifacts();
+        return false;
+      }
+
+      if (explicitlyStopped || deferredAutoPunchOutPending) {
+        print(
+            '[BackgroundLocationService] Resume skipped (explicit stop or deferred auto punch-out pending).');
+        return false;
+      }
 
       if (tripId == null || userCd == null || syncId == null || token == null) {
         print(
@@ -450,6 +497,7 @@ class BackgroundLocationService {
         if (!startedAfterRecovery) {
           print(
               '[BackgroundLocationService] ⚠️ Recovery start requested but service is still not running');
+          return false;
         }
 
         // Set the notification as non-dismissible when recovering
@@ -724,6 +772,128 @@ class BackgroundLocationService {
     }
   }
 
+  Future<bool> hasPendingAutoPunchOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_pendingAutoPunchOutKey) ?? false;
+  }
+
+  Future<bool> isAutoPunchOutCompletedToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _autoPunchOutDoneKeyForDate(DateTime.now());
+    return prefs.getBool(key) ?? false;
+  }
+
+  /// Dismiss any lingering route-tracking foreground notification from main isolate.
+  /// Safe to call after auto punch-out/deferred sync when no trip should remain active.
+  Future<void> dismissTrackingForegroundArtifacts() async {
+    try {
+      await trackingControlPlatform.invokeMethod('stopForegroundService');
+      print(
+          '[BackgroundLocationService] ✅ Requested foreground service/notification dismissal');
+    } catch (e) {
+      print(
+          '[BackgroundLocationService] ⚠️ Could not dismiss foreground service/notification: $e');
+    }
+  }
+
+  /// Sync deferred auto punch-out trip-end call captured while offline.
+  /// Uses the original offline timestamp for end_time.
+  Future<bool> syncPendingAutoPunchOutIfNeeded(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasPending = prefs.getBool(_pendingAutoPunchOutKey) ?? false;
+      if (!hasPending) {
+        return false;
+      }
+
+      final tripId = prefs.getInt(_pendingAutoPunchOutTripIdKey);
+      final syncId = prefs.getInt(_pendingAutoPunchOutSyncIdKey);
+      final endTimeMs = prefs.getInt(_pendingAutoPunchOutTimeMsKey);
+      final pendingLocId = prefs.getInt(_pendingAutoPunchOutLocIdKey);
+
+      if (tripId == null || syncId == null || endTimeMs == null) {
+        print(
+            '[AUTO-PUNCH-OUT] Pending offline auto punch-out data is incomplete. Clearing pending state.');
+        await prefs.remove(_pendingAutoPunchOutKey);
+        await prefs.remove(_pendingAutoPunchOutTripIdKey);
+        await prefs.remove(_pendingAutoPunchOutSyncIdKey);
+        await prefs.remove(_pendingAutoPunchOutTimeMsKey);
+        await prefs.remove(_pendingAutoPunchOutLocIdKey);
+        return false;
+      }
+
+      final isOnline = await NetworkHelper.hasInternet();
+      if (!isOnline) {
+        print('[AUTO-PUNCH-OUT] Deferred trip-end sync skipped (offline).');
+        return false;
+      }
+
+      if (pendingLocId != null) {
+        final pendingLocations = await _db.getPendingLocations();
+        final isPunchOutStillPending = pendingLocations.any((row) {
+          final rowLocId = row['locId'];
+          final parsedLocId = rowLocId is int
+              ? rowLocId
+              : int.tryParse(rowLocId?.toString() ?? '');
+          return parsedLocId == pendingLocId;
+        });
+
+        if (isPunchOutStillPending) {
+          print(
+              '[AUTO-PUNCH-OUT] Waiting for local punch-out #$pendingLocId to sync before trip-end API call.');
+          return false;
+        }
+      }
+
+      final endTime = _formatDateTimeWithOffsetForApi(endTimeMs);
+      print(
+          '[AUTO-PUNCH-OUT] Syncing deferred trip-end with stored offline timestamp.');
+      print('[AUTO-PUNCH-OUT] API HIT: ${AppConfig.baseURL}location/trip/end');
+      print(
+          '[AUTO-PUNCH-OUT]   Send data: trip_id=$tripId, end_time=$endTime, sync_id=$syncId');
+
+      final endTripResponse = await http.post(
+        Uri.parse('${AppConfig.baseURL}location/trip/end'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'trip_id': tripId,
+          'end_time': endTime,
+          'sync_id': syncId,
+        }),
+      );
+
+      print(
+          '[AUTO-PUNCH-OUT] Deferred /location/trip/end response: ${endTripResponse.statusCode}');
+
+      if (endTripResponse.statusCode != 200 &&
+          endTripResponse.statusCode != 201) {
+        print(
+            '[AUTO-PUNCH-OUT] Deferred trip end failed: ${endTripResponse.statusCode} ${endTripResponse.body}');
+        return false;
+      }
+
+      await prefs.remove('active_trip_id');
+      await prefs.remove('active_user_cd');
+      await prefs.remove('active_sync_id');
+      await prefs.remove(_activeTripTokenKey);
+      await prefs.remove(_pendingAutoPunchOutKey);
+      await prefs.remove(_pendingAutoPunchOutTripIdKey);
+      await prefs.remove(_pendingAutoPunchOutSyncIdKey);
+      await prefs.remove(_pendingAutoPunchOutTimeMsKey);
+      await prefs.remove(_pendingAutoPunchOutLocIdKey);
+
+      print('[AUTO-PUNCH-OUT] Deferred trip-end sync completed successfully.');
+      return true;
+    } catch (e) {
+      print('[AUTO-PUNCH-OUT] Deferred trip-end sync exception: $e');
+      return false;
+    }
+  }
+
   /// Callback for starting the background service (Android & iOS)
   @pragma('vm:entry-point')
   static Future<void> _onStart(ServiceInstance service) async {
@@ -903,17 +1073,26 @@ class BackgroundLocationService {
       if ((prefs.getBool(autoDoneKey) ?? false) == true) {
         print(
             '[AUTO-PUNCH-OUT] Already completed for $today. Stopping active tracking.');
+
+        // Defensive cleanup in case stale active-trip context remained.
+        await prefs.setBool('tracking_explicitly_stopped', true);
+        await prefs.remove('active_trip_id');
+        await prefs.remove('active_user_cd');
+        await prefs.remove('active_sync_id');
+        await prefs.remove(_activeTripTokenKey);
+
+        final instance = BackgroundLocationService();
+        instance._isRunning = false;
+        instance._currentUserCd = null;
+        instance._currentSyncId = null;
+        instance._currentTripId = null;
+        instance._token = null;
+
         return true;
       }
 
       print(
           '[AUTO-PUNCH-OUT] Trigger met at ${formatTime(now)} on $today. Starting auto punch out...');
-
-      final isOnline = await NetworkHelper.hasInternet();
-      if (!isOnline) {
-        print('[AUTO-PUNCH-OUT] Waiting for internet to auto punch out.');
-        return false;
-      }
 
       double lat = 0.0;
       double lng = 0.0;
@@ -949,6 +1128,42 @@ class BackgroundLocationService {
         'sync_status': 'pending',
       });
       print('[AUTO-PUNCH-OUT] Local punch-out saved (locId=$locId)');
+
+      final isOnline = await NetworkHelper.hasInternet();
+      if (!isOnline) {
+        print(
+            '[AUTO-PUNCH-OUT] Offline at trigger time. Stored punch-out locally and stopping tracking.');
+
+        await prefs.setBool(_pendingAutoPunchOutKey, true);
+        await prefs.setInt(_pendingAutoPunchOutTripIdKey, tripId);
+        await prefs.setInt(_pendingAutoPunchOutSyncIdKey, syncId);
+        await prefs.setInt(_pendingAutoPunchOutTimeMsKey, createdAt);
+        await prefs.setInt(_pendingAutoPunchOutLocIdKey, locId);
+        await prefs.setBool('tracking_explicitly_stopped', true);
+
+        // tracking_control channel is registered on MainActivity engine only.
+        // In background isolate, rely on persisted stop markers instead.
+        print(
+            '[AUTO-PUNCH-OUT] Background isolate: skipping watchdog channel call; using explicit-stop flags.');
+
+        await prefs.remove('active_trip_id');
+        await prefs.remove('active_user_cd');
+        await prefs.remove('active_sync_id');
+        await prefs.remove(_activeTripTokenKey);
+        await prefs.setBool(autoDoneKey, true);
+
+        final instance = BackgroundLocationService();
+        instance._isRunning = false;
+        instance._currentUserCd = null;
+        instance._currentSyncId = null;
+        instance._currentTripId = null;
+        instance._token = null;
+
+        print(
+            '[AUTO-PUNCH-OUT] Offline punch-out captured. Deferred sync will end trip when internet is back.');
+        return true;
+      }
+
       print('[AUTO-PUNCH-OUT] API HIT: ${AppConfig.baseURL}locations');
 
       final punchOutResponse = await http.post(
@@ -1021,17 +1236,20 @@ class BackgroundLocationService {
         return false;
       }
 
-      // Disable native watchdog so tracking is not re-started after auto punch-out.
-      try {
-        await trackingControlPlatform
-            .invokeMethod('stopTrackingRecoveryWatchdog');
-      } catch (e) {
-        print('[AUTO-PUNCH-OUT] Could not disable recovery watchdog: $e');
-      }
+      // tracking_control channel is registered on MainActivity engine only.
+      // In background isolate, rely on persisted stop markers instead.
+      print(
+          '[AUTO-PUNCH-OUT] Background isolate: skipping watchdog channel call; using explicit-stop flags.');
 
       await prefs.remove('active_trip_id');
       await prefs.remove('active_user_cd');
       await prefs.remove('active_sync_id');
+      await prefs.remove(_activeTripTokenKey);
+      await prefs.remove(_pendingAutoPunchOutKey);
+      await prefs.remove(_pendingAutoPunchOutTripIdKey);
+      await prefs.remove(_pendingAutoPunchOutSyncIdKey);
+      await prefs.remove(_pendingAutoPunchOutTimeMsKey);
+      await prefs.remove(_pendingAutoPunchOutLocIdKey);
       await prefs.setBool(autoDoneKey, true);
 
       final instance = BackgroundLocationService();
@@ -1039,6 +1257,7 @@ class BackgroundLocationService {
       instance._currentUserCd = null;
       instance._currentSyncId = null;
       instance._currentTripId = null;
+      instance._token = null;
 
       print('[AUTO-PUNCH-OUT] SUCCESS: User auto punched out at 11 PM.');
       return true;
@@ -1066,6 +1285,24 @@ class BackgroundLocationService {
       }
     }
 
+    Future<void> stopServiceForAutoPunchOut(String phase) async {
+      try {
+        if (service is AndroidServiceInstance) {
+          try {
+            await (service as AndroidServiceInstance).setAsBackgroundService();
+            print(
+                '[AUTO-PUNCH-OUT] Requested foreground demotion before stop ($phase).');
+          } catch (e) {
+            print(
+                '[AUTO-PUNCH-OUT] Could not demote foreground service before stop ($phase): $e');
+          }
+        }
+        await service.stopSelf();
+      } catch (e) {
+        print('[AUTO-PUNCH-OUT] Failed to stop service ($phase): $e');
+      }
+    }
+
     // Main tracking loop
     while (generation == _trackingLoopGeneration) {
       try {
@@ -1073,7 +1310,7 @@ class BackgroundLocationService {
         if (autoPunchedOutBeforeCapture) {
           print(
               '[AUTO-PUNCH-OUT] Tracking loop exit after successful auto punch-out.');
-          await service.stopSelf();
+          await stopServiceForAutoPunchOut('before-capture');
           return;
         }
 
@@ -1287,7 +1524,7 @@ class BackgroundLocationService {
           if (autoPunchedOutDuringWait) {
             print(
                 '[AUTO-PUNCH-OUT] Tracking loop exit during wait after successful auto punch-out.');
-            await service.stopSelf();
+            await stopServiceForAutoPunchOut('during-wait');
             return;
           }
           await Future.delayed(const Duration(seconds: 1));
