@@ -13,12 +13,12 @@ class AccountScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<AccountController>();
-    controller.updateLocationFields();
+    controller.ensureInitialLocation();
 
     return Scaffold(
       appBar: AppBar(
         foregroundColor: Colors.white,
-        centerTitle: true,
+        centerTitle: false,
         title: const Text('Account Management',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       ),
@@ -105,3 +105,6 @@ class AccountScreen extends StatelessWidget {
     );
   }
 }
+
+// GOOGLE_MAPS_API_KEY=AIzaSyCHNYtneNSu_KZwoGAK7pFGWhJpKFVaiaI
+// GOOGLE_PLACES_API_KEY=AIzaSyB3srmIjv8Pux0hMn-Kd4Nqj5xdonh05dM

@@ -39,6 +39,7 @@ class DataProfile {
   dynamic syncId;
   dynamic userType;
   dynamic mobileno;
+  dynamic userImageUrl;
   dynamic validUpto;
   dynamic isPunchIn;
   OrderStartParty? orderStartParty;
@@ -54,6 +55,7 @@ class DataProfile {
     required this.syncId,
     required this.userType,
     this.mobileno,
+    this.userImageUrl,
     this.validUpto,
     this.isPunchIn,
     this.orderStartParty,
@@ -73,6 +75,10 @@ class DataProfile {
         syncId: json["SYNC_ID"],
         userType: json["USER_TYPE"],
         mobileno: json["MOBILENO"],
+        userImageUrl: json["USER_IMAGE_URL"] ??
+            json["userImageUrl"] ??
+            json["USER_IMAGE"] ??
+            '',
         validUpto: json['VALID_UPTO'],
         isPunchIn: json['IS_PUNCH_IN'] ?? false,
         orderStartParty: json["ORDER_START_PARTY"] == null
@@ -120,6 +126,7 @@ class DataProfile {
         "SYNC_ID": syncId,
         "USER_TYPE": userType,
         "MOBILENO": mobileno,
+        "USER_IMAGE_URL": userImageUrl,
         "VALID_UPTO": validUpto,
         "IS_PUNCH_IN": isPunchIn,
         "ORDER_START_PARTY": orderStartParty?.toJson(),

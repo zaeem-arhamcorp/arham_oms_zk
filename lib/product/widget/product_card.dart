@@ -782,6 +782,12 @@ class _ProductCardState extends State<ProductCard> {
                           return;
                         }
 
+                        if (controller.selectedStockistId.value.isEmpty) {
+                          AppSnackBar.showGetXCustomSnackBar(
+                              message: "Please Select Stockist");
+                          return;
+                        }
+
                         // Prevent multiple clicks
                         if (cartController.productAddedStates[
                                     widget.product.itemCd] ==

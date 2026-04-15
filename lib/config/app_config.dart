@@ -59,6 +59,10 @@ class AppConfig {
   static const String uploadImageURL =
       '${baseURL}master-entry/account/upload-image';
   static const String uploadAccountImageURL = '${baseURL}account-image';
+  static const String googlePlacesApiKey = String.fromEnvironment(
+    'GOOGLE_PLACES_API_KEY',
+    defaultValue: 'AIzaSyB3srmIjv8Pux0hMn-Kd4Nqj5xdonh05dM',
+  );
 
   // User status & heartbeat
   static const String heartbeatURL = '${baseURL}heartbeat';

@@ -21,7 +21,7 @@ class RouteMapView extends StatefulWidget {
 }
 
 class _RouteMapViewState extends State<RouteMapView> {
-  static const String _statusLogicVersion = 'route-status-v4-2026-04-14';
+  static const String _statusLogicVersion = 'route-status-v5-2026-04-15';
 
   GoogleMapController? _mapController;
   static const LatLng _defaultCenter = LatLng(23.0225, 72.5714);
@@ -35,6 +35,9 @@ class _RouteMapViewState extends State<RouteMapView> {
   int _totalUsersCount = 0;
   int _usersPerPage = 20;
   bool _isLoadingMoreUsers = false;
+  List<Map<String, dynamic>> _allUsersForSearch = [];
+  bool _isLoadingAllUsersForSearch = false;
+  bool _hasLoadedAllUsersForSearch = false;
 
   // Selected user and timeline state
   Map<String, dynamic>? _selectedUser;
@@ -84,11 +87,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchUsers();
     });
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
-      });
-    });
+    _searchController.addListener(_onSearchQueryChanged);
   }
 
   @override
@@ -98,8 +97,28 @@ class _RouteMapViewState extends State<RouteMapView> {
     super.dispose();
   }
 
+  void _onSearchQueryChanged() {
+    final query = _searchController.text.toLowerCase().trim();
+    final shouldFetchAllUsers = query.isNotEmpty &&
+        !_hasLoadedAllUsersForSearch &&
+        !_isLoadingAllUsersForSearch;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _searchQuery = query;
+    });
+
+    if (shouldFetchAllUsers) {
+      _fetchAllUsersForSearch();
+    }
+  }
+
   Future<void> _fetchUsers({int page = 1}) async {
     final isFirstPage = page == 1;
+    final today = DateTime.now();
 
     if (isFirstPage) {
       setState(() {
@@ -126,6 +145,7 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
         queryParameters: {
+          'date': _fmtDate(today),
           'page': page.toString(),
           'items_per_page': _usersPerPage.toString(),
         },
@@ -158,68 +178,10 @@ class _RouteMapViewState extends State<RouteMapView> {
         }
 
         // Map users with initial data
-        final seenUserCodes = <String>{};
-        final usersWithData = <Map<String, dynamic>>[];
-
-        for (final rawUser in usersList) {
-          if (rawUser is! Map) {
-            continue;
-          }
-
-          final user = Map<String, dynamic>.from(rawUser);
-          final userCode = _extractUserCodeFromUserPayload(user);
-
-          if (userCode.isEmpty) {
-            print('[RouteMapView] Skipping user with empty userCode: $user');
-            continue;
-          }
-
-          if (!seenUserCodes.add(userCode)) {
-            print('[RouteMapView] Skipping duplicate userCode: $userCode');
-            continue;
-          }
-
-          final userName = _extractUserNameFromUserPayload(user);
-          final phone =
-              (user['MOBILENO'] ?? user['mobileNo'] ?? user['phone'] ?? '')
-                  .toString()
-                  .trim();
-          final photoUrl = (user['USER_IMAGE_URL'] ??
-                  user['userImageUrl'] ??
-                  user['photoUrl'] ??
-                  '')
-              .toString()
-              .trim();
-          final status = (user['userStatus'] ?? user['USER_STATUS'] ?? 'active')
-              .toString()
-              .trim()
-              .toLowerCase();
-          final tripStatus = _extractTripStatusFromUserPayload(user);
-          final tripId = _extractTripIdFromUserPayload(user);
-          final knownPunchStatus = _extractPunchStatusFromUserPayload(user);
-          final knownPunchInTime = _extractPunchInTimeFromUserPayload(user);
-          final knownPunchOutTime = _extractPunchOutTimeFromUserPayload(user);
-          final lastGpsAt = (user['lastGpsAt'] ?? user['LAST_GPS_AT'] ?? '')
-              .toString()
-              .trim();
-
-          usersWithData.add({
-            'userCode': userCode,
-            'userName': userName,
-            'phone': phone,
-            'photoUrl': photoUrl,
-            'status': status,
-            'tripStatus': tripStatus,
-            'tripId': tripId,
-            'knownPunchStatus': knownPunchStatus,
-            'knownPunchInTime': knownPunchInTime,
-            'knownPunchOutTime': knownPunchOutTime,
-            'lastGpsAt': lastGpsAt,
-            'punchInTime': '', // Will be populated by trip fetch
-            'punchOutTime': '',
-            'punchStatus': 'absent',
-          });
-        }
+        final usersWithData = _mapUsersFromChildrenPayload(
+          usersList,
+          today: today,
+        );
 
         // Set users data (replace for first page, append for subsequent pages)
         setState(() {
@@ -236,22 +198,32 @@ class _RouteMapViewState extends State<RouteMapView> {
           }
         });
 
-        // Fetch latest trip for each user to get punch-in time
+        // Keep existing marker behavior (trip-based) and override only punch status
+        // from users/children last punch fields after each fetch completes.
         final ub2 = Provider.of<UserProvider>(context, listen: false);
         final token2 = ub2.token;
         print(
             '[RouteMapView] ===== Fetching trips for ${usersWithData.length} new users');
-        for (var user in usersWithData) {
+        for (final user in usersWithData) {
           final userCode = _normalizeCode(user['userCode']);
           if (userCode.isEmpty) {
             continue;
           }
+
           final tripId = user['tripId'] is num
               ? (user['tripId'] as num).toInt()
               : (int.tryParse(user['tripId']?.toString() ?? '') ?? 0);
           final tripStatus = (user['tripStatus'] ?? '').toString();
+          final enforcedPunchStatus =
+              (user['punchStatus'] ?? 'absent').toString().trim().toLowerCase();
+          final enforcedPunchInTime =
+              (user['punchInTime'] ?? '').toString().trim();
+          final enforcedPunchOutTime =
+              (user['punchOutTime'] ?? '').toString().trim();
+
           print(
               '[RouteMapView] [TRIP FETCH] User: ${user['userName']} (${user['userCode']}) | tripStatus=$tripStatus | tripId=$tripId');
+
           _fetchLatestTripForUser(
             userCode,
             token2,
@@ -261,7 +233,15 @@ class _RouteMapViewState extends State<RouteMapView> {
             knownPunchStatus: user['knownPunchStatus']?.toString(),
             knownPunchInTime: user['knownPunchInTime']?.toString(),
             knownPunchOutTime: user['knownPunchOutTime']?.toString(),
-          );
+          ).whenComplete(() {
+            _updateUserPunchStatus(
+              userCode,
+              punchStatus: enforcedPunchStatus,
+              punchInTime: enforcedPunchInTime,
+              punchOutTime: enforcedPunchOutTime,
+              reason: 'children-last-punch-override',
+            );
+          });
         }
 
         setState(() {
@@ -288,6 +268,187 @@ class _RouteMapViewState extends State<RouteMapView> {
         _isLoadingMoreUsers = false;
       });
       print('[RouteMapView] Error fetching users: $e');
+    }
+  }
+
+  List<Map<String, dynamic>> _mapUsersFromChildrenPayload(
+    List<dynamic> usersList, {
+    required DateTime today,
+  }) {
+    final seenUserCodes = <String>{};
+    final usersWithData = <Map<String, dynamic>>[];
+
+    for (final rawUser in usersList) {
+      if (rawUser is! Map) {
+        continue;
+      }
+
+      final user = Map<String, dynamic>.from(rawUser);
+      final userCode = _extractUserCodeFromUserPayload(user);
+
+      if (userCode.isEmpty) {
+        print('[RouteMapView] Skipping user with empty userCode: $user');
+        continue;
+      }
+
+      if (!seenUserCodes.add(userCode)) {
+        print('[RouteMapView] Skipping duplicate userCode: $userCode');
+        continue;
+      }
+
+      final userName = _extractUserNameFromUserPayload(user);
+      final phone =
+          (user['MOBILENO'] ?? user['mobileNo'] ?? user['phone'] ?? '')
+              .toString()
+              .trim();
+      final photoUrl = (user['USER_IMAGE_URL'] ??
+              user['userImageUrl'] ??
+              user['photoUrl'] ??
+              '')
+          .toString()
+          .trim();
+      final status = (user['userStatus'] ?? user['USER_STATUS'] ?? 'active')
+          .toString()
+          .trim()
+          .toLowerCase();
+      final tripStatus = _extractTripStatusFromUserPayload(user);
+      final tripId = _extractTripIdFromUserPayload(user);
+      final knownPunchStatus = _extractPunchStatusFromUserPayload(user);
+      final knownPunchInTime = _extractPunchInTimeFromUserPayload(user);
+      final knownPunchOutTime = _extractPunchOutTimeFromUserPayload(user);
+      final punchInTime = _resolveTodayReferenceTime(
+        primaryTime: knownPunchInTime,
+        today: today,
+      );
+      final punchOutTime = _resolveTodayReferenceTime(
+        primaryTime: knownPunchOutTime,
+        today: today,
+      );
+      final derivedPunchStatus = _derivePunchStatusFromTimes(
+        punchInTime: punchInTime,
+        punchOutTime: punchOutTime,
+        fallbackStatus: knownPunchStatus,
+      );
+      final lastGpsAt =
+          (user['lastGpsAt'] ?? user['LAST_GPS_AT'] ?? '').toString().trim();
+
+      usersWithData.add({
+        'userCode': userCode,
+        'userName': userName,
+        'phone': phone,
+        'photoUrl': photoUrl,
+        'status': status,
+        'tripStatus': tripStatus,
+        'tripId': tripId,
+        'knownPunchStatus': knownPunchStatus,
+        'knownPunchInTime': knownPunchInTime,
+        'knownPunchOutTime': knownPunchOutTime,
+        'lastGpsAt': lastGpsAt,
+        'punchInTime': punchInTime,
+        'punchOutTime': punchOutTime,
+        'punchStatus': derivedPunchStatus,
+      });
+    }
+
+    return usersWithData;
+  }
+
+  Future<void> _fetchAllUsersForSearch() async {
+    if (_isLoadingAllUsersForSearch || _hasLoadedAllUsersForSearch) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingAllUsersForSearch = true;
+    });
+
+    try {
+      final ub = Provider.of<UserProvider>(context, listen: false);
+      final token = ub.token;
+      if (token == null || token.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _isLoadingAllUsersForSearch = false;
+        });
+        return;
+      }
+
+      final allRawUsers = <dynamic>[];
+      int currentPage = 1;
+      int lastPage = 1;
+
+      do {
+        final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
+          queryParameters: {
+            'page': currentPage.toString(),
+            'items_per_page': _usersPerPage.toString(),
+          },
+        );
+
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+            'Content-Type': 'application/json',
+          },
+        );
+        print('[RouteMapView] Search Users API (all): $uri');
+
+        if (response.statusCode != 200) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _isLoadingAllUsersForSearch = false;
+          });
+          return;
+        }
+
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final usersList = (data['data'] is List) ? data['data'] : <dynamic>[];
+        allRawUsers.addAll(usersList);
+
+        final payload = data['payload'] as Map<String, dynamic>?;
+        final pagination = payload?['pagination'] as Map<String, dynamic>?;
+        final pageFromResponse =
+            int.tryParse((pagination?['page'] ?? currentPage).toString()) ??
+                currentPage;
+        lastPage = int.tryParse(
+                (pagination?['last_page'] ?? pageFromResponse).toString()) ??
+            pageFromResponse;
+        currentPage = pageFromResponse + 1;
+      } while (currentPage <= lastPage);
+
+      final mappedUsers =
+          _mapUsersFromChildrenPayload(allRawUsers, today: DateTime.now());
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _allUsersForSearch = mappedUsers;
+        _hasLoadedAllUsersForSearch = true;
+        _isLoadingAllUsersForSearch = false;
+      });
+
+      print(
+          '[RouteMapView] Search users loaded across $lastPage pages: ${mappedUsers.length}');
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoadingAllUsersForSearch = false;
+      });
+      print('[RouteMapView] Error fetching all users for search: $e');
     }
   }
 
@@ -429,6 +590,9 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   String _extractPunchInTimeFromUserPayload(Map<String, dynamic> user) {
     final candidates = [
+      user['lastPunchIn'],
+      user['LAST_PUNCH_IN'],
+      user['last_punch_in'],
       user['punchInTime'],
       user['PUNCH_IN_TIME'],
       user['punch_in_time'],
@@ -455,6 +619,9 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   String _extractPunchOutTimeFromUserPayload(Map<String, dynamic> user) {
     final candidates = [
+      user['lastPunchOut'],
+      user['LAST_PUNCH_OUT'],
+      user['last_punch_out'],
       user['punchOutTime'],
       user['PUNCH_OUT_TIME'],
       user['punch_out_time'],
@@ -477,6 +644,28 @@ class _RouteMapViewState extends State<RouteMapView> {
     }
 
     return '';
+  }
+
+  String _derivePunchStatusFromTimes({
+    required String punchInTime,
+    required String punchOutTime,
+    String? fallbackStatus,
+  }) {
+    final inTime = _tryParseDateTime(punchInTime);
+    final outTime = _tryParseDateTime(punchOutTime);
+
+    if (inTime != null && outTime != null) {
+      return inTime.isAfter(outTime) ? 'punched_in' : 'punched_out';
+    }
+    if (inTime != null) {
+      return 'punched_in';
+    }
+    if (outTime != null) {
+      return 'punched_out';
+    }
+
+    final canonicalFallback = _canonicalPunchStatus(fallbackStatus);
+    return canonicalFallback.isNotEmpty ? canonicalFallback : 'absent';
   }
 
   int _extractTripIdFromUserPayload(Map<String, dynamic> user) {
@@ -2214,7 +2403,7 @@ class _RouteMapViewState extends State<RouteMapView> {
           }
 
           if ((startTime?.toString().trim() ?? '').isEmpty) {
-             if (_applyChildrenPunchFallback(
+            if (_applyChildrenPunchFallback(
               normalizedUserCode,
               today: today,
               normalizedTripStatus: normalizedTripStatus,
@@ -2863,10 +3052,14 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   List<Map<String, dynamic>> _getFilteredUsers() {
+    final usersSource = (_searchQuery.isNotEmpty && _hasLoadedAllUsersForSearch)
+        ? _allUsersForSearch
+        : _users;
+
     if (_searchQuery.isEmpty) {
-      return _users;
+      return usersSource;
     }
-    return _users
+    return usersSource
         .where((user) =>
             user['userName'].toLowerCase().contains(_searchQuery) ||
             user['phone'].toLowerCase().contains(_searchQuery))
@@ -3041,6 +3234,22 @@ class _RouteMapViewState extends State<RouteMapView> {
                 padding: EdgeInsets.all(32.0),
                 child: Center(child: Text('No child users found')),
               )
+            else if (filteredUsers.isEmpty &&
+                _searchQuery.isNotEmpty &&
+                _isLoadingAllUsersForSearch)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text('Searching all users...'),
+                    ],
+                  ),
+                ),
+              )
             else if (filteredUsers.isEmpty && _searchQuery.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(32.0),
@@ -3094,6 +3303,10 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   void _onUsersListScroll(ScrollController controller) {
+    if (_searchQuery.isNotEmpty || _isLoadingAllUsersForSearch) {
+      return;
+    }
+
     if (controller.position.pixels >=
         controller.position.maxScrollExtent - 500) {
       // User scrolled near bottom, load more if available
@@ -3101,6 +3314,111 @@ class _RouteMapViewState extends State<RouteMapView> {
         _loadMoreUsers();
       }
     }
+  }
+
+  Future<void> _showUserPhotoPreview({
+    required String photoUrl,
+    required String userName,
+  }) async {
+    final normalizedPhotoUrl = photoUrl.trim();
+    if (normalizedPhotoUrl.isEmpty) {
+      return;
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+          child: Container(
+            width: screenSize.width,
+            constraints: BoxConstraints(maxHeight: screenSize.height * 0.82),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Image.network(
+                      normalizedPhotoUrl,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                      errorBuilder: (_, __, ___) {
+                        return Center(
+                          child: Text(
+                            'Unable to load image',
+                            style: TextStyle(color: Colors.grey[300]),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Text(
+                    userName,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTappableUserAvatar({
+    required String photoUrl,
+    required String userName,
+  }) {
+    final normalizedPhotoUrl = photoUrl.trim();
+    final displayName = userName.trim();
+    final initials =
+        displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+
+    final avatar = CircleAvatar(
+      backgroundImage: normalizedPhotoUrl.isNotEmpty
+          ? NetworkImage(normalizedPhotoUrl)
+          : null,
+      child: normalizedPhotoUrl.isEmpty ? Text(initials) : null,
+    );
+
+    if (normalizedPhotoUrl.isEmpty) {
+      return avatar;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        _showUserPhotoPreview(
+            photoUrl: normalizedPhotoUrl, userName: displayName);
+      },
+      child: avatar,
+    );
   }
 
   Widget _buildUserTile(Map<String, dynamic> user) {
@@ -3135,13 +3453,9 @@ class _RouteMapViewState extends State<RouteMapView> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ListTile(
         onTap: () => _selectUser(user),
-        leading: CircleAvatar(
-          backgroundImage: user['photoUrl'].toString().isNotEmpty
-              ? NetworkImage(user['photoUrl'])
-              : null,
-          child: user['photoUrl'].toString().isEmpty
-              ? Text(user['userName'][0].toUpperCase())
-              : null,
+        leading: _buildTappableUserAvatar(
+          photoUrl: user['photoUrl']?.toString() ?? '',
+          userName: user['userName']?.toString() ?? '',
         ),
         title: Text(user['userName']),
         subtitle: Column(
@@ -3190,14 +3504,9 @@ class _RouteMapViewState extends State<RouteMapView> {
                   SizedBox(
                     width: 3,
                   ),
-                  CircleAvatar(
-                    backgroundImage:
-                        _selectedUser?['photoUrl'].toString().isNotEmpty == true
-                            ? NetworkImage(_selectedUser!['photoUrl'])
-                            : null,
-                    child: _selectedUser?['photoUrl'].toString().isEmpty == true
-                        ? Text(_selectedUser!['userName'][0].toUpperCase())
-                        : null,
+                  _buildTappableUserAvatar(
+                    photoUrl: _selectedUser?['photoUrl']?.toString() ?? '',
+                    userName: _selectedUser?['userName']?.toString() ?? '',
                   ),
                   const SizedBox(width: 12),
                   Expanded(

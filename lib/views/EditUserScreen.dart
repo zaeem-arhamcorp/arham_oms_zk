@@ -1,5 +1,8 @@
 ﻿import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/config/app_config.dart';
@@ -11,12 +14,16 @@ import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../models/personModal.dart';
@@ -141,6 +148,37 @@ class _EditUserScreenState extends State<EditUserScreen> {
     );
   }
 
+  Future<void> _onUserPhotoTap() async {
+    final hasPhoto = (_selectedUserImage != null) ||
+        ((_existingImageUrl ?? '').toString().trim().isNotEmpty);
+
+    if (!hasPhoto) {
+      await _pickUserImage();
+      return;
+    }
+
+    final shouldEdit = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _EditUserPhotoPreviewScreen(
+          localImagePath: _selectedUserImage?.path,
+          networkImageUrl: (_existingImageUrl ?? '').toString(),
+        ),
+      ),
+    );
+
+    if (shouldEdit == true && mounted) {
+      await _pickUserImage();
+    }
+  }
+
+  Future<String?> _openCropRotateEditor(String imagePath) async {
+    return Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => _EditUserPhotoEditorScreen(imagePath: imagePath),
+      ),
+    );
+  }
+
   Future<void> _handleUserImage(String imagePath) async {
     final allowed = ['jpg', 'jpeg', 'png', 'webp'];
     final ext = imagePath.split('.').last.toLowerCase();
@@ -149,16 +187,127 @@ class _EditUserScreenState extends State<EditUserScreen> {
           message: "Only JPG, PNG, JPEG, WEBP allowed");
       return;
     }
-    final file = File(imagePath);
-    final size = await file.length();
-    if (size > _maxImageSize) {
-      AppSnackBar.showGetXCustomSnackBar(
-          message: "Image must be less than 2MB");
+
+    final editedImagePath = await _openCropRotateEditor(imagePath);
+    if (editedImagePath == null || editedImagePath.isEmpty) {
       return;
     }
+
+    String imagePathForUpload = editedImagePath;
+    final file = File(imagePathForUpload);
+    final size = await file.length();
+
+    final editedExt = imagePathForUpload.split('.').last.toLowerCase();
+    if (!allowed.contains(editedExt)) {
+      AppSnackBar.showGetXCustomSnackBar(
+          message: "Only JPG, PNG, JPEG, WEBP allowed");
+      return;
+    }
+
+    if (size > _maxImageSize) {
+      final compressedPath =
+          await _compressImageToUnder2Mb(imagePathForUpload, editedExt);
+      if (compressedPath == null || compressedPath.isEmpty) {
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Unable to compress image below 2MB");
+        return;
+      }
+      imagePathForUpload = compressedPath;
+    }
+
+    final uploadFile = File(imagePathForUpload);
+    final uploadSize = await uploadFile.length();
+    if (uploadSize > _maxImageSize) {
+      AppSnackBar.showGetXCustomSnackBar(
+          message: "Unable to compress image below 2MB");
+      return;
+    }
+
     setState(() {
-      _selectedUserImage = XFile(imagePath);
+      _selectedUserImage = XFile(imagePathForUpload);
     });
+  }
+
+  Future<String?> _compressImageToUnder2Mb(
+      String sourcePath, String ext) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        print('[EditUserScreen] Compression skipped: source file missing');
+        return null;
+      }
+
+      final normalizedExt = ext == 'jpeg' ? 'jpg' : ext;
+      final outputExt = (normalizedExt == 'png' || normalizedExt == 'webp')
+          ? normalizedExt
+          : 'jpg';
+      final compressFormat = _getCompressFormat(outputExt);
+
+      var quality = 90;
+      var minWidth = 1920;
+      var minHeight = 1920;
+      XFile? compressed;
+
+      while (quality >= 20) {
+        final targetPath = p.join(
+          Directory.systemTemp.path,
+          'edit_user_${DateTime.now().millisecondsSinceEpoch}_$quality.$outputExt',
+        );
+
+        compressed = await FlutterImageCompress.compressAndGetFile(
+          sourcePath,
+          targetPath,
+          format: compressFormat,
+          quality: quality,
+          minWidth: minWidth,
+          minHeight: minHeight,
+          keepExif: false,
+        );
+
+        if (compressed == null) {
+          quality -= 10;
+          continue;
+        }
+
+        final compressedSize = await File(compressed.path).length();
+        print(
+            '[EditUserScreen] Compression attempt quality=$quality, width=$minWidth, height=$minHeight, size=$compressedSize');
+
+        if (compressedSize <= _maxImageSize) {
+          return compressed.path;
+        }
+
+        quality -= 10;
+        minWidth = (minWidth * 0.9).round().clamp(640, 1920);
+        minHeight = (minHeight * 0.9).round().clamp(640, 1920);
+      }
+
+      return compressed?.path;
+    } catch (e) {
+      print('[EditUserScreen] Compression error: $e');
+      return null;
+    }
+  }
+
+  CompressFormat _getCompressFormat(String ext) {
+    switch (ext) {
+      case 'png':
+        return CompressFormat.png;
+      case 'webp':
+        return CompressFormat.webp;
+      default:
+        return CompressFormat.jpeg;
+    }
+  }
+
+  bool _isValidEmail(String email) {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+
+    final regex = RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+    return regex.hasMatch(trimmed);
   }
 
   @override
@@ -281,7 +430,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 children: [
                   Center(
                     child: GestureDetector(
-                      onTap: _pickUserImage,
+                      onTap: _onUserPhotoTap,
                       child: Container(
                         width: 100,
                         height: 100,
@@ -324,12 +473,13 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   ),
                   Center(
                     child: Text(
-                      _selectedUserImage != null
-                          ? "Tap to change image"
-                          : (_existingImageUrl != null &&
-                                  _existingImageUrl!.isNotEmpty)
-                              ? "Tap to change image"
-                              : "Tap to add image",
+                      (_selectedUserImage != null ||
+                              ((_existingImageUrl ?? '')
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty))
+                          ? "Tap to view image"
+                          : "Tap to add image",
                       style: TextStyle(color: Colors.grey[700], fontSize: 12),
                     ),
                   ),
@@ -807,6 +957,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
+                      final email = emailClt.text.trim();
+
                       if (userNameClt.text.isEmpty) {
                         //Fluttertoast.showToast(msg: "Please enter user name");
                         AppSnackBar.showGetXCustomSnackBar(
@@ -830,6 +982,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
                         //Fluttertoast.showToast(msg: "Please enter user 10 digit phone no");
                         AppSnackBar.showGetXCustomSnackBar(
                             message: "Please enter user 10 digit phone no");
+                      } else if (email.isNotEmpty && !_isValidEmail(email)) {
+                        AppSnackBar.showGetXCustomSnackBar(
+                            message: "Please enter valid email address");
                       } else if (selectRole == null) {
                         //Fluttertoast.showToast(msg: "Please select user role");
                         AppSnackBar.showGetXCustomSnackBar(
@@ -852,7 +1007,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                                   !activeuser,
                                   selectModules,
                                   selectedFirmIds,
-                                  emailClt.text,
+                                  email,
                                   imagePath: _selectedUserImage?.path)
                               .then((value) {
                             person.changeLoading(false);
@@ -884,7 +1039,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                                   !activeuser,
                                   selectModules,
                                   selectedFirmIds,
-                                  emailClt.text,
+                                  email,
                                   imagePath: _selectedUserImage?.path)
                               .then((value) {
                             print(value);
@@ -1189,6 +1344,257 @@ class _EditUserScreenState extends State<EditUserScreen> {
           },
         );
       },
+    );
+  }
+}
+
+class _EditUserPhotoPreviewScreen extends StatelessWidget {
+  final String? localImagePath;
+  final String networkImageUrl;
+
+  const _EditUserPhotoPreviewScreen({
+    required this.localImagePath,
+    required this.networkImageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLocal =
+        localImagePath != null && localImagePath!.trim().isNotEmpty;
+    final hasNetwork = networkImageUrl.trim().isNotEmpty;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('User Photo'),
+      ),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Center(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 5,
+                  child: hasLocal
+                      ? Image.file(File(localImagePath!), fit: BoxFit.contain)
+                      : hasNetwork
+                          ? Image.network(
+                              networkImageUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) {
+                                return const Icon(
+                                  Icons.broken_image,
+                                  color: Colors.white70,
+                                  size: 60,
+                                );
+                              },
+                            )
+                          : const Icon(
+                              Icons.person,
+                              color: Colors.white70,
+                              size: 90,
+                            ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 24,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.of(context).pop(true),
+                icon: const Icon(Icons.edit),
+                label: const Text('Change Photo'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditUserPhotoEditorScreen extends StatefulWidget {
+  final String imagePath;
+
+  const _EditUserPhotoEditorScreen({required this.imagePath});
+
+  @override
+  State<_EditUserPhotoEditorScreen> createState() =>
+      _EditUserPhotoEditorScreenState();
+}
+
+class _EditUserPhotoEditorScreenState
+    extends State<_EditUserPhotoEditorScreen> {
+  final TransformationController _transformController =
+      TransformationController();
+  final GlobalKey _repaintKey = GlobalKey();
+
+  int _quarterTurns = 0;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveEditedPhoto() async {
+    if (_saving) {
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+    });
+
+    try {
+      final renderObject = _repaintKey.currentContext?.findRenderObject();
+      if (renderObject is! RenderRepaintBoundary) {
+        if (mounted) {
+          AppSnackBar.showGetXCustomSnackBar(message: 'Unable to edit image');
+        }
+        return;
+      }
+
+      final ui.Image image = await renderObject.toImage(pixelRatio: 3.0);
+      final ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        if (mounted) {
+          AppSnackBar.showGetXCustomSnackBar(message: 'Unable to edit image');
+        }
+        return;
+      }
+
+      final bytes = byteData.buffer.asUint8List();
+      final tempDir = await getTemporaryDirectory();
+      final outputPath = p.join(
+        tempDir.path,
+        'edit_user_photo_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await File(outputPath).writeAsBytes(bytes, flush: true);
+
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(outputPath);
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showGetXCustomSnackBar(message: 'Unable to edit image');
+      }
+      print('[EditUserScreen] Photo editor error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Crop & Rotate'),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _saveEditedPhoto,
+            child: Text(
+              _saving ? 'Saving...' : 'Done',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final double side = math.min(
+                      constraints.maxWidth - 24, constraints.maxHeight - 24);
+
+                  return Center(
+                    child: Container(
+                      width: side,
+                      height: side,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white54),
+                      ),
+                      child: RepaintBoundary(
+                        key: _repaintKey,
+                        child: ClipRect(
+                          child: InteractiveViewer(
+                            transformationController: _transformController,
+                            minScale: 1,
+                            maxScale: 5,
+                            boundaryMargin: const EdgeInsets.all(80),
+                            child: RotatedBox(
+                              quarterTurns: _quarterTurns,
+                              child: Image.file(
+                                File(widget.imagePath),
+                                width: side,
+                                height: side,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _quarterTurns = (_quarterTurns + 3) % 4;
+                      });
+                    },
+                    icon: const Icon(Icons.rotate_left, color: Colors.white),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _quarterTurns = 0;
+                        _transformController.value = Matrix4.identity();
+                      });
+                    },
+                    child: const Text('Reset',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _quarterTurns = (_quarterTurns + 1) % 4;
+                      });
+                    },
+                    icon: const Icon(Icons.rotate_right, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

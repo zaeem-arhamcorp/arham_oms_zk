@@ -10,9 +10,26 @@ class ApiService {
 
   ApiService({required this.baseUrl});
 
+  Uri _resolveUrl(String endpoint) {
+    final trimmedEndpoint = endpoint.trim();
+    final parsed = Uri.tryParse(trimmedEndpoint);
+
+    // If endpoint is absolute (http/https), use it directly.
+    if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
+      return parsed;
+    }
+
+    // Otherwise, resolve as relative to configured baseUrl.
+    final base = Uri.parse(baseUrl);
+    final normalizedEndpoint = trimmedEndpoint.startsWith('/')
+        ? trimmedEndpoint.substring(1)
+        : trimmedEndpoint;
+    return base.resolve(normalizedEndpoint);
+  }
+
   Future<http.Response> get(String endpoint,
       {Map<String, String>? headers}) async {
-    final url = Uri.parse('$baseUrl$endpoint');
+    final url = _resolveUrl(endpoint);
     final mergedHeaders = {
       'Content-Type': 'application/json',
       ...?headers,
@@ -22,7 +39,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> post(String endpoint,
       {Map<String, String>? headers, Object? body}) async {
-    final url = Uri.parse('$baseUrl$endpoint');
+    final url = _resolveUrl(endpoint);
     final mergedHeaders = {
       'Content-Type': 'application/json',
       ...?headers,
@@ -54,7 +71,7 @@ class ApiService {
     Map<String, String>? fields,
     Map<String, File>? files,
   }) async {
-    final url = Uri.parse('$baseUrl$endpoint');
+    final url = _resolveUrl(endpoint);
     final request = http.MultipartRequest('POST', url);
 
     // Add headers

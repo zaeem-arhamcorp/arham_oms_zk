@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../controllers/account_controller.dart';
 import '../core/form_validation.dart';
@@ -118,6 +121,13 @@ class FormWidgets {
         const SizedBox(height: 8),
         sectionHeader('Current Location'),
         Obx(() {
+          final latText = controller.latitudeRx.value.isNotEmpty
+              ? controller.latitudeRx.value
+              : AccountFormFields.latitudeController.text;
+          final longText = controller.longitudeRx.value.isNotEmpty
+              ? controller.longitudeRx.value
+              : AccountFormFields.longitudeController.text;
+
           return Card(
             color: Colors.blue.shade50,
             margin: const EdgeInsets.symmetric(vertical: 4),
@@ -154,9 +164,7 @@ class FormWidgets {
                                   color: Colors.blue.shade900),
                             ),
                             Text(
-                              AccountFormFields.latitudeController.text.isEmpty
-                                  ? '--'
-                                  : AccountFormFields.latitudeController.text,
+                              latText.isEmpty ? '--' : latText,
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500),
                             ),
@@ -175,9 +183,7 @@ class FormWidgets {
                                   color: Colors.blue.shade900),
                             ),
                             Text(
-                              AccountFormFields.longitudeController.text.isEmpty
-                                  ? '--'
-                                  : AccountFormFields.longitudeController.text,
+                              longText.isEmpty ? '--' : longText,
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500),
                             ),
@@ -185,6 +191,194 @@ class FormWidgets {
                         ),
                       ],
                     ),
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        Obx(() {
+          final busy = controller.isLocationLoading.value;
+          final isCurrentMode =
+              controller.locationMode.value == AccountLocationMode.current;
+
+          return Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed:
+                      busy ? null : () => controller.onCurrentButtonPressed(),
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Current'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isCurrentMode
+                        ? Colors.blue
+                        : Colors.blue.withOpacity(0.15),
+                    foregroundColor:
+                        isCurrentMode ? Colors.white : Colors.blue.shade900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed:
+                      busy ? null : () => controller.onAddressButtonPressed(),
+                  icon: const Icon(Icons.search),
+                  label: const Text('Address'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !isCurrentMode
+                        ? Colors.blue
+                        : Colors.blue.withOpacity(0.15),
+                    foregroundColor:
+                        !isCurrentMode ? Colors.white : Colors.blue.shade900,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }),
+        const SizedBox(height: 10),
+        Obx(() {
+          if (!controller.showAddressSearch.value) {
+            return const SizedBox.shrink();
+          }
+
+          final suggestions = controller.placeSuggestions;
+          final query = controller.placeSearchQuery.value.trim();
+          final showNoResults = !controller.isPlaceSearchLoading.value &&
+              query.length >= 2 &&
+              suggestions.isEmpty;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller.placeSearchController,
+                onChanged: controller.onPlaceSearchChanged,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  labelText: 'Search Place',
+                  hintText: 'Type area, city, landmark...',
+                  prefixIcon: const Icon(Icons.place_outlined),
+                  suffixIcon: query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: controller.clearPlaceSearch,
+                        ),
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              if (controller.isPlaceSearchLoading.value)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              if (suggestions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Material(
+                    elevation: 2,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 240),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: suggestions.length,
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          color: Colors.grey.shade200,
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = suggestions[index];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(
+                              Icons.location_on_outlined,
+                              color: Colors.blue,
+                            ),
+                            title: Text(
+                              item.mainText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: item.secondaryText.isEmpty
+                                ? null
+                                : Text(
+                                    item.secondaryText,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                            onTap: () async {
+                              FocusScope.of(context).unfocus();
+                              await controller.onPlaceSuggestionSelected(item);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                )
+              else if (showNoResults)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'No places found',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 10),
+            ],
+          );
+        }),
+        Obx(() {
+          final selected = controller.selectedLatLng.value;
+          final target = selected ?? controller.defaultMapCenter;
+          final markers = <Marker>{
+            Marker(
+              markerId: const MarkerId('account_location_pin'),
+              position: target,
+              draggable: true,
+              onDrag: controller.onMarkerDrag,
+              onDragEnd: (position) {
+                controller.onMarkerDragEnd(position);
+              },
+            ),
+          };
+
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 220,
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: target,
+                  zoom: selected != null ? 16 : 14,
+                ),
+                onMapCreated: controller.onMapCreated,
+                onTap: controller.onMapTap,
+                markers: markers,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                scrollGesturesEnabled: true,
+                zoomGesturesEnabled: true,
+                rotateGesturesEnabled: true,
+                tiltGesturesEnabled: true,
+                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<OneSequenceGestureRecognizer>(
+                      () => EagerGestureRecognizer()),
+                },
+              ),
             ),
           );
         }),

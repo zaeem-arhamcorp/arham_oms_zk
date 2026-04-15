@@ -204,8 +204,9 @@ class Ordritm {
         "odId": odId,
         "oId": oId,
         "ITEM_SR": itemSr,
-        "VOUCH_DT":
-            "${vouchDt.year.toString().padLeft(4, '0')}-${vouchDt.month.toString().padLeft(2, '0')}-${vouchDt.day.toString().padLeft(2, '0')}",
+        "VOUCH_DT": vouchDt is DateTime
+            ? "${(vouchDt as DateTime).year.toString().padLeft(4, '0')}-${(vouchDt as DateTime).month.toString().padLeft(2, '0')}-${(vouchDt as DateTime).day.toString().padLeft(2, '0')}"
+            : (vouchDt ?? ''),
         "VOUCH_TIME": vouchTime,
         "P_CD": pCd,
         "ITEM_CD": itemCd,

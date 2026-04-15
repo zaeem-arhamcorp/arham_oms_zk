@@ -3,6 +3,7 @@ class AccountModel {
   final String personNm;
   final String mobile1;
   final String add1;
+  final String area;
   final String city;
   // final String state;
   // final String pincode;
@@ -20,6 +21,7 @@ class AccountModel {
     required this.personNm,
     required this.mobile1,
     required this.add1,
+    required this.area,
     required this.city,
     // required this.state,
     // required this.pincode,
@@ -41,6 +43,7 @@ class AccountModel {
       "moduleNo": "102",
       'mobile1': mobile1,
       'add1': add1,
+      'zone': area,
       'city': city,
       // 'state': state,
       // 'pincode': pincode,

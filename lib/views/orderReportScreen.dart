@@ -65,6 +65,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   String? _selectedUserName;
   String _selectedUserCode = ''; // Tracks current dropdown selection
   bool _usersFetchInitiated = false; // Track if we've already tried to fetch
+  static const int _usersPerPage = 20;
 
   bool isWhatsappInstalled = false;
   bool isWhatsappBussinessInstalled = false;
@@ -263,6 +264,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   Future<void> _fetchUsers() async {
     setState(() {
       _loadingUsers = true;
+      _usersFetchInitiated = true;
     });
 
     try {
@@ -270,57 +272,96 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
           Provider.of<UserProvider>(context, listen: false);
 
       final String token = userProvider.token ?? '';
-      final String baseUrl = AppConfig.baseURL;
-
       await CrashlyticsService.logAction('order_report_users_api_triggered');
       print(
-          '_fetchUsers: Fetching from ${AppConfig.childrenURL} with token: ${token.substring(0, 20)}...');
+          '_fetchUsers: Fetching paginated users from ${AppConfig.childrenURL} with token: ${token.substring(0, 20)}...');
 
-      final response = await http.get(
-        Uri.parse(AppConfig.childrenURL),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 30));
+      final allUsers = <Map<String, dynamic>>[];
+      final seenUserCodes = <String>{};
+      int currentPage = 1;
+      int lastPage = 1;
 
-      print('_fetchUsers: Response status: ${response.statusCode}');
-      print('_fetchUsers: Response body: ${response.body.substring(0, 500)}');
+      do {
+        final uri = Uri.parse(AppConfig.childrenURL).replace(
+          queryParameters: {
+            'page': currentPage.toString(),
+            'items_per_page': _usersPerPage.toString(),
+          },
+        );
 
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        List<dynamic> users = jsonResponse['data'] as List<dynamic>? ?? [];
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+            'Content-Type': 'application/json',
+          },
+        ).timeout(const Duration(seconds: 30));
 
-        print('_fetchUsers: Fetched ${users.length} users');
+        print(
+            '_fetchUsers: page=$currentPage status=${response.statusCode} uri=$uri');
 
-        setState(() {
-          _users = List<Map<String, dynamic>>.from(
-            users.map((user) {
-              final userCode = user['USER_CD'] ?? user['userCode'] ?? '';
-              final userName = user['USER_NAME'] ?? user['userName'] ?? '';
-              final phone = (user['MOBILENO'] ?? user['phone'] ?? '').trim();
-              print(
-                  '_fetchUsers: Adding user - $userName ($userCode) / $phone');
-              return {
-                'userCode': userCode,
-                'userName': userName,
-                'phone': phone,
-              };
-            }),
-          );
-          _loadingUsers = false;
-        });
+        if (response.statusCode != 200) {
+          throw Exception(
+              'Failed to fetch users page $currentPage: HTTP ${response.statusCode}');
+        }
 
-        print('_fetchUsers: State updated with ${_users.length} users');
-      } else {
-        setState(() {
-          _loadingUsers = false;
-        });
-        print('Failed to fetch users: ${response.statusCode}');
-        print('Response: ${response.body}');
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        final users = (jsonResponse['data'] as List?) ?? const [];
+        final payload = jsonResponse['payload'] as Map<String, dynamic>?;
+        final pagination = payload?['pagination'] as Map<String, dynamic>?;
+
+        final pageFromResponse =
+            int.tryParse((pagination?['page'] ?? currentPage).toString()) ??
+                currentPage;
+        lastPage =
+            int.tryParse((pagination?['last_page'] ?? 1).toString()) ?? 1;
+
+        print(
+            '_fetchUsers: page=$pageFromResponse fetched=${users.length} lastPage=$lastPage');
+
+        for (final rawUser in users) {
+          if (rawUser is! Map) {
+            continue;
+          }
+
+          final user = Map<String, dynamic>.from(rawUser);
+          final userCode =
+              (user['USER_CD'] ?? user['userCode'] ?? '').toString().trim();
+          final userName =
+              (user['USER_NAME'] ?? user['userName'] ?? '').toString().trim();
+          final phone =
+              (user['MOBILENO'] ?? user['phone'] ?? '').toString().trim();
+
+          if (userCode.isEmpty || !seenUserCodes.add(userCode)) {
+            continue;
+          }
+
+          allUsers.add({
+            'userCode': userCode,
+            'userName': userName,
+            'phone': phone,
+          });
+        }
+
+        currentPage = pageFromResponse + 1;
+      } while (currentPage <= lastPage);
+
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _users = allUsers;
+        _loadingUsers = false;
+      });
+
+      print('_fetchUsers: State updated with ${_users.length} users');
     } catch (e, stack) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _loadingUsers = false;
       });
