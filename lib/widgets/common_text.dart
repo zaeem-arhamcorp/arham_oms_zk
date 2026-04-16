@@ -59,19 +59,19 @@ class CommonText extends StatelessWidget {
 }
 
 class CommonText1 extends StatelessWidget {
-  String text;
-  FontWeight? fontWeight;
-  double? fontSize;
-  Color? color;
-  Color? underlineColor;
-  int? maxLine;
-  TextDecoration? decorationUnderline;
-  EdgeInsetsGeometry? padding;
-  TextAlign? textAlign;
-  bool? softWrap;
-  TextOverflow? overflow;
+  final String text;
+  final FontWeight? fontWeight;
+  final double? fontSize;
+  final Color? color;
+  final Color? underlineColor;
+  final int? maxLine;
+  final TextDecoration? decorationUnderline;
+  final EdgeInsetsGeometry? padding;
+  final TextAlign? textAlign;
+  final bool? softWrap;
+  final TextOverflow? overflow;
 
-  CommonText1({
+  const CommonText1({
     super.key,
     required this.text,
     this.fontWeight,

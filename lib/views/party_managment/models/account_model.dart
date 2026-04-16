@@ -5,8 +5,8 @@ class AccountModel {
   final String add1;
   final String area;
   final String city;
-  // final String state;
-  // final String pincode;
+  final String state;
+  final String pincode;
   final double latitude;
   final double longitude;
 
@@ -23,8 +23,8 @@ class AccountModel {
     required this.add1,
     required this.area,
     required this.city,
-    // required this.state,
-    // required this.pincode,
+    required this.state,
+    required this.pincode,
     required this.latitude,
     required this.longitude,
     this.gstNo,
@@ -45,8 +45,8 @@ class AccountModel {
       'add1': add1,
       'zone': area,
       'city': city,
-      // 'state': state,
-      // 'pincode': pincode,
+      'state': state,
+      'pincode': pincode,
       'gstType': gstType,
       'latitude': latitude,
       'longitude': longitude,

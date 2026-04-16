@@ -278,7 +278,8 @@ class _RouteMapViewState extends State<RouteMapView> {
     final seenUserCodes = <String>{};
     final usersWithData = <Map<String, dynamic>>[];
 
-    for (final rawUser in usersList) {
+    for (int userIndex = 0; userIndex < usersList.length; userIndex++) {
+      final rawUser = usersList[userIndex];
       if (rawUser is! Map) {
         continue;
       }
@@ -294,6 +295,13 @@ class _RouteMapViewState extends State<RouteMapView> {
       if (!seenUserCodes.add(userCode)) {
         print('[RouteMapView] Skipping duplicate userCode: $userCode');
         continue;
+      }
+
+      // Debug: Log first user's fields for punch-in extraction
+      if (userIndex == 0) {
+        print(
+            '[RouteMapView] [DEBUG] First user raw payload keys: ${user.keys.toList()}');
+        print('[RouteMapView] [DEBUG] Full first user payload: $user');
       }
 
       final userName = _extractUserNameFromUserPayload(user);
@@ -316,6 +324,13 @@ class _RouteMapViewState extends State<RouteMapView> {
       final knownPunchStatus = _extractPunchStatusFromUserPayload(user);
       final knownPunchInTime = _extractPunchInTimeFromUserPayload(user);
       final knownPunchOutTime = _extractPunchOutTimeFromUserPayload(user);
+
+      // Debug: Log punch extraction for first user
+      if (userIndex == 0) {
+        print(
+            '[RouteMapView] [DEBUG] Extracted for first user: punchStatus="$knownPunchStatus" punchInTime="$knownPunchInTime" punchOutTime="$knownPunchOutTime"');
+      }
+
       final punchInTime = _resolveTodayReferenceTime(
         primaryTime: knownPunchInTime,
         today: today,
@@ -330,7 +345,9 @@ class _RouteMapViewState extends State<RouteMapView> {
         fallbackStatus: knownPunchStatus,
       );
       final lastGpsAt =
-          (user['lastGpsAt'] ?? user['LAST_GPS_AT'] ?? '').toString().trim();
+          (user['LASTGPSAT'] ?? user['lastGpsAt'] ?? user['LAST_GPS_AT'] ?? '')
+              .toString()
+              .trim();
 
       usersWithData.add({
         'userCode': userCode,
@@ -503,6 +520,8 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   String _extractTripStatusFromUserPayload(Map<String, dynamic> user) {
     final candidates = [
+      user['TRIP_STATUS'],
+      user['TRIPSTATUS'],
       user['tripStatus'],
       user['TRIP_STATUS'],
       user['trip_status'],
@@ -590,6 +609,8 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   String _extractPunchInTimeFromUserPayload(Map<String, dynamic> user) {
     final candidates = [
+      user['LASTPUNCH_IN'],
+      user['LASTPUNCHIN'],
       user['lastPunchIn'],
       user['LAST_PUNCH_IN'],
       user['last_punch_in'],
@@ -619,6 +640,8 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   String _extractPunchOutTimeFromUserPayload(Map<String, dynamic> user) {
     final candidates = [
+      user['LASTPUNCH_OUT'],
+      user['LASTPUNCHOUT'],
       user['lastPunchOut'],
       user['LAST_PUNCH_OUT'],
       user['last_punch_out'],
@@ -673,9 +696,10 @@ class _RouteMapViewState extends State<RouteMapView> {
     // Some user payloads do not include current trip id; falling back to user id
     // can fetch an unrelated/old trip and show stale punch-out status.
     final candidates = [
+      user['TRIP_ID'],
+      user['TRIPID'],
       user['tripId'],
       user['trip_id'],
-      user['TRIP_ID'],
       user['activeTripId'],
       user['active_trip_id'],
       user['ACTIVE_TRIP_ID'],
@@ -2402,7 +2426,7 @@ class _RouteMapViewState extends State<RouteMapView> {
             return;
           }
 
-          if ((startTime?.toString().trim() ?? '').isEmpty) {
+          if (startTime.isEmpty) {
             if (_applyChildrenPunchFallback(
               normalizedUserCode,
               today: today,

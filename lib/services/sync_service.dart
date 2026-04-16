@@ -329,7 +329,6 @@ class SyncService {
       // Handle missing rates: if rate is 0, try to recover from products_cache
       var rate = item["rate"] ?? 0.0;
       var lrate = item["lrate"] ?? 0.0;
-      var nrate = item["nrate"] ?? 0.0;
 
       if ((rate == 0.0 || rate.toString() == '0') && productsCache.isNotEmpty) {
         // Try to find this item in products_cache and get its rate
@@ -664,8 +663,6 @@ class SyncService {
   /// - When firmware limit renewed to 50: call retryRejectedOrders() to retry B/C orders
   Future<Map<String, int>> retryRejectedOrders(String token,
       {int? syncId}) async {
-    int synced = 0, failed = 0;
-
     // Pre-check: internet connectivity
     final hasNet = await NetworkHelper.hasInternet();
     if (!hasNet) {
@@ -697,7 +694,6 @@ class SyncService {
         print('[SyncService] ✏️ Marked order ${orderId} as pending for retry');
       } catch (e) {
         print('[SyncService] Error marking order ${order['id']} for retry: $e');
-        failed++;
       }
     }
 

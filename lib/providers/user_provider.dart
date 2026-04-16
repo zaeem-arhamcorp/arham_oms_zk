@@ -10,11 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProvider extends ChangeNotifier {
   UserProvider() {
-    getUserData();
-    getSyncId();
-    getSyncName();
-    getCustId();
-    checkSignIn();
+    // ⚠️ IMPORTANT: Do NOT call async methods here!
+    // Use initializeAsync() instead for proper async initialization
   }
 
   String? _role;
@@ -42,6 +39,46 @@ class UserProvider extends ChangeNotifier {
   String? _custId;
 
   String? get custId => _custId;
+
+  /// ✅ Proper async initialization method - MUST be called on app startup
+  /// Loads token, role, and sign-in state from SharedPreferences
+  /// If no token exists, user is considered not signed in
+  Future<void> initializeAsync() async {
+    print('[UserProvider] 🔄 Starting async initialization...');
+    try {
+      // Load all data from SharedPreferences in parallel
+      await Future.wait([
+        getUserData(),
+        getSyncId(),
+        getSyncName(),
+        getCustId(),
+        checkSignIn(),
+      ]);
+
+      // ✅ Token-based session validation
+      if (_token == null || _token!.isEmpty) {
+        print('[UserProvider] ⚠️ No token found - marking user as signed out');
+        _isSignedIn = false;
+        notifyListeners();
+      } else {
+        print('[UserProvider] ✅ Token loaded successfully - session valid');
+        // Profile will be loaded when SplashScreen reaches HomePage
+      }
+
+      print('[UserProvider] ✅ Async initialization completed');
+    } catch (e, stack) {
+      print('[UserProvider] ❌ Error during initialization: $e');
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'user_provider_init_failed',
+      );
+      // Ensure user is signed out on error
+      _isSignedIn = false;
+      _token = null;
+      notifyListeners();
+    }
+  }
 
   changeShowSignUp(val) {
     showSignUp = val;
@@ -118,7 +155,7 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void checkSignIn() async {
+  Future<void> checkSignIn() async {
     final SharedPreferences sp = await SharedPreferences.getInstance();
     _isSignedIn = sp.getBool('signed_in') ?? false;
     notifyListeners();

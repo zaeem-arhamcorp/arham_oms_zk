@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'database_helper.dart';
 import 'cart_service.dart';
-import 'offline_order_service.dart' as db;
 
 class OfflineOrderService {
   final DatabaseHelper db = DatabaseHelper();

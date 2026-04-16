@@ -71,8 +71,7 @@ class CartListProvider extends DisposableProvider {
       // Load from local database when offline
       try {
         // Filter cart items by current party
-        final localCart =
-            await DatabaseHelper().getCartItems(partyId: partyId ?? '');
+        final localCart = await DatabaseHelper().getCartItems(partyId: partyId);
         print(
             "Loaded ${localCart.length} items from offline cart for party $partyId (before dedup)");
 
@@ -135,7 +134,7 @@ class CartListProvider extends DisposableProvider {
         // Sync server cart → local SQLite so data persists if we go offline
         try {
           final dbHelper = DatabaseHelper();
-          await dbHelper.clearCartForParty(partyId!);
+          await dbHelper.clearCartForParty(partyId);
           for (var item in serverItems) {
             await CartService().addToCart(
               partyCd: partyId,
@@ -166,8 +165,7 @@ class CartListProvider extends DisposableProvider {
       CrashlyticsService.recordNonFatal(e, stack);
       // If server fails, try loading from local DB as fallback
       try {
-        final localCart =
-            await DatabaseHelper().getCartItems(partyId: partyId ?? '');
+        final localCart = await DatabaseHelper().getCartItems(partyId: partyId);
         if (localCart.isNotEmpty) {
           _data.clear();
           for (var item in localCart) {
@@ -339,4 +337,3 @@ class CartListProvider extends DisposableProvider {
     notifyListeners();
   }
 }
-

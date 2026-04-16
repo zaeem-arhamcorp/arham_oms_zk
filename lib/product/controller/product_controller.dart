@@ -251,9 +251,9 @@ class ProductController extends GetxController {
           try {
             productItem = ProductItem.fromJson(productJson);
             // If itemCd is empty, attempt fallback mapping from camelCase keys
-            if ((productItem.itemCd ?? '').isEmpty) {
+            if (productItem.itemCd.isEmpty) {
               final fallback = <String, dynamic>{};
-              for (var entry in (productJson as Map).entries) {
+              for (var entry in productJson.entries) {
                 final k = entry.key.toString();
                 final v = entry.value;
                 // convert camelCase to upper snake-like keys used by fromJson
@@ -270,7 +270,7 @@ class ProductController extends GetxController {
                 if (k == 'deptment') fallback['deptment'] = v;
               }
               // merge remaining keys
-              for (var entry in (productJson as Map).entries) {
+              for (var entry in productJson.entries) {
                 if (!fallback.containsKey(entry.key))
                   fallback[entry.key] = entry.value;
               }

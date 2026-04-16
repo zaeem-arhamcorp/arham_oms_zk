@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -759,8 +759,8 @@ class AccountController extends GetxController {
         add1: AccountFormFields.add1Controller.text.trim(),
         area: AccountFormFields.areaController.text.trim(),
         city: AccountFormFields.cityController.text.trim(),
-        // state: AccountFormFields.stateController.text.trim(),
-        // pincode: AccountFormFields.pincodeController.text.trim(),
+        state: AccountFormFields.stateController.text.trim(),
+        pincode: AccountFormFields.pincodeController.text.trim(),
         latitude:
             double.tryParse(AccountFormFields.latitudeController.text) ?? 0.0,
         longitude:

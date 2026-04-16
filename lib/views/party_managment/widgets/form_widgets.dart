@@ -101,12 +101,12 @@ class FormWidgets {
             label: 'Address',
             maxLength: 255),
         textField(
-            controller: AccountFormFields.cityController,
-            label: 'City',
-            maxLength: 50),
-        textField(
             controller: AccountFormFields.areaController,
             label: 'Area',
+            maxLength: 50),
+        textField(
+            controller: AccountFormFields.cityController,
+            label: 'City',
             maxLength: 50),
         textField(
             controller: AccountFormFields.stateController,

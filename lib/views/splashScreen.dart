@@ -31,8 +31,20 @@ class _SplashScreenState extends State<SplashScreen> {
     _afterSplash();
   }
 
-  _afterSplash() {
+  Future<void> _afterSplash() async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    // ✅ CRITICAL: Initialize UserProvider BEFORE any logic
+    print('[SplashScreen] 🔄 Initializing UserProvider...');
+    await ub.initializeAsync();
+    print('[SplashScreen] ✅ UserProvider initialized');
+
+    // ✅ TOKEN VALIDATION: If no token, force logout
+    if (ub.token == null || ub.token!.isEmpty) {
+      print('[SplashScreen] ⚠️ No token found - redirecting to login');
+      Get.offAll(() => IntroPage());
+      return;
+    }
 
     // Use the platform helper to check if the platform is Android or iOS
     if (isAndroid()) {
@@ -41,129 +53,159 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     // First check connectivity with a short timeout so splash never hangs.
-    Future<bool> onlineCheck = NetworkHelper.hasInternet();
-    onlineCheck.timeout(const Duration(seconds: 4)).then((online) async {
+    // Handle timeout properly - if timeout, treat as offline
+    try {
+      final bool online =
+          await NetworkHelper.hasInternet().timeout(const Duration(seconds: 4));
+      await _handleSplashNavigation(online, ub);
+    } catch (e) {
+      // If connectivity check times out or fails, treat as OFFLINE
+      print(
+          '[SplashScreen] ⚠️ Connectivity check failed: $e - Treating as offline');
+      await _handleSplashNavigation(false, ub);
+    }
+  }
+
+  Future<void> _handleSplashNavigation(bool online, UserProvider ub) async {
+    try {
       if (!online) {
-        // If signed in, attempt to load cached profile/parties/items
-        // so the app can continue after being killed/backgrounded.
+        // ===== OFFLINE PATH =====
+        print('[SplashScreen] 🔴 OFFLINE - Loading from cache');
         if (ub.isSignedIn == true) {
           try {
-            // Try to populate profile from cache (provider already handles offline load)
+            // Try to populate profile from cache
+            print('[SplashScreen] Loading profile from cache...');
             await context
                 .read<ProfileProvider>()
                 .getProfile()
-                .timeout(const Duration(seconds: 2));
+                .timeout(const Duration(seconds: 3));
 
-            // Load settings (cached or from API)
-            await context
-                .read<ProfileProvider>()
-                .loadSettings(context)
-                .timeout(const Duration(seconds: 2));
+            final profileProvider = context.read<ProfileProvider>();
+            if (profileProvider.isProfileLoaded) {
+              print('[SplashScreen] ✅ Profile loaded from cache');
+            } else {
+              print(
+                  '[SplashScreen] ⚠️ Profile not loaded - will use offline defaults');
+            }
+
+            // Load settings from cache
+            try {
+              await context
+                  .read<ProfileProvider>()
+                  .loadSettings(context)
+                  .timeout(const Duration(seconds: 2));
+              print('[SplashScreen] ✅ Settings loaded from cache');
+            } catch (e) {
+              print('[SplashScreen] ⚠️ Settings load timed out: $e');
+            }
           } catch (e) {
-            print('Loading cached profile or settings timed out or failed: $e');
+            print('[SplashScreen] ⚠️ Profile load failed (offline): $e');
           }
 
+          // Try to load parties from cache
           try {
             await context
                 .read<PartyProvider>()
                 .getpartyname(context)
                 .timeout(const Duration(seconds: 2));
+            print('[SplashScreen] ✅ Parties loaded from cache');
           } catch (e) {
-            print('Loading cached parties timed out or failed: $e');
+            print('[SplashScreen] ⚠️ Parties load failed: $e');
           }
 
+          // Try to load items from cache
           try {
             await context
                 .read<ItemListProvider>()
                 .getItems(context)
                 .timeout(const Duration(seconds: 2));
+            print('[SplashScreen] ✅ Items loaded from cache');
           } catch (e) {
-            print('Loading cached items timed out or failed: $e');
+            print('[SplashScreen] ⚠️ Items load failed: $e');
           }
 
+          print('[SplashScreen] 🚀 Navigating to HomePage (offline mode)');
           Get.offAll(() => BottomnavigationBarScreen());
-          return;
-        }
-
-        if (isCurrentVersion == true) {
-          Get.offAll(() => IntroPage());
         } else {
-          Get.offAll(() => UpdatePageScreen());
+          print('[SplashScreen] 🚀 Navigating to IntroPage (not signed in)');
+          Get.offAll(() => IntroPage());
         }
         return;
       }
 
-      // Online: perform normal utility & profile fetch flow but guard with timeouts
+      // ===== ONLINE PATH =====
+      print('[SplashScreen] 🟢 ONLINE - Fetching from server');
       try {
         await getUtlity().timeout(const Duration(seconds: 5));
       } catch (e) {
-        // If utility fetch times out or fails, continue with caution
-        print('getUtlity failed or timed out: $e');
+        print('[SplashScreen] getUtility failed: $e');
       }
 
-      try {
-        if (ub.isSignedIn == true) {
-          // Ensure profile fetch doesn't hang the splash screen
-          try {
-            await context
-                .read<ProfileProvider>()
-                .getProfile()
-                .timeout(const Duration(seconds: 6));
+      if (ub.isSignedIn == true) {
+        print('[SplashScreen] Loading profile from server...');
+        try {
+          await context
+              .read<ProfileProvider>()
+              .getProfile()
+              .timeout(const Duration(seconds: 6));
 
-            // Load settings (cached or from API)
+          final profileProvider = context.read<ProfileProvider>();
+          if (profileProvider.isProfileLoaded) {
+            print('[SplashScreen] ✅ Profile loaded from server');
+          } else {
+            print('[SplashScreen] ⚠️ Profile load incomplete');
+          }
+
+          // Load settings
+          try {
             await context
                 .read<ProfileProvider>()
                 .loadSettings(context)
                 .timeout(const Duration(seconds: 5));
+            print('[SplashScreen] ✅ Settings loaded from server');
           } catch (e) {
-            print('Profile fetch or settings load failed or timed out: $e');
+            print('[SplashScreen] ⚠️ Settings load failed: $e');
           }
-
-          // Fire-and-forget other initial fetches (do not await long-running calls)
-          try {
-            context.read<PartyProvider>().getpartyname(context);
-            context.read<ItemListProvider>().getItems(context);
-          } catch (_) {}
-
-          if (isCurrentVersion == true) {
-            Get.offAll(() => BottomnavigationBarScreen());
-          } else {
-            Get.offAll(() => UpdatePageScreen());
-          }
-        } else if (isError == true) {
-          Get.offAll(() => ErrorPageScreen());
-        } else {
-          if (isCurrentVersion == true) {
-            Get.offAll(() => IntroPage());
-          } else {
-            Get.offAll(() => UpdatePageScreen());
-          }
+        } catch (e) {
+          print('[SplashScreen] ⚠️ Profile load failed: $e');
         }
-      } catch (e) {
-        print('Unexpected error in splash navigation: $e');
-        // Final fallback: navigate to intro so user can continue offline
-        if (ub.isSignedIn == true) {
+
+        // Fire-and-forget other initial fetches
+        try {
+          context.read<PartyProvider>().getpartyname(context);
+          context.read<ItemListProvider>().getItems(context);
+        } catch (_) {}
+
+        if (isCurrentVersion == true) {
+          print('[SplashScreen] 🚀 Navigating to HomePage');
           Get.offAll(() => BottomnavigationBarScreen());
         } else {
-          Get.offAll(() => IntroPage());
+          print('[SplashScreen] 🚀 Navigating to UpdatePage');
+          Get.offAll(() => UpdatePageScreen());
         }
-      }
-    }).catchError((err) {
-      // If connectivity check itself errors or times out, fallback to cached decision
-      print('Connectivity check failed or timed out: $err');
-      if (ub.isSignedIn == true) {
-        Get.offAll(() => BottomnavigationBarScreen());
+      } else if (isError == true) {
+        print('[SplashScreen] 🚀 Navigating to ErrorPage');
+        Get.offAll(() => ErrorPageScreen());
       } else {
         if (isCurrentVersion == true) {
+          print('[SplashScreen] 🚀 Navigating to IntroPage');
           Get.offAll(() => IntroPage());
         } else {
+          print('[SplashScreen] 🚀 Navigating to UpdatePage');
           Get.offAll(() => UpdatePageScreen());
         }
       }
-    });
+    } catch (e) {
+      print('[SplashScreen] ❌ Unexpected error in navigation: $e');
+      if (ub.isSignedIn == true) {
+        Get.offAll(() => BottomnavigationBarScreen());
+      } else {
+        Get.offAll(() => IntroPage());
+      }
+    }
   }
 
-  getUtlity() async {
+  Future<void> getUtlity() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     final online = await NetworkHelper.hasInternet();

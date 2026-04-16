@@ -156,7 +156,7 @@ class ProductItem {
       orStk: json['OR_STK']?.toString(),
       hsnNo: json['HSN_NO']?.toString(),
       deptment: Department.fromJson(json['deptment'] ?? {}),
-      itemImages: List<String>.from(json['item_images'] ?? []),
+      itemImages: List<String>.from(json['item_image']?['ITEM_IMG'] ?? []),
     );
   }
 }

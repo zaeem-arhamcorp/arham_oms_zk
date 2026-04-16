@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:ui';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'database_helper.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
@@ -1289,7 +1286,7 @@ class BackgroundLocationService {
       try {
         if (service is AndroidServiceInstance) {
           try {
-            await (service as AndroidServiceInstance).setAsBackgroundService();
+            await service.setAsBackgroundService();
             print(
                 '[AUTO-PUNCH-OUT] Requested foreground demotion before stop ($phase).');
           } catch (e) {
@@ -1363,7 +1360,7 @@ class BackgroundLocationService {
                 ? 'Location tracking active (detecting activity...)'
                 : 'Tracking: $resolvedActivityType';
             if (service is AndroidServiceInstance) {
-              (service as AndroidServiceInstance).setForegroundNotificationInfo(
+              service.setForegroundNotificationInfo(
                 title: 'Activity Recognition',
                 content: message,
               );
@@ -1663,7 +1660,7 @@ class BackgroundLocationService {
         print(
             '[BackgroundLocationService] [Background]    Action: Will retry on next scheduled retry');
       }
-    } catch (e, stack) {
+    } catch (e) {
       print('[BackgroundLocationService] [Background] ❌ SYNC EXCEPTION');
       print('[BackgroundLocationService] [Background]    Record ID: $recordId');
       print('[BackgroundLocationService] [Background]    Error: $e');

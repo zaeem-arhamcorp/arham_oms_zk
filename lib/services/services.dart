@@ -3030,7 +3030,7 @@ class Services {
         return;
       }
 
-      final token = ub?.token;
+      final token = ub.token;
       if (token == null || token.isEmpty) {
         print('[Services] No token available for logout API call');
         return;
@@ -3050,7 +3050,7 @@ class Services {
         print('[Services] ✅ Logout API successful');
         return json.decode(response.body);
       }
-    } catch (e, stack) {
+    } catch (e) {
       print('[Services] ⚠️ Error in logout API call: $e');
       // Don't record this error to Crashlytics since context is deactivated
       // and this is expected during logout

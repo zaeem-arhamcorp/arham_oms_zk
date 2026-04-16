@@ -869,7 +869,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                   //     ),
                   //   ),
                   Visibility(
-                    visible: !(profile.data?.profileSettings?.any((e) =>
+                    visible: !(profile.data?.profileSettings.any((e) =>
                             e.variable == 'omsWithoutErpSync' &&
                             e.value == 'Y') ??
                         false),
@@ -2124,7 +2124,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                     .userCd ||
                                                             (profile.data
                                                                     ?.profileSettings
-                                                                    ?.any((e) =>
+                                                                    .any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==
@@ -2147,10 +2147,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                 print(
                                                                     '[OrderReport] updateOrder response: $value');
                                                                 if (value !=
-                                                                        null &&
-                                                                    value is Map<
-                                                                        String,
-                                                                        dynamic>) {
+                                                                    null) {
                                                                   // New response format with success flag
                                                                   if (value[
                                                                           'success'] ==
@@ -2397,7 +2394,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                     .userCd ||
                                                             (profile.data
                                                                     ?.profileSettings
-                                                                    ?.any((e) =>
+                                                                    .any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==

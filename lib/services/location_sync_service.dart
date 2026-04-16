@@ -13,10 +13,10 @@ class LocationSyncService {
   /// Handles migration from old string timestamps to new int format
   int? _parseTimestamp(dynamic timestamp) {
     if (timestamp == null) return null;
-    
+
     // If already an int, return directly
     if (timestamp is int) return timestamp;
-    
+
     // If it's a string, try multiple parse strategies
     if (timestamp is String) {
       try {
@@ -28,17 +28,18 @@ class LocationSyncService {
           final dateTime = DateTime.parse(timestamp);
           return dateTime.millisecondsSinceEpoch ~/ 1000;
         } catch (e) {
-          print('[LocationSyncService] ⚠️ Failed to parse timestamp "$timestamp": $e');
+          print(
+              '[LocationSyncService] ⚠️ Failed to parse timestamp "$timestamp": $e');
           return null;
         }
       }
     }
-    
+
     // If it's a double or other numeric type, convert to int
     if (timestamp is num) {
-      return (timestamp as num).toInt();
+      return timestamp.toInt();
     }
-    
+
     return null;
   }
 

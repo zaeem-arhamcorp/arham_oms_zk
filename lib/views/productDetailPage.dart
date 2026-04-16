@@ -1,11 +1,11 @@
+import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_slideshow/flutter_image_slideshow.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:arham_corporation/config/app_config.dart';
-import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../models/productModal.dart';

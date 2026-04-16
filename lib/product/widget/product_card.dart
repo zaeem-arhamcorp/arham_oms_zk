@@ -104,7 +104,7 @@ class _ProductCardState extends State<ProductCard> {
               if (!(Provider.of<ProfileProvider>(context)
                       .data
                       ?.profileSettings
-                      ?.any((e) =>
+                      .any((e) =>
                           e.variable == 'omsWithoutErpSync' &&
                           e.value == 'Y') ??
                   false))
@@ -170,7 +170,7 @@ class _ProductCardState extends State<ProductCard> {
 
     return Column(
       children: [
-        if ((Provider.of<ProfileProvider>(context).data?.profileSettings?.any(
+        if ((Provider.of<ProfileProvider>(context).data?.profileSettings.any(
                 (e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
             false))
           Row(
@@ -186,7 +186,7 @@ class _ProductCardState extends State<ProductCard> {
             widget.product.nrate != '0'
                 ? ['N.Rate :', widget.product.nrate]
                 : null),
-        if (!(Provider.of<ProfileProvider>(context).data?.profileSettings?.any(
+        if (!(Provider.of<ProfileProvider>(context).data?.profileSettings.any(
                 (e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
             false))
           Row(

@@ -72,7 +72,7 @@ class _OrderUserSelectionScreenState extends State<OrderUserSelectionScreen> {
       // Build query string - empty partycd should still work to get all orders
       String queryString =
           "fromDate=$fromDateStr&toDate=$toDateStr&filterOrderType=1";
-      if (party.partyid != null && party.partyid!.isNotEmpty) {
+      if (party.partyid.isNotEmpty) {
         queryString = "partyCd=${party.partyid}&$queryString";
       }
 

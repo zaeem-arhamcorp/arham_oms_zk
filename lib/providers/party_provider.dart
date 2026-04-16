@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 
 //import 'package:fluttertoast/fluttertoast.dart';
@@ -8,7 +6,6 @@ import 'package:arham_corporation/providers/cart_list_provider.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
-import 'package:arham_corporation/services/apiServices.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/order_tracking_service.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
@@ -682,4 +679,3 @@ class PartyProvider extends DisposableProvider {
     notifyListeners();
   }
 }
-

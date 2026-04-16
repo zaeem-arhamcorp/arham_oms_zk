@@ -11,8 +11,8 @@ class PartyCacheService {
       list.add({
         "server_id": p.accCd,
         "name": p.accName,
-        "address": p.accAddress ?? '',
-        "phone": p.mobile ?? '',
+        "address": p.accAddress,
+        "phone": p.mobile,
         "last_updated": DateTime.now().millisecondsSinceEpoch,
         "sync_status": 'synced'
       });

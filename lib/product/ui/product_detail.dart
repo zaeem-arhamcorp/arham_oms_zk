@@ -184,18 +184,20 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                     return Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(image, fit: BoxFit.cover),
+                        Image.network(image, fit: BoxFit.fitHeight),
                         Container(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.black.withValues(alpha: 0.2),
-                                Colors.transparent
-                              ],
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                            ),
-                          ),
+                              color: Colors.white10,
+                              // gradient: LinearGradient(
+                              //   colors: [
+                              //     Colors.black.withValues(alpha: 0.2),
+                              //     Colors.transparent
+                              //   ],
+                              //   begin: Alignment.bottomCenter,
+                              //   end: Alignment.topCenter,
+                              // ),
+                              border: Border.all(color: Colors.black),
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                       ],
                     );

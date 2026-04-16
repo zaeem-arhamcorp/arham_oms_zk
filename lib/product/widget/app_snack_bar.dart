@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../providers/global.dart';
 
 class AppSnackBar {
   static void snackBarSuccessMsg(BuildContext context, String text) {

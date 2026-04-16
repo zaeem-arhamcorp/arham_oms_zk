@@ -668,8 +668,8 @@ class _ProductsPageState extends State<ProductsPage> {
                     itemCount: controller.stockists.length,
                     itemBuilder: (context, index) {
                       final stockist = controller.stockists[index];
-                      final name = stockist.accName ?? 'Unknown';
-                      final code = stockist.accCd ?? '';
+                      final name = stockist.accName;
+                      final code = stockist.accCd;
 
                       return InkWell(
                         onTap: () async {
@@ -713,8 +713,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 6),
-                                    if (stockist.accAddress?.isNotEmpty ??
-                                        false)
+                                    if (stockist.accAddress.isNotEmpty)
                                       Row(
                                         children: [
                                           const Icon(Icons.location_on,
@@ -722,7 +721,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                           const SizedBox(width: 4),
                                           Expanded(
                                             child: Text(
-                                              stockist.accAddress ?? '',
+                                              stockist.accAddress,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(

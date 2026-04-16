@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -123,7 +122,7 @@ class ActivityRecognitionService {
         print(
             '[ActivityRecognitionService] Current activity detected: $_currentActivity');
         return _currentActivity;
-      } on MissingPluginException catch (e) {
+      } on MissingPluginException {
         // Background isolate - MethodChannel doesn't work
         // Fall back to SharedPreferences (updated by native code on main thread)
         print(

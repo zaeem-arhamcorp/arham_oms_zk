@@ -1204,7 +1204,7 @@ class _ProductPageState extends State<ProductPage> {
                                                                         context)
                                                                     .data
                                                                     ?.profileSettings
-                                                                    ?.any((e) =>
+                                                                    .any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==
@@ -1374,7 +1374,7 @@ class _ProductPageState extends State<ProductPage> {
                                                                         context)
                                                                     .data
                                                                     ?.profileSettings
-                                                                    ?.any((e) =>
+                                                                    .any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==
@@ -1416,7 +1416,7 @@ class _ProductPageState extends State<ProductPage> {
                                                                         context)
                                                                     .data
                                                                     ?.profileSettings
-                                                                    ?.any((e) =>
+                                                                    .any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==

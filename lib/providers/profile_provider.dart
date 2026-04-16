@@ -1,19 +1,16 @@
 import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/services/location_service.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:flutter/cupertino.dart';
 
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
-import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:get/get.dart';
 import '../services/database_helper.dart';
 import '../helper/network_helper.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/profileModal.dart';
@@ -27,6 +24,10 @@ class ProfileProvider extends DisposableProvider {
   DataProfile? _data;
 
   DataProfile? get data => _data;
+
+  /// Flag to track if profile data has been loaded from API/cache
+  bool _isProfileLoaded = false;
+  bool get isProfileLoaded => _isProfileLoaded;
 
   String YN = "";
   String ACC_NAME = "";
@@ -142,6 +143,7 @@ class ProfileProvider extends DisposableProvider {
         final cached = await DatabaseHelper().getCachedProfileJson();
         if (cached != null && cached.isNotEmpty) {
           _data = profileModalFromJson(cached).data;
+          _isProfileLoaded = true; // ✅ Mark profile as loaded from cache
           _ensureLegacyModuleNosFromModulesList();
           // populate simple fields
           YN = (data?.profileSettings.any(
@@ -248,6 +250,7 @@ class ProfileProvider extends DisposableProvider {
 
       if (response.statusCode == 200) {
         _data = profileModalFromJson(response.body).data;
+        _isProfileLoaded = true; // ✅ Mark profile as loaded
 
         // Keep module access firm-specific after firm switch.
         await _applyFirmModuleFilter(syncId);
@@ -625,9 +628,15 @@ class ProfileProvider extends DisposableProvider {
   ///   - Firm 1235 (syncId=1235): enableOfflineMode='N' → returns FALSE
   /// Returns true if enableOfflineMode setting value is 'Y' for current firm
   bool isOfflineModeEnabled() {
-    if (_data?.profileSettings == null) {
+    if (_data == null) {
       print(
-          '[PROFILE] Profile settings is NULL - offline mode disabled by default');
+          '[PROFILE] ⚠️ Profile data is NULL - profile not yet loaded (offline mode disabled by default)');
+      return false; // Default to disabled if profile not loaded
+    }
+
+    if (_data?.profileSettings == null || _data!.profileSettings.isEmpty) {
+      print(
+          '[PROFILE] ⚠️ Profile settings is NULL/EMPTY - offline mode disabled by default');
       return false; // Default to disabled if no settings
     }
 
