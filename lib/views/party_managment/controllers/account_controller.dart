@@ -67,8 +67,10 @@ class AccountController extends GetxController {
   GoogleMapController? _googleMapController;
   Timer? _markerDragDebounce;
   Timer? _placeSearchDebounce;
+  Timer? _addressFieldDebounce;
   String _placesSessionToken = '';
   bool _ignorePlaceSearchChange = false;
+  bool _ignoreAddressFieldUpdates = false;
   bool _didInitLocation = false;
   final AccountRepository _repository = Get.find<AccountRepository>();
 
@@ -86,12 +88,76 @@ class AccountController extends GetxController {
       Provider.of<LocationProvider>(Get.context!, listen: false);
 
   @override
+  void onInit() {
+    super.onInit();
+    _attachAddressFieldListeners();
+  }
+
+  void _attachAddressFieldListeners() {
+    AccountFormFields.add1Controller.addListener(_onAddressFieldChanged);
+    AccountFormFields.areaController.addListener(_onAddressFieldChanged);
+    AccountFormFields.cityController.addListener(_onAddressFieldChanged);
+    AccountFormFields.stateController.addListener(_onAddressFieldChanged);
+    AccountFormFields.pincodeController.addListener(_onAddressFieldChanged);
+  }
+
+  void _detachAddressFieldListeners() {
+    AccountFormFields.add1Controller.removeListener(_onAddressFieldChanged);
+    AccountFormFields.areaController.removeListener(_onAddressFieldChanged);
+    AccountFormFields.cityController.removeListener(_onAddressFieldChanged);
+    AccountFormFields.stateController.removeListener(_onAddressFieldChanged);
+    AccountFormFields.pincodeController.removeListener(_onAddressFieldChanged);
+  }
+
+  void _onAddressFieldChanged() {
+    if (_ignoreAddressFieldUpdates) {
+      return;
+    }
+
+    _addressFieldDebounce?.cancel();
+    _addressFieldDebounce = Timer(const Duration(milliseconds: 800), () {
+      _forwardGeocodeAddressFields();
+    });
+  }
+
+  Future<void> _forwardGeocodeAddressFields() async {
+    final addressQuery = _buildAddressQueryFromFields();
+    if (addressQuery.isEmpty) {
+      return;
+    }
+
+    try {
+      final locations = await geocoding.locationFromAddress(addressQuery);
+      if (locations.isEmpty) {
+        return;
+      }
+
+      final location = locations.first;
+      _updateLatLong(location.latitude, location.longitude, animateMap: true);
+      appLog(
+        '[_forwardGeocodeAddressFields] query="$addressQuery" lat=${location.latitude}, long=${location.longitude}',
+        tag: 'AccountController',
+      );
+    } catch (e, stackTrace) {
+      appLog(
+        'Forward geocode from address fields error: $e',
+        tag: 'AccountController',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  @override
   void onClose() {
     appLog('onClose called', tag: 'AccountController');
     _markerDragDebounce?.cancel();
     _markerDragDebounce = null;
     _placeSearchDebounce?.cancel();
     _placeSearchDebounce = null;
+    _addressFieldDebounce?.cancel();
+    _addressFieldDebounce = null;
+    _detachAddressFieldListeners();
     _googleMapController?.dispose();
     _googleMapController = null;
     placeSearchController.dispose();
@@ -312,52 +378,57 @@ class AccountController extends GetxController {
     required String formattedAddress,
     required String placeName,
   }) {
-    String? valueByType(String type) {
-      for (final component in components) {
-        final types = (component['types'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList();
-        if (types.contains(type)) {
-          final value = (component['long_name'] ?? '').toString().trim();
-          if (value.isNotEmpty) {
-            return value;
+    _ignoreAddressFieldUpdates = true;
+    try {
+      String? valueByType(String type) {
+        for (final component in components) {
+          final types = (component['types'] as List<dynamic>? ?? [])
+              .map((e) => e.toString())
+              .toList();
+          if (types.contains(type)) {
+            final value = (component['long_name'] ?? '').toString().trim();
+            if (value.isNotEmpty) {
+              return value;
+            }
           }
         }
+        return null;
       }
-      return null;
+
+      final streetNumber = valueByType('street_number') ?? '';
+      final route = valueByType('route') ?? '';
+      final add1 = [streetNumber, route]
+          .where((part) => part.trim().isNotEmpty)
+          .join(' ')
+          .trim();
+
+      final firstLineFromFormatted = _firstAddressSegment(formattedAddress);
+
+      AccountFormFields.add1Controller.text = _firstNonEmpty([
+        add1,
+        placeName,
+        firstLineFromFormatted,
+      ]);
+      AccountFormFields.areaController.text = _firstNonEmpty([
+        valueByType('sublocality_level_1'),
+        valueByType('sublocality'),
+        valueByType('neighborhood'),
+        valueByType('locality'),
+      ]);
+      AccountFormFields.cityController.text = _firstNonEmpty([
+        valueByType('locality'),
+        valueByType('administrative_area_level_2'),
+        valueByType('sublocality_level_1'),
+      ]);
+      AccountFormFields.stateController.text = _firstNonEmpty([
+        valueByType('administrative_area_level_1'),
+      ]);
+      AccountFormFields.pincodeController.text = _firstNonEmpty([
+        valueByType('postal_code'),
+      ]);
+    } finally {
+      _ignoreAddressFieldUpdates = false;
     }
-
-    final streetNumber = valueByType('street_number') ?? '';
-    final route = valueByType('route') ?? '';
-    final add1 = [streetNumber, route]
-        .where((part) => part.trim().isNotEmpty)
-        .join(' ')
-        .trim();
-
-    final firstLineFromFormatted = _firstAddressSegment(formattedAddress);
-
-    AccountFormFields.add1Controller.text = _firstNonEmpty([
-      add1,
-      placeName,
-      firstLineFromFormatted,
-    ]);
-    AccountFormFields.areaController.text = _firstNonEmpty([
-      valueByType('sublocality_level_1'),
-      valueByType('sublocality'),
-      valueByType('neighborhood'),
-      valueByType('locality'),
-    ]);
-    AccountFormFields.cityController.text = _firstNonEmpty([
-      valueByType('locality'),
-      valueByType('administrative_area_level_2'),
-      valueByType('sublocality_level_1'),
-    ]);
-    AccountFormFields.stateController.text = _firstNonEmpty([
-      valueByType('administrative_area_level_1'),
-    ]);
-    AccountFormFields.pincodeController.text = _firstNonEmpty([
-      valueByType('postal_code'),
-    ]);
   }
 
   String _firstAddressSegment(String formattedAddress) {
@@ -449,21 +520,26 @@ class AccountController extends GetxController {
   }
 
   void _fillAddressControllers(geocoding.Placemark p) {
-    final addressLine = [
-      p.name,
-      p.subThoroughfare,
-      p.thoroughfare,
-    ].where((element) => (element ?? '').trim().isNotEmpty).join(' ').trim();
+    _ignoreAddressFieldUpdates = true;
+    try {
+      final addressLine = [
+        p.name,
+        p.subThoroughfare,
+        p.thoroughfare,
+      ].where((element) => (element ?? '').trim().isNotEmpty).join(' ').trim();
 
-    AccountFormFields.add1Controller.text =
-        addressLine.isNotEmpty ? addressLine : _firstNonEmpty([p.street]);
-    AccountFormFields.areaController.text =
-        _firstNonEmpty([p.subLocality, p.locality]);
-    AccountFormFields.cityController.text =
-        _firstNonEmpty([p.locality, p.subAdministrativeArea]);
-    AccountFormFields.stateController.text =
-        _firstNonEmpty([p.administrativeArea]);
-    AccountFormFields.pincodeController.text = _firstNonEmpty([p.postalCode]);
+      AccountFormFields.add1Controller.text =
+          addressLine.isNotEmpty ? addressLine : _firstNonEmpty([p.street]);
+      AccountFormFields.areaController.text =
+          _firstNonEmpty([p.subLocality, p.locality]);
+      AccountFormFields.cityController.text =
+          _firstNonEmpty([p.locality, p.subAdministrativeArea]);
+      AccountFormFields.stateController.text =
+          _firstNonEmpty([p.administrativeArea]);
+      AccountFormFields.pincodeController.text = _firstNonEmpty([p.postalCode]);
+    } finally {
+      _ignoreAddressFieldUpdates = false;
+    }
   }
 
   Future<void> _reverseGeocodeAndFillAddress(
