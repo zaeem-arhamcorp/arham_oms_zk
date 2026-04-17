@@ -598,9 +598,11 @@ class Services {
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
-      //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addOrder data ${e.toString()}");
+
+      // Re-throw network errors so the caller can handle offline fallback
+      // Don't show error snackbar here - let caller handle it
+      rethrow;
     }
     return null;
   }

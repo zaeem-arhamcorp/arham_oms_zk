@@ -17,11 +17,11 @@ class AppConfig {
   //8140263919
   //3919
 
-  //9824747862 Firoj Khan - 1
-  //9033881931 Rizwan Ansari - 1
-  //9227451051 Mubassira - 2
-  //9875 Abrar - 98
-  //9723760786 Zaeem Kadri - 1
+  //9824747862 Firoj Khan - 1          Child
+  //9033881931 Rizwan Ansari - 1       Master
+  //9227451051 Mubassira - 2           Master
+  //9875 Abrar - 98                    Parent
+  //9723760786 Zaeem Kadri - 1         Master
 
   //Nevil Pharma
   //9033546913 Mahesh Patadiya - Password: 101
@@ -63,6 +63,7 @@ class AppConfig {
   static const String uploadImageURL =
       '${baseURL}master-entry/account/upload-image';
   static const String uploadAccountImageURL = '${baseURL}account-image';
+
   static const String googlePlacesApiKey = String.fromEnvironment(
     'GOOGLE_PLACES_API_KEY',
     defaultValue: 'AIzaSyB3srmIjv8Pux0hMn-Kd4Nqj5xdonh05dM',

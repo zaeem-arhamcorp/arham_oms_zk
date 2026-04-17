@@ -588,17 +588,42 @@ class PartyProvider extends DisposableProvider {
         Provider.of<LocationProvider>(context, listen: false);
     final ProfileProvider pp =
         Provider.of<ProfileProvider>(context, listen: false);
+
     loading = true;
     notifyListeners();
+
     try {
-      final location = await lp.determinePosition();
+      // ⚡⚡⚡ GET LATEST LOCATION FROM DATABASE (40-second interval tracking)
+      // This location is already being captured every 40 seconds during punch period
+      final db = DatabaseHelper();
+      final latestLocData = await db.getLatestLocation();
+
+      double lat = 0.0;
+      double lng = 0.0;
+
+      if (latestLocData != null) {
+        lat = latestLocData['latitude'] ?? 0.0;
+        lng = latestLocData['longitude'] ?? 0.0;
+        print(
+            '[ORDER_START_END] 📍 Using latest location from 40-second tracking: ($lat, $lng)');
+      } else {
+        print(
+            '[ORDER_START_END] ⚠️ No location in database, using fallback cached location');
+        // Fallback to cached location if database is empty
+        lat = lp.lat ?? 0.0;
+        lng = lp.lag ?? 0.0;
+      }
+
+      print('[ORDER_START_END] 🚀 Using location immediately');
+      print('[ORDER_START_END]   Lat: $lat, Lng: $lng');
+      print('[ORDER_START_END]   Type: $type | Party: $acc_cd');
 
       // Use OrderTrackingService for offline-first start/end order
       final OrderTrackingService orderSvc = OrderTrackingService();
       final result = await orderSvc.startEndOrder(
         accCd: acc_cd,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: lat,
+        longitude: lng,
         type: type,
         oId: oID,
         token: ub.token.toString(),
@@ -651,6 +676,23 @@ class PartyProvider extends DisposableProvider {
         }
         loading = false;
         notifyListeners();
+
+        // 📍 Background: Get fresh location for future API calls (non-blocking)
+        Future.microtask(() async {
+          try {
+            print(
+                '[ORDER_START_END] 📍 Background: Fetching fresh location...');
+            final freshLocation = await lp.determinePosition();
+            lp.lat = freshLocation.latitude;
+            lp.lag = freshLocation.longitude;
+            print(
+                '[ORDER_START_END] ✅ Background: Location updated to (${freshLocation.latitude}, ${freshLocation.longitude})');
+          } catch (e) {
+            print(
+                '[ORDER_START_END] ⚠️ Background: Could not refresh location: $e');
+            // Silently fail - next API call will use database location
+          }
+        });
       } else {
         // Failed to process order
         print('[PartyProvider] 🔴 RESULT: FAILED | Error: ${result['error']}');
@@ -661,8 +703,8 @@ class PartyProvider extends DisposableProvider {
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(
-          message: 'Please Enable Location Permission');
+      print('[ORDER_START_END] ❌ Error: $e');
+      AppSnackBar.showGetXCustomSnackBar(message: 'Error: $e');
 
       loading = false;
       notifyListeners();

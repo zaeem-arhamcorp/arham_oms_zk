@@ -149,7 +149,10 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
                                         _focusNode.unfocus();
                                       },
                                 child: Text(
-                                  '${user['userName']} (${user['phone']})',
+                                  user['phone'] != null &&
+                                          user['phone']!.isNotEmpty
+                                      ? '${user['userName']} (${user['phone']})'
+                                      : user['userName'] ?? '',
                                   style: TextStyle(
                                     fontWeight: widget.selectedUserCode ==
                                             user['userCode']

@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
@@ -42,192 +43,26 @@ class CartController extends GetxController {
 
     productLoadingStates[itemCd] = true;
 
-    final bool online = await NetworkHelper.hasInternet();
-
-    if (!online) {
-      // OFFLINE: Save to local SQLite database
-      try {
-        double rateVal = double.tryParse(rate ?? '0') ?? 0;
-        double qtyVal = double.tryParse(qty) ?? 0;
-        var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
-        double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
-        // If rate not provided or zero, try to recover from cached products
-        if (rateVal == 0 || rateVal.isNaN) {
-          try {
-            final cached = await DatabaseHelper().getCachedProducts();
-            final prod = cached.firstWhere(
-                (p) =>
-                    (p['item_cd']?.toString() ??
-                        p['ITEM_CD']?.toString() ??
-                        '') ==
-                    itemCd,
-                orElse: () => {});
-            if (prod.isNotEmpty) {
-              // Parse product_json to get the rates
-              try {
-                final productJsonStr = prod['product_json']?.toString() ?? '';
-                if (productJsonStr.isNotEmpty) {
-                  final productJson =
-                      jsonDecode(productJsonStr) as Map<String, dynamic>;
-                  double recovered = 0;
-                  // Prefer NRATE if available, else SRATE3, else PRATE
-                  final nrateFromJson =
-                      productJson['NRATE'] ?? productJson['nrate'];
-                  final srate3FromJson =
-                      productJson['SRATE3'] ?? productJson['srate3'];
-                  final prateFromJson =
-                      productJson['PRATE'] ?? productJson['prate'];
-
-                  if (nrateFromJson != null) {
-                    recovered = double.tryParse(nrateFromJson.toString()) ?? 0;
-                  }
-                  if (recovered == 0 && srate3FromJson != null) {
-                    recovered = double.tryParse(srate3FromJson.toString()) ?? 0;
-                  }
-                  if (recovered == 0 && prateFromJson != null) {
-                    recovered = double.tryParse(prateFromJson.toString()) ?? 0;
-                  }
-
-                  if (recovered > 0) {
-                    rateVal = recovered;
-                    nrateVal = recovered;
-                    log('[CartController] Recovered rate for item $itemCd: $recovered (was 0)');
-                  }
-                }
-              } catch (jsonErr) {
-                log('[CartController] Error parsing product_json for $itemCd: $jsonErr');
-              }
-            }
-          } catch (e) {
-            log('[CartController] Could not recover rate from cache for item $itemCd: $e');
-          }
-        }
-
-        double amount = rateVal * qtyVal;
-
-        await CartService().addToCart(
-          partyCd: partyid,
-          itemCd: itemCd,
-          quantity: qtyVal,
-          rate: rateVal,
-          nrate: nrateVal,
-          lrate: lrateVal,
-          amount: amount,
-          otherDesc: otherDesc ?? '',
-          fld5: remarks ?? '',
-          itemName: itemName ?? '',
-          stockist: stockist ?? '',
-        );
-
-        productAddedStates[itemCd] = true;
-        log("Item $itemCd saved to local cart (offline)");
-      } catch (e) {
-        log("Error saving to local cart: $e");
-        AppSnackBar.showGetXCustomSnackBar(
-          message: "Failed to add item to cart",
-        );
-      } finally {
-        productLoadingStates[itemCd] = false;
-      }
-      return;
-    }
-
-    // ONLINE: Save to local DB first, then POST to server
     final UserProvider userProvider =
         Provider.of<UserProvider>(Get.context!, listen: false);
 
+    // Build request body
+    final requestBody = {
+      "partyCd": partyid,
+      "itemCd": itemCd,
+      "qty": qty,
+      "lrate": rate,
+      if (otherDesc != null && otherDesc.trim().isNotEmpty)
+        "otherDesc": otherDesc,
+      if (remarks != null && remarks.trim().isNotEmpty) "fld5": remarks,
+      if (rate != null && rate.trim().isNotEmpty) "rate": rate,
+      if (stockist != null && stockist.trim().isNotEmpty) "stockist": stockist,
+      "moduleNo": "205"
+    };
+
     try {
-      // Always save locally first (ensures cart survives connectivity loss)
-      double rateVal = double.tryParse(rate ?? '0') ?? 0;
-      double qtyVal = double.tryParse(qty) ?? 0;
-      var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
-      double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
-
-      // If rate is 0, try to recover from cached products (same as offline)
-      if (rateVal == 0 || rateVal.isNaN) {
-        try {
-          final cached = await DatabaseHelper().getCachedProducts();
-          final prod = cached.firstWhere(
-              (p) =>
-                  (p['item_cd']?.toString() ??
-                      p['ITEM_CD']?.toString() ??
-                      '') ==
-                  itemCd,
-              orElse: () => {});
-          if (prod.isNotEmpty) {
-            // Parse product_json to get the rates
-            try {
-              final productJsonStr = prod['product_json']?.toString() ?? '';
-              if (productJsonStr.isNotEmpty) {
-                final productJson =
-                    jsonDecode(productJsonStr) as Map<String, dynamic>;
-                double recovered = 0;
-                // Prefer NRATE if available, else SRATE3, else PRATE
-                final nrateFromJson =
-                    productJson['NRATE'] ?? productJson['nrate'];
-                final srate3FromJson =
-                    productJson['SRATE3'] ?? productJson['srate3'];
-                final prateFromJson =
-                    productJson['PRATE'] ?? productJson['prate'];
-
-                if (nrateFromJson != null) {
-                  recovered = double.tryParse(nrateFromJson.toString()) ?? 0;
-                }
-                if (recovered == 0 && srate3FromJson != null) {
-                  recovered = double.tryParse(srate3FromJson.toString()) ?? 0;
-                }
-                if (recovered == 0 && prateFromJson != null) {
-                  recovered = double.tryParse(prateFromJson.toString()) ?? 0;
-                }
-
-                if (recovered > 0) {
-                  rateVal = recovered;
-                  nrateVal = recovered;
-                  log('[CartController] Recovered rate for item $itemCd: $recovered (was 0)');
-                }
-              }
-            } catch (jsonErr) {
-              log('[CartController] Error parsing product_json for $itemCd: $jsonErr');
-            }
-          }
-        } catch (e) {
-          log('[CartController] Could not recover rate from cache for item $itemCd: $e');
-        }
-      }
-
-      double amount = rateVal * qtyVal;
-
-      await CartService().addToCart(
-        partyCd: partyid,
-        itemCd: itemCd,
-        quantity: qtyVal,
-        rate: rateVal,
-        nrate: nrateVal,
-        lrate: lrateVal,
-        amount: amount,
-        otherDesc: otherDesc ?? '',
-        fld5: remarks ?? '',
-        itemName: itemName ?? '',
-        stockist: stockist ?? '',
-      );
-      log("Item $itemCd saved to local cart (online+local)");
-
-      // Now POST to server
-      final requestBody = {
-        "partyCd": partyid,
-        "itemCd": itemCd,
-        "qty": qty,
-        //if(lrate!=null && lrate.toString().isNotEmpty) "lrate": lrate,// Fazal Changes 13-03-2025
-        "lrate": rate,
-        if (otherDesc != null && otherDesc.trim().isNotEmpty)
-          "otherDesc": otherDesc,
-        if (remarks != null && remarks.trim().isNotEmpty) "fld5": remarks,
-        if (rate != null && rate.trim().isNotEmpty) "rate": rate,
-        if (stockist != null && stockist.trim().isNotEmpty)
-          "stockist": stockist,
-        "moduleNo": "205"
-      };
-
+      // ⚡⚡⚡ IMMEDIATE API CALL (no internet check - save 5 seconds!)
+      // Just try the API, catch network errors gracefully
       final response = await dio.post(
         "${AppConfig.baseURL}cart",
         data: requestBody,
@@ -238,23 +73,138 @@ class CartController extends GetxController {
           },
         ),
       );
+
       log(">>>>>>>>>> $requestBody");
       print("here add to card url " "${AppConfig.baseURL}cart");
 
       if (response.statusCode == 401) {
-        //showToast("Session expired. Please log in again.");
         AppSnackBar.showGetXCustomSnackBar(
             message: "Session expired. Please log in again.");
-
         Get.offAll(() => LoginPage());
+        productLoadingStates[itemCd] = false;
+        return;
+      }
+
+      // ✅ Update UI immediately on API success
+      productAddedStates[itemCd] = true;
+      log("Cart response: ${response.data}");
+
+      // 📱 NOW save to local DB in background (non-blocking)
+      Future.microtask(() async {
+        try {
+          double rateVal = double.tryParse(rate ?? '0') ?? 0;
+          double qtyVal = double.tryParse(qty) ?? 0;
+          var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
+          double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
+          double amount = rateVal * qtyVal;
+
+          print(
+              '[OFFLINE_DB] Starting background local DB save for item: $itemCd');
+          print('[OFFLINE_DB] Qty: $qtyVal, Rate: $rateVal, Amount: $amount');
+
+          await CartService().addToCart(
+            partyCd: partyid,
+            itemCd: itemCd,
+            quantity: qtyVal,
+            rate: rateVal,
+            nrate: nrateVal,
+            lrate: lrateVal,
+            amount: amount,
+            otherDesc: otherDesc ?? '',
+            fld5: remarks ?? '',
+            itemName: itemName ?? '',
+            stockist: stockist ?? '',
+          );
+          print(
+              '[OFFLINE_DB] ✅ Item $itemCd successfully saved to local DB (ONLINE mode)');
+          log("Item $itemCd saved to local cart (background)");
+        } catch (e) {
+          print('[OFFLINE_DB] ❌ Background DB save failed for $itemCd: $e');
+          log("Background DB save failed for $itemCd: $e");
+          // Silently fail - item is already on server
+        }
+      });
+    } on DioException catch (dioError) {
+      // Check if this is an authentication error
+      if (dioError.response?.statusCode == 401) {
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Session expired. Please log in again.");
+        Get.offAll(() => LoginPage());
+        productLoadingStates[itemCd] = false;
+        return;
+      }
+
+      // NETWORK ERROR: Fall back to offline mode
+      // Catch all network-related errors (connection, timeout, unreachable, etc.)
+      final isNetworkError =
+          dioError.type == DioExceptionType.connectionTimeout ||
+              dioError.type == DioExceptionType.receiveTimeout ||
+              dioError.type == DioExceptionType.sendTimeout ||
+              dioError.type == DioExceptionType.connectionError ||
+              dioError.type == DioExceptionType.unknown ||
+              dioError.message?.toLowerCase().contains('connection') == true ||
+              dioError.message?.toLowerCase().contains('network') == true ||
+              dioError.message?.toLowerCase().contains('unreachable') == true;
+
+      if (isNetworkError) {
+        print(
+            '[OFFLINE_DB] ⚠️ Network error detected, switching to offline mode: ${dioError.message}');
+        log("Network error, saving offline: $dioError");
+
+        // Save to local DB instead
+        try {
+          double rateVal = double.tryParse(rate ?? '0') ?? 0;
+          double qtyVal = double.tryParse(qty) ?? 0;
+          var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
+          double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
+          double amount = rateVal * qtyVal;
+
+          print(
+              '[OFFLINE_DB] Saving to local DB in OFFLINE mode for item: $itemCd');
+          print('[OFFLINE_DB] Qty: $qtyVal, Rate: $rateVal, Amount: $amount');
+
+          await CartService().addToCart(
+            partyCd: partyid,
+            itemCd: itemCd,
+            quantity: qtyVal,
+            rate: rateVal,
+            nrate: nrateVal,
+            lrate: lrateVal,
+            amount: amount,
+            otherDesc: otherDesc ?? '',
+            fld5: remarks ?? '',
+            itemName: itemName ?? '',
+            stockist: stockist ?? '',
+          );
+
+          productAddedStates[itemCd] = true;
+          print(
+              '[OFFLINE_DB] ✅ Item $itemCd successfully saved to local DB (OFFLINE mode)');
+          AppSnackBar.showGetXCustomSnackBar(
+            message: "Item added (offline - will sync)",
+            backgroundColor: Colors.orange,
+          );
+          log("Item $itemCd saved to local cart (offline fallback)");
+        } catch (e) {
+          print('[OFFLINE_DB] ❌ Failed to save offline: $e');
+          log("Error saving to local cart: $e");
+          AppSnackBar.showGetXCustomSnackBar(
+            message: "Failed to add item to cart",
+          );
+        }
       } else {
-        productAddedStates[itemCd] = true;
-        log("Cart response: ${response.data}");
+        // Other DIO error (not network related)
+        log("DIO Error in addItemToCart: $dioError");
+        AppSnackBar.showGetXCustomSnackBar(
+          message: "Failed to add item to cart: ${dioError.message}",
+        );
       }
     } catch (e) {
+      // Generic error
       log("Error in addItemToCart: $e");
-      // Item is still saved locally even if server fails
-      productAddedStates[itemCd] = true;
+      AppSnackBar.showGetXCustomSnackBar(
+        message: "Failed to add item to cart",
+      );
     } finally {
       productLoadingStates[itemCd] = false;
     }

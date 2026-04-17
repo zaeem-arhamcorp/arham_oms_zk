@@ -181,6 +181,7 @@ class _ProductPageState extends State<ProductPage> {
 
   getDeptment() {
     Services().getDeptment(context).then((value) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       setState(() {
         // Clear existing data
         deptData.clear();
@@ -208,6 +209,7 @@ class _ProductPageState extends State<ProductPage> {
         maindeptData.addAll(deptData);
       });
     }).catchError((error) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       // Error handling: ensure at least "All Item" is available
       print('[PRODUCTS] Error loading departments: $error');
       setState(() {
@@ -235,6 +237,7 @@ class _ProductPageState extends State<ProductPage> {
 
   getOptions() {
     Services().getNarration(context, "OTHER_DESC").then((value) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       setState(() {
         value!.forEach((e) => otherDescOptions.add(DatumNarration(
             NARR_NAME: e.NARR_NAME,
@@ -243,6 +246,7 @@ class _ProductPageState extends State<ProductPage> {
       });
     });
     Services().getNarration(context, "FLD5").then((value) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       setState(() {
         value!.forEach((e) => fld5DescOptions.add(DatumNarration(
             NARR_NAME: e.NARR_NAME,
@@ -339,9 +343,6 @@ class _ProductPageState extends State<ProductPage> {
             'N' &&
         party.party == "") {
       FocusManager.instance.primaryFocus?.unfocus();
-      //Fluttertoast.showToast(msg: "Please select party first");
-      // showAnimatedToast(
-      //     message: "Please select party first", color: Colors.red);
       AppSnackBar.showGetXCustomSnackBar(message: "Please select party first");
     } else if (profile.data?.profileSettings
                 .firstWhere((element) => element.variable == 'punchInOut')
@@ -349,9 +350,6 @@ class _ProductPageState extends State<ProductPage> {
             'Y' &&
         party.punchInOutParty == "") {
       FocusManager.instance.primaryFocus?.unfocus();
-      // Fluttertoast.showToast(msg: "Please select party first");
-      // showAnimatedToast(
-      //     message: "Please select party first", color: Colors.red);
       AppSnackBar.showGetXCustomSnackBar(message: "Please select party first");
     } else {
       setState(() {
@@ -368,18 +366,19 @@ class _ProductPageState extends State<ProductPage> {
               remarks)
           .then((value) {
         if (value != null && value['statusCode'] == 200) {
-          cart.data.add(DatumCartList(itemCd: itemCd));
-          cart.getCartItem(context,
-              profile.YN == "Y" ? party.punchInOutPartyId : party.partyid);
+          // ⚡ FAST: Just update local state, don't refetch entire cart
+          if (!cart.data.any((item) => item.itemCd == itemCd)) {
+            cart.data.add(DatumCartList(itemCd: itemCd));
+          }
+          cart.notifyListeners();
+          // NOTE: Removed cart.getCartItem() call which was fetching entire cart
+          // Cart will be refreshed when user navigates to cart page
         }
         isCardItemLoading =
             isCardItemLoading.where((element) => element != itemCd).toList();
         setState(() {});
-        //showAnimatedToast(message: value['message'], color: Colors.green);
         AppSnackBar.showGetXCustomSnackBar(
             message: value['message'], backgroundColor: Colors.green);
-
-        //Fluttertoast.showToast(msg: value['message']);
       });
     }
   }

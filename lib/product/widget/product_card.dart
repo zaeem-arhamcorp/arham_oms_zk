@@ -527,44 +527,26 @@ class _ProductCardState extends State<ProductCard> {
                           remarkController.clear(),
                         });
 
-                // Set product as added
+                // ⚡ Set product as added immediately
                 cartController.productAddedStates[widget.product.itemCd] = true;
 
-                // Increment cart count without triggering full rebuild
+                // Increment cart count and trigger update
                 cartController.cartCount.value++;
+                cartController.update(); // Ensure UI rebuilds with new count
 
-                // Sync cart data in background without clearing states
-                if (controller.selectedPartyId.isNotEmpty) {
-                  cart
-                      .getCartItem(
-                          Get.context!, controller.selectedPartyId.value)
-                      .then((_) {
-                    // Silently update states without triggering rebuild
-                    for (var item in cart.data) {
-                      if (!cartController.productAddedStates
-                          .containsKey(item.itemCd)) {
-                        cartController.productAddedStates[item.itemCd] = true;
-                      }
+                // Hide keyboard
+                FocusManager.instance.primaryFocus?.unfocus();
+
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (Get.context != null) {
+                      FocusScope.of(Get.context!)
+                          .requestFocus(controller.focusNode);
                     }
-                    // Update cart count accurately
-                    cartController.cartCount.value =
-                        cartController.productAddedStates.length;
-
-                    print(cartController.cartCount.value);
-
-                    // Hide keyboard
-                    FocusManager.instance.primaryFocus?.unfocus();
-
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (Get.context != null) {
-                          FocusScope.of(Get.context!)
-                              .requestFocus(controller.focusNode);
-                        }
-                      });
-                    });
                   });
-                }
+                });
+                // NOTE: Removed getCartItem() call - was fetching entire cart
+                // Cart will be refreshed when user navigates to cart page
               } catch (e) {
                 //showToast("Error adding product: $e");
                 AppSnackBar.showGetXCustomSnackBar(
@@ -867,45 +849,27 @@ class _ProductCardState extends State<ProductCard> {
                                         widget.product.itemCd),
                                   });
 
-                          // Mark this product as added immediately
+                          // ⚡ Mark this product as added immediately
                           cartController
                               .productAddedStates[widget.product.itemCd] = true;
 
                           // Increment cart count without triggering full rebuild
                           cartController.cartCount.value++;
 
-                          // Sync cart data in background without clearing states
-                          if (controller.selectedPartyId.isNotEmpty) {
-                            cart
-                                .getCartItem(Get.context!,
-                                    controller.selectedPartyId.value)
-                                .then((_) {
-                              // Silently update states without triggering rebuild
-                              for (var item in cart.data) {
-                                if (!cartController.productAddedStates
-                                    .containsKey(item.itemCd)) {
-                                  cartController
-                                      .productAddedStates[item.itemCd] = true;
-                                }
+                          // Hide keyboard
+                          FocusManager.instance.primaryFocus?.unfocus();
+
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            Future.delayed(const Duration(milliseconds: 100),
+                                () {
+                              if (Get.context != null) {
+                                FocusScope.of(Get.context!)
+                                    .requestFocus(controller.focusNode);
                               }
-                              // Update cart count accurately
-                              cartController.cartCount.value =
-                                  cartController.productAddedStates.length;
-
-                              // Hide keyboard
-                              FocusManager.instance.primaryFocus?.unfocus();
-
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                Future.delayed(
-                                    const Duration(milliseconds: 100), () {
-                                  if (Get.context != null) {
-                                    FocusScope.of(Get.context!)
-                                        .requestFocus(controller.focusNode);
-                                  }
-                                });
-                              });
                             });
-                          }
+                          });
+                          // NOTE: Removed getCartItem() call - was fetching entire cart
+                          // Cart will be refreshed when user navigates to cart page
                         } catch (e) {
                           AppSnackBar.showGetXCustomSnackBar(
                               message: "Error adding product: $e");

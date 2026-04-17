@@ -44,6 +44,7 @@ class _ProductsPageState extends State<ProductsPage> {
   String? deptCd;
 
   bool isLoading = true;
+  bool _isOrderProcessing = false; // Prevent multiple clicks on order buttons
   List<DatumProduct> dataProduct = [];
 
   List<TextEditingController> qty = [];
@@ -131,6 +132,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
         cartController.cartCount.value =
             cartController.productAddedStates.length;
+        cartController.update(); // Ensure UI rebuilds with new cart count
       }
 
       // Refresh stockists only when stockist link is enabled for this user.
@@ -390,95 +392,160 @@ class _ProductsPageState extends State<ProductsPage> {
         if (profile.YN == "Y")
           profile.ACC_NAME.isEmpty && profile.ACC_CD.isEmpty
               ? TextButton(
-                  onPressed: () {
-                    // Validation 1: Check if punched in
-                    if (profile.data?.isPunchIn != true) {
-                      AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Please Punch In');
-                      return;
-                    }
+                  onPressed: _isOrderProcessing
+                      ? null
+                      : () {
+                          // ⚡ Prevent multiple clicks
+                          if (_isOrderProcessing) return;
 
-                    // Validation 2: Check if stockist is required but not selected
-                    if (_requiresStockistSelection(profile)) {
-                      AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Please Select Stockist');
-                      return;
-                    }
+                          // Validation 1: Check if punched in
+                          if (profile.data?.isPunchIn != true) {
+                            AppSnackBar.showGetXCustomSnackBar(
+                                message: 'Please Punch In');
+                            return;
+                          }
 
-                    // All validations passed - show party menu
-                    showMenu();
-                  },
-                  child: const Text("Start Order"),
+                          // Validation 2: Check if stockist is required but not selected
+                          if (_requiresStockistSelection(profile)) {
+                            AppSnackBar.showGetXCustomSnackBar(
+                                message: 'Please Select Stockist');
+                            return;
+                          }
+
+                          // All validations passed - show party menu
+                          showMenu();
+                        },
+                  child: _isOrderProcessing
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Processing..."),
+                          ],
+                        )
+                      : const Text("Start Order"),
                 )
               : TextButton(
-                  onPressed: () async {
-                    // Show loading dialog
-                    OrderLoadingDialog.show(
-                      context: context,
-                      action: "Ending",
-                    );
+                  onPressed: _isOrderProcessing
+                      ? null
+                      : () async {
+                          // ⚡ Prevent multiple clicks
+                          if (_isOrderProcessing) return;
 
-                    try {
-                      await party.startEndOrder(
-                        profile.ACC_NAME,
-                        profile.ACC_CD,
-                        context,
-                        "3",
-                        id: 1,
-                      );
+                          setState(() {
+                            _isOrderProcessing = true;
+                          });
 
-                      // Dismiss the loading dialog
-                      OrderLoadingDialog.dismiss(context);
+                          print('[END_ORDER] ⚡ Immediate: End order clicked');
 
-                      // Clear the selected party name
-                      controller.selectedPartyName.value = '';
-                      controller.selectedPartyId.value = '';
+                          try {
+                            // ⚡⚡⚡ Call API immediately (uses cached location)
+                            await party.startEndOrder(
+                              profile.ACC_NAME,
+                              profile.ACC_CD,
+                              context,
+                              "3",
+                              id: 1,
+                            );
 
-                      // Reset state
-                      setState(() {
-                        dataProduct.clear();
-                        isLoading = true;
-                        qty.clear();
-                        freeQty.clear();
-                      });
+                            print('[END_ORDER] ✅ Order ended successfully');
 
-                      // Clear cart
-                      cartController.productAddedStates.clear();
+                            // Clear the selected party name
+                            controller.selectedPartyName.value = '';
+                            controller.selectedPartyId.value = '';
 
-                      // Refresh products
-                      await controller.fetchProductsFromAPI();
+                            // Reset state
+                            setState(() {
+                              dataProduct.clear();
+                              isLoading = true;
+                              qty.clear();
+                              freeQty.clear();
+                            });
 
-                      setState(() {
-                        isLoading = false;
-                      });
+                            // Clear cart
+                            cartController.productAddedStates.clear();
 
-                      if (controller.selectedPartyId.isNotEmpty) {
-                        cartController.productAddedStates
-                            .clear(); // Clear previous state
+                            // 📦 Background: Fetch products (non-blocking)
+                            print(
+                                '[END_ORDER] 📦 Background: Fetching products...');
+                            Future.microtask(() async {
+                              if (!mounted)
+                                return; // ✅ Guard: widget might be disposed
+                              try {
+                                await controller.fetchProductsFromAPI();
+                                print(
+                                    '[END_ORDER] ✅ Background: Products fetched');
 
-                        await cart.getCartItem(
-                            Get.context!, controller.selectedPartyId.value);
+                                setState(() {
+                                  isLoading = false;
+                                });
 
-                        // Update state based on fetched cart data
-                        for (var item in cart.data) {
-                          cartController.productAddedStates[item.itemCd] = true;
-                        }
+                                if (controller.selectedPartyId.isNotEmpty) {
+                                  cartController.productAddedStates.clear();
+                                  await cart.getCartItem(Get.context!,
+                                      controller.selectedPartyId.value);
 
-                        cartController.update();
+                                  for (var item in cart.data) {
+                                    cartController
+                                        .productAddedStates[item.itemCd] = true;
+                                  }
 
-                        cartController.cartCount.value =
-                            cartController.productAddedStates.length;
-                      } else {
-                        cartController.cartCount.value = 0;
-                      }
-                    } catch (e) {
-                      // Dismiss the loading dialog even on error
-                      OrderLoadingDialog.dismiss(context);
-                      //showToast("Error: $e");
-                      AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
-                    }
-                  },
-                  child: const Text("End Order"),
+                                  cartController.update();
+
+                                  cartController.cartCount.value =
+                                      cartController.productAddedStates.length;
+                                  cartController
+                                      .update(); // Ensure UI rebuilds with new count
+                                } else {
+                                  cartController.cartCount.value = 0;
+                                  cartController.update(); // Ensure UI rebuilds
+                                }
+                              } catch (e) {
+                                print('[END_ORDER] ❌ Background error: $e');
+                                setState(() {
+                                  isLoading = false;
+                                });
+                              }
+                            });
+                          } catch (e) {
+                            print('[END_ORDER] ❌ Error: $e');
+                            AppSnackBar.showGetXCustomSnackBar(
+                                message: "Error: $e");
+                          } finally {
+                            setState(() {
+                              _isOrderProcessing = false;
+                            });
+                          }
+                        },
+                  child: _isOrderProcessing
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Processing..."),
+                          ],
+                        )
+                      : const Text("End Order"),
                 )
         else
           TextButton(
@@ -675,9 +742,12 @@ class _ProductsPageState extends State<ProductsPage> {
                         onTap: () async {
                           controller.selectedStockistName.value = name;
                           controller.selectedStockistId.value = code;
+                          controller.selectedStockistMobile.value =
+                              stockist.mobile;
                           await controller.saveStockistSelection();
                           Navigator.pop(context);
-                          print('[Product] Selected Stockist: $name ($code)');
+                          print(
+                              '[Product] Selected Stockist: $name ($code), Mobile: ${stockist.mobile}');
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -1057,167 +1127,167 @@ class _ProductsPageState extends State<ProductsPage> {
                                           : party.data.length,
                                       itemBuilder: (builder, index) {
                                         return InkWell(
-                                          onTap: () async {
-                                            // Close the bottom sheet first
-                                            // Navigator.pop(context);
-                                            //
-                                            // // Wait for bottom sheet to fully close, then show loader
-                                            // await Future.delayed(const Duration(milliseconds: 300));
-                                            // OrderLoadingDialog.show(
-                                            //   context: pageContext,
-                                            //   action: "Starting",
-                                            // );
-                                            Navigator.pop(context);
+                                          onTap: _isOrderProcessing
+                                              ? null
+                                              : () async {
+                                                  // ⚡ Prevent multiple clicks
+                                                  if (_isOrderProcessing)
+                                                    return;
 
-                                            WidgetsBinding.instance
-                                                .addPostFrameCallback((_) {
-                                              OrderLoadingDialog.show(
-                                                context: pageContext,
-                                                action: "Starting",
-                                              );
-                                            });
+                                                  setState(() {
+                                                    _isOrderProcessing = true;
+                                                  });
 
-                                            try {
-                                              if (p.data?.profileSettings.any(
-                                                      (e) =>
-                                                          e.variable ==
-                                                              'punchInOut' &&
-                                                          e.value == 'Y') ==
-                                                  true) {
-                                                final LocationProvider lp =
-                                                    Provider.of<
-                                                            LocationProvider>(
-                                                        pageContext,
-                                                        listen: false);
-                                                if (lp.enebleLocationPermission ==
-                                                    true) {
-                                                  await party
-                                                      .changePunchInOutParty(
-                                                          (_tempParty
-                                                                  .isNotEmpty)
-                                                              ? _tempParty[
-                                                                      index]
-                                                                  .accName
-                                                              : party
-                                                                  .data[index]
-                                                                  .accName,
-                                                          (_tempParty
-                                                                  .isNotEmpty)
-                                                              ? _tempParty[
-                                                                      index]
-                                                                  .accCd
-                                                              : party
-                                                                  .data[index]
-                                                                  .accCd,
-                                                          isProductPage: true,
-                                                          type: "1",
+                                                  print(
+                                                      '[START_ORDER] ⚡ Immediate: Party selected from list');
+
+                                                  // Close the bottom sheet
+                                                  Navigator.pop(context);
+
+                                                  try {
+                                                    final selectedParty =
+                                                        (_tempParty.isNotEmpty)
+                                                            ? _tempParty[index]
+                                                            : party.data[index];
+
+                                                    controller.selectedPartyName
+                                                            .value =
+                                                        selectedParty.accName;
+                                                    controller.selectedPartyId
+                                                            .value =
+                                                        selectedParty.accCd;
+
+                                                    print(
+                                                        '[START_ORDER] 📝 Party selected: ${selectedParty.accName} (${selectedParty.accCd})');
+
+                                                    // ⚡⚡⚡ API call immediately (no dialog!)
+                                                    final isPunchInOutEnabled = p
+                                                            .data
+                                                            ?.profileSettings
+                                                            .any((e) =>
+                                                                e.variable ==
+                                                                    'punchInOut' &&
+                                                                e.value ==
+                                                                    'Y') ??
+                                                        false;
+
+                                                    if (isPunchInOutEnabled) {
+                                                      final LocationProvider
+                                                          lp = Provider.of<
+                                                                  LocationProvider>(
+                                                              pageContext,
+                                                              listen: false);
+                                                      if (lp.enebleLocationPermission ==
+                                                          true) {
+                                                        print(
+                                                            '[START_ORDER] 🚀 Starting punch-in order (immediate)');
+                                                        await party
+                                                            .changePunchInOutParty(
+                                                                selectedParty
+                                                                    .accName,
+                                                                selectedParty
+                                                                    .accCd,
+                                                                isProductPage:
+                                                                    true,
+                                                                type: "1",
+                                                                pageContext);
+                                                      } else {
+                                                        AppSnackBar
+                                                            .showGetXCustomSnackBar(
+                                                                message:
+                                                                    "Please Enable Location Permission");
+                                                        return;
+                                                      }
+                                                    } else {
+                                                      print(
+                                                          '[START_ORDER] 🚀 Starting regular order (immediate)');
+                                                      await party.changeParty(
+                                                          selectedParty.accName,
+                                                          selectedParty.accCd,
                                                           pageContext);
+                                                    }
 
-                                                  if (_tempParty.isNotEmpty) {
-                                                    controller.selectedPartyName
-                                                            .value =
-                                                        _tempParty[index]
-                                                            .accName;
-                                                    controller.selectedPartyId
-                                                            .value =
-                                                        _tempParty[index].accCd;
-                                                  } else {
-                                                    controller.selectedPartyName
-                                                            .value =
-                                                        party.data[index]
-                                                            .accName;
-                                                    controller.selectedPartyId
-                                                            .value =
-                                                        party.data[index].accCd;
+                                                    print(
+                                                        '[START_ORDER] ✅ Start order API completed');
+
+                                                    // Update UI immediately
+                                                    setState(() {
+                                                      dataProduct.clear();
+                                                      isLoading = true;
+                                                      qty.clear();
+                                                      freeQty.clear();
+                                                    });
+
+                                                    print(
+                                                        '[START_ORDER] 📦 Background: Fetching products...');
+                                                    // 📦 Background: Fetch products and cart (non-blocking)
+                                                    Future.microtask(() async {
+                                                      if (!mounted)
+                                                        return; // ✅ Guard: widget might be disposed
+                                                      try {
+                                                        await controller
+                                                            .fetchProductsFromAPI();
+                                                        print(
+                                                            '[START_ORDER] ✅ Background: Products fetched');
+
+                                                        if (controller
+                                                            .selectedPartyId
+                                                            .isNotEmpty) {
+                                                          cartController
+                                                              .productAddedStates
+                                                              .clear();
+
+                                                          await cart.getCartItem(
+                                                              pageContext,
+                                                              controller
+                                                                  .selectedPartyId
+                                                                  .value);
+
+                                                          for (var item
+                                                              in cart.data) {
+                                                            cartController
+                                                                    .productAddedStates[
+                                                                item.itemCd] = true;
+                                                          }
+
+                                                          cartController
+                                                              .update();
+
+                                                          cartController
+                                                                  .cartCount
+                                                                  .value =
+                                                              cartController
+                                                                  .productAddedStates
+                                                                  .length;
+                                                          print(
+                                                              '[START_ORDER] ✅ Background: Cart updated');
+                                                        }
+
+                                                        setState(() {
+                                                          isLoading = false;
+                                                        });
+                                                      } catch (e) {
+                                                        print(
+                                                            '[START_ORDER] ❌ Background error: $e');
+                                                        setState(() {
+                                                          isLoading = false;
+                                                        });
+                                                      }
+                                                    });
+                                                  } catch (e) {
+                                                    print(
+                                                        '[START_ORDER] ❌ Error: $e');
+                                                    AppSnackBar
+                                                        .showGetXCustomSnackBar(
+                                                            message:
+                                                                "Error: $e");
+                                                  } finally {
+                                                    setState(() {
+                                                      _isOrderProcessing =
+                                                          false;
+                                                    });
                                                   }
-
-                                                  log("Selected Party Name: ${controller.selectedPartyName.value}");
-                                                  log("Selected Party ID: ${controller.selectedPartyId.value}");
-                                                } else {
-                                                  OrderLoadingDialog.dismiss(
-                                                      pageContext);
-                                                  AppSnackBar
-                                                      .showGetXCustomSnackBar(
-                                                          message:
-                                                              "Please Enable Location Permission");
-                                                  return;
-                                                }
-                                              } else {
-                                                await party.changeParty(
-                                                    (_tempParty.isNotEmpty)
-                                                        ? _tempParty[index]
-                                                            .accName
-                                                        : party.data[index]
-                                                            .accName,
-                                                    (_tempParty.isNotEmpty)
-                                                        ? _tempParty[index]
-                                                            .accCd
-                                                        : party
-                                                            .data[index].accCd,
-                                                    pageContext);
-
-                                                if (_tempParty.isNotEmpty) {
-                                                  controller.selectedPartyName
-                                                          .value =
-                                                      _tempParty[index].accName;
-                                                  controller.selectedPartyId
-                                                          .value =
-                                                      _tempParty[index].accCd;
-                                                } else {
-                                                  controller.selectedPartyName
-                                                          .value =
-                                                      party.data[index].accName;
-                                                  controller.selectedPartyId
-                                                          .value =
-                                                      party.data[index].accCd;
-                                                }
-                                              }
-
-                                              setState(() {
-                                                dataProduct.clear();
-                                                isLoading = true;
-                                                qty.clear();
-                                                freeQty.clear();
-                                              });
-
-                                              await controller
-                                                  .fetchProductsFromAPI();
-
-                                              if (controller
-                                                  .selectedPartyId.isNotEmpty) {
-                                                cartController
-                                                    .productAddedStates
-                                                    .clear();
-
-                                                await cart.getCartItem(
-                                                    pageContext,
-                                                    controller
-                                                        .selectedPartyId.value);
-
-                                                for (var item in cart.data) {
-                                                  cartController
-                                                          .productAddedStates[
-                                                      item.itemCd] = true;
-                                                }
-
-                                                cartController.update();
-
-                                                cartController.cartCount.value =
-                                                    cartController
-                                                        .productAddedStates
-                                                        .length;
-                                              }
-
-                                              OrderLoadingDialog.dismiss(
-                                                  pageContext);
-                                            } catch (e) {
-                                              OrderLoadingDialog.dismiss(
-                                                  pageContext);
-                                              AppSnackBar
-                                                  .showGetXCustomSnackBar(
-                                                      message: "Error: $e");
-                                            }
-                                          },
+                                                },
                                           child: (_tempParty.isNotEmpty)
                                               ? Helper
                                                   .showPartyBottomSheetWithSearch(
@@ -1308,86 +1378,93 @@ class _ProductsPageState extends State<ProductsPage> {
           // Close the bottom sheet
           Navigator.pop(context);
 
-          // Wait for bottom sheet to fully close
-          await Future.delayed(const Duration(milliseconds: 500));
+          print('[START_ORDER] ⚡ Immediate: Party selected - $selectedParty');
 
-          // Show loader - use the main app BuildContext
-          final mainContext = Get.context;
-          if (mainContext != null && mainContext.mounted) {
-            log("📍 About to show loader");
-            OrderLoadingDialog.show(
-              context: mainContext,
-              action: "Starting",
-            );
+          // ⚡⚡⚡ Start order processing immediately (uses cached location)
+          try {
+            final isPunchInOutEnabled = profileProvider.data?.profileSettings
+                    .any((setting) =>
+                        setting.variable == 'punchInOut' &&
+                        setting.value == 'Y') ??
+                false;
 
-            log("✅ Loader show() called");
-          } else {
-            log("❌ Main context is null or not mounted");
-          }
+            if (isPunchInOutEnabled) {
+              final locationProvider =
+                  Provider.of<LocationProvider>(context, listen: false);
 
-          final isPunchInOutEnabled = profileProvider.data?.profileSettings.any(
-                  (setting) =>
-                      setting.variable == 'punchInOut' &&
-                      setting.value == 'Y') ??
-              false;
-
-          if (isPunchInOutEnabled) {
-            final locationProvider =
-                Provider.of<LocationProvider>(context, listen: false);
-
-            if (locationProvider.enebleLocationPermission) {
-              await partyProvider.changePunchInOutParty(
+              if (locationProvider.enebleLocationPermission) {
+                print('[START_ORDER] 🚀 Starting punch-in order (immediate)');
+                await partyProvider.changePunchInOutParty(
+                  selectedParty.accName,
+                  selectedParty.accCd,
+                  isProductPage: true,
+                  type: "1",
+                  context,
+                );
+              } else {
+                AppSnackBar.showGetXCustomSnackBar(
+                    message: "Please Enable Location Permission");
+                return;
+              }
+            } else {
+              print('[START_ORDER] 🚀 Starting regular order (immediate)');
+              await partyProvider.changeParty(
                 selectedParty.accName,
                 selectedParty.accCd,
-                isProductPage: true,
-                type: "1",
                 context,
               );
-            } else {
-              OrderLoadingDialog.dismiss(Get.context!);
-              AppSnackBar.showGetXCustomSnackBar(
-                  message: "Please Enable Location Permission");
-              return;
-            }
-          } else {
-            await partyProvider.changeParty(
-              selectedParty.accName,
-              selectedParty.accCd,
-              context,
-            );
-          }
-
-          // Fetch products
-          setState(() {
-            dataProduct.clear();
-            isLoading = true;
-            qty.clear();
-            freeQty.clear();
-          });
-
-          await controller.fetchProductsFromAPI();
-
-          // Update cart
-          if (controller.selectedPartyId.isNotEmpty) {
-            cartController.productAddedStates.clear();
-            await cart.getCartItem(
-                Get.context!, controller.selectedPartyId.value);
-
-            for (var item in cart.data) {
-              cartController.productAddedStates[item.itemCd] = true;
             }
 
-            cartController.update();
-            cartController.cartCount.value =
-                cartController.productAddedStates.length;
-          }
+            print('[START_ORDER] ✅ Start order API completed');
 
-          // Dismiss loader
-          OrderLoadingDialog.dismiss(Get.context!);
-          log("⏹️  Loader dismissed");
+            // Update UI immediately
+            setState(() {
+              dataProduct.clear();
+              isLoading = true;
+              qty.clear();
+              freeQty.clear();
+            });
+
+            print('[START_ORDER] 📦 Background: Fetching products...');
+            // 📦 Background: Fetch products and cart (non-blocking)
+            Future.microtask(() async {
+              try {
+                await controller.fetchProductsFromAPI();
+                print('[START_ORDER] ✅ Background: Products fetched');
+
+                // Update cart
+                if (controller.selectedPartyId.isNotEmpty) {
+                  cartController.productAddedStates.clear();
+                  await cart.getCartItem(
+                      Get.context!, controller.selectedPartyId.value);
+
+                  for (var item in cart.data) {
+                    cartController.productAddedStates[item.itemCd] = true;
+                  }
+
+                  cartController.update();
+                  cartController.cartCount.value =
+                      cartController.productAddedStates.length;
+                  cartController.update(); // Ensure UI rebuilds with new count
+                  print('[START_ORDER] ✅ Background: Cart updated');
+                }
+
+                setState(() {
+                  isLoading = false;
+                });
+              } catch (e) {
+                print('[START_ORDER] ❌ Background error: $e');
+                setState(() {
+                  isLoading = false;
+                });
+              }
+            });
+          } catch (e) {
+            print('[START_ORDER] ❌ Error: $e');
+            AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
+          }
         } catch (e) {
           log("Error selecting party: $e");
-          OrderLoadingDialog.dismiss(Get.context!);
           AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
         }
       },

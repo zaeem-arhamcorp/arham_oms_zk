@@ -232,11 +232,11 @@ class _ItemWisePartyWisePurchaseReportScreenState
   }
 
   additemtoCart(itemCd, qty, freeQty, rate, remarks) {
-    final CartListProvider cart = Provider.of<CartListProvider>(context, listen: false);
+    final CartListProvider cart =
+        Provider.of<CartListProvider>(context, listen: false);
     final PartyProvider party =
         Provider.of<PartyProvider>(context, listen: false);
     if (party.party == "") {
-      //Fluttertoast.showToast(msg: "Please select party first");
       AppSnackBar.showGetXCustomSnackBar(message: "Please select party first");
     } else {
       setState(() {
@@ -247,13 +247,17 @@ class _ItemWisePartyWisePurchaseReportScreenState
               freeQty.toString(), context, rate.toString(), remarks)
           .then((value) {
         if (value != null && value['statusCode'] == 200) {
-          cart.data.add(DatumCartList(itemCd: itemCd));
-          cart.getCartItem(context, party.partyid);
+          // ⚡ FAST: Just update local state, don't refetch entire cart
+          if (!cart.data.any((item) => item.itemCd == itemCd)) {
+            cart.data.add(DatumCartList(itemCd: itemCd));
+          }
+          cart.notifyListeners();
+          // NOTE: Removed cart.getCartItem() call which was fetching entire cart
+          // Cart will be refreshed when user navigates to cart page
         }
         isCardItemLoading =
             isCardItemLoading.where((element) => element != itemCd).toList();
         setState(() {});
-        //Fluttertoast.showToast(msg: value['message']);
         if (value != null && value['statusCode'] == 200) {
           AppSnackBar.showGetXCustomSnackBar(
               message: value['message'], backgroundColor: Colors.green);

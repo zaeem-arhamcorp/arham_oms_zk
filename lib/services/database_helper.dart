@@ -1848,6 +1848,29 @@ class DatabaseHelper {
     );
   }
 
+  /// Get the latest/last location from location_tracking table
+  /// Returns the most recent GPS location captured (by timestamp)
+  /// Used for start/end order to get fresh location without blocking GPS call
+  Future<Map<String, dynamic>?> getLatestLocation() async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.query(
+      'location_tracking',
+      orderBy: 'timestamp DESC',
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      final latestLoc = result.first;
+      print(
+          '[DATABASE] ✅ getLatestLocation: lat=${latestLoc['latitude']}, lng=${latestLoc['longitude']}, timestamp=${latestLoc['timestamp']}');
+      return latestLoc;
+    }
+
+    print(
+        '[DATABASE] ⚠️ getLatestLocation: No location records found in database');
+    return null;
+  }
+
   /// Mark multiple location tracking records as synced (batch operation)
   Future<void> markLocationTrackingsSynced(List<int> ids) async {
     if (ids.isEmpty) return;

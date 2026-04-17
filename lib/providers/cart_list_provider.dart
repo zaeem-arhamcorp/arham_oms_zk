@@ -131,31 +131,37 @@ class CartListProvider extends DisposableProvider {
         final serverItems = cartListModalFromJson(response.body).data;
         _data.addAll(serverItems);
 
-        // Sync server cart → local SQLite so data persists if we go offline
-        try {
-          final dbHelper = DatabaseHelper();
-          await dbHelper.clearCartForParty(partyId);
-          for (var item in serverItems) {
-            await CartService().addToCart(
-              partyCd: partyId,
-              itemCd: item.itemCd?.toString() ?? '',
-              quantity: double.tryParse(item.quantity?.toString() ?? '0') ?? 0,
-              rate: double.tryParse(item.rate?.toString() ?? '0') ?? 0,
-              nrate: double.tryParse(item.item?.nrate?.toString() ?? '0') ?? 0,
-              lrate: double.tryParse(item.lrate?.toString() ?? '0') ?? 0,
-              amount: item.amount ?? 0,
-              otherDesc: item.otherDesc?.toString() ?? '',
-              fld5: item.fld5?.toString() ?? '',
-              itemName: item.item?.itemName?.toString() ?? '',
-            );
-          }
-          print("Synced ${serverItems.length} server cart items → local DB");
-          print("SYNCED ITEMS TO LOCAL DB: \n$serverItems");
-        } catch (syncErr) {
-          print("Error syncing server cart to local: $syncErr");
-        }
-
+        // ✅ Update UI immediately with server data
         notifyListeners();
+
+        // 📱 Sync server cart → local SQLite in BACKGROUND (non-blocking)
+        Future.microtask(() async {
+          try {
+            final dbHelper = DatabaseHelper();
+            await dbHelper.clearCartForParty(partyId);
+            for (var item in serverItems) {
+              await CartService().addToCart(
+                partyCd: partyId,
+                itemCd: item.itemCd?.toString() ?? '',
+                quantity:
+                    double.tryParse(item.quantity?.toString() ?? '0') ?? 0,
+                rate: double.tryParse(item.rate?.toString() ?? '0') ?? 0,
+                nrate:
+                    double.tryParse(item.item?.nrate?.toString() ?? '0') ?? 0,
+                lrate: double.tryParse(item.lrate?.toString() ?? '0') ?? 0,
+                amount: item.amount ?? 0,
+                otherDesc: item.otherDesc?.toString() ?? '',
+                fld5: item.fld5?.toString() ?? '',
+                itemName: item.item?.itemName?.toString() ?? '',
+              );
+            }
+            print(
+                "Synced ${serverItems.length} server cart items → local DB (background)");
+          } catch (syncErr) {
+            print("Error syncing server cart to local: $syncErr");
+            // Silently fail - UI already has server data
+          }
+        });
       } else {
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());

@@ -61,10 +61,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   TextEditingController userController = TextEditingController();
 
   List<Map<String, dynamic>> _users = [];
-  bool _loadingUsers = false;
-  String? _selectedUserName;
   String _selectedUserCode = ''; // Tracks current dropdown selection
-  bool _usersFetchInitiated = false; // Track if we've already tried to fetch
+  bool _userHasChildren =
+      false; // Stores if user has children (set once on initial load)
   static const int _usersPerPage = 20;
 
   bool isWhatsappInstalled = false;
@@ -143,6 +142,16 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
           } else {
             noList = true;
           }
+        });
+
+        // Fetch children with phone numbers from API
+        await _fetchChildrenWithPhones();
+
+        // Check if user has children based on API data
+        if (!mounted) return;
+        final profile = Provider.of<ProfileProvider>(context, listen: false);
+        setState(() {
+          _userHasChildren = _hasChildren(profile);
         });
 
         // Cache the order report for offline use (always cache)
@@ -254,124 +263,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     }
 
     getDate();
-    _fetchUsers();
     checkWhatsappInstalled();
     checkWhatsappBussinessInstalled();
     _focusNode.requestFocus();
     super.initState();
-  }
-
-  Future<void> _fetchUsers() async {
-    setState(() {
-      _loadingUsers = true;
-      _usersFetchInitiated = true;
-    });
-
-    try {
-      final UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
-
-      final String token = userProvider.token ?? '';
-      await CrashlyticsService.logAction('order_report_users_api_triggered');
-      print(
-          '_fetchUsers: Fetching paginated users from ${AppConfig.childrenURL} with token: ${token.substring(0, 20)}...');
-
-      final allUsers = <Map<String, dynamic>>[];
-      final seenUserCodes = <String>{};
-      int currentPage = 1;
-      int lastPage = 1;
-
-      do {
-        final uri = Uri.parse(AppConfig.childrenURL).replace(
-          queryParameters: {
-            'page': currentPage.toString(),
-            'items_per_page': _usersPerPage.toString(),
-          },
-        );
-
-        final response = await http.get(
-          uri,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'x-app-type': 'oms',
-            'Content-Type': 'application/json',
-          },
-        ).timeout(const Duration(seconds: 30));
-
-        print(
-            '_fetchUsers: page=$currentPage status=${response.statusCode} uri=$uri');
-
-        if (response.statusCode != 200) {
-          throw Exception(
-              'Failed to fetch users page $currentPage: HTTP ${response.statusCode}');
-        }
-
-        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
-        final users = (jsonResponse['data'] as List?) ?? const [];
-        final payload = jsonResponse['payload'] as Map<String, dynamic>?;
-        final pagination = payload?['pagination'] as Map<String, dynamic>?;
-
-        final pageFromResponse =
-            int.tryParse((pagination?['page'] ?? currentPage).toString()) ??
-                currentPage;
-        lastPage =
-            int.tryParse((pagination?['last_page'] ?? 1).toString()) ?? 1;
-
-        print(
-            '_fetchUsers: page=$pageFromResponse fetched=${users.length} lastPage=$lastPage');
-
-        for (final rawUser in users) {
-          if (rawUser is! Map) {
-            continue;
-          }
-
-          final user = Map<String, dynamic>.from(rawUser);
-          final userCode =
-              (user['USER_CD'] ?? user['userCode'] ?? '').toString().trim();
-          final userName =
-              (user['USER_NAME'] ?? user['userName'] ?? '').toString().trim();
-          final phone =
-              (user['MOBILENO'] ?? user['phone'] ?? '').toString().trim();
-
-          if (userCode.isEmpty || !seenUserCodes.add(userCode)) {
-            continue;
-          }
-
-          allUsers.add({
-            'userCode': userCode,
-            'userName': userName,
-            'phone': phone,
-          });
-        }
-
-        currentPage = pageFromResponse + 1;
-      } while (currentPage <= lastPage);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _users = allUsers;
-        _loadingUsers = false;
-      });
-
-      print('_fetchUsers: State updated with ${_users.length} users');
-    } catch (e, stack) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _loadingUsers = false;
-      });
-      print('Error fetching users: $e');
-      await CrashlyticsService.recordNonFatal(
-        e,
-        stack,
-        reason: 'order_report_users_fetch_failed',
-      );
-    }
   }
 
   /* Deprecated - using UserSearchDropdown widget instead
@@ -548,10 +443,118 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         });
   }
 
+  /// Calculate total orderAmt from all orders
+  double _calculateTotalOrderAmt() {
+    if (data.isEmpty) return 0.0;
+    double total = 0.0;
+    for (var order in data) {
+      final amt = double.tryParse(order.orderAmt?.toString() ?? '0') ?? 0.0;
+      total += amt;
+    }
+    return total;
+  }
+
+  /// Calculate total netAmt from all orders
+  double _calculateTotalNetAmt() {
+    if (data.isEmpty) return 0.0;
+    double total = 0.0;
+    for (var order in data) {
+      final amt = double.tryParse(order.netAmt?.toString() ?? '0') ?? 0.0;
+      total += amt;
+    }
+    return total;
+  }
+
+  /// Fetch children users with phone numbers from /api/users/children endpoint
+  /// Stores result in _users list for use in UserSearchDropdown
+  Future<void> _fetchChildrenWithPhones() async {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      var token = userProvider.token ?? '';
+      final url = '${AppConfig.baseURL}users/children';
+
+      // Ensure token has Bearer prefix
+      if (!token.startsWith('Bearer ')) {
+        token = 'Bearer $token';
+      }
+
+      print('Fetching children from: $url');
+      print('Token length: ${token.length}, Token valid: ${token.isNotEmpty}');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': token,
+          'x-app-type': 'oms',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      print('Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        final List<dynamic> childrenList = jsonData['data'] ?? [];
+
+        if (!mounted) return;
+
+        setState(() {
+          _users = childrenList.map((child) {
+            return {
+              'userCode': child['USER_CD'] ?? '',
+              'userName': child['USER_NAME'] ?? '',
+              'phone': child['MOBILENO'] ?? '',
+            };
+          }).toList();
+
+          print('Children fetched: ${_users.length} users');
+          _users.forEach((user) {
+            print(
+                'User: ${user['userName']} (${user['userCode']}) - Phone: ${user['phone']}');
+          });
+        });
+      } else if (response.statusCode == 403) {
+        // 403 means user has no children - treat as empty list
+        print('User has no children (403)');
+        if (!mounted) return;
+        setState(() {
+          _users = [];
+        });
+      } else {
+        print('Failed to fetch children: ${response.statusCode}');
+        print('Error response: ${response.body}');
+        if (!mounted) return;
+        setState(() {
+          _users = [];
+        });
+      }
+    } catch (e, stack) {
+      print('Error fetching children: $e');
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'fetch_children_failed',
+      );
+      if (!mounted) return;
+      setState(() {
+        _users = [];
+      });
+    }
+  }
+
+  /// Check if current user has children in _users list (populated from API)
+  /// Returns true if there are children other than current user
+  bool _hasChildren(ProfileProvider profile) {
+    final currentUserCode = (profile.userCode ?? '').trim();
+    return _users.any(
+      (user) => user['userCode'].toString().trim() != currentUserCode,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final PartyProvider party = context.watch<PartyProvider>();
-    final UserProvider ub = context.watch<UserProvider>();
     final ProfileProvider profile = context.watch<ProfileProvider>();
 
     // If selectedUserName provided, show it; otherwise show "Order Report"
@@ -1188,44 +1191,40 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                     ),
                   ),
                   // ------------------- USER DROPDOWN -------------------
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10.0, vertical: 8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Filter by User"),
-                        SizedBox(height: 5.h),
-                        UserSearchDropdown(
-                          users: _users,
-                          selectedUserCode: _selectedUserCode.isEmpty
-                              ? null
-                              : _selectedUserCode,
-                          loading: _loadingUsers,
-                          hint: "Select User",
-                          onChanged: (value) {
-                            CrashlyticsService.logAction(
-                              'order_report_user_filter_changed',
-                              context: {'selected_user_cd': value ?? ''},
-                            );
-                            print('User selected: $value');
-                            setState(() {
-                              _selectedUserCode = value ?? '';
-                              userController.text = value ?? '';
-                              _selectedUserName = value == '' || value == null
-                                  ? 'All Users'
-                                  : _users.firstWhere(
-                                      (user) => user['userCode'] == value,
-                                      orElse: () => {'userName': 'Unknown'},
-                                    )['userName'];
-                            });
-                            print('Calling getDate from user selection');
-                            getDate();
-                          },
-                        ),
-                      ],
+                  // Only show search field if user has children in the order data
+                  if (_userHasChildren)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10.0, vertical: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Filter by User"),
+                          SizedBox(height: 5.h),
+                          UserSearchDropdown(
+                            users: _users,
+                            selectedUserCode: _selectedUserCode.isEmpty
+                                ? null
+                                : _selectedUserCode,
+                            loading: false,
+                            hint: "Select User",
+                            onChanged: (value) {
+                              CrashlyticsService.logAction(
+                                'order_report_user_filter_changed',
+                                context: {'selected_user_cd': value ?? ''},
+                              );
+                              print('User selected: $value');
+                              setState(() {
+                                _selectedUserCode = value ?? '';
+                                userController.text = value ?? '';
+                              });
+                              print('Calling getDate from user selection');
+                              getDate();
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   Divider(),
                   Expanded(
                     child: noList == true
@@ -2491,6 +2490,62 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                   );
                                 }),
                   ),
+                  Container(
+                    padding: EdgeInsets.only(
+                        left: 10, right: 10, bottom: 20, top: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(top: BorderSide(color: Colors.grey)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Total Order Amt:",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                "${_calculateTotalOrderAmt().toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Total Bill Amt:",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                "${_calculateTotalNetAmt().toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
               Visibility(
@@ -2782,8 +2837,6 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       debugPrint("Response Body: ${response.body}");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-
         getDate();
       } else {
         AppSnackBar.showGetXCustomSnackBar(

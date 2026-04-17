@@ -128,19 +128,23 @@ class User {
   User({
     required this.userCd,
     required this.userName,
+    this.phone,
   });
 
   String userCd;
   String userName;
+  String? phone;
 
   factory User.fromJson(Map<String, dynamic> json) => User(
         userCd: json["USER_CD"],
         userName: json["USER_NAME"],
+        phone: null, // Phone not available in order API response
       );
 
   Map<String, dynamic> toJson() => {
         "USER_CD": userCd,
         "USER_NAME": userName,
+        "MOBILENO": phone,
       };
 }
 

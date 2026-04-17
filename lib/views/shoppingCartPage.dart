@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/config/app_config.dart';
@@ -110,10 +111,17 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             print("Error deleting local cart item: $e");
           }
 
+          // ⚡ FAST: Just update local state, don't refetch entire cart
           setState(() {
+            datacart.removeWhere((item) => item.itemCd == itemCd);
+            qty.remove(itemCd);
+            freeQty.remove(itemCd);
+            rate.remove(itemCd);
+            remarks.remove(itemCd);
             loading = false;
+            // Recalculate totals
+            calculateNetAmount();
           });
-          getCart();
           CartController controller = Get.put(CartController());
           controller.removeProductLocally(itemCd);
         } else {
@@ -140,10 +148,18 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
         AppSnackBar.showGetXCustomSnackBar(
             message: "Item removed (offline)", backgroundColor: Colors.orange);
+
+        // ⚡ FAST: Just update local state, don't refetch entire cart
         setState(() {
+          datacart.removeWhere((item) => item.itemCd == itemCd);
+          qty.remove(itemCd);
+          freeQty.remove(itemCd);
+          rate.remove(itemCd);
+          remarks.remove(itemCd);
           loading = false;
+          // Recalculate totals
+          calculateNetAmount();
         });
-        getCart();
         CartController controller = Get.put(CartController());
         controller.removeProductLocally(itemCd);
       } catch (e) {
@@ -157,6 +173,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   getOptions() {
     Services().getNarration(context, "OTHER_DESC").then((value) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       if (value != null) {
         setState(() {
           otherDescOptions.addAll(value.map((e) => DatumNarration(
@@ -173,6 +190,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     });
 
     Services().getNarration(context, "FLD5").then((value) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       if (value != null) {
         setState(() {
           fld5DescOptions.addAll(value.map((e) => DatumNarration(
@@ -189,6 +207,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     });
 
     Services().getNarration(context, "NARRATION").then((value) {
+      if (!mounted) return; // ✅ Guard: widget might be disposed
       if (value != null) {
         setState(() {
           narrationOptions.addAll(value.map((e) => DatumNarration(
@@ -263,6 +282,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                     ? party.punchInOutPartyId
                     : party.partyid)
             .then((value) {
+          if (!mounted) return; // ✅ Guard: widget might be disposed
           setState(() {
             //datacart.addAll(cart.data); //TODO : FAZAL COMMENT 13/03/2025
             _originalData = cart.data; // Store the original data
@@ -1730,37 +1750,74 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   Future<Map<String, String>?> _getStockistContact() async {
     final selectedStockistId = controller.selectedStockistId.value.trim();
     final selectedStockistName = controller.selectedStockistName.value.trim();
+    final selectedStockistMobile =
+        controller.selectedStockistMobile.value.trim();
+
+    print('[Order Share] [_getStockistContact] START');
+    print(
+        '[Order Share] [_getStockistContact] selectedStockistId: "$selectedStockistId"');
+    print(
+        '[Order Share] [_getStockistContact] selectedStockistName: "$selectedStockistName"');
+    print(
+        '[Order Share] [_getStockistContact] selectedStockistMobile: "$selectedStockistMobile"');
 
     if (selectedStockistId.isEmpty && selectedStockistName.isEmpty) {
+      print(
+          '[Order Share] [_getStockistContact] No stockist selected (both ID and Name empty)');
       return null;
     }
+
+    print(
+        '[Order Share] [_getStockistContact] Searching in local cache (${controller.stockists.length} items)');
 
     DatumPartyname? stockist = _findPartyById(
       controller.stockists,
       selectedStockistId,
     );
 
+    print(
+        '[Order Share] [_getStockistContact] Found in local cache: ${stockist != null}');
+
     if (stockist == null && selectedStockistId.isNotEmpty) {
       try {
+        print(
+            '[Order Share] [_getStockistContact] Not in cache, fetching from API...');
         await controller.fetchStockists(groupCd: '136');
+        print(
+            '[Order Share] [_getStockistContact] API fetch complete, cache now has ${controller.stockists.length} items');
         stockist = _findPartyById(controller.stockists, selectedStockistId);
+        print(
+            '[Order Share] [_getStockistContact] Found after API refresh: ${stockist != null}');
       } catch (e) {
-        print('[Order Share] Failed to refresh stockists: $e');
+        print(
+            '[Order Share] [_getStockistContact] Failed to refresh stockists: $e');
       }
     }
 
+    // Prefer the mobile from stockist object, fallback to saved value
+    final mobile = (stockist?.mobile ?? selectedStockistMobile).trim();
+
+    // Use whNo as WhatsApp if available
     final wa = (stockist?.whNo ?? '').trim();
-    final mobile =
-        (stockist?.mobile ?? controller.selectedStockistMobile.value).trim();
     final preferred = _preferredContact(wa, mobile);
 
-    return {
+    print(
+        '[Order Share] [_getStockistContact] Final data - WhatsApp: "$wa", Mobile: "$mobile", Preferred: "$preferred"');
+    print(
+        '[Order Share] [_getStockistContact] Stockist name from object: "${stockist?.accName}", fallback: "$selectedStockistName"');
+
+    final result = {
       'name': stockist?.accName ?? selectedStockistName,
       'wa': wa,
       'phone': mobile,
       'preferred': preferred,
       'wame': _toWaMePhone(preferred),
     };
+
+    print('[Order Share] [_getStockistContact] FINAL RESULT: $result');
+    print('[Order Share] [_getStockistContact] END');
+
+    return result;
   }
 
   Future<String?> _buildOrderReportUrl(String partyId) async {
@@ -1780,6 +1837,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     required String partyId,
     required String partyName,
   }) async {
+    print('[Order Share] ===== STARTING ORDER SHARE PAYLOAD SAVE =====');
+    print('[Order Share] PartyId: $partyId, PartyName: $partyName');
+
     final PartyProvider partyProvider =
         Provider.of<PartyProvider>(context, listen: false);
 
@@ -1796,7 +1856,20 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       'wame': _toWaMePhone(partyPreferred),
     };
 
+    print('[Order Share] ===== GETTING STOCKIST CONTACT =====');
+    print(
+        '[Order Share] Controller selectedStockistId: "${controller.selectedStockistId.value}"');
+    print(
+        '[Order Share] Controller selectedStockistName: "${controller.selectedStockistName.value}"');
+    print(
+        '[Order Share] Controller selectedStockistMobile: "${controller.selectedStockistMobile.value}"');
+    print(
+        '[Order Share] Controller stockists count: ${controller.stockists.length}');
+
     final stockistContact = await _getStockistContact();
+
+    print('[Order Share] ===== STOCKIST CONTACT RESULT =====');
+    print('[Order Share] Stockist contact result: $stockistContact');
 
     final hasAnyRecipient = (partyContact['wame'] ?? '').isNotEmpty ||
         ((stockistContact?['wame'] ?? '').isNotEmpty);
@@ -1835,13 +1908,163 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   }
 
   _handelAddOrder(items) async {
-    bool result = await InternetConnectionChecker.instance.hasConnection;
+    // ⚡⚡⚡ API-FIRST APPROACH with cached location
+    // 1. Get location from 40-second tracking table (instant!)
+    // 2. Hit API immediately
+    // 3. On failure: Fall back to offline storage
 
-    // Check if offline license limit is already hit before placing another order
-    if (!result) {
+    print('[ORDER_PLACEMENT] 📋 Order placement initiated');
+    print('[ORDER_PLACEMENT] Items count: ${items?.length ?? 0}');
+
+    setState(() {
+      loading = true;
+    });
+    final PartyProvider party =
+        Provider.of<PartyProvider>(context, listen: false);
+    final ProfileProvider profile =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    var lat = "0";
+    var long = "0";
+
+    try {
+      // ⚡ INSTANT: Get location from 40-second tracking table (not GPS)
+      // This is already capturing location every 40 seconds during punch period
       try {
-        final ProfileProvider profile =
-            Provider.of<ProfileProvider>(context, listen: false);
+        final db = DatabaseHelper();
+        final latestLocData = await db.getLatestLocation();
+
+        if (latestLocData != null) {
+          lat = (latestLocData['latitude'] ?? 0.0).toString();
+          long = (latestLocData['longitude'] ?? 0.0).toString();
+          print(
+              '[ORDER_PLACEMENT] 📍 Location from DB: ($lat, $long) [40-sec tracking]');
+        } else {
+          print(
+              '[ORDER_PLACEMENT] ⚠️ No tracked location in DB, using default (0, 0)');
+        }
+      } catch (locErr) {
+        print(
+            '[ORDER_PLACEMENT] ⚠️ Error getting DB location: $locErr, using default');
+      }
+
+      print(party.punchInOutPartyId);
+      print(party.partyid);
+
+      // ⚡ TRY ONLINE ORDER FIRST (no blocking GPS call!)
+      print('[ORDER_PLACEMENT] 🌐 Attempting online order placement...');
+      final orderResponse = await Services().addOrder(
+          profile.YN == "Y" ? party.punchInOutPartyId : party.partyid,
+          ub.role == AppConfig.masteruser ? lat : lat,
+          ub.role == AppConfig.masteruser ? long : long,
+          context,
+          orderRemarks.text);
+
+      if (orderResponse != null) {
+        // ✅ ONLINE ORDER SUCCESS
+        print('[ORDER_PLACEMENT] 🟢 ONLINE ORDER SUCCESS');
+        print('[ORDER_PLACEMENT] Server Response: $orderResponse');
+        print(
+            '[ORDER_PLACEMENT] Party: ${profile.YN == "Y" ? party.punchInOutPartyId : party.partyid}');
+        print('[ORDER_PLACEMENT] Location: ($lat, $long)');
+        print('[ORDER_PLACEMENT] Items count: ${datacart.length}');
+        print('[ORDER_PLACEMENT] Total Amount: $netAmount');
+
+        AppSnackBar.showGetXCustomSnackBar(
+            message: orderResponse, backgroundColor: Colors.green);
+
+        // ⚡ SAVE SHARE PAYLOAD FIRST before clearing stockist data!
+        final selectedPartyId =
+            profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+        final selectedPartyName =
+            profile.YN == "Y" ? party.punchInOutParty : party.party;
+
+        try {
+          await _savePendingOrderSharePayloadIfPossible(
+            partyId: selectedPartyId,
+            partyName: selectedPartyName,
+          );
+        } catch (e, stack) {
+          CrashlyticsService.recordNonFatal(e, stack);
+          print('[Order Share] Failed to save share payload: $e');
+        }
+
+        // NOW clear stockist selection for next order
+        print('[ORDER_PLACEMENT] Clearing stockist selection...');
+        await controller.clearStockistSelection();
+
+        // ⚡ Clear cart from local database AND local state
+        print('[ORDER_PLACEMENT] Clearing cart from database...');
+        try {
+          final selectedPartyId =
+              profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+          await DatabaseHelper().clearCartForParty(selectedPartyId);
+          print(
+              '[ORDER_PLACEMENT] ✅ Cart cleared from database for party: $selectedPartyId');
+        } catch (e) {
+          print('[ORDER_PLACEMENT] ⚠️ Error clearing cart from DB: $e');
+        }
+
+        // Clear CartController state
+        cartController.productAddedStates.clear();
+        cartController.cartCount.value = 0;
+        cartController.update(); // Ensure UI rebuilds with cleared count
+
+        // Clear local state
+        setState(() {
+          datacart.clear();
+          qty.clear();
+          freeQty.clear();
+          rate.clear();
+          remarks.clear();
+          loading = false;
+        });
+        Get.to(() => OrderConformationPage());
+      } else {
+        // ❌ NETWORK ERROR - orderResponse is null means API call failed
+        print(
+            '[ORDER_PLACEMENT] 🌐 NETWORK ERROR DETECTED - Triggering offline fallback');
+        print('[ORDER_PLACEMENT] orderResponse was null - API call failed');
+        log("Order placement failed (network error), saving offline");
+
+        // Trigger offline fallback
+        _triggerOfflineFallback(
+          party: party,
+          profile: profile,
+          ub: ub,
+          lat: lat,
+          long: long,
+        );
+      }
+    } catch (e) {
+      // ❌ NETWORK ERROR - FALLBACK TO OFFLINE ORDER
+      print(
+          '[ORDER_PLACEMENT] 🌐 NETWORK ERROR DETECTED - Triggering offline fallback');
+      print('[ORDER_PLACEMENT] Error: $e');
+      print('[ORDER_PLACEMENT] Error Type: ${e.runtimeType}');
+      log("Order placement failed (network error), saving offline: $e");
+
+      _triggerOfflineFallback(
+        party: party,
+        profile: profile,
+        ub: ub,
+        lat: lat,
+        long: long,
+      );
+    }
+  }
+
+  Future<void> _triggerOfflineFallback({
+    required PartyProvider party,
+    required ProfileProvider profile,
+    required UserProvider ub,
+    required String lat,
+    required String long,
+  }) async {
+    try {
+      // Check if offline license limit is already hit
+      try {
         int syncId = 0;
         final profileSyncId = profile.data?.syncId;
         if (profileSyncId is int) {
@@ -1868,119 +2091,21 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                     'Order limit reached. Sync your data now to continue placing orders.',
                 backgroundColor: Colors.red,
               );
+              setState(() {
+                loading = false;
+              });
               return;
             }
           }
         }
-      } catch (e) {
-        print('[OFFLINE_ORDER] Error checking limit before order: $e');
+      } catch (licenseErr) {
+        print('[OFFLINE_ORDER] Error checking limit: $licenseErr');
       }
-    }
 
-    setState(() {
-      loading = true;
-    });
-    final PartyProvider party =
-        Provider.of<PartyProvider>(context, listen: false);
-    final ProfileProvider profile =
-        Provider.of<ProfileProvider>(context, listen: false);
-    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-
-    if (result == true) {
-      var lat = "";
-      var long = "";
-      await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        //timeLimit: Duration(seconds: 10),
-      ).then((Position position) {
-        lat = position.latitude.toString();
-        long = position.longitude.toString();
-      }).whenComplete(() async {
-        print(party.punchInOutPartyId);
-        print(party.partyid);
-        await Services()
-            .addOrder(
-                profile.YN == "Y" ? party.punchInOutPartyId : party.partyid,
-                ub.role == AppConfig.masteruser
-                    ? lat.isNotEmpty
-                        ? lat
-                        : '0'
-                    : lat.isNotEmpty
-                        ? lat
-                        : '0',
-                ub.role == AppConfig.masteruser
-                    ? long.isNotEmpty
-                        ? long
-                        : '0'
-                    : long.isNotEmpty
-                        ? long
-                        : '0',
-                context,
-                orderRemarks.text)
-            .then((value) async {
-          if (value != null) {
-            //Fluttertoast.showToast(msg: value);
-            AppSnackBar.showGetXCustomSnackBar(
-                message: value, backgroundColor: Colors.green);
-
-            // Order placed successfully: clear stockist selection for next order.
-            await controller.clearStockistSelection();
-
-            final selectedPartyId =
-                profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
-            final selectedPartyName =
-                profile.YN == "Y" ? party.punchInOutParty : party.party;
-
-            try {
-              await _savePendingOrderSharePayloadIfPossible(
-                partyId: selectedPartyId,
-                partyName: selectedPartyName,
-              );
-            } catch (e, stack) {
-              CrashlyticsService.recordNonFatal(e, stack);
-              print('[Order Share] Failed to show share popup: $e');
-            }
-
-            getCart();
-            setState(() {
-              loading = false;
-            });
-            Get.to(() => OrderConformationPage());
-          } else {
-            setState(() {
-              loading = false;
-            });
-          }
-        });
-      });
-    } else {
-      // OFFLINE ORDER HANDLING - NEW FUNCTIONALITY
+      // SAVE OFFLINE
       try {
-        var lat = "0";
-        var long = "0";
+        final OfflineOrderService offlineService = OfflineOrderService();
 
-        // Try to get location even offline (might work with GPS)
-        try {
-          await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 5),
-          ).then((Position position) {
-            lat = position.latitude.toString();
-            long = position.longitude.toString();
-          });
-        } catch (e) {
-          print("Could not get location offline: $e");
-          // Continue with default coordinates
-        }
-
-        // Calculate total amount from cart
-        double totalAmount = double.parse(netAmount);
-
-        // Get party ID
-        String partyId =
-            profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
-
-        // Get syncId from profile or UserProvider (profile.data might be null offline)
         int syncId = 0;
         final profileSyncId = profile.data?.syncId;
         if (profileSyncId is int) {
@@ -1988,65 +2113,51 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         } else if (profileSyncId is String) {
           syncId = int.tryParse(profileSyncId) ?? 0;
         }
-        if (syncId == 0 && ub.syncId != null) {
-          syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
-        }
 
-        // Save order offline
-        OfflineOrderService offlineService = OfflineOrderService();
-        int orderId = await offlineService.saveOrderOffline(
-          partyId: partyId,
+        // Calculate total amount from netAmount
+        double totalAmount = double.parse(netAmount);
+
+        print('[ORDER_PLACEMENT] 🔴 OFFLINE ORDER FALLBACK (Network Error)');
+        print(
+            '[ORDER_PLACEMENT] Party: ${profile.YN == "Y" ? party.punchInOutPartyId : party.partyid}');
+        print('[ORDER_PLACEMENT] Location: ($lat, $long)');
+        print('[ORDER_PLACEMENT] Items count: ${datacart.length}');
+        print('[ORDER_PLACEMENT] Total Amount: $totalAmount');
+        print('[ORDER_PLACEMENT] Sync ID: $syncId');
+
+        final orderId = await offlineService.saveOrderOffline(
+          partyId: profile.YN == "Y" ? party.punchInOutPartyId : party.partyid,
           totalAmount: totalAmount,
-          latitude: double.parse(lat),
-          longitude: double.parse(long),
-          syncId: syncId,
+          latitude: double.parse(lat.isNotEmpty ? lat : '0'),
+          longitude: double.parse(long.isNotEmpty ? long : '0'),
           remarks: orderRemarks.text,
+          syncId: syncId,
         );
 
-        AppSnackBar.showGetXCustomSnackBar(
-          message: "Order saved offline! Will sync when online.",
-          backgroundColor: Colors.orange,
-        );
+        print('[ORDER_PLACEMENT] ✅ Order saved to local DB with ID: $orderId');
 
-        // CRITICAL: Create PLACE ORDER tracking record IMMEDIATELY (type=2)
-        // This ensures the tracking record is created with the order's actual placement time
-        // Instead of waiting for sync (which would create it later with wrong sequence)
+        // Create PLACE ORDER tracking for sync
         try {
-          final OrderTrackingService orderTrackSvc = OrderTrackingService();
-          final DateTime orderPlacementTime = DateTime.now();
-
-          print(
-              '[ShoppingCart] Creating PLACE ORDER tracking (type=2) immediately...');
-          print('[ShoppingCart]   Party: $partyId | Location: ($lat, $long)');
-          print('[ShoppingCart]   Order placement time: $orderPlacementTime');
-
-          await orderTrackSvc.startEndOrder(
-            accCd: partyId,
-            latitude: double.parse(lat),
-            longitude: double.parse(long),
+          await OrderTrackingService().startEndOrder(
+            accCd: profile.YN == "Y" ? party.punchInOutPartyId : party.partyid,
+            latitude: double.parse(lat.isNotEmpty ? lat : '0'),
+            longitude: double.parse(long.isNotEmpty ? long : '0'),
             type: "2", // Type 2 = ORDER PLACED
-            oId: null, // We don't have server ID yet, will be null for offline
             token: ub.token.toString(),
             moduleNo: "205",
             syncId: syncId,
             userCd: ub.syncId ?? "",
-            isEndOrder: null, // Neutral for order placement
-            orderDateTime:
-                orderPlacementTime, // Use current time as placement time
           );
-
           print(
-              '[ShoppingCart] PLACE ORDER tracking created at placement time');
+              '[ORDER_PLACEMENT] ✅ Order tracking created (type=2 PLACE ORDER)');
         } catch (e) {
           print(
-              '[ShoppingCart] Warning: Could not create PLACE ORDER tracking: $e');
-          // Continue anyway - order was saved, tracking is secondary
+              '[ORDER_PLACEMENT] ⚠️ Warning: Could not create PLACE ORDER tracking: $e');
         }
 
-        // Check for license limit warning and store it for home screen display (like online behavior)
+        // Check for license limit warning
         bool isLimitHit = false;
         try {
-          final offlineService = OfflineOrderService();
           final warningMsg =
               await offlineService.getOfflineLicenseWarning(syncId);
 
@@ -2054,13 +2165,11 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             print(
                 '[OFFLINE_ORDER] Setting pending warning to display on home screen: $warningMsg');
 
-            // Check if limit is EXACTLY hit
             if (warningMsg.contains('LIMIT_HIT:')) {
               print(
                   '[OFFLINE_ORDER] EXACT LIMIT HIT - showing popup and resetting count');
               isLimitHit = true;
 
-              // Show popup immediately
               if (mounted) {
                 showDialog(
                   context: context,
@@ -2083,7 +2192,6 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                 );
               }
 
-              // Reset offline_order_count to 0 for next sync cycle
               try {
                 final db = DatabaseHelper();
                 await db.resetOfflineOrderCount(syncId);
@@ -2093,7 +2201,6 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                     '[OFFLINE_ORDER] Warning: Could not reset offline_order_count: $e');
               }
             } else {
-              // Store other warnings for home screen display
               profile.setPendingWarning(warningMsg);
             }
           }
@@ -2101,31 +2208,55 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           print('[OFFLINE_ORDER] Error checking license warning: $e');
         }
 
-        // Order saved successfully - no post-save license check needed
-        // Blacklisting will be handled AFTER sync when server confirms limit exceeded
-        print(
-            '[OFFLINE_ORDER] Order saved locally (will be synced when online)');
-
-        // Offline order is also a successful placement: clear stockist selection.
+        // Offline order is successful placement: clear stockist selection
         await controller.clearStockistSelection();
 
-        // Clear cart UI
-        getCart();
+        // ⚡ Clear cart from database
+        print(
+            '[ORDER_PLACEMENT] Clearing cart from database (offline order)...');
+        try {
+          final selectedPartyId =
+              profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+          await DatabaseHelper().clearCartForParty(selectedPartyId);
+          print(
+              '[ORDER_PLACEMENT] ✅ Cart cleared from database for party: $selectedPartyId (offline)');
+        } catch (e) {
+          print(
+              '[ORDER_PLACEMENT] ⚠️ Error clearing cart from DB (offline): $e');
+        }
 
+        // Clear CartController state
+        cartController.productAddedStates.clear();
+        cartController.cartCount.value = 0;
+        cartController.update(); // Ensure UI rebuilds with cleared count
+
+        print('[ORDER_PLACEMENT] ✅ OFFLINE ORDER COMPLETE');
+        print('[ORDER_PLACEMENT] Order ID: $orderId');
+        print('[ORDER_PLACEMENT] Will sync when online');
+
+        AppSnackBar.showGetXCustomSnackBar(
+          message: "Order saved (offline - will sync)",
+          backgroundColor: Colors.orange,
+        );
+
+        // ⚡ FAST: Just clear local cart state
         setState(() {
+          datacart.clear();
+          qty.clear();
+          freeQty.clear();
+          rate.clear();
+          remarks.clear();
           loading = false;
         });
 
         // Navigate to confirmation page with offline flag
         Get.to(() => OrderConformationPage(),
             arguments: {'offline': true, 'orderId': orderId});
-      } catch (e, stack) {
-        CrashlyticsService.recordNonFatal(e, stack);
+      } catch (offlineErr, stack) {
+        CrashlyticsService.recordNonFatal(offlineErr, stack);
 
-        final errorMsg = e.toString();
-
-        // Show generic error message
-        print('[OFFLINE_ORDER] Error saving offline order: $errorMsg');
+        final errorMsg = offlineErr.toString();
+        print('[ORDER_PLACEMENT] ❌ OFFLINE ORDER FAILED: $errorMsg');
 
         AppSnackBar.showGetXCustomSnackBar(
           message: 'Failed to save order. Please try again.',
@@ -2136,6 +2267,16 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           loading = false;
         });
       }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      print('[ORDER_PLACEMENT] ❌ Offline fallback error: $e');
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Failed to save order. Please try again.',
+        backgroundColor: Colors.red,
+      );
+      setState(() {
+        loading = false;
+      });
     }
   }
 }
