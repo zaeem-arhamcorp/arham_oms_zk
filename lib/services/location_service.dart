@@ -283,6 +283,7 @@ class LocationService {
     String createdBy = '',
     String remark = '',
     String createdAppType = 'oms',
+    bool continuousLocationTracking = true,
   }) async {
     try {
       print('[LocationService] 🟢 PUNCH IN INITIATED');
@@ -330,6 +331,24 @@ class LocationService {
       final locId = punchResult['locId'];
       final startLat = punchResult['lat'] as double;
       final startLng = punchResult['longi'] as double;
+
+      // Check if continuous location tracking is enabled
+      if (!continuousLocationTracking) {
+        print(
+            '[LocationService] ℹ️ Continuous location tracking disabled for this user');
+        print(
+            '[LocationService] ✅ PUNCH IN COMPLETE (on-demand location tracking mode)');
+        print('[LocationService]   ✅ Location recorded: locId=$locId');
+        print('[LocationService]   📍 Coordinates: $startLat, $startLng');
+        print(
+            '[LocationService]   ℹ️ Background service NOT started (on-demand mode)');
+
+        return {
+          ...punchResult,
+          'tracking_started': false,
+          'message': 'Punch In successful. Using on-demand location tracking.',
+        };
+      }
 
       // Step 3: Request activity recognition permission on main thread
       // This must be done here (main thread) before background service starts
@@ -607,6 +626,7 @@ class LocationService {
     String createdBy = '',
     String remark = '',
     String createdAppType = 'oms',
+    bool continuousLocationTracking = true,
   }) async {
     try {
       print('[LocationService] 🔴 PUNCH OUT INITIATED');
@@ -628,22 +648,41 @@ class LocationService {
 
       print('[LocationService] ✅ Internet available, proceeding...');
 
-      // Step 2: Stop background location capture, but keep trip open
-      // until pending points are synced.
-      print('[LocationService] 🛑 Stopping background tracking service...');
-      await _backgroundService.stopTracking(endTripOnServer: false);
-      print('[LocationService] ✅ Background tracking stopped');
+      // Initialize syncStats with default value (used for both continuous and on-demand modes)
+      Map<String, dynamic> syncStats = {
+        'total_synced': 0,
+        'total_failed': 0,
+      };
 
-      // Step 3: Sync all remaining unsynced location data
-      print('[LocationService] 🔄 Syncing remaining location data...');
-      final syncStats = await _syncService.syncAllLocations(token);
-      print('[LocationService] ✅ Sync complete');
-      print(
-          '[LocationService]   ${syncStats['total_synced']} synced, ${syncStats['total_failed']} failed');
+      // Step 2: Stop background location capture if continuous tracking was enabled
+      if (continuousLocationTracking) {
+        print('[LocationService] 🛑 Stopping background tracking service...');
+        await _backgroundService.stopTracking(endTripOnServer: false);
+        print('[LocationService] ✅ Background tracking stopped');
 
-      // Step 4: End trip on server only after pending points have synced.
-      final tripEnded = await _backgroundService.endActiveTripOnServer();
-      print('[LocationService] ${tripEnded ? '✅' : '⚠️'} Trip end after sync');
+        // Step 3: Sync all remaining unsynced location data
+        print('[LocationService] 🔄 Syncing remaining location data...');
+        syncStats = await _syncService.syncAllLocations(token);
+        print('[LocationService] ✅ Sync complete');
+        print(
+            '[LocationService]   ${syncStats['total_synced']} synced, ${syncStats['total_failed']} failed');
+
+        // Step 4: End trip on server only after pending points have synced.
+        final tripEnded = await _backgroundService.endActiveTripOnServer();
+        print(
+            '[LocationService] ${tripEnded ? '✅' : '⚠️'} Trip end after sync');
+      } else {
+        print(
+            '[LocationService] ℹ️ Continuous tracking disabled, skipping background service stop');
+        // For on-demand mode, clear the location_tracking table after punch out
+        print('[LocationService] 🧹 Clearing location tracking data...');
+        try {
+          await db.clearLocationTracking();
+          print('[LocationService] ✅ Location tracking data cleared');
+        } catch (e) {
+          print('[LocationService] ⚠️ Failed to clear location data: $e');
+        }
+      }
 
       // Step 5: Record punch out location
       print('[LocationService] 📍 Recording punch out location...');

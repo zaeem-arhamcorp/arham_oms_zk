@@ -2196,9 +2196,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           final userProvider =
                                               Provider.of<UserProvider>(context,
                                                   listen: false);
-                                          await location
-                                              .checkServiceEnable(userProvider);
-                                          //location.checkServiceEnable(context);
+                                          final profileProvider =
+                                              Provider.of<ProfileProvider>(
+                                                  context,
+                                                  listen: false);
+                                          await location.sendLocation(
+                                              userProvider,
+                                              profile: profileProvider);
                                         },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:

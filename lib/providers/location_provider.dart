@@ -160,7 +160,7 @@ class LocationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future sendLocation(UserProvider ub) async {
+  Future sendLocation(UserProvider ub, {ProfileProvider? profile}) async {
     if (remarks == null) {
       // No punch action requested
       return;
@@ -170,6 +170,22 @@ class LocationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Determine continuous location tracking setting
+      bool isContinuousTracking = true;
+      if (profile != null) {
+        try {
+          final setting = profile.data?.profileSettings.firstWhere(
+            (e) => e.variable == 'continuousLocationTracking',
+          );
+          isContinuousTracking = (setting?.value ?? 'Y') == 'Y';
+        } catch (e) {
+          // Setting not found, default to continuous tracking (Y)
+          isContinuousTracking = true;
+        }
+      }
+
+      print(
+          '[LocationProvider] 📍 Tracking mode: ${isContinuousTracking ? "CONTINUOUS" : "ON-DEMAND"}');
       // Use LocationService for offline-first punch-in/out
       final locationService = LocationService();
       final now = DateTime.now();
@@ -190,7 +206,7 @@ class LocationProvider extends ChangeNotifier {
       // Call appropriate method based on punch type
       final Map<String, dynamic> result;
       if (remarks == 'PUNCH IN') {
-        // PUNCH IN: Use punchIn() which starts background tracking
+        // PUNCH IN: Use punchIn() which starts background tracking (or on-demand mode)
         result = await locationService.punchIn(
           userCd: actualUserCd,
           vouchDt: vouchDt,
@@ -199,9 +215,10 @@ class LocationProvider extends ChangeNotifier {
           syncId: firmSyncId,
           moduleNo: '301',
           token: ub.token ?? '',
+          continuousLocationTracking: isContinuousTracking,
         );
       } else if (remarks == 'PUNCH OUT') {
-        // PUNCH OUT: Use punchOut() which stops background tracking
+        // PUNCH OUT: Use punchOut() which stops background tracking (or handles on-demand mode cleanup)
         result = await locationService.punchOut(
           userCd: actualUserCd,
           vouchDt: vouchDt,
@@ -210,6 +227,7 @@ class LocationProvider extends ChangeNotifier {
           syncId: firmSyncId,
           moduleNo: '301',
           token: ub.token ?? '',
+          continuousLocationTracking: isContinuousTracking,
         );
       } else {
         // Fallback for other punch types
@@ -324,4 +342,3 @@ class LocationProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-

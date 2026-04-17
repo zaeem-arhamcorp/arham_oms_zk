@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 18,
+      version: 19,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -88,6 +88,10 @@ class DatabaseHelper {
       // ✅ Ensure location_tracking has activity_type column for activity recognition
       await _ensureColumnExists(
           db, 'location_tracking', 'activity_type', "TEXT DEFAULT 'UNKNOWN'");
+
+      // ✅ Ensure location_on_demand table exists for on-demand GPS locations
+      await _ensureTableExists(
+          db, 'location_on_demand', _createOnDemandLocationsTable);
     } catch (e) {
       print('[DATABASE] ⚠️ Schema check error (non-fatal): $e');
     }
@@ -340,6 +344,15 @@ class DatabaseHelper {
       } catch (e) {
         print('[DATABASE] ℹ️ Activity type column may already exist: $e');
       }
+    }
+    if (oldVersion < 19) {
+      // v18 to v19: Add location_on_demand table for users without continuous tracking
+      // This stores fresh GPS locations obtained via Geolocator at order time
+      await _createOnDemandLocationsTable(db);
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_location_on_demand_activity ON location_on_demand(activity_type)');
+      print(
+          '[DATABASE] ✅ Created location_on_demand table for on-demand GPS tracking');
     }
   }
 
@@ -1433,6 +1446,24 @@ class DatabaseHelper {
     ''');
   }
 
+  /// Create location_on_demand table for users without continuous location tracking
+  /// Stores fresh GPS locations obtained via Geolocator at order entry points
+  /// Used for START ORDER, END ORDER, PUNCH IN/OUT events
+  Future<void> _createOnDemandLocationsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS location_on_demand (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        party_id TEXT NOT NULL,
+        latitude NUMERIC(10,8) NOT NULL DEFAULT 0.0,
+        longitude NUMERIC(10,8) NOT NULL DEFAULT 0.0,
+        timestamp INTEGER NOT NULL,
+        activity_type TEXT NOT NULL DEFAULT 'ON_DEMAND',
+        stored_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        synced INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+  }
+
   Future<void> _createLicenseInfoTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS license_info (
@@ -1868,6 +1899,58 @@ class DatabaseHelper {
 
     print(
         '[DATABASE] ⚠️ getLatestLocation: No location records found in database');
+    return null;
+  }
+
+  /// Insert on-demand location (Geolocator-fetched GPS)
+  /// Used for users without continuous tracking when START ORDER, END ORDER, PUNCH IN/OUT occurs
+  Future<int> insertOnDemandLocation({
+    required String partyId,
+    required double latitude,
+    required double longitude,
+    required String activityType,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final result = await db.insert('location_on_demand', {
+      'party_id': partyId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': now,
+      'activity_type': activityType,
+      'stored_at': now,
+      'synced': 0,
+    });
+
+    print(
+        '[DATABASE] ✅ Inserted on-demand location: party=$partyId, lat=$latitude, lng=$longitude, activity=$activityType');
+    return result;
+  }
+
+  /// Get latest on-demand location for a specific party
+  /// Used for users without continuous tracking to retrieve last stored on-demand location
+  Future<Map<String, dynamic>?> getLatestOnDemandLocation({
+    required String partyId,
+  }) async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.query(
+      'location_on_demand',
+      where: 'party_id = ?',
+      whereArgs: [partyId],
+      orderBy: 'timestamp DESC',
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      final latestLoc = result.first;
+      print(
+          '[DATABASE] ✅ getLatestOnDemandLocation for party=$partyId: lat=${latestLoc['latitude']}, lng=${latestLoc['longitude']}');
+      return latestLoc;
+    }
+
+    print(
+        '[DATABASE] ⚠️ getLatestOnDemandLocation: No on-demand locations found for party=$partyId');
     return null;
   }
 

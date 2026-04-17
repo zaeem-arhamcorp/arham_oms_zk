@@ -11,12 +11,14 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 //import 'package:fluttertoast/fluttertoast.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/productModal.dart';
 import '../../providers/cart_list_provider.dart';
 import '../../providers/location_provider.dart';
+import '../../services/database_helper.dart';
 import '../../services/services.dart';
 import '../../views/party_managment/bindings/account_bindings.dart';
 import '../../views/party_managment/screens/account_screen.dart';
@@ -59,6 +61,120 @@ class _ProductsPageState extends State<ProductsPage> {
   var updateRight = false;
   var deleteRight = false;
   var printRight = false;
+
+  /// Check if continuous location tracking is enabled in settings
+  bool _isContinuousLocationTrackingEnabled(ProfileProvider profile) {
+    try {
+      final setting = profile.data?.profileSettings.firstWhere(
+        (e) => e.variable == 'continuousLocationTracking',
+      );
+      return (setting?.value ?? 'Y') == 'Y';
+    } catch (e) {
+      // Setting not found, default to continuous tracking (Y)
+      return true;
+    }
+  }
+
+  /// Get fresh location via Geolocator for on-demand tracking
+  /// Used for START_ORDER, END_ORDER, PUNCH IN/OUT when continuous tracking disabled
+  Future<Map<String, String>> _getFreshLocationForOrder(
+    ProfileProvider profile,
+    PartyProvider party,
+    String activityType,
+  ) async {
+    var lat = "0";
+    var long = "0";
+
+    try {
+      print(
+          '[LOCATION] 📍 Fetching fresh location via Geolocator for $activityType...');
+
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print('[LOCATION] ⚠️ Location permission permanently denied');
+        return {'lat': '0', 'long': '0'};
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 30),
+      );
+
+      lat = position.latitude.toString();
+      long = position.longitude.toString();
+
+      // Store in on-demand table
+      try {
+        final partyId =
+            profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+        final db = DatabaseHelper();
+        await db.insertOnDemandLocation(
+          partyId: partyId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          activityType: activityType,
+        );
+        print(
+            '[LOCATION] ✅ On-demand location stored: lat=$lat, lng=$long, activity=$activityType');
+      } catch (storageErr) {
+        print('[LOCATION] ⚠️ Error storing on-demand location: $storageErr');
+      }
+    } catch (e) {
+      print(
+          '[LOCATION] ⚠️ Error fetching fresh location: $e, using default (0, 0)');
+    }
+
+    return {'lat': lat, 'long': long};
+  }
+
+  /// Get location based on tracking preference for orders
+  Future<Map<String, String>> _getLocationForOrder(
+    ProfileProvider profile,
+    PartyProvider party,
+    String activityType,
+  ) async {
+    var lat = "0";
+    var long = "0";
+
+    try {
+      final isContinuous = _isContinuousLocationTrackingEnabled(profile);
+      print(
+          '[LOCATION] Tracking mode: ${isContinuous ? "CONTINUOUS (40-sec)" : "ON-DEMAND (Geolocator)"}');
+
+      if (isContinuous) {
+        // ⚡ INSTANT: Get location from 40-second tracking table
+        try {
+          final db = DatabaseHelper();
+          final latestLocData = await db.getLatestLocation();
+
+          if (latestLocData != null) {
+            lat = (latestLocData['latitude'] ?? 0.0).toString();
+            long = (latestLocData['longitude'] ?? 0.0).toString();
+            print('[LOCATION] 📍 Continuous tracking: lat=$lat, lng=$long');
+          } else {
+            print(
+                '[LOCATION] ⚠️ No continuous tracking data, using default (0, 0)');
+          }
+        } catch (e) {
+          print('[LOCATION] ⚠️ Error fetching continuous location: $e');
+        }
+      } else {
+        // 📍 ON-DEMAND: Get fresh location via Geolocator
+        final locationData =
+            await _getFreshLocationForOrder(profile, party, activityType);
+        lat = locationData['lat'] ?? "0";
+        long = locationData['long'] ?? "0";
+      }
+    } catch (e) {
+      print('[LOCATION] ⚠️ Unexpected error in _getLocationForOrder: $e');
+    }
+
+    return {'lat': lat, 'long': long};
+  }
 
   @override
   void dispose() {

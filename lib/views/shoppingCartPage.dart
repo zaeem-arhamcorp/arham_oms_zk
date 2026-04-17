@@ -623,6 +623,92 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       ? Get.find<CartController>()
       : Get.put(CartController());
 
+  /// Check if continuous location tracking is enabled in settings
+  bool _isContinuousLocationTrackingEnabled(ProfileProvider profile) {
+    try {
+      final setting = profile.data?.profileSettings.firstWhere(
+        (e) => e.variable == 'continuousLocationTracking',
+      );
+      return (setting?.value ?? 'Y') == 'Y';
+    } catch (e) {
+      // Setting not found, default to continuous tracking (Y)
+      return true;
+    }
+  }
+
+  /// Get location based on tracking preference
+  /// If continuous: fetch from 40-sec tracking table (instant)
+  /// If on-demand: fetch fresh via Geolocator (blocking but accurate)
+  Future<Map<String, String>> _getLocationForOrder(
+    ProfileProvider profile,
+    PartyProvider party,
+  ) async {
+    var lat = "0";
+    var long = "0";
+
+    try {
+      final isContinuous = _isContinuousLocationTrackingEnabled(profile);
+      print(
+          '[LOCATION] Tracking mode: ${isContinuous ? "CONTINUOUS (40-sec)" : "ON-DEMAND (Geolocator)"}');
+
+      if (isContinuous) {
+        // ⚡ INSTANT: Get location from 40-second tracking table
+        try {
+          final db = DatabaseHelper();
+          final latestLocData = await db.getLatestLocation();
+
+          if (latestLocData != null) {
+            lat = (latestLocData['latitude'] ?? 0.0).toString();
+            long = (latestLocData['longitude'] ?? 0.0).toString();
+            print('[LOCATION] 📍 Continuous tracking: lat=$lat, lng=$long');
+          } else {
+            print(
+                '[LOCATION] ⚠️ No continuous tracking data, using default (0, 0)');
+          }
+        } catch (e) {
+          print('[LOCATION] ⚠️ Error fetching continuous location: $e');
+        }
+      } else {
+        // 📍 ON-DEMAND: Get fresh location via Geolocator
+        try {
+          final permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            await Geolocator.requestPermission();
+          }
+
+          final position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 30),
+          );
+
+          lat = position.latitude.toString();
+          long = position.longitude.toString();
+
+          // Store in on-demand table
+          final partyId =
+              profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+          final db = DatabaseHelper();
+          await db.insertOnDemandLocation(
+            partyId: partyId,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            activityType: 'ORDER_PLACEMENT',
+          );
+
+          print(
+              '[LOCATION] 📍 On-demand (Geolocator): lat=$lat, lng=$long [stored in DB]');
+        } catch (e) {
+          print(
+              '[LOCATION] ⚠️ Error fetching on-demand location: $e, using default (0, 0)');
+        }
+      }
+    } catch (e) {
+      print('[LOCATION] ⚠️ Unexpected error in _getLocationForOrder: $e');
+    }
+
+    return {'lat': lat, 'long': long};
+  }
+
   void calculateNetAmount() {
     // Ensure all amounts are summed up correctly as doubles
     double total = datacart.fold(0.0,
@@ -1908,10 +1994,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   }
 
   _handelAddOrder(items) async {
-    // ⚡⚡⚡ API-FIRST APPROACH with cached location
-    // 1. Get location from 40-second tracking table (instant!)
-    // 2. Hit API immediately
-    // 3. On failure: Fall back to offline storage
+    // ⚡⚡⚡ API-FIRST APPROACH with conditional location
+    // If continuous tracking: Use 40-second tracking table (instant)
+    // If on-demand: Get fresh GPS via Geolocator (may take 3-5 seconds)
 
     print('[ORDER_PLACEMENT] 📋 Order placement initiated');
     print('[ORDER_PLACEMENT] Items count: ${items?.length ?? 0}');
@@ -1925,29 +2010,15 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         Provider.of<ProfileProvider>(context, listen: false);
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
 
+    // Define lat/long outside try-catch so they're accessible in catch block
     var lat = "0";
     var long = "0";
 
     try {
-      // ⚡ INSTANT: Get location from 40-second tracking table (not GPS)
-      // This is already capturing location every 40 seconds during punch period
-      try {
-        final db = DatabaseHelper();
-        final latestLocData = await db.getLatestLocation();
-
-        if (latestLocData != null) {
-          lat = (latestLocData['latitude'] ?? 0.0).toString();
-          long = (latestLocData['longitude'] ?? 0.0).toString();
-          print(
-              '[ORDER_PLACEMENT] 📍 Location from DB: ($lat, $long) [40-sec tracking]');
-        } else {
-          print(
-              '[ORDER_PLACEMENT] ⚠️ No tracked location in DB, using default (0, 0)');
-        }
-      } catch (locErr) {
-        print(
-            '[ORDER_PLACEMENT] ⚠️ Error getting DB location: $locErr, using default');
-      }
+      // Get location based on tracking preference
+      final locationData = await _getLocationForOrder(profile, party);
+      lat = locationData['lat'] ?? "0";
+      long = locationData['long'] ?? "0";
 
       print(party.punchInOutPartyId);
       print(party.partyid);
