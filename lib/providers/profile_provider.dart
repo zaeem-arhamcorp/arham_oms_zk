@@ -540,16 +540,10 @@ class ProfileProvider extends DisposableProvider {
         return;
       }
 
-      final bool online = await NetworkHelper.hasInternet();
-
-      if (online) {
-        if (!context.mounted) {
-          print('[SETTINGS] Aborting online settings load: context disposed');
-          return;
-        }
-
-        // Fetch settings from API when online
-        print('[SETTINGS] Loading settings from API (online)');
+      // ⚡⚡⚡ OPTIMISTIC LOADING: Try API immediately without internet check!
+      // This saves ~2 seconds that was spent on connectivity check
+      print('[SETTINGS] Loading settings from API (optimistic)');
+      try {
         final SettingModal? settingResponse =
             await Services().getSettings(context);
 
@@ -569,46 +563,57 @@ class ProfileProvider extends DisposableProvider {
                 settingResponse.data.map((s) => s.toJson()).toList();
             await DatabaseHelper().cacheSettings(settingsMaps);
             print(
-                '[SETTINGS] Cached ${settingsMaps.length} settings for offline');
+                '[SETTINGS] ✅ Cached ${settingsMaps.length} settings for offline');
           } catch (e) {
             print('[SETTINGS] Failed to cache settings: $e');
           }
+          print(
+              '[SETTINGS] ✅ Loaded ${settingResponse.data.length} settings from API');
         } else {
-          print('[SETTINGS] No settings data received from API');
+          print(
+              '[SETTINGS] No settings data received from API, trying cache...');
+          // Fall back to cache if API returns empty
+          await _loadSettingsFromCache();
         }
-      } else {
-        // Load settings from local cache when offline
-        print('[SETTINGS] Loading settings from local cache (offline)');
-        try {
-          final List<Map<String, dynamic>> cachedSettings =
-              await DatabaseHelper().getAllSettings();
-
-          if (cachedSettings.isNotEmpty) {
-            // Convert cached maps to DatumSettings objects
-            final List<DatumSettings> settingsList =
-                cachedSettings.map((s) => DatumSettings.fromJson(s)).toList();
-
-            // Update profile settings (MERGE instead of replace to preserve punchInOut)
-            if (_data != null) {
-              // Remove old settings that conflict with cached ones (same 'variable' name)
-              _data!.profileSettings.removeWhere((old) =>
-                  settingsList.any((new_) => new_.variable == old.variable));
-              // Add cached settings alongside existing ones
-              _data!.profileSettings.addAll(settingsList);
-            }
-            print(
-                '[SETTINGS] Loaded ${settingsList.length} settings from cache (merged)');
-          } else {
-            print('[SETTINGS] No cached settings available');
-          }
-        } catch (e) {
-          print('[SETTINGS] Failed to load cached settings: $e');
-        }
+      } catch (e) {
+        // ❌ API FAILED - fallback to cache
+        print('[SETTINGS] 🔴 API failed: $e, falling back to cache');
+        await _loadSettingsFromCache();
       }
 
       notifyListeners();
     } catch (e) {
       print('[SETTINGS] Error in loadSettings: $e');
+    }
+  }
+
+  /// Helper method to load settings from local cache
+  Future<void> _loadSettingsFromCache() async {
+    try {
+      print('[SETTINGS] Loading settings from local cache (offline)');
+      final List<Map<String, dynamic>> cachedSettings =
+          await DatabaseHelper().getAllSettings();
+
+      if (cachedSettings.isNotEmpty) {
+        // Convert cached maps to DatumSettings objects
+        final List<DatumSettings> settingsList =
+            cachedSettings.map((s) => DatumSettings.fromJson(s)).toList();
+
+        // Update profile settings (MERGE instead of replace to preserve punchInOut)
+        if (_data != null) {
+          // Remove old settings that conflict with cached ones (same 'variable' name)
+          _data!.profileSettings.removeWhere((old) =>
+              settingsList.any((new_) => new_.variable == old.variable));
+          // Add cached settings alongside existing ones
+          _data!.profileSettings.addAll(settingsList);
+        }
+        print(
+            '[SETTINGS] ✅ Loaded ${settingsList.length} settings from cache (merged)');
+      } else {
+        print('[SETTINGS] No cached settings available');
+      }
+    } catch (e) {
+      print('[SETTINGS] Failed to load cached settings: $e');
     }
   }
 

@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
-import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
@@ -75,58 +74,92 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       nolist = false;
     });
 
-    bool online = await NetworkHelper.hasInternet();
+    // ✅ OPTIMIZED: Call API immediately without network check
+    // Network check was blocking the dashboard API - removed!
+    // If offline, the API call will fail gracefully and we load from cache
 
-    if (online) {
-      Services().getDashboarddata(context).then((value) async {
-        if (value != null) {
-          setState(() {
-            data = value;
-            if (data!.data.labelData.transaction.isEmpty) {
+    // ✅ Guard: Check if widget is still mounted before calling API
+    if (!mounted) return;
+
+    Services().getDashboarddata(context).then((value) async {
+      // ✅ Guard: Check mounted again after async operation
+      if (!mounted) return;
+
+      if (value != null) {
+        setState(() {
+          data = value;
+          if (data!.data.labelData.transaction.isEmpty) {
+            nolist = true;
+          }
+        });
+
+        // Cache dashboard data for offline use (always cache valid data)
+        try {
+          await DatabaseHelper().cacheHomeData(
+            'dashboard',
+            dashboardModalToJson(value),
+          );
+          print("Dashboard cached successfully");
+        } catch (e) {
+          print("Error caching dashboard data: $e");
+        }
+      } else {
+        // API returned null - load from cache instead
+        try {
+          final cached = await DatabaseHelper().getCachedHomeData('dashboard');
+          if (cached != null && cached.isNotEmpty && cached != 'null') {
+            final cachedData = dashboardModalFromJson(cached);
+            if (!mounted) return; // Guard before setState
+            setState(() {
+              data = cachedData;
+              if (data!.data.labelData.transaction.isEmpty) {
+                nolist = true;
+              }
+            });
+          } else {
+            if (!mounted) return; // Guard before setState
+            setState(() {
               nolist = true;
-            }
+            });
+          }
+        } catch (e) {
+          print("Error loading cached dashboard: $e");
+          if (!mounted) return; // Guard before setState
+          setState(() {
+            nolist = true;
           });
-
-          // Cache dashboard data for offline use (always cache valid data)
+        }
+      }
+    }).catchError((e) {
+      // API call failed (likely offline) - load from cache
+      print("Dashboard API failed: $e - loading from cache");
+      DatabaseHelper().getCachedHomeData('dashboard').then((cached) {
+        if (!mounted) return; // Guard before accessing state
+        if (cached != null && cached.isNotEmpty && cached != 'null') {
           try {
-            await DatabaseHelper().cacheHomeData(
-              'dashboard',
-              dashboardModalToJson(value),
-            );
-            print("Dashboard cached successfully");
+            final cachedData = dashboardModalFromJson(cached);
+            if (!mounted) return; // Guard before setState
+            setState(() {
+              data = cachedData;
+              if (data!.data.labelData.transaction.isEmpty) {
+                nolist = true;
+              }
+            });
           } catch (e) {
-            print("Error caching dashboard data: $e");
+            print("Error parsing cached dashboard: $e");
+            if (!mounted) return; // Guard before setState
+            setState(() {
+              nolist = true;
+            });
           }
         } else {
+          if (!mounted) return; // Guard before setState
           setState(() {
             nolist = true;
           });
         }
       });
-    } else {
-      // Offline: load from cache
-      try {
-        final cached = await DatabaseHelper().getCachedHomeData('dashboard');
-        if (cached != null && cached.isNotEmpty && cached != 'null') {
-          final cachedData = dashboardModalFromJson(cached);
-          setState(() {
-            data = cachedData;
-            if (data!.data.labelData.transaction.isEmpty) {
-              nolist = true;
-            }
-          });
-        } else {
-          setState(() {
-            nolist = true;
-          });
-        }
-      } catch (e) {
-        print("Error loading cached dashboard: $e");
-        setState(() {
-          nolist = true;
-        });
-      }
-    }
+    });
   }
 
   List<Map<String, dynamic>> firmList = [];
@@ -149,11 +182,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Mark HomePage active for conditional snack bar behavior
     Global.isHomeActive = true;
-    //fetchData();
-    notification();
 
-    loadData();
     getDashboarddata();
+    notification();
+    loadData();
+    // Future.microtask(() {
+    //   notification();
+    //   loadData();
+    // });
 
     _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
 
@@ -172,8 +208,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Auto-cache data on first login or firm switch (checked via SharedPreferences)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return; // Guard: exit if widget disposed
       final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
       if (ub.token != null && ub.syncId != null) {
+        if (!mounted) return; // Guard again after async
         final ProfileProvider pb =
             Provider.of<ProfileProvider>(context, listen: false);
 
@@ -202,6 +240,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           print('[HomePage] Auto-cache already done for firm $syncId');
           // Still show battery dialog even if caching was already done
           await Future.delayed(Duration(milliseconds: 1500));
+          if (!mounted) return; // Guard before checking punchInOut
           final isPunchEnabled = _isPunchInOutEnabled();
           if (isPunchEnabled) {
             _checkAndShowBatteryOptimizationDialog();
@@ -218,6 +257,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 //punchInOut
     // Sync license info on dashboard initialization
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return; // Guard: exit if widget disposed
       final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
       if (ub.token != null && ub.syncId != null) {
         final syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
@@ -761,8 +801,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         "moduleNo": "205",
       };
 
+      final ordersURL = "${AppConfig.baseURL}orders";
       final response = await http.post(
-        Uri.parse("${AppConfig.baseURL}orders"),
+        Uri.parse(ordersURL),
         headers: {
           "Authorization": "Bearer $token",
           'x-app-type': 'oms',
@@ -770,6 +811,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         body: dummyPayload,
       );
 
+      print("[HomePage] $ordersURL");
       print('[HomePage] 📊 /api/orders response: ${response.statusCode}');
 
       if (response.statusCode == 200 ||
@@ -816,6 +858,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         },
       );
 
+      print("[HomePage] ${AppConfig.baseURL}license-info/$custId");
       print(
           '[HomePage] 📊 /api/license-info/$custId response: ${response.statusCode}');
 
@@ -2698,6 +2741,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
 
       // Keep full raw payload log for debugging exact server response.
+      print(url);
       print("Dashboard Firm Data " + response.body);
       print('[HomePage] /firm response status=${response.statusCode}');
 
@@ -3291,6 +3335,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Check if punchInOut feature is enabled in profile settings
   bool _isPunchInOutEnabled() {
     try {
+      // ✅ Guard: Check if widget is still mounted before accessing context
+      if (!mounted) {
+        print(
+            '[HomePage] _isPunchInOutEnabled: Widget not mounted, returning default');
+        return true; // Default to true if widget disposed
+      }
+
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
       final isPunchEnabled = profileProvider.data?.profileSettings.any(

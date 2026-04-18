@@ -163,99 +163,90 @@ class Services {
 
   Future<List<DeptmentModal>?> getDeptment(context) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    // ⚡⚡⚡ OPTIMISTIC LOADING: Try API immediately without network check!
+    // This saves ~2 seconds that was spent on connectivity check
     try {
-      final bool online = await NetworkHelper.hasInternet();
-      print('[DEPARTMENTS] Checking online status: $online');
+      print('[DEPARTMENTS] Fetching from API (optimistic)...');
+      final http.Response response = await http.get(
+        Uri.parse("${AppConfig.baseURL}deptment"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+      );
+      print('[DEPARTMENTS] API Response: ${response.body}');
 
-      if (online) {
-        // ONLINE: Fetch from API
-        final http.Response response = await http.get(
-          Uri.parse("${AppConfig.baseURL}deptment"),
-          headers: {
-            "Authorization": "Bearer ${ub.token}",
-            'x-app-type': 'oms',
-          },
-        );
-        print('[DEPARTMENTS] API Response: ${response.body}');
+      if (response.statusCode == 200) {
+        final deptList = deptmentModalFromJson(response.body).data;
 
-        if (response.statusCode == 200) {
-          final deptList = deptmentModalFromJson(response.body).data;
-
-          // Cache departments for offline use
-          if (deptList.isNotEmpty) {
-            try {
-              final List<Map<String, dynamic>> deptMaps = deptList
-                  .map((d) => {
-                        'DEPT_CD': d.DEPT_CD,
-                        'DEPT_NAME': d.DEPT_NAME,
-                        'SYNC_ID': d.SYNC_ID,
-                      })
-                  .toList();
-              await DatabaseHelper().cacheDepartments(deptMaps);
-              print('[DEPARTMENTS] Cached ${deptMaps.length} departments');
-            } catch (e) {
-              print('[DEPARTMENTS] Failed to cache departments: $e');
-            }
-          }
-
-          return deptList;
-        } else if (response.statusCode == 401) {
-          print('[DEPARTMENTS] API returned status ${response.statusCode}');
-          ub.userSignout(context).then((value) {
-            Get.offAll(() => LoginPage());
-          });
-          return null;
-        } else {
-          print('[DEPARTMENTS] Non-auth failure status=${response.statusCode}');
-          return null;
-        }
-      } else {
-        // OFFLINE: Load from cache
-        print('[DEPARTMENTS] Offline mode - loading from cache');
-        try {
-          final cachedDepts = await DatabaseHelper().getAllDepartments();
-          if (cachedDepts.isNotEmpty) {
-            final deptList = cachedDepts
-                .map((d) => DeptmentModal(
-                      DEPT_CD: d['DEPT_CD'],
-                      DEPT_NAME: d['DEPT_NAME'],
-                      SYNC_ID: d['SYNC_ID'],
-                    ))
+        // Cache departments for offline use
+        if (deptList.isNotEmpty) {
+          try {
+            final List<Map<String, dynamic>> deptMaps = deptList
+                .map((d) => {
+                      'DEPT_CD': d.DEPT_CD,
+                      'DEPT_NAME': d.DEPT_NAME,
+                      'SYNC_ID': d.SYNC_ID,
+                    })
                 .toList();
-            print(
-                '[DEPARTMENTS] Loaded ${deptList.length} departments from cache');
-            return deptList;
-          } else {
-            print('[DEPARTMENTS] No cached departments available');
-            return null;
+            await DatabaseHelper().cacheDepartments(deptMaps);
+            print('[DEPARTMENTS] ✅ Cached ${deptMaps.length} departments');
+          } catch (e) {
+            print('[DEPARTMENTS] Failed to cache departments: $e');
           }
-        } catch (e) {
-          print('[DEPARTMENTS] Error loading cached departments: $e');
-          return null;
         }
+
+        return deptList;
+      } else if (response.statusCode == 401) {
+        print('[DEPARTMENTS] API returned status ${response.statusCode}');
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+        return null;
+      } else {
+        print(
+            '[DEPARTMENTS] Non-auth failure status=${response.statusCode}, trying cache...');
+        return await _getDepartmentsFromCache();
       }
     } catch (e, stack) {
-      CrashlyticsService.recordNonFatal(e, stack);
-      print('[DEPARTMENTS] Error in getDeptment: $e');
-
-      // Fallback: try to load from cache even if error occurs
+      // ❌ API FAILED - fallback to cache
+      print('[DEPARTMENTS] 🔴 API failed: $e, falling back to cache');
       try {
-        final cachedDepts = await DatabaseHelper().getAllDepartments();
-        if (cachedDepts.isNotEmpty) {
-          final deptList = cachedDepts
-              .map((d) => DeptmentModal(
-                    DEPT_CD: d['DEPT_CD'],
-                    DEPT_NAME: d['DEPT_NAME'],
-                    SYNC_ID: d['SYNC_ID'],
-                  ))
-              .toList();
-          return deptList;
-        }
+        return await _getDepartmentsFromCache();
       } catch (e2) {
         print('[DEPARTMENTS] Fallback cache load also failed: $e2');
+        CrashlyticsService.recordNonFatal(e2, stack);
+        return null;
       }
     }
-    return null;
+  }
+
+  /// Helper method to load departments from local cache
+  Future<List<DeptmentModal>?> _getDepartmentsFromCache() async {
+    try {
+      final cachedDepts = await DatabaseHelper().getAllDepartments();
+      if (cachedDepts.isNotEmpty) {
+        final deptList = cachedDepts
+            .map((d) => DeptmentModal(
+                  DEPT_CD: d['DEPT_CD'],
+                  DEPT_NAME: d['DEPT_NAME'],
+                  SYNC_ID: d['SYNC_ID'],
+                ))
+            .toList();
+        print(
+            '[DEPARTMENTS] ✅ Loaded ${deptList.length} departments from cache');
+        return deptList;
+      } else {
+        print('[DEPARTMENTS] No cached departments available');
+        return null;
+      }
+    } catch (e) {
+      print('[DEPARTMENTS] Error loading cached departments: $e');
+      return null;
+    }
   }
 
   Future<dynamic> addItemtoCartPartyWise(

@@ -1290,6 +1290,7 @@ class UserTextField extends StatefulWidget {
 
 class _UserTextFieldState extends State<UserTextField> {
   int currentLength = 0;
+  late VoidCallback _textListener;
 
   @override
   void initState() {
@@ -1297,11 +1298,23 @@ class _UserTextFieldState extends State<UserTextField> {
 
     currentLength = widget.clt.text.length;
 
-    widget.clt.addListener(() {
-      setState(() {
-        currentLength = widget.clt.text.length;
-      });
-    });
+    // Define the listener function so we can remove it in dispose()
+    _textListener = () {
+      if (mounted) {
+        setState(() {
+          currentLength = widget.clt.text.length;
+        });
+      }
+    };
+
+    widget.clt.addListener(_textListener);
+  }
+
+  @override
+  void dispose() {
+    // 🛡️ Remove listener to prevent setState() calls after dispose
+    widget.clt.removeListener(_textListener);
+    super.dispose();
   }
 
   @override

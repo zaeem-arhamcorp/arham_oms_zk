@@ -31,6 +31,16 @@ class LocationService {
     String createdAppType = 'oms',
   }) async {
     try {
+      // ⚠️ OFFLINE CHECK: Do not allow punch in/out without internet
+      final isOnline = await NetworkHelper.hasInternet();
+      if (!isOnline) {
+        print('[LocationService] ❌ OFFLINE - Punch in/out not allowed');
+        return {
+          'success': false,
+          'message': 'You are offline. Cannot punch in/out without internet connection.',
+        };
+      }
+
       // Get current GPS location
       double lat = 0.0, longi = 0.0;
       try {
@@ -76,116 +86,98 @@ class LocationService {
           '[LocationService]   remark=$remark | syncId=$syncId | moduleNo=$moduleNo');
       print('[LocationService]   status=pending (waiting for sync)');
 
-      // If online, immediately push to server
-      final isOnline = await NetworkHelper.hasInternet();
-      if (isOnline) {
-        try {
-          // Prepare payload for server
-          // Format time without microseconds for server compatibility
-          final formattedVouchTime = vouchTime.split('.').first;
+      // 📡 Optimistic loading: Try API immediately (no pre-flight check)
+      // If offline, the API call will fail and we keep the local DB record
+      try {
+        // Prepare payload for server
+        // Format time without microseconds for server compatibility
+        final formattedVouchTime = vouchTime.split('.').first;
 
-          // Server historically expects lowercase keys like `lat`, `long`, `moduleNo`, `remarks`.
-          // Include both forms to be compatible with either server variant.
-          final body = {
-            // legacy / expected keys
-            'lat': lat.toString(),
-            'long': longi.toString(),
-            'moduleNo': moduleNo.toString(),
-            'remarks': remark,
+        // Server historically expects lowercase keys like `lat`, `long`, `moduleNo`, `remarks`.
+        // Include both forms to be compatible with either server variant.
+        final body = {
+          // legacy / expected keys
+          'lat': lat.toString(),
+          'long': longi.toString(),
+          'moduleNo': moduleNo.toString(),
+          'remarks': remark,
 
-            // detailed keys (kept for compatibility / audit)
-            'USER_CD': userCd,
-            'vouchDt': vouchDt,
-            'vouchTime': formattedVouchTime,
-            'LAT': lat.toString(),
-            'LONGI': longi.toString(),
-            'REMARK': remark,
-            'SYNC_ID': syncId.toString(),
-            'MODULE_NO': moduleNo.toString(),
-            'CREATED_BY': createdBy,
-            'CREATED_APP_TYPE': createdAppType,
-          };
+          // detailed keys (kept for compatibility / audit)
+          'USER_CD': userCd,
+          'vouchDt': vouchDt,
+          'vouchTime': formattedVouchTime,
+          'LAT': lat.toString(),
+          'LONGI': longi.toString(),
+          'REMARK': remark,
+          'SYNC_ID': syncId.toString(),
+          'MODULE_NO': moduleNo.toString(),
+          'CREATED_BY': createdBy,
+          'CREATED_APP_TYPE': createdAppType,
+        };
 
-          print('[LocationService] 📤 ONLINE DETECTED - Pushing to server...');
-          print('[LocationService]   POST URL: ${AppConfig.baseURL}locations');
-          print('[LocationService]   Payload (sent): $body');
+        print('[LocationService] 📤 Pushing to server...');
+        print('[LocationService]   POST URL: ${AppConfig.baseURL}locations');
+        print('[LocationService]   Payload (sent): $body');
 
-          final http.Response response = await http.post(
-            Uri.parse("${AppConfig.baseURL}locations"),
-            body: body,
-            headers: {
-              "Authorization": "Bearer $token",
-              'x-app-type': 'oms',
-            },
-          );
+        final http.Response response = await http.post(
+          Uri.parse("${AppConfig.baseURL}locations"),
+          body: body,
+          headers: {
+            "Authorization": "Bearer $token",
+            'x-app-type': 'oms',
+          },
+        ).timeout(Duration(seconds: 10));
 
-          print('[LocationService] 📥 Server response: ${response.statusCode}');
-          print('[LocationService]   Response body: ${response.body}');
+        print('[LocationService] 📥 Server response: ${response.statusCode}');
+        print('[LocationService]   Response body: ${response.body}');
 
-          if (response.statusCode == 200 || response.statusCode == 201) {
-            // Success: mark as synced in local DB
-            await db.updateLocationSyncStatus(locId, 'synced', null);
-            print('[LocationService] ✅ SYNC SUCCESSFUL');
-            print(
-                '[LocationService]   locId=$locId | Marked as synced in local DB');
-            print(
-                '[LocationService]   user=$userCd | punch=$punchType | Local record kept for history');
-            return {
-              'success': true,
-              'locId': locId,
-              'synced': true,
-              'message': 'Punch $punchType recorded successfully',
-              'lat': lat,
-              'longi': longi,
-            };
-          } else {
-            // Server error: keep as pending for later sync
-            print('[LocationService] ⚠️ SERVER ERROR ${response.statusCode}');
-            print(
-                '[LocationService]   locId=$locId | Status: PENDING (will retry on next sync)');
-            print(
-                '[LocationService]   Local data preserved for automatic retry');
-            return {
-              'success': true,
-              'locId': locId,
-              'synced': false,
-              'message': 'Punch $punchType saved (will sync when needed)',
-              'lat': lat,
-              'longi': longi,
-              'error': 'Server error: ${response.statusCode}',
-            };
-          }
-        } catch (e) {
-          // Network/POST error: keep locally as pending
-          print('[LocationService] ⚠️ POST FAILED');
-          print('[LocationService]   locId=$locId | Error: $e');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Success: mark as synced in local DB
+          await db.updateLocationSyncStatus(locId, 'synced', null);
+          print('[LocationService] ✅ SYNC SUCCESSFUL');
           print(
-              '[LocationService]   Status: PENDING (will retry when online returns)');
+              '[LocationService]   locId=$locId | Marked as synced in local DB');
+          print(
+              '[LocationService]   user=$userCd | punch=$punchType | Local record kept for history');
+          return {
+            'success': true,
+            'locId': locId,
+            'synced': true,
+            'message': 'Punch $punchType recorded successfully',
+            'lat': lat,
+            'longi': longi,
+          };
+        } else {
+          // Server error: keep as pending for later sync
+          print('[LocationService] ⚠️ SERVER ERROR ${response.statusCode}');
+          print(
+              '[LocationService]   locId=$locId | Status: PENDING (will retry on next sync)');
+          print(
+              '[LocationService]   Local data preserved for automatic retry');
           return {
             'success': true,
             'locId': locId,
             'synced': false,
-            'message': 'Punch $punchType saved locally (will sync when online)',
+            'message': 'Punch $punchType saved (will sync when needed)',
             'lat': lat,
             'longi': longi,
-            'error': e.toString(),
+            'error': 'Server error: ${response.statusCode}',
           };
         }
-      } else {
-        // Offline: just local save, will sync later
-        print('[LocationService] 📵 OFFLINE MODE - Saved locally only');
+      } catch (e) {
+        // Network/POST error: keep locally as pending
+        print('[LocationService] ⚠️ API FAILED - Saved locally only');
+        print('[LocationService]   locId=$locId | Error: $e');
         print(
-            '[LocationService]   locId=$locId | user=$userCd | punch=$punchType');
-        print(
-            '[LocationService]   date=$vouchDt | time=$vouchTime | gps=($lat, $longi)');
-        print('[LocationService]   Status: PENDING (will sync when online)');
+            '[LocationService]   Status: PENDING (will retry when online returns)');
         return {
           'success': true,
           'locId': locId,
           'synced': false,
-          'message': 'Punch $punchType saved offline (will sync when online)',
+          'message': 'Punch $punchType saved locally (will sync when online)',
           'lat': lat,
           'longi': longi,
+          'error': e.toString(),
         };
       }
     } catch (e, stack) {
@@ -290,20 +282,8 @@ class LocationService {
       print('[LocationService]   User: $userCd | Sync ID: $syncId');
       print('[LocationService]   Date: $vouchDt | Time: $vouchTime');
 
-      // Step 1: Check internet connection - PUNCH IN requires online
-      final isOnline = await NetworkHelper.hasInternet();
-      if (!isOnline) {
-        print('[LocationService] ❌ PUNCH IN FAILED - No internet connection');
-        return {
-          'success': false,
-          'tracking_started': false,
-          'message':
-              'Punch In requires internet connection. Please check your network.',
-          'error': 'No internet connection',
-        };
-      }
-
-      print('[LocationService] ✅ Internet available, proceeding...');
+      // 📡 Optimistic loading: Try API immediately (no pre-flight check)
+      // If offline or connection fails, API call will fail with appropriate error message
 
       // Step 2: Record punch in location (existing logic)
       final punchResult = await punchInOut(
@@ -633,20 +613,8 @@ class LocationService {
       print('[LocationService]   User: $userCd | Sync ID: $syncId');
       print('[LocationService]   Date: $vouchDt | Time: $vouchTime');
 
-      // Step 1: Check internet connection - PUNCH OUT requires online
-      final isOnline = await NetworkHelper.hasInternet();
-      if (!isOnline) {
-        print('[LocationService] ❌ PUNCH OUT FAILED - No internet connection');
-        return {
-          'success': false,
-          'tracking_stopped': false,
-          'message':
-              'Punch Out requires internet connection. Please check your network.',
-          'error': 'No internet connection',
-        };
-      }
-
-      print('[LocationService] ✅ Internet available, proceeding...');
+      // 📡 Optimistic loading: Try API immediately (no pre-flight check)
+      // If offline or connection fails, API call will fail with appropriate error message
 
       // Initialize syncStats with default value (used for both continuous and on-demand modes)
       Map<String, dynamic> syncStats = {

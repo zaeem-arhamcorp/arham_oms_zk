@@ -81,6 +81,9 @@ class DatabaseHelper {
       await _ensureColumnExists(
           db, 'cart_items', 'stockist', "TEXT DEFAULT ''");
 
+      // 🔧 MIGRATION: Ensure cart_items table has UNIQUE constraint to prevent qty doubling
+      await _ensureCartItemsUnique(db);
+
       // ✅ Ensure offline_order_items has stockist column (transferred from cart)
       await _ensureColumnExists(
           db, 'offline_order_items', 'stockist', "TEXT DEFAULT ''");
@@ -117,6 +120,87 @@ class DatabaseHelper {
     if (!hasColumn) {
       print('[DATABASE] 🔧 Adding missing column: $table.$column');
       await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+    }
+  }
+
+  /// MIGRATION: Ensure cart_items table has UNIQUE constraint to prevent quantity doubling
+  /// SQLite doesn't support adding constraints directly, so we recreate the table
+  Future<void> _ensureCartItemsUnique(Database db) async {
+    try {
+      // Check if UNIQUE constraint exists by attempting to insert a duplicate
+      final testResult = await db.rawQuery(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='cart_items'",
+      );
+
+      if (testResult.isNotEmpty) {
+        final createSql = testResult.first['sql'].toString();
+
+        // If table already has UNIQUE constraint, we're done
+        if (createSql.contains('UNIQUE(item_cd, party_cd)')) {
+          print('[DATABASE] ✅ cart_items UNIQUE constraint already exists');
+          return;
+        }
+
+        // Table exists but doesn't have UNIQUE constraint - migrate it
+        print(
+            '[DATABASE] 🔧 Migrating cart_items table to add UNIQUE constraint...');
+
+        await db.transaction((txn) async {
+          // Step 1: Create new table with UNIQUE constraint
+          await txn.execute('''
+            CREATE TABLE cart_items_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              party_cd TEXT,
+              item_cd TEXT NOT NULL,
+              quantity REAL DEFAULT 0,
+              other_desc TEXT DEFAULT '',
+              fld5 TEXT DEFAULT '',
+              rate REAL DEFAULT 0,
+              nrate REAL DEFAULT 0,
+              lrate REAL DEFAULT 0,
+              amount REAL DEFAULT 0,
+              item_name TEXT DEFAULT '',
+              stockist TEXT DEFAULT '',
+              last_updated INTEGER,
+              sync_status TEXT DEFAULT 'pending',
+              UNIQUE(item_cd, party_cd)
+            )
+          ''');
+
+          // Step 2: Copy data from old table, keeping only the LATEST entry for each (item_cd, party_cd) pair
+          await txn.rawInsert('''
+            INSERT INTO cart_items_new 
+            SELECT * FROM cart_items
+            WHERE id IN (
+              SELECT MAX(id) FROM cart_items 
+              GROUP BY item_cd, party_cd
+            )
+          ''');
+
+          // Step 3: Get count of deduped items
+          final result =
+              await txn.rawQuery('SELECT COUNT(*) as cnt FROM cart_items');
+          final resultNew =
+              await txn.rawQuery('SELECT COUNT(*) as cnt FROM cart_items_new');
+          final oldCount = (result.first['cnt'] as int?) ?? 0;
+          final newCount = (resultNew.first['cnt'] as int?) ?? 0;
+
+          if (oldCount > newCount) {
+            print(
+                '[DATABASE] 🔧 Removed ${oldCount - newCount} duplicate cart items during migration');
+          }
+
+          // Step 4: Drop old table and rename new table
+          await txn.execute('DROP TABLE cart_items');
+          await txn.execute('ALTER TABLE cart_items_new RENAME TO cart_items');
+
+          print(
+              '[DATABASE] ✅ cart_items migration complete - UNIQUE constraint added');
+        });
+      }
+    } catch (e) {
+      print('[DATABASE] ⚠️ Cart items migration error (non-fatal): $e');
+      // Don't throw - let app continue, duplicates are just a UI issue
     }
   }
 
@@ -509,7 +593,8 @@ class DatabaseHelper {
       amount REAL DEFAULT 0,
       item_name TEXT DEFAULT '',
       last_updated INTEGER,
-      sync_status TEXT DEFAULT 'pending'
+      sync_status TEXT DEFAULT 'pending',
+      UNIQUE(item_cd, party_cd)
     )
     ''');
   }
@@ -677,7 +762,13 @@ class DatabaseHelper {
       where: 'item_cd = ? AND party_cd = ?',
       whereArgs: [item['item_cd'], item['party_cd']],
     );
+
+    int qty = (item['quantity'] as num?)?.toInt() ?? 0;
+
     if (existing.isNotEmpty) {
+      int existingQty = (existing.first['quantity'] as num?)?.toInt() ?? 0;
+      print(
+          '[DATABASE-WRITE] 🔄 UPDATE: ItemCd=${item['item_cd']}, PartyId=${item['party_cd']}, OldQty=$existingQty → NewQty=$qty');
       await db.update(
         'cart_items',
         item,
@@ -686,6 +777,8 @@ class DatabaseHelper {
       );
       return existing.first['id'] as int;
     } else {
+      print(
+          '[DATABASE-WRITE] ➕ INSERT: ItemCd=${item['item_cd']}, PartyId=${item['party_cd']}, Qty=$qty');
       return await db.insert('cart_items', item);
     }
   }
@@ -699,11 +792,21 @@ class DatabaseHelper {
       return await db.query('cart_items');
     }
     // Filter by party_cd
-    return await db.query(
+    final result = await db.query(
       'cart_items',
       where: 'party_cd = ?',
       whereArgs: [partyId],
     );
+
+    print('[DATABASE-QUERY] 🔍 getCartItems($partyId):');
+    print('[DATABASE-QUERY]   Total rows: ${result.length}');
+    for (var row in result) {
+      int qty = (row['quantity'] as num?)?.toInt() ?? 0;
+      print(
+          '[DATABASE-QUERY]   - ID: ${row['id']}, ItemCd: ${row['item_cd']}, Qty: $qty');
+    }
+
+    return result;
   }
 
   Future<void> deleteCartItemByItemCd(String itemCd, String partyCd) async {
@@ -812,11 +915,43 @@ class DatabaseHelper {
   /// Clear cart items for a specific party
   Future<void> clearCartForParty(String partyId) async {
     final db = await database;
+
+    // Get count before deleting (for logging)
+    final existingCount = await db.rawQuery(
+        "SELECT COUNT(*) as cnt FROM cart_items WHERE party_cd = ?", [partyId]);
+    final countBeforeDelete = (existingCount.first['cnt'] as int?) ?? 0;
+
     await db.delete(
       'cart_items',
       where: 'party_cd = ?',
       whereArgs: [partyId],
     );
+
+    print(
+        '[DATABASE-WRITE] 🗑️  CLEARED: PartyId=$partyId, DeletedRows=$countBeforeDelete');
+  }
+
+  /// Get cart item count for a specific party
+  Future<int> getCartCountForParty(String partyId) async {
+    final db = await database;
+    final result = await db.query(
+      'cart_items',
+      where: 'party_cd = ?',
+      whereArgs: [partyId],
+    );
+    return result.length;
+  }
+
+  /// Get cart counts for all parties as a map: {partyId -> count}
+  Future<Map<String, int>> getAllPartyCartCounts() async {
+    final db = await database;
+    final result = await db.query('cart_items');
+    Map<String, int> cartCounts = {};
+    for (var row in result) {
+      String partyCd = row['party_cd']?.toString() ?? '';
+      cartCounts[partyCd] = (cartCounts[partyCd] ?? 0) + 1;
+    }
+    return cartCounts;
   }
   //
   // /// Cleanup stale synced orders (removes orders marked as 'synced' that weren't deleted in previous sync)

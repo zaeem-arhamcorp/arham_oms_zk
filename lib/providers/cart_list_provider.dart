@@ -65,58 +65,7 @@ class CartListProvider extends DisposableProvider {
       return;
     }
 
-    bool online = await NetworkHelper.hasInternet();
-
-    if (!online) {
-      // Load from local database when offline
-      try {
-        // Filter cart items by current party
-        final localCart = await DatabaseHelper().getCartItems(partyId: partyId);
-        print(
-            "Loaded ${localCart.length} items from offline cart for party $partyId (before dedup)");
-
-        _data.clear();
-
-        // Map to track unique items by item_cd to prevent duplicates
-        final Map<String, DatumCartList> uniqueItems = {};
-
-        // Map each item with detailed error handling
-        for (var item in localCart) {
-          try {
-            final cartItem = DatumCartList.fromLocal(item);
-            final itemCd = item['item_cd'] ?? 'UNKNOWN';
-
-            // If item already exists, update quantity instead of adding duplicate
-            if (uniqueItems.containsKey(itemCd)) {
-              final existing = uniqueItems[itemCd]!;
-              // Update quantity by adding the quantities
-              existing.quantity =
-                  (existing.quantity ?? 0) + (cartItem.quantity ?? 0);
-              existing.amount =
-                  ((existing.amount ?? 0) + (cartItem.amount ?? 0)).toDouble();
-              print("Merged duplicate item: $itemCd");
-            } else {
-              uniqueItems[itemCd] = cartItem;
-              print("Added offline cart item: $itemCd");
-            }
-          } catch (itemError) {
-            print(
-                "Error converting cart item ${item['item_cd']}: $itemError. Item data: $item");
-            // Continue with next item instead of crashing
-          }
-        }
-
-        _data.addAll(uniqueItems.values);
-        print("Successfully loaded ${_data.length} UNIQUE items to UI");
-      } catch (e, stack) {
-        print("Error loading offline cart: $e");
-        print("Stack trace: $stack");
-        _data.clear();
-      }
-      notifyListeners();
-      return;
-    }
-
+    // 📡 Optimistic loading: Try API first with timeout (no pre-flight check)
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURL}cart?partyCd=$partyId"),
@@ -124,12 +73,21 @@ class CartListProvider extends DisposableProvider {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
-      );
+      ).timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         _data.clear();
         final serverItems = cartListModalFromJson(response.body).data;
         _data.addAll(serverItems);
+
+        print('[CART_PROVIDER-ONLINE] 🌐 API RESPONSE 200:');
+        print(
+            '[CART_PROVIDER-ONLINE]   Items in response: ${serverItems.length}');
+        for (var item in serverItems) {
+          int qty = (item.quantity as num?)?.toInt() ?? 0;
+          print(
+              '[CART_PROVIDER-ONLINE]   - ItemCd: ${item.itemCd}, Qty: $qty, Amount: ${item.amount}');
+        }
 
         // ✅ Update UI immediately with server data
         notifyListeners();
@@ -138,8 +96,16 @@ class CartListProvider extends DisposableProvider {
         Future.microtask(() async {
           try {
             final dbHelper = DatabaseHelper();
+            print(
+                '[CART_PROVIDER-SYNC] 🔄 CLEARING LOCAL DB FOR PARTY: $partyId');
             await dbHelper.clearCartForParty(partyId);
+
+            print(
+                '[CART_PROVIDER-SYNC] 📥 RE-INSERTING ${serverItems.length} ITEMS:');
             for (var item in serverItems) {
+              int qty = (item.quantity as num?)?.toInt() ?? 0;
+              print(
+                  '[CART_PROVIDER-SYNC]   - Inserting ItemCd: ${item.itemCd}, Qty: $qty');
               await CartService().addToCart(
                 partyCd: partyId,
                 itemCd: item.itemCd?.toString() ?? '',
@@ -156,9 +122,10 @@ class CartListProvider extends DisposableProvider {
               );
             }
             print(
-                "Synced ${serverItems.length} server cart items → local DB (background)");
+                '[CART_PROVIDER-SYNC] ✅ Synced ${serverItems.length} server cart items → local DB (background)');
           } catch (syncErr) {
-            print("Error syncing server cart to local: $syncErr");
+            print(
+                '[CART_PROVIDER-SYNC] ❌ Error syncing server cart to local: $syncErr');
             // Silently fail - UI already has server data
           }
         });

@@ -1,15 +1,16 @@
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'dart:async';
 
+import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/providers/cart_list_provider.dart';
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
-import 'package:arham_corporation/providers/cart_list_provider.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/order_tracking_service.dart';
-import 'package:arham_corporation/helper/network_helper.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -19,7 +20,6 @@ import 'package:provider/provider.dart';
 import '../config/app_config.dart';
 import '../models/partynameModal.dart';
 import '../views/loginpage.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class PartyProvider extends DisposableProvider {
   String _party = "";
@@ -96,56 +96,50 @@ class PartyProvider extends DisposableProvider {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
 
-    final bool online = await NetworkHelper.hasInternet();
-    if (!online) {
-      // Load from cache
-      try {
-        final cached = await DatabaseHelper().getCachedParties();
-        for (var row in cached) {
-          _data.add(DatumPartyname(
-            accCd: row['acc_cd']?.toString() ?? '',
-            accName: row['name'] ?? '',
-            accAddress: row['address'] ?? '',
-            mobile: row['phone'] ?? '',
-            accCartItem: '',
-          ));
-        }
-        nolistParty = _data.isEmpty;
-        notifyListeners();
-        return null;
-      } catch (e) {
-        print('Failed to load parties from cache: $e');
-      }
-    }
-
+    // ⚡⚡⚡ OPTIMISTIC LOADING: Try API immediately without internet check!
+    // This saves ~2 seconds that was spent on connectivity check
     try {
       final http.Response response = await http.get(
-        Uri.parse(AppConfig.baseURL + "products/party"),
+        Uri.parse(AppConfig.baseURL + "products/party?groupCd=85"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
+      ).timeout(
+        const Duration(seconds: 10),
       );
       print("Here the product page is calling :-  " +
           AppConfig.baseURL +
-          "products/party");
+          "products/party?groupCd=85");
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
         final parsed = partynameModalFromJson(response.body).data;
         // Filter to only include parties (groupCD 135 or 85), exclude stockists (groupCD 136)
-        var filteredData = parsed
-            .where((party) => (party.groupCD == 135 || party.groupCD == 85));
+        final filteredData = parsed
+            .where((party) => (party.groupCD == 135 || party.groupCD == 85))
+            .toList();
         data.addAll(filteredData);
+
+        // ⚡ REFRESH CART COUNTS FROM LOCAL DB FOR EACH PARTY
+        final cartCounts = await DatabaseHelper().getAllPartyCartCounts();
+        for (var party in data) {
+          int cartCount = cartCounts[party.accCd] ?? 0;
+          if (cartCount > 0) {
+            party.accCartItem =
+                "$cartCount Cart Item${cartCount > 1 ? 's' : ''}";
+          }
+        }
+
         if (data.isEmpty) {
           nolistParty = true;
         } else {
           nolistParty = false;
         }
 
-        // Cache to DB for offline use
+        // Cache to DB for offline use (ONLY filtered parties, not stockists)
         try {
-          List<Map<String, dynamic>> toCache = parsed.map((p) {
+          List<Map<String, dynamic>> toCache = filteredData.map((p) {
             int? sid;
             try {
               sid = int.tryParse(p.accCd);
@@ -166,15 +160,38 @@ class PartyProvider extends DisposableProvider {
         } catch (cacheErr) {
           print('Failed to cache parties: $cacheErr');
         }
-      } else {
+      } else if (response.statusCode == 401) {
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());
         });
       }
-    } catch (e, stack) {
-      CrashlyticsService.recordNonFatal(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
-      print("Error in PartyProvider getpartyname data ${e.toString()}");
+    } catch (e) {
+      // ❌ API FAILED or offline - fallback to cache
+      print('🔴 API failed: $e, falling back to cache');
+      try {
+        final cached = await DatabaseHelper().getCachedParties();
+        // ⚡ GET ACTUAL CART COUNTS FROM LOCAL DB FOR EACH PARTY
+        final cartCounts = await DatabaseHelper().getAllPartyCartCounts();
+
+        for (var row in cached) {
+          String accCd = row['acc_cd']?.toString() ?? '';
+          int cartCount = cartCounts[accCd] ?? 0;
+          _data.add(DatumPartyname(
+            accCd: accCd,
+            accName: row['name'] ?? '',
+            accAddress: row['address'] ?? '',
+            mobile: row['phone'] ?? '',
+            accCartItem: cartCount > 0
+                ? "$cartCount Cart Item${cartCount > 1 ? 's' : ''}"
+                : '',
+          ));
+        }
+        nolistParty = _data.isEmpty;
+        print('📦 Loaded ${_data.length} parties from cache');
+      } catch (cacheErr) {
+        print('Failed to load from cache: $cacheErr');
+        nolistParty = true;
+      }
     }
     notifyListeners();
     return null;
@@ -670,6 +687,18 @@ class PartyProvider extends DisposableProvider {
           punchInOutParty = "";
           punchInOutPartyId = "";
           notifyListeners();
+
+          // ⚡ BACKGROUND: Pre-fetch fresh party list so it's ready for next START_ORDER
+          print('[END_ORDER] 📡 Background: Pre-fetching fresh party list...');
+          Future.microtask(() async {
+            try {
+              await getPartyNameProductPage(Get.context!);
+              print('[END_ORDER] ✅ Background: Party list refreshed and ready');
+            } catch (e) {
+              print(
+                  '[END_ORDER] ⚠️ Background: Could not pre-fetch parties: $e');
+            }
+          });
         } else {
           // START ORDER
           pp.change(accName, acc_cd);

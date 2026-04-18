@@ -267,28 +267,33 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         noPartyName = true;
       } else {
         print("111111");
+        print(
+            '[SHOPPING_CART_INIT] 🛒 Calling cart.getCartItem() for party: ${party.punchInOutParty.isEmpty ? party.party : party.punchInOutParty}');
 
         cart
             .getCartItem(
                 context,
-                // profile.data?.profileSettings
-                //             .firstWhere(
-                //                 (element) => element.variable == 'punchInOut')
-                //             .value ==
-                //         'Y'
                 profile.data?.profileSettings.any((e) =>
                             e.variable == 'punchInOut' && e.value == 'Y') ??
                         false
                     ? party.punchInOutPartyId
                     : party.partyid)
             .then((value) {
+          print(
+              '[SHOPPING_CART_INIT] ✅ cart.getCartItem() completed, cart.data.length=${cart.data.length}');
           if (!mounted) return; // ✅ Guard: widget might be disposed
           setState(() {
-            //datacart.addAll(cart.data); //TODO : FAZAL COMMENT 13/03/2025
             _originalData = cart.data; // Store the original data
             datacart = List.from(
                 _originalData); // Set the displayed data to the original
-            //data.addAll(value.data);
+
+            print('[SHOPPING_CART_PAGE] 📊 DISPLAYING CART:');
+            print('[SHOPPING_CART_PAGE]   Total items: ${datacart.length}');
+            for (var element in datacart) {
+              int displayedQty = (element.quantity as num?)?.toInt() ?? 0;
+              print(
+                  '[SHOPPING_CART_PAGE]   - ItemCd: ${element.itemCd}, Qty: $displayedQty, Amount: ${element.amount}');
+            }
             // datacart.forEach((element) {
             //   qty.add(TextEditingController(text: element.quantity.toString()));
             //   freeQty.add(TextEditingController(

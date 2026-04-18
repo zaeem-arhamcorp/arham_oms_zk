@@ -105,41 +105,36 @@ class ProductController extends GetxController {
   Future<void> fetchProductsFromAPI() async {
     isLoading.value = true;
     try {
-      final bool online = await NetworkHelper.hasInternet();
-      print("Network check: online=$online");
+      // ⚡⚡⚡ OPTIMISTIC LOADING: Try API immediately without network check!
+      // This saves ~2 seconds that was spent on connectivity check
+      print('[PRODUCTS] Fetching from API (optimistic)...');
+      final response = await _getRequest(endpoint: 'export/products');
+      if (response != null) {
+        final apiResponse = ProductResponse.fromJson(response);
+        final productsData = apiResponse.data;
+        print("✅ Fetched ${productsData.length} products from API");
 
-      if (online) {
-        // ONLINE MODE: Fetch from API and cache for offline use
-        final response = await _getRequest(endpoint: 'export/products');
-        if (response != null) {
-          final apiResponse = ProductResponse.fromJson(response);
-          final productsData = apiResponse.data;
-          print("Fetched ${productsData.length} products from API");
+        // Cache products to local database for offline access
+        await _cacheProductsForOffline(productsData);
 
-          // Cache products to local database for offline access
-          await _cacheProductsForOffline(productsData);
-
-          products.assignAll(productsData);
-          filteredProducts.assignAll(productsData);
-          print("Displayed ${productsData.length} products");
-        } else {
-          print("API response was null, attempting to load from cache");
-          await _loadProductsFromCache();
-        }
+        products.assignAll(productsData);
+        filteredProducts.assignAll(productsData);
+        print("Displayed ${productsData.length} products");
       } else {
-        // OFFLINE MODE: Load from local cache
-        print("Offline mode: loading products from cache");
+        print("[PRODUCTS] 🔴 API response was null, loading from cache...");
         await _loadProductsFromCache();
       }
     } catch (e, stack) {
-      print("Critical error in fetchProductsFromAPI: $e");
+      // ❌ API FAILED - fallback to cache
+      print("[PRODUCTS] 🔴 Critical error in fetchProductsFromAPI: $e");
       print("Stack: $stack");
       log("Failed to fetch products from API: $e");
       // On error, still try to load from cache
       try {
+        print("[PRODUCTS] Attempting to load from cache...");
         await _loadProductsFromCache();
       } catch (cacheError) {
-        print("Also failed to load from cache: $cacheError");
+        print("[PRODUCTS] ❌ Also failed to load from cache: $cacheError");
       }
     } finally {
       isLoading.value = false;
@@ -486,8 +481,9 @@ class ProductController extends GetxController {
         );
       }).toList();
     } else {
-      // Normal single-word search
-      final startsWithMatch = baseList.where((product) {
+      // Normal single-word search - ONLY items that START with the query
+      // (Contains behavior only applies when using * wildcard)
+      filteredList = baseList.where((product) {
         final fields = [
           product.itemName.toLowerCase(),
           product.itemLname?.toLowerCase() ?? "",
@@ -498,23 +494,6 @@ class ProductController extends GetxController {
 
         return fields.any((field) => field.startsWith(queryNormalized));
       }).toList();
-
-      final containsMatch = baseList.where((product) {
-        final fields = [
-          product.itemName.toLowerCase(),
-          product.itemLname?.toLowerCase() ?? "",
-          product.itemCd.toLowerCase(),
-          product.itemBrand?.toLowerCase() ?? "",
-          product.itemCat?.toLowerCase() ?? ""
-        ];
-
-        return fields.any((field) => field.contains(queryNormalized));
-      }).toList();
-
-      // Merge and deduplicate
-      filteredList = [
-        ...{...startsWithMatch, ...containsMatch}
-      ];
     }
 
     filteredProducts.assignAll(filteredList);
@@ -650,7 +629,7 @@ class ProductController extends GetxController {
     isPartyLoading.value = true;
     try {
       //final response = await _getRequest(endpoint: '/products/party');
-      final response = await _getRequest(endpoint: 'products/party');
+      final response = await _getRequest(endpoint: 'products/party?groupCd=85');
 
       if (response != null) {
         final partyData = PartynameModal.fromJson(response);
@@ -667,6 +646,7 @@ class ProductController extends GetxController {
   /// Fetch stockists by groupCd parameter
   /// Used to get parties with specific groupCd (e.g., groupCd=136 for stockists)
   /// and stockist=1 to fetch user-specific stockists.
+  /// Also caches stockist data for offline use.
   Future<void> fetchStockists({required String groupCd}) async {
     isStockistLoading.value = true;
     try {
@@ -693,17 +673,53 @@ class ProductController extends GetxController {
         print(
             '[Stockist] Fetched ${stockists.length} stockists for groupCd=$groupCd with stockist=1');
 
+        // ✅ CACHE STOCKIST DATA for offline use
+        try {
+          await DatabaseHelper().cacheHomeData(
+            'stockists_$groupCd',
+            jsonEncode(response.data),
+          );
+          print(
+              '[Stockist] ✅ Cached ${stockists.length} stockists for offline use');
+        } catch (e) {
+          print('[Stockist] ⚠️ Error caching stockists: $e');
+        }
+
         // Calculate distances and sort stockists by proximity
         await _sortStockistsByDistance();
       } else {
         print('[Stockist] Failed with status: ${response.statusCode}');
-        hasStockistAccess.value = false;
+        // Try to load from cache on API failure
+        await _loadCachedStockists(groupCd);
       }
     } catch (e) {
       print('[Stockist] Error fetching stockists: $e');
-      hasStockistAccess.value = false;
+      // Try to load from cache when offline
+      await _loadCachedStockists(groupCd);
     } finally {
       isStockistLoading.value = false;
+    }
+  }
+
+  /// Load cached stockist data when offline
+  Future<void> _loadCachedStockists(String groupCd) async {
+    try {
+      final cached =
+          await DatabaseHelper().getCachedHomeData('stockists_$groupCd');
+      if (cached != null && cached.isNotEmpty && cached != 'null') {
+        final jsonData = jsonDecode(cached);
+        final partyData = PartynameModal.fromJson(jsonData);
+        stockists.assignAll(partyData.data);
+        hasStockistAccess.value = stockists.isNotEmpty;
+        print(
+            '[Stockist] 📦 Loaded ${stockists.length} stockists from cache (offline mode)');
+      } else {
+        hasStockistAccess.value = false;
+        print('[Stockist] ⚠️ No cached stockists available');
+      }
+    } catch (e) {
+      print('[Stockist] ⚠️ Error loading cached stockists: $e');
+      hasStockistAccess.value = false;
     }
   }
 

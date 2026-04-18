@@ -47,6 +47,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
   bool isLoading = true;
   bool _isOrderProcessing = false; // Prevent multiple clicks on order buttons
+  bool _isSorting = false; // Track if party list is being sorted by distance
   List<DatumProduct> dataProduct = [];
 
   List<TextEditingController> qty = [];
@@ -237,18 +238,54 @@ class _ProductsPageState extends State<ProductsPage> {
       if (controller.selectedPartyId.value.isNotEmpty) {
         cartController.productAddedStates.clear(); // Clear previous state
 
-        await cart.getCartItem(Get.context!, controller.selectedPartyId.value);
-
-        // Update state based on fetched cart data
-        for (var item in cart.data) {
-          cartController.productAddedStates[item.itemCd] = true;
+        // ⚡ INSTANT: Load from local cache SYNCHRONOUSLY before rendering
+        try {
+          final localCartItems = await DatabaseHelper()
+              .getCartItems(partyId: controller.selectedPartyId.value);
+          print('[PRODUCT_PAGE-PHASE1] 📊 LOCAL DB LOAD:');
+          print(
+              '[PRODUCT_PAGE-PHASE1]   Total items: ${localCartItems.length}');
+          for (var item in localCartItems) {
+            String itemCd = item['item_cd']?.toString() ?? '';
+            int qty = (item['quantity'] as num?)?.toInt() ?? 0;
+            if (itemCd.isNotEmpty) {
+              print('[PRODUCT_PAGE-PHASE1]   - ItemCd: $itemCd, Qty: $qty');
+              cartController.productAddedStates[itemCd] = true;
+            }
+          }
+          cartController.cartCount.value =
+              cartController.productAddedStates.length;
+          cartController.update();
+          print(
+              '[PRODUCT_PAGE-PHASE1] ✅ Loaded ${localCartItems.length} items from local cache immediately');
+        } catch (e) {
+          print('[PRODUCT_PAGE-PHASE1] ⚠️ Error loading local cache: $e');
         }
 
-        cartController.update();
+        // 📡 BACKGROUND: Fetch from server and update (non-blocking)
+        Future.microtask(() async {
+          try {
+            print('[PRODUCT_PAGE-PHASE2] 🌐 SERVER SYNC START...');
+            await cart.getCartItem(
+                Get.context!, controller.selectedPartyId.value);
 
-        cartController.cartCount.value =
-            cartController.productAddedStates.length;
-        cartController.update(); // Ensure UI rebuilds with new cart count
+            print('[PRODUCT_PAGE-PHASE2] 📊 SERVER RESPONSE:');
+            print('[PRODUCT_PAGE-PHASE2]   Total items: ${cart.data.length}');
+            for (var item in cart.data) {
+              int qty = (item.quantity as num?)?.toInt() ?? 0;
+              print(
+                  '[PRODUCT_PAGE-PHASE2]   - ItemCd: ${item.itemCd}, Qty: $qty, Amount: ${item.amount}');
+              cartController.productAddedStates[item.itemCd] = true;
+            }
+
+            cartController.cartCount.value =
+                cartController.productAddedStates.length;
+            cartController.update();
+            print('[PRODUCT_PAGE-PHASE2] ✅ Synced cart with server');
+          } catch (e) {
+            print('[PRODUCT_PAGE-PHASE2] ⚠️ Failed to sync cart: $e');
+          }
+        });
       }
 
       // Refresh stockists only when stockist link is enabled for this user.
@@ -1079,48 +1116,88 @@ class _ProductsPageState extends State<ProductsPage> {
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
 
-    // Fetch party data once and store the Future
-    final Future<void> partyDataFuture = pp.getPartyNameProductPage(context);
+    // ⚡ IMPORTANT: Show menu INSTANTLY without waiting for sort!
+    print('[PARTY_MENU] ⚡ START_ORDER: Showing cached party list instantly...');
+    _isSorting = true; // Mark sorting as in progress
 
-    // Use the Future to show the menu after data is loaded
-    partyDataFuture.then((_) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        enableDrag: false,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
-        ),
-        builder: (BuildContext context) {
-          return Consumer<PartyProvider>(
-            builder: (context, party, child) {
-              return StatefulBuilder(
-                builder: (context, setState) {
-                  return Padding(
-                    padding: MediaQuery.of(context).viewInsets,
-                    child: SizedBox(
-                      height: 450,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSearchField(setState, party),
-                          _buildPartyList(setState, p, party),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+    // Show the menu immediately
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      builder: (BuildContext context) {
+        return Consumer<PartyProvider>(
+          builder: (context, party, child) {
+            return StatefulBuilder(builder: (context, setState) {
+              return Padding(
+                padding: MediaQuery.of(context).viewInsets,
+                child: SizedBox(
+                  height: 450,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isSorting)
+                        Container(
+                          height: 40,
+                          color: Colors.grey[100],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                height: 20,
+                                width: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 10),
+                              Text('Sorting by location...',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[600])),
+                            ],
+                          ),
+                        ),
+                      _buildSearchField(setState, party),
+                      _buildPartyList(setState, p, party),
+                    ],
+                  ),
+                ),
               );
-            },
-          );
-        },
-      );
+            });
+          },
+        );
+      },
+    );
+
+    // 📍 Sort parties by distance in background (non-blocking)
+    Future.microtask(() async {
+      try {
+        await pp.sortPartiesByDistance();
+        print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        if (mounted) {
+          this.setState(() {
+            _isSorting = false;
+          });
+        }
+      } catch (e) {
+        print('[PARTY_MENU] ⚠️ Background: Sort failed: $e');
+        if (mounted) {
+          this.setState(() {
+            _isSorting = false;
+          });
+        }
+      }
     });
   }
 
   Future<void> showMenu() async {
+    // 🛡️ Mounted guard: Prevent null context crash if user navigates away
+    if (!mounted) return;
+
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
     final CartListProvider cart =
         Provider.of<CartListProvider>(context, listen: false);
@@ -1132,8 +1209,14 @@ class _ProductsPageState extends State<ProductsPage> {
       return;
     }
 
+    // ⚡ IMPORTANT: Show menu INSTANTLY without waiting for sort!
+    print(
+        '[PARTY_MENU] ⚡ Using cached party list (no API call, showing instantly)...');
+    _isSorting = true; // Mark sorting as in progress
+
     // Capture page-level context BEFORE the bottom sheet opens
     final BuildContext pageContext = context;
+    bool _hasLoadedPartyDataInThisSheet = false; // Guard against infinite loop
 
     // Show bottom sheet immediately
     showModalBottomSheet(
@@ -1150,11 +1233,15 @@ class _ProductsPageState extends State<ProductsPage> {
           return Consumer<PartyProvider>(
             builder: (context, party, child) {
               return StatefulBuilder(builder: (context, StateSetter setStatee) {
-                // Load parties inside the sheet if not loaded yet
-                if (party.data.isEmpty && !party.nolistParty) {
+                // ⚡ ALWAYS refresh party list when menu opens (only once per sheet)
+                if (!_hasLoadedPartyDataInThisSheet) {
+                  _hasLoadedPartyDataInThisSheet = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    // 🛡️ Mounted guard: Prevent null context if widget disposed
+                    if (!mounted) return;
                     await pp.getPartyNameProductPage(context);
                     await pp.sortPartiesByDistance();
+                    if (!mounted) return; // Guard before setState
                     setStatee(() {});
                   });
                 }
@@ -1167,6 +1254,26 @@ class _ProductsPageState extends State<ProductsPage> {
                       mainAxisAlignment: MainAxisAlignment.start,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_isSorting)
+                          Container(
+                            height: 40,
+                            color: Colors.grey[100],
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 10),
+                                Text('Sorting by location...',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey[600])),
+                              ],
+                            ),
+                          ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1221,8 +1328,12 @@ class _ProductsPageState extends State<ProductsPage> {
                                   onChanged: (value) {
                                     //4
                                     setStatee(() {
-                                      _tempParty =
+                                      final searchResults =
                                           Helper.buildSearchList(value, party);
+                                      // Filter out stockists from search results
+                                      _tempParty = searchResults
+                                          .where((p) => p.groupCD != 136)
+                                          .toList();
                                     });
                                   }),
                             ),
@@ -1250,7 +1361,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                                   if (_isOrderProcessing)
                                                     return;
 
-                                                  setState(() {
+                                                  this.setState(() {
                                                     _isOrderProcessing = true;
                                                   });
 
@@ -1327,7 +1438,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                                         '[START_ORDER] ✅ Start order API completed');
 
                                                     // Update UI immediately
-                                                    setState(() {
+                                                    this.setState(() {
                                                       dataProduct.clear();
                                                       isLoading = true;
                                                       qty.clear();
@@ -1379,13 +1490,13 @@ class _ProductsPageState extends State<ProductsPage> {
                                                               '[START_ORDER] ✅ Background: Cart updated');
                                                         }
 
-                                                        setState(() {
+                                                        this.setState(() {
                                                           isLoading = false;
                                                         });
                                                       } catch (e) {
                                                         print(
                                                             '[START_ORDER] ❌ Background error: $e');
-                                                        setState(() {
+                                                        this.setState(() {
                                                           isLoading = false;
                                                         });
                                                       }
@@ -1398,7 +1509,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                                             message:
                                                                 "Error: $e");
                                                   } finally {
-                                                    setState(() {
+                                                    this.setState(() {
                                                       _isOrderProcessing =
                                                           false;
                                                     });
@@ -1422,6 +1533,26 @@ class _ProductsPageState extends State<ProductsPage> {
             },
           );
         });
+
+    // 📍 Sort parties by distance in background (non-blocking)
+    Future.microtask(() async {
+      try {
+        await pp.sortPartiesByDistance();
+        print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        if (mounted) {
+          this.setState(() {
+            _isSorting = false;
+          });
+        }
+      } catch (e) {
+        print('[PARTY_MENU] ⚠️ Background: Sort failed: $e');
+        if (mounted) {
+          this.setState(() {
+            _isSorting = false;
+          });
+        }
+      }
+    });
   }
 
 // Build Search Field
@@ -1447,7 +1578,10 @@ class _ProductsPageState extends State<ProductsPage> {
             focusNode: _focusNode,
             onChanged: (value) {
               setState(() {
-                _tempParty = Helper.buildSearchList(value, party);
+                final searchResults = Helper.buildSearchList(value, party);
+                // Filter out stockists from search results too
+                _tempParty =
+                    searchResults.where((p) => p.groupCD != 136).toList();
               });
             },
           ),
@@ -1459,6 +1593,9 @@ class _ProductsPageState extends State<ProductsPage> {
 // Build Party List
   Widget _buildPartyList(
       StateSetter setState, ProfileProvider profile, PartyProvider party) {
+    // Filter out stockists (groupCD 136) - only show parties (groupCD 85 or 135)
+    final partiesOnly = party.data.where((p) => p.groupCD != 136).toList();
+
     return Expanded(
       child: party.nolistParty
           ? const Center(child: Text("No List"))
@@ -1467,7 +1604,7 @@ class _ProductsPageState extends State<ProductsPage> {
               : ListView.builder(
                   itemCount: _tempParty.isNotEmpty
                       ? _tempParty.length
-                      : party.data.length,
+                      : partiesOnly.length,
                   itemBuilder: (context, index) {
                     return _buildPartyListItem(setState, profile, party, index);
                   },
@@ -1478,12 +1615,16 @@ class _ProductsPageState extends State<ProductsPage> {
 // Build Individual Party List Item
   Widget _buildPartyListItem(StateSetter setState,
       ProfileProvider profileProvider, PartyProvider partyProvider, int index) {
+    // Filter out stockists - only show parties
+    final partiesOnly =
+        partyProvider.data.where((p) => p.groupCD != 136).toList();
+
     return GestureDetector(
       onTap: () async {
         try {
           final selectedParty = _tempParty.isNotEmpty
               ? _tempParty[index]
-              : partyProvider.data[index];
+              : partiesOnly[index]; // Use filtered list
 
           controller.selectedPartyName.value = selectedParty.accName;
           controller.selectedPartyId.value = selectedParty.accCd;
@@ -1586,7 +1727,7 @@ class _ProductsPageState extends State<ProductsPage> {
       },
       child: Helper.showPartyBottomSheetWithSearch(
         index,
-        _tempParty.isNotEmpty ? _tempParty : partyProvider.data,
+        _tempParty.isNotEmpty ? _tempParty : partiesOnly,
       ),
     );
   }
