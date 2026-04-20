@@ -161,6 +161,10 @@ class _ReimbursementApprovalsViewState
 
   Future<void> _fetchApprovals() async {
     debugPrint('[Reimbursement][Approvals][API] Fetch started');
+
+    // 🛡️ Mounted guard: Don't proceed if widget already disposed
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -171,10 +175,13 @@ class _ReimbursementApprovalsViewState
           Provider.of<UserProvider>(context, listen: false).token;
       if (token == null || token.isEmpty) {
         debugPrint('[Reimbursement][Approvals][API] Missing token');
-        setState(() {
-          _errorMessage = 'User token not found. Please login again.';
-          _isLoading = false;
-        });
+        // 🛡️ Mounted guard: Widget might be disposed by now
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'User token not found. Please login again.';
+            _isLoading = false;
+          });
+        }
         return;
       }
       debugPrint('[Reimbursement][Approvals][API] Token: $token');
@@ -183,10 +190,13 @@ class _ReimbursementApprovalsViewState
           Provider.of<UserProvider>(context, listen: false).syncId;
       if (syncId == null || syncId.isEmpty) {
         debugPrint('[Reimbursement][Approvals][API] Missing syncId');
-        setState(() {
-          _errorMessage = 'Firm information not found. Please login again.';
-          _isLoading = false;
-        });
+        // 🛡️ Mounted guard: Widget might be disposed by now
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Firm information not found. Please login again.';
+            _isLoading = false;
+          });
+        }
         return;
       }
 
@@ -235,6 +245,9 @@ class _ReimbursementApprovalsViewState
             '[Reimbursement][Approvals][API] SYNC_IDs in response: $syncIds');
       }
 
+      // 🛡️ Mounted guard: Widget might be disposed during API call
+      if (!mounted) return;
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final List<Map<String, dynamic>> parsed = allRecords.where((e) {
           // Client-side filtering: only include records for current firm
@@ -263,10 +276,13 @@ class _ReimbursementApprovalsViewState
       }
     } catch (e) {
       debugPrint('[Reimbursement][Approvals][API] Exception: $e');
-      setState(() {
-        _errorMessage = 'Failed to fetch approval reimbursements: $e';
-        _isLoading = false;
-      });
+      // 🛡️ Mounted guard: Widget might be disposed during exception handling
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to fetch approval reimbursements: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 

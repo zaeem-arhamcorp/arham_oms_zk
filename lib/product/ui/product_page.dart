@@ -1309,7 +1309,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                             pageContext);
 
                                         //  STEP 2: Rebuild bottom sheet UI
-                                        setStatee(() {});
+                                        if (mounted) setStatee(() {});
 
                                         //  STEP 3: (Optional) Update selected values
                                         controller.selectedPartyName.value =
@@ -1327,14 +1327,17 @@ class _ProductsPageState extends State<ProductsPage> {
                                   controller: searchPartyClt,
                                   onChanged: (value) {
                                     //4
-                                    setStatee(() {
-                                      final searchResults =
-                                          Helper.buildSearchList(value, party);
-                                      // Filter out stockists from search results
-                                      _tempParty = searchResults
-                                          .where((p) => p.groupCD != 136)
-                                          .toList();
-                                    });
+                                    if (mounted) {
+                                      setStatee(() {
+                                        final searchResults =
+                                            Helper.buildSearchList(
+                                                value, party);
+                                        // Filter out stockists from search results
+                                        _tempParty = searchResults
+                                            .where((p) => p.groupCD != 136)
+                                            .toList();
+                                      });
+                                    }
                                   }),
                             ),
                           ],

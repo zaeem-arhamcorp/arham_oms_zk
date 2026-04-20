@@ -37,7 +37,8 @@ class LocationService {
         print('[LocationService] ❌ OFFLINE - Punch in/out not allowed');
         return {
           'success': false,
-          'message': 'You are offline. Cannot punch in/out without internet connection.',
+          'message':
+              'You are offline. Cannot punch in/out without internet connection.',
         };
       }
 
@@ -152,8 +153,7 @@ class LocationService {
           print('[LocationService] ⚠️ SERVER ERROR ${response.statusCode}');
           print(
               '[LocationService]   locId=$locId | Status: PENDING (will retry on next sync)');
-          print(
-              '[LocationService]   Local data preserved for automatic retry');
+          print('[LocationService]   Local data preserved for automatic retry');
           return {
             'success': true,
             'locId': locId,

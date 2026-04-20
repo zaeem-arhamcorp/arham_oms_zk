@@ -381,6 +381,17 @@ class Helper {
   }
 
   static Widget showPartyBottomSheetWithSearch(int index, List listOfParty) {
+    // 🛡️ Bounds check: Prevent RangeError when index is out of bounds
+    if (index < 0 || index >= listOfParty.length) {
+      print(
+          '[Helper] ⚠️ Index out of bounds: index=$index, listLength=${listOfParty.length}');
+      return ListTile(
+        leading: Text("${index + 1}"),
+        title: const Text("Item not found"),
+        dense: true,
+      );
+    }
+
     return ListTile(
       leading: Text("${index + 1}"),
       title: Text(
@@ -478,4 +489,3 @@ class Helper {
     return versionCells[0] * 100000 + versionCells[1] * 1000 + versionCells[2];
   }
 }
-

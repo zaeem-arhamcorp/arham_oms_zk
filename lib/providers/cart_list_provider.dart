@@ -1,19 +1,18 @@
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../config/app_config.dart';
 import '../helper/network_helper.dart';
 import '../models/cartListModal.dart';
-import 'package:http/http.dart' as http;
-
 import '../services/cart_service.dart';
 import '../services/database_helper.dart';
 import '../views/loginpage.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class CartListProvider extends DisposableProvider {
   final List<DatumCartList> _data = [];
@@ -80,6 +79,8 @@ class CartListProvider extends DisposableProvider {
         final serverItems = cartListModalFromJson(response.body).data;
         _data.addAll(serverItems);
 
+        print(
+            "[CART_PROVIDER-ONLINE] GET ${AppConfig.baseURL}cart?partyCd=$partyId");
         print('[CART_PROVIDER-ONLINE] 🌐 API RESPONSE 200:');
         print(
             '[CART_PROVIDER-ONLINE]   Items in response: ${serverItems.length}');

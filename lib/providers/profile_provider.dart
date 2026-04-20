@@ -1,21 +1,21 @@
 import 'dart:convert';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-import 'package:arham_corporation/services/location_service.dart';
-import 'package:arham_corporation/services/background_location_service.dart';
-import 'package:flutter/cupertino.dart';
-
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
+import 'package:arham_corporation/services/background_location_service.dart';
+import 'package:arham_corporation/services/location_service.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import '../services/database_helper.dart';
-import '../helper/network_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../config/app_config.dart';
+import '../helper/network_helper.dart';
 import '../models/profileModal.dart';
 import '../models/settingmodal.dart';
 import '../services/crashlytics_service.dart';
+import '../services/database_helper.dart';
 import '../services/services.dart';
 import '../services/sync_service.dart';
 import '../views/loginpage.dart';
@@ -646,10 +646,11 @@ class ProfileProvider extends DisposableProvider {
     }
 
     print('[PROFILE] Total settings loaded: ${_data!.profileSettings.length}');
-    for (var setting in _data!.profileSettings) {
-      print(
-          '[PROFILE] Setting: variable=${setting.variable}, value=${setting.value}');
-    }
+    // --Print setting names in logs--
+    // for (var setting in _data!.profileSettings) {
+    //   print(
+    //       '[PROFILE] Setting: variable=${setting.variable}, value=${setting.value}');
+    // }
 
     try {
       // Find the offline mode setting

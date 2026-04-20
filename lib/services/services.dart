@@ -1,25 +1,25 @@
 import 'dart:convert';
 import 'dart:developer';
+
 import 'package:arham_corporation/helper/helper.dart';
-import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:arham_corporation/models/ItemWiseReportModal.dart';
+import 'package:arham_corporation/models/OutstandingReportModal.dart';
+import 'package:arham_corporation/models/PartyWiseReportModal.dart';
+import 'package:arham_corporation/models/narrationModal.dart';
+import 'package:arham_corporation/models/partyWiseOutstandingReportModal.dart';
+import 'package:arham_corporation/models/personModal.dart';
 import 'package:arham_corporation/models/product_response.dart';
 import 'package:arham_corporation/models/receipt_confim_model.dart';
 import 'package:arham_corporation/models/salesRegisterReportModal.dart';
+import 'package:arham_corporation/models/stockReportModal.dart';
+import 'package:arham_corporation/models/userWiseOutStandingModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
-import 'package:cancellation_token_http/http.dart' as httpc;
-import 'package:arham_corporation/models/personModal.dart';
-import 'package:arham_corporation/models/userWiseOutStandingModal.dart';
-import 'package:flutter/material.dart';
-
-import 'package:arham_corporation/models/ItemWiseReportModal.dart';
-import 'package:arham_corporation/models/partyWiseOutstandingReportModal.dart';
-import 'package:arham_corporation/models/PartyWiseReportModal.dart';
-import 'package:arham_corporation/models/narrationModal.dart';
-import 'package:arham_corporation/models/OutstandingReportModal.dart';
-import 'package:arham_corporation/models/stockReportModal.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/views/loginpage.dart';
+import 'package:cancellation_token_http/http.dart' as httpc;
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -35,7 +35,6 @@ import '../models/productModal.dart';
 import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
 import '../providers/user_provider.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'database_helper.dart';
 
 class Services {
@@ -177,6 +176,7 @@ class Services {
       ).timeout(
         const Duration(seconds: 10),
       );
+      print("[DEPARTMENTS] GET ${AppConfig.baseURL}deptment");
       print('[DEPARTMENTS] API Response: ${response.body}');
 
       if (response.statusCode == 200) {
@@ -454,6 +454,7 @@ class Services {
           'x-app-type': 'oms',
         },
       );
+      print("DELETE ${AppConfig.baseURL}cart/$cartid");
       print(response.body);
       if (response.statusCode == 200) {
         return json.decode(response.body)["message"];
@@ -576,16 +577,22 @@ class Services {
               .then((value) {
             pb.getProfile().then((v) {
               // Load settings after profile is loaded
-              pb.loadSettings(context);
+              // 🛡️ Guard: Only call if context is still mounted
+              if (context.mounted) {
+                pb.loadSettings(context);
+              }
             });
           });
         }
         return decoded["message"];
       } else {
         print('print 10');
-        ub.userSignout(context).then((value) {
-          Get.offAll(() => LoginPage());
-        });
+        // 🛡️ Guard: Only signout if context is still mounted
+        if (context.mounted) {
+          ub.userSignout(context).then((value) {
+            Get.offAll(() => LoginPage());
+          });
+        }
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
@@ -2719,8 +2726,8 @@ class Services {
 
   Future<SettingModal?> getSettings(context) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
-    print(ub.token);
-    print("${AppConfig.baseURL}settings");
+    // print(ub.token);
+    // print("${AppConfig.baseURL}settings");
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURL}settings"),
@@ -2729,7 +2736,9 @@ class Services {
           'x-app-type': 'oms',
         },
       );
-      print(response.body);
+      print(ub.token);
+      print("[SERVICES] GET ${AppConfig.baseURL}settings");
+      print("[SERVICES] ${response.body}");
       if (response.statusCode == 200) {
         return settingModalFromJson(response.body);
       } else {
@@ -3091,7 +3100,7 @@ class Services {
           'x-app-type': 'oms',
         },
       ).timeout(const Duration(seconds: 10));
-
+      print("[SERVICES] GET ${AppConfig.baseURL}orders-tracking");
       print(
           '[Services] 📥 [PUNCH_STATE] Response Status: ${response.statusCode}');
 

@@ -5,7 +5,6 @@ import 'dart:developer';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/generated/assets.dart';
 import 'package:arham_corporation/helper/helper.dart';
-import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/models/narrationModal.dart';
 import 'package:arham_corporation/product/controller/cart_controller.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
@@ -13,7 +12,9 @@ import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/cart_list_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/services/offline_order_service.dart';
 import 'package:arham_corporation/services/order_tracking_service.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
@@ -24,14 +25,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import 'package:arham_corporation/services/offline_order_service.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:hive/hive.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 import '../constants/constants.dart';
 import '../models/cartListModal.dart';
 import '../models/ordermodal.dart';
@@ -83,71 +81,32 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       loading = true;
     });
 
-    bool online = await NetworkHelper.hasInternet();
+    // 📡 Optimistic loading: Try API immediately (no pre-flight check)
+    // If offline, delete locally and sync when internet returns
+    try {
+      final value =
+          await Services().deleteItemtoCart(cartid.toString(), context);
 
-    if (online) {
-      // Online: delete from server + local
-      Services()
-          .deleteItemtoCart(cartid.toString(), context)
-          .then((value) async {
-        if (value != null) {
-          AppSnackBar.showGetXCustomSnackBar(
-              message: value, backgroundColor: Colors.green);
-
-          // Also delete from local DB
-          try {
-            final PartyProvider party =
-                Provider.of<PartyProvider>(context, listen: false);
-            final ProfileProvider profile =
-                Provider.of<ProfileProvider>(context, listen: false);
-            String partyId = (profile.data?.profileSettings.any(
-                        (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
-                    false)
-                ? party.punchInOutPartyId
-                : party.partyid;
-            await DatabaseHelper()
-                .deleteCartItemByItemCd(itemCd.toString(), partyId);
-          } catch (e) {
-            print("Error deleting local cart item: $e");
-          }
-
-          // ⚡ FAST: Just update local state, don't refetch entire cart
-          setState(() {
-            datacart.removeWhere((item) => item.itemCd == itemCd);
-            qty.remove(itemCd);
-            freeQty.remove(itemCd);
-            rate.remove(itemCd);
-            remarks.remove(itemCd);
-            loading = false;
-            // Recalculate totals
-            calculateNetAmount();
-          });
-          CartController controller = Get.put(CartController());
-          controller.removeProductLocally(itemCd);
-        } else {
-          setState(() {
-            loading = false;
-          });
-          AppSnackBar.showGetXCustomSnackBar(message: "Something Went Wong");
-        }
-      });
-    } else {
-      // Offline: delete from local DB only
-      try {
-        final PartyProvider party =
-            Provider.of<PartyProvider>(context, listen: false);
-        final ProfileProvider profile =
-            Provider.of<ProfileProvider>(context, listen: false);
-        String partyId = (profile.data?.profileSettings
-                    .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
-                false)
-            ? party.punchInOutPartyId
-            : party.partyid;
-        await DatabaseHelper()
-            .deleteCartItemByItemCd(itemCd.toString(), partyId);
-
+      if (value != null) {
+        // ✅ API SUCCESS - Delete from local DB
         AppSnackBar.showGetXCustomSnackBar(
-            message: "Item removed (offline)", backgroundColor: Colors.orange);
+            message: value, backgroundColor: Colors.green);
+
+        try {
+          final PartyProvider party =
+              Provider.of<PartyProvider>(context, listen: false);
+          final ProfileProvider profile =
+              Provider.of<ProfileProvider>(context, listen: false);
+          String partyId = (profile.data?.profileSettings.any(
+                      (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                  false)
+              ? party.punchInOutPartyId
+              : party.partyid;
+          await DatabaseHelper()
+              .deleteCartItemByItemCd(itemCd.toString(), partyId);
+        } catch (e) {
+          print("Error deleting local cart item: $e");
+        }
 
         // ⚡ FAST: Just update local state, don't refetch entire cart
         setState(() {
@@ -162,11 +121,50 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         });
         CartController controller = Get.put(CartController());
         controller.removeProductLocally(itemCd);
-      } catch (e) {
+      } else {
+        // API returned null - fallback to offline
+        throw Exception('API returned null');
+      }
+    } catch (e) {
+      // ⚠️ API FAILED or OFFLINE - Delete locally and sync when online
+      print('[CART] 📵 API failed, deleting offline: $e');
+
+      try {
+        final PartyProvider party =
+            Provider.of<PartyProvider>(context, listen: false);
+        final ProfileProvider profile =
+            Provider.of<ProfileProvider>(context, listen: false);
+        String partyId = (profile.data?.profileSettings
+                    .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                false)
+            ? party.punchInOutPartyId
+            : party.partyid;
+        await DatabaseHelper()
+            .deleteCartItemByItemCd(itemCd.toString(), partyId);
+
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Item removed (will sync online)",
+            backgroundColor: Colors.orange);
+
+        // ⚡ FAST: Just update local state
+        setState(() {
+          datacart.removeWhere((item) => item.itemCd == itemCd);
+          qty.remove(itemCd);
+          freeQty.remove(itemCd);
+          rate.remove(itemCd);
+          remarks.remove(itemCd);
+          loading = false;
+          // Recalculate totals
+          calculateNetAmount();
+        });
+        CartController controller = Get.put(CartController());
+        controller.removeProductLocally(itemCd);
+      } catch (deleteError) {
         setState(() {
           loading = false;
         });
         AppSnackBar.showGetXCustomSnackBar(message: "Failed to remove item");
+        print('[CART] Error deleting offline: $deleteError');
       }
     }
   }
@@ -854,194 +852,198 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         bottomNavigationBar: SafeArea(
           top: false,
           //bottom: true,
-          child: Container(
-            padding: EdgeInsets.only(
-                top: 10.h, left: 15.h, bottom: 10.h, right: 15.h),
-            height: 120.h,
-            width: size.width,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              //color: Colors.grey[200],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(10),
-              ),
+          child: AnimatedPadding(
+            duration: const Duration(milliseconds: 200),
+            padding: MediaQuery.of(context).viewInsets,
+            child: Container(
+              padding: EdgeInsets.only(
+                  top: 10.h, left: 15.h, bottom: 10.h, right: 15.h),
+              height: 120.h,
+              width: size.width,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                //color: Colors.grey[200],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                ),
 
-              //Additional add
-              // Top border only
-              border: Border(
-                top: BorderSide(
-                  color: Color(0xFFE0E0E0), // light grey
-                  width: 1,
+                //Additional add
+                // Top border only
+                border: Border(
+                  top: BorderSide(
+                    color: Color(0xFFE0E0E0), // light grey
+                    width: 1,
+                  ),
                 ),
-              ),
 
-              //Additional add
-              // Shadow coming from top (not bottom)
-              // boxShadow: const [
-              //   BoxShadow(
-              //     color: Colors.black12,
-              //     blurRadius: 8,
-              //     spreadRadius: 0,
-              //     offset: Offset(0, -2), // shadow upwards
-              //   ),
-              // ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Approx Value (${datacart.length} item) ($totalQty Qty)",
-                  style:
-                      TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500),
-                ),
-                SizedBox(
-                  height: 5.h,
-                ),
-                Text(
-                  "Rs.$netAmount",
-                  style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18.sp),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    DropdownMenu<dynamic>(
-                      width: 215.w,
-                      controller: orderRemarks,
-                      requestFocusOnTap: true,
-                      enableFilter: true,
-                      label: const Text('Remarks'),
-                      dropdownMenuEntries: narrationOptions
-                          .map((e) => DropdownMenuEntry<dynamic>(
-                              value: e.NARR_NAME, label: e.NARR_NAME))
-                          .toList(),
-                      inputDecorationTheme: const InputDecorationTheme(
-                        isDense: true,
-                      ),
-                      enableSearch: true,
-                      onSelected: (value) {
-                        FocusManager.instance.primaryFocus?.unfocus();
-                      },
-                    ),
-                    // Container(
-                    //   width: 205.w,
-                    //   child: TextFormField(
-                    //     keyboardType: TextInputType.text,
-                    //     maxLength: 80,
-                    //     decoration: InputDecoration(
-                    //       label: Text("Remarks"),
-                    //       counterText: "",
-                    //       isDense: true,
-                    //       contentPadding: EdgeInsets.symmetric(vertical: 1.0),
-                    //     ),
-                    //     controller: orderRemarks,
-                    //   ),
-                    // ),
-                    SizedBox(
-                      width: 25.w,
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        if (datacart.length != 0) {
-                          setState(() {
-                            loading = true;
-                          });
-                          //TODO : Comment Update Qty At Time Logic
-                          // for (var i = 0; i < datacart.length; i++) {
-                          //   var tempRate = '';
-                          //   var tempRemarks = '';
-                          //
-                          //   if (profile.data?.profileSettings
-                          //               .firstWhere((element) =>
-                          //                   element.variable ==
-                          //                   'editMasterRateSettings')
-                          //               .value ==
-                          //           'Y' ||
-                          //       profile.data?.profileSettings
-                          //               .firstWhere((element) =>
-                          //                   element.variable ==
-                          //                   'editOperatorRateSettings')
-                          //               .value ==
-                          //           'Y') {
-                          //     tempRate = rate[i].text;
-                          //   }
-                          //
-                          //   if (profile.data?.profileSettings
-                          //           .firstWhere((element) =>
-                          //               element.variable ==
-                          //               'showItemWiseRemarks')
-                          //           .value ==
-                          //       'Y') {
-                          //     tempRemarks = remarks[i].text;
-                          //   }
-                          //   updateitemtoCart(
-                          //       datacart[i].itemCd,
-                          //       qty[i].text.toString(),
-                          //       freeQty[i].text.toString(),
-                          //       // tempRate.isEmpty
-                          //       //     ? datacart[i].lrate
-                          //       //     : tempRate,//FAZAL CHANGES 12/03/2025
-                          //       tempRate,
-                          //       datacart[i].lrate != null
-                          //           ? datacart[i].lrate
-                          //           : '',
-                          //       tempRemarks,
-                          //       datacart[i].cId);
-                          // }
-                          datacart.forEach((element) {
-                            // ordersItems.add(OrderItm(
-                            //     itemCd: element.itemCd,
-                            //     //qty: int.parse(element.quantity.toString()),
-                            //     qty: (double.tryParse(element.quantity
-                            //                 .toString()) ??
-                            //             0)
-                            //         .toInt(),
-                            //     rate:
-                            //         double.parse(element.rate.toString()),
-                            //     amt: double.parse(
-                            //         element.amount.toString()),
-                            //     otherDesc: element.otherDesc,
-                            //     nrate: double.parse(
-                            //         element.item!.nrate.toString())));
-                            ordersItems.add(OrderItm(
-                              itemCd: element.itemCd,
-                              qty: toDouble(element.quantity).toInt(),
-                              rate: toDouble(element.rate),
-                              amt: toDouble(element.amount),
-                              otherDesc: element.otherDesc,
-                              nrate: toDouble(element.item?.nrate),
-                            ));
-                            orders = Ordermodal(
-                                partyCd: party.partyid,
-                                netAmt: netAmount,
-                                orderItm: ordersItems);
-                          });
-                          var f = ordermodalToJson(orders!);
-                          // print(f);
-                          _handelAddOrder(f);
-                        }
-                      },
-                      child: Container(
-                        padding: EdgeInsets.only(left: 10.w, right: 10.w),
-                        height: 40.h,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Color(0xff0A98FF),
-                          borderRadius: BorderRadius.circular(6),
+                //Additional add
+                // Shadow coming from top (not bottom)
+                // boxShadow: const [
+                //   BoxShadow(
+                //     color: Colors.black12,
+                //     blurRadius: 8,
+                //     spreadRadius: 0,
+                //     offset: Offset(0, -2), // shadow upwards
+                //   ),
+                // ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Approx Value (${datacart.length} item) ($totalQty Qty)",
+                    style:
+                        TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500),
+                  ),
+                  SizedBox(
+                    height: 5.h,
+                  ),
+                  Text(
+                    "Rs.$netAmount",
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18.sp),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      DropdownMenu<dynamic>(
+                        width: 215.w,
+                        controller: orderRemarks,
+                        requestFocusOnTap: true,
+                        enableFilter: true,
+                        label: const Text('Remarks'),
+                        dropdownMenuEntries: narrationOptions
+                            .map((e) => DropdownMenuEntry<dynamic>(
+                                value: e.NARR_NAME, label: e.NARR_NAME))
+                            .toList(),
+                        inputDecorationTheme: const InputDecorationTheme(
+                          isDense: true,
                         ),
-                        child: Text(
-                          "Order Now",
-                          style: TextStyle(color: Colors.white),
-                        ),
+                        enableSearch: true,
+                        onSelected: (value) {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                        },
                       ),
-                    )
-                  ],
-                ),
-              ],
+                      // Container(
+                      //   width: 205.w,
+                      //   child: TextFormField(
+                      //     keyboardType: TextInputType.text,
+                      //     maxLength: 80,
+                      //     decoration: InputDecoration(
+                      //       label: Text("Remarks"),
+                      //       counterText: "",
+                      //       isDense: true,
+                      //       contentPadding: EdgeInsets.symmetric(vertical: 1.0),
+                      //     ),
+                      //     controller: orderRemarks,
+                      //   ),
+                      // ),
+                      SizedBox(
+                        width: 25.w,
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          if (datacart.length != 0) {
+                            setState(() {
+                              loading = true;
+                            });
+                            //TODO : Comment Update Qty At Time Logic
+                            // for (var i = 0; i < datacart.length; i++) {
+                            //   var tempRate = '';
+                            //   var tempRemarks = '';
+                            //
+                            //   if (profile.data?.profileSettings
+                            //               .firstWhere((element) =>
+                            //                   element.variable ==
+                            //                   'editMasterRateSettings')
+                            //               .value ==
+                            //           'Y' ||
+                            //       profile.data?.profileSettings
+                            //               .firstWhere((element) =>
+                            //                   element.variable ==
+                            //                   'editOperatorRateSettings')
+                            //               .value ==
+                            //           'Y') {
+                            //     tempRate = rate[i].text;
+                            //   }
+                            //
+                            //   if (profile.data?.profileSettings
+                            //           .firstWhere((element) =>
+                            //               element.variable ==
+                            //               'showItemWiseRemarks')
+                            //           .value ==
+                            //       'Y') {
+                            //     tempRemarks = remarks[i].text;
+                            //   }
+                            //   updateitemtoCart(
+                            //       datacart[i].itemCd,
+                            //       qty[i].text.toString(),
+                            //       freeQty[i].text.toString(),
+                            //       // tempRate.isEmpty
+                            //       //     ? datacart[i].lrate
+                            //       //     : tempRate,//FAZAL CHANGES 12/03/2025
+                            //       tempRate,
+                            //       datacart[i].lrate != null
+                            //           ? datacart[i].lrate
+                            //           : '',
+                            //       tempRemarks,
+                            //       datacart[i].cId);
+                            // }
+                            datacart.forEach((element) {
+                              // ordersItems.add(OrderItm(
+                              //     itemCd: element.itemCd,
+                              //     //qty: int.parse(element.quantity.toString()),
+                              //     qty: (double.tryParse(element.quantity
+                              //                 .toString()) ??
+                              //             0)
+                              //         .toInt(),
+                              //     rate:
+                              //         double.parse(element.rate.toString()),
+                              //     amt: double.parse(
+                              //         element.amount.toString()),
+                              //     otherDesc: element.otherDesc,
+                              //     nrate: double.parse(
+                              //         element.item!.nrate.toString())));
+                              ordersItems.add(OrderItm(
+                                itemCd: element.itemCd,
+                                qty: toDouble(element.quantity).toInt(),
+                                rate: toDouble(element.rate),
+                                amt: toDouble(element.amount),
+                                otherDesc: element.otherDesc,
+                                nrate: toDouble(element.item?.nrate),
+                              ));
+                              orders = Ordermodal(
+                                  partyCd: party.partyid,
+                                  netAmt: netAmount,
+                                  orderItm: ordersItems);
+                            });
+                            var f = ordermodalToJson(orders!);
+                            // print(f);
+                            _handelAddOrder(f);
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.only(left: 10.w, right: 10.w),
+                          height: 40.h,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Color(0xff0A98FF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            "Order Now",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

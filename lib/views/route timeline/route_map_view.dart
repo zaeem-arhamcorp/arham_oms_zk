@@ -121,25 +121,34 @@ class _RouteMapViewState extends State<RouteMapView> {
     final today = DateTime.now();
 
     if (isFirstPage) {
-      setState(() {
-        _loadingUsers = true;
-        _usersError = null;
-      });
+      // 🛡️ Mounted guard: Widget might be disposed before setState
+      if (mounted) {
+        setState(() {
+          _loadingUsers = true;
+          _usersError = null;
+        });
+      }
     } else {
-      setState(() {
-        _isLoadingMoreUsers = true;
-      });
+      // 🛡️ Mounted guard: Widget might be disposed before setState
+      if (mounted) {
+        setState(() {
+          _isLoadingMoreUsers = true;
+        });
+      }
     }
 
     try {
       final ub = Provider.of<UserProvider>(context, listen: false);
       final token = ub.token;
       if (token == null || token.isEmpty) {
-        setState(() {
-          _users = [];
-          _loadingUsers = false;
-          _usersError = 'Missing auth token';
-        });
+        // 🛡️ Mounted guard: Widget might be disposed before setState
+        if (mounted) {
+          setState(() {
+            _users = [];
+            _loadingUsers = false;
+            _usersError = 'Missing auth token';
+          });
+        }
         return;
       }
 
@@ -169,12 +178,15 @@ class _RouteMapViewState extends State<RouteMapView> {
         final pagination = payload?['pagination'] as Map<String, dynamic>?;
 
         if (pagination != null) {
-          setState(() {
-            _currentUsersPage = pagination['page'] ?? 1;
-            _totalUsersPages = pagination['last_page'] ?? 1;
-            _totalUsersCount = pagination['total'] ?? 0;
-            _usersPerPage = pagination['items_per_page'] ?? 20;
-          });
+          // 🛡️ Mounted guard: Widget might be disposed before setState
+          if (mounted) {
+            setState(() {
+              _currentUsersPage = pagination['page'] ?? 1;
+              _totalUsersPages = pagination['last_page'] ?? 1;
+              _totalUsersCount = pagination['total'] ?? 0;
+              _usersPerPage = pagination['items_per_page'] ?? 20;
+            });
+          }
         }
 
         // Map users with initial data
@@ -184,19 +196,22 @@ class _RouteMapViewState extends State<RouteMapView> {
         );
 
         // Set users data (replace for first page, append for subsequent pages)
-        setState(() {
-          if (isFirstPage) {
-            _users = usersWithData;
-          } else {
-            _users.addAll(usersWithData);
-          }
-          print(
-              '[RouteMapView] ===== Users list after update: totalUsers=${_users.length}');
-          for (int i = 0; i < _users.length; i++) {
+        // 🛡️ Mounted guard: Widget might be disposed before setState
+        if (mounted) {
+          setState(() {
+            if (isFirstPage) {
+              _users = usersWithData;
+            } else {
+              _users.addAll(usersWithData);
+            }
             print(
-                '[RouteMapView] [INDEX $i] ${_users[i]['userName']} | Code: ${_users[i]['userCode']} | PunchIn: "${_users[i]['punchInTime']}"');
-          }
-        });
+                '[RouteMapView] ===== Users list after update: totalUsers=${_users.length}');
+            for (int i = 0; i < _users.length; i++) {
+              print(
+                  '[RouteMapView] [INDEX $i] ${_users[i]['userName']} | Code: ${_users[i]['userCode']} | PunchIn: "${_users[i]['punchInTime']}"');
+            }
+          });
+        }
 
         // Keep existing marker behavior (trip-based) and override only punch status
         // from users/children last punch fields after each fetch completes.
@@ -244,29 +259,38 @@ class _RouteMapViewState extends State<RouteMapView> {
           });
         }
 
-        setState(() {
-          _loadingUsers = false;
-          _isLoadingMoreUsers = false;
-        });
+        // 🛡️ Mounted guard: Widget might be disposed before setState
+        if (mounted) {
+          setState(() {
+            _loadingUsers = false;
+            _isLoadingMoreUsers = false;
+          });
+        }
       } else {
+        // 🛡️ Mounted guard: Widget might be disposed before setState
+        if (mounted) {
+          setState(() {
+            if (isFirstPage) {
+              _users = [];
+              _usersError = 'Failed to load users: HTTP ${response.statusCode}';
+            }
+            _loadingUsers = false;
+            _isLoadingMoreUsers = false;
+          });
+        }
+      }
+    } catch (e) {
+      // 🛡️ Mounted guard: Widget might be disposed before setState
+      if (mounted) {
         setState(() {
           if (isFirstPage) {
             _users = [];
-            _usersError = 'Failed to load users: HTTP ${response.statusCode}';
+            _usersError = 'Error: $e';
           }
           _loadingUsers = false;
           _isLoadingMoreUsers = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        if (isFirstPage) {
-          _users = [];
-          _usersError = 'Error: $e';
-        }
-        _loadingUsers = false;
-        _isLoadingMoreUsers = false;
-      });
       print('[RouteMapView] Error fetching users: $e');
     }
   }
@@ -3092,84 +3116,100 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Google Map (Background)
-            GoogleMap(
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
-              initialCameraPosition: const CameraPosition(
-                target: _defaultCenter,
-                zoom: 12,
-              ),
-              myLocationEnabled: true,
-              polylines: _polylines,
-              markers: _markers,
-            ),
-
-            // Back Button
-            Positioned(
-              top: 5,
-              left: 0,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: IconButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+    return WillPopScope(
+      onWillPop: () async {
+        // If user detail is shown, go back to users list instead of navigating away
+        if (_selectedUser != null) {
+          _clearSelectedUser();
+          return false; // Prevent default pop behavior
+        }
+        return true; // Allow default pop behavior (navigate away)
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // Google Map (Background)
+              GoogleMap(
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                },
+                initialCameraPosition: const CameraPosition(
+                  target: _defaultCenter,
+                  zoom: 12,
                 ),
+                myLocationEnabled: true,
+                polylines: _polylines,
+                markers: _markers,
               ),
-            ),
 
-            // Tap overlay (to collapse sheet when fully expanded)
-            if (_currentSheetSize > 0.85)
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () {
-                    // Scroll users list to top if visible
-                    if (_selectedUser == null) {
-                      // First scroll the main sheet with scrollController
-                      if (_usersListScrollController.hasClients) {
-                        _usersListScrollController.animateTo(
-                          0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                        );
+              // Back Button (with smart behavior)
+              Positioned(
+                top: 5,
+                left: 0,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: IconButton(
+                    onPressed: () {
+                      // If user detail is shown, go back to users list
+                      if (_selectedUser != null) {
+                        _clearSelectedUser();
+                      } else {
+                        // Otherwise navigate away
+                        Navigator.pop(context);
                       }
-                    }
-                    _sheetController.animateTo(
-                      0.35,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                  child: Container(
-                    color: Colors.black.withOpacity(0.2),
+                    },
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
                   ),
                 ),
               ),
 
-            // Bottom Sheet (Foreground - anchored at bottom)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: DraggableScrollableSheet(
-                controller: _sheetController,
-                expand: false,
-                initialChildSize: 0.35,
-                minChildSize: 0.25,
-                maxChildSize: 0.9,
-                builder: (context, scrollController) {
-                  return _selectedUser == null
-                      ? _buildUsersListSheet(scrollController)
-                      : _buildTimelineSheet(scrollController);
-                },
+              // Tap overlay (to collapse sheet when fully expanded)
+              if (_currentSheetSize > 0.85)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () {
+                      // Scroll users list to top if visible
+                      if (_selectedUser == null) {
+                        // First scroll the main sheet with scrollController
+                        if (_usersListScrollController.hasClients) {
+                          _usersListScrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      }
+                      _sheetController.animateTo(
+                        0.35,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                    child: Container(
+                      color: Colors.black.withOpacity(0.2),
+                    ),
+                  ),
+                ),
+
+              // Bottom Sheet (Foreground - anchored at bottom)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: DraggableScrollableSheet(
+                  controller: _sheetController,
+                  expand: false,
+                  initialChildSize: 0.35,
+                  minChildSize: 0.25,
+                  maxChildSize: 0.9,
+                  builder: (context, scrollController) {
+                    return _selectedUser == null
+                        ? _buildUsersListSheet(scrollController)
+                        : _buildTimelineSheet(scrollController);
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
