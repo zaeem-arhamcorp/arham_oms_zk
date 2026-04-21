@@ -132,6 +132,10 @@ class OfflineOrderService {
 
     print('[OfflineOrderService] ✅ ORDER SAVED WITH TIMESTAMP:');
     print('[OfflineOrderService]   orderId=$orderId | order_date=$orderDateMs');
+    print('[OfflineOrderService] 🔥 CRITICAL DEBUG - ORDER SAVED WITH:');
+    print('[OfflineOrderService]   sync_status: pending');
+    print('[OfflineOrderService]   SYNC_ID: $syncId');
+    print('[OfflineOrderService]   server_party_id: $partyId');
 
     // Insert order items matching server `ordritm` structure
     List<Map<String, dynamic>> orderItems = validatedItems.map((item) {

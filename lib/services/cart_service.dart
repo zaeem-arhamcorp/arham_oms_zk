@@ -16,6 +16,7 @@ class CartService {
     String fld5 = '',
     String itemName = '',
     String stockist = '',
+    String syncStatus = 'pending',
   }) async {
     return await db.insertOrUpdateCartItem({
       'party_cd': partyCd,
@@ -30,7 +31,7 @@ class CartService {
       'item_name': itemName,
       'stockist': stockist,
       'last_updated': DateTime.now().millisecondsSinceEpoch,
-      'sync_status': 'pending',
+      'sync_status': syncStatus,
     });
   }
 

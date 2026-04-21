@@ -64,6 +64,8 @@ class ConnectivityService {
       if (userProvider.token != null && userProvider.token!.isNotEmpty) {
         print(
             "[ConnectivityService] 🟢 INTERNET RESTORED - Starting auto-sync...");
+        print(
+            "[ConnectivityService] 🔥 DEBUG: userProvider.syncId = ${userProvider.syncId}");
 
         // Sync pending cart items first
         final cartResult =
@@ -72,6 +74,8 @@ class ConnectivityService {
 
         // Sync pending orders
         final syncId = int.tryParse(userProvider.syncId ?? '0') ?? 0;
+        print(
+            "[ConnectivityService] 🔥 DEBUG: Calling syncOrders with syncId = $syncId");
         final result =
             await _syncService.syncOrders(userProvider.token!, syncId: syncId);
         print(

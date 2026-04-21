@@ -184,7 +184,7 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                     return Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(image, fit: BoxFit.fitHeight),
+                        Image.network(image, fit: BoxFit.contain),
                         Container(
                           decoration: BoxDecoration(
                               color: Colors.white10,

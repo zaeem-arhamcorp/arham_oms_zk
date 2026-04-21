@@ -1422,8 +1422,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         if (data is Map<String, dynamic>) {
           // Timeline endpoint carries business metrics used in summary cards.
           final mergedSummary = <String, dynamic>{};
-          final timelineSummary = data['timeline_summary'];
-          final orderTrackingSummary = data['order_tracking_summary'];
+          final timelineSummary = data['timelineSummary'];
+          final orderTrackingSummary = data['orderTrackingSummary'];
 
           if (timelineSummary is Map) {
             mergedSummary.addAll(Map<String, dynamic>.from(timelineSummary));
@@ -1445,10 +1445,13 @@ class _RouteMapViewState extends State<RouteMapView> {
           final timelineList = data['timeline'] as List? ?? [];
 
           return timelineList.whereType<Map<String, dynamic>>().map((event) {
-            final timestamp = event['at'] as String? ?? '';
-            final eventType = event['event_type'] as String? ?? '';
-            final eventTitle =
-                event['event_title'] as String? ?? _formatEventType(eventType);
+            // 🔥 Updated: Handle uppercase field names from new API
+            final timestamp = (event['AT'] ?? event['at'] ?? '') as String;
+            final eventType =
+                (event['EVENT_TYPE'] ?? event['event_type'] ?? '') as String;
+            final eventTitle = (event['EVENT_TITLE'] ??
+                event['event_title'] ??
+                _formatEventType(eventType)) as String;
 
             // Extract party and order information for order events
             final party = event['party'] as Map<String, dynamic>? ?? {};
@@ -1461,8 +1464,8 @@ class _RouteMapViewState extends State<RouteMapView> {
               'description': _formatEventDescription(event),
               'subtitle': _formatEventDescription(event),
               'event_type': eventType,
-              'status': event['status'],
-              'source': event['source'],
+              'status': (event['STATUS'] ?? event['status']) as String?,
+              'source': (event['SOURCE'] ?? event['source']) as String?,
               'reason': event['reason'],
               'gap_formatted': event['gap_formatted'],
               'closure_type': event['closure_type'],
@@ -1473,6 +1476,10 @@ class _RouteMapViewState extends State<RouteMapView> {
               'order_items':
                   (order['items'] as List?)?.cast<Map<String, dynamic>>() ?? [],
               'order_amount': event['order_amount'],
+              // 🔥 NEW: Store additional fields from updated API
+              'display_type': event['DISPLAY_TYPE'] ?? event['display_type'],
+              'event_timestamp':
+                  event['EVENT_TIMESTAMP'] ?? event['event_timestamp'],
               ...event, // Include all original fields
             };
           }).toList();

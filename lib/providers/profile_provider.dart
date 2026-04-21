@@ -173,7 +173,6 @@ class ProfileProvider extends DisposableProvider {
               userCd: userCodeFromPrefs,
               syncIdValue: syncId,
               locService: locService,
-              canAutoPunchOut: false,
               logTag: '[PROFILE-OFFLINE]',
             );
           } catch (e) {
@@ -299,6 +298,55 @@ class ProfileProvider extends DisposableProvider {
                 : (_userCode ?? '').trim();
 
         try {
+          Future<void> applyPunchInFollowUps() async {
+            if (_data?.isPunchIn != true) {
+              return;
+            }
+
+            final deferredAutoPunchOutPending =
+                await _isDeferredAutoPunchOutPending();
+            if (deferredAutoPunchOutPending) {
+              _data!.isPunchIn = false;
+              print(
+                  '[PROFILE-ONLINE] ℹ️ Deferred auto punch-out is pending sync. Set isPunchIn=false and skipped trip resume.');
+              return;
+            }
+
+            try {
+              print(
+                  '[PROFILE-ONLINE] 🔍 Checking for active trip on server...');
+              final activeTrip = await Services()
+                  .getActiveTripStatus(effectiveUserCd, syncId, token);
+
+              if (activeTrip != null) {
+                final tripId = activeTrip['trip_id'] is int
+                    ? activeTrip['trip_id'] as int
+                    : int.tryParse(activeTrip['trip_id']?.toString() ?? '');
+                if (tripId == null) {
+                  print(
+                      '[PROFILE-ONLINE] ⚠️ Active trip found but trip_id is invalid: ${activeTrip['trip_id']}');
+                } else if (_shouldSkipDuplicateResume(tripId)) {
+                  print(
+                      '[PROFILE-ONLINE] ℹ️ Duplicate resume skipped for trip_id=$tripId');
+                } else {
+                  print(
+                      '[PROFILE-ONLINE] ✅ Found active trip ($tripId) - RESUMING');
+                  await locService.resumeExistingTrip(
+                    tripId: tripId,
+                    userCd: effectiveUserCd,
+                    syncId: syncId,
+                    token: token,
+                  );
+                }
+              } else {
+                print('[PROFILE-ONLINE] ℹ️ No active trip found on server');
+              }
+            } catch (e) {
+              print(
+                  '[PROFILE-ONLINE] ⚠️ Could not check/resume active trip: $e');
+            }
+          }
+
           if (effectiveUserCd.isNotEmpty) {
             final localTodayPunches =
                 await locService.getTodaysPunches(effectiveUserCd);
@@ -311,116 +359,36 @@ class ProfileProvider extends DisposableProvider {
               _data!.isPunchIn = localRemark == 'PUNCH IN';
               print(
                   '[PROFILE-ONLINE] ✅ Applied LOCAL punch state: remark=$localRemark, isPunchIn=${_data!.isPunchIn}');
-
-              if (_data!.isPunchIn) {
-                final deferredAutoPunchOutPending =
-                    await _isDeferredAutoPunchOutPending();
-                if (deferredAutoPunchOutPending) {
-                  _data!.isPunchIn = false;
-                  print(
-                      '[PROFILE-ONLINE] ℹ️ Deferred auto punch-out is pending sync. Set isPunchIn=false and skipped trip resume.');
-                } else {
-                  try {
-                    print(
-                        '[PROFILE-ONLINE] 🔍 Checking for active trip on server...');
-                    final activeTrip = await Services()
-                        .getActiveTripStatus(effectiveUserCd, syncId, token);
-
-                    if (activeTrip != null) {
-                      final tripId = activeTrip['trip_id'] is int
-                          ? activeTrip['trip_id'] as int
-                          : int.tryParse(
-                              activeTrip['trip_id']?.toString() ?? '');
-                      if (tripId == null) {
-                        print(
-                            '[PROFILE-ONLINE] ⚠️ Active trip found but trip_id is invalid: ${activeTrip['trip_id']}');
-                      } else if (_shouldSkipDuplicateResume(tripId)) {
-                        print(
-                            '[PROFILE-ONLINE] ℹ️ Duplicate resume skipped for trip_id=$tripId');
-                      } else {
-                        print(
-                            '[PROFILE-ONLINE] ✅ Found active trip ($tripId) - RESUMING');
-                        await locService.resumeExistingTrip(
-                            tripId: tripId,
-                            userCd: effectiveUserCd,
-                            syncId: syncId,
-                            token: token);
-                      }
-                    } else {
-                      print(
-                          '[PROFILE-ONLINE] ℹ️ No active trip found on server');
-                    }
-                  } catch (e) {
-                    print(
-                        '[PROFILE-ONLINE] ⚠️ Could not check/resume active trip: $e');
-                  }
-                }
-              }
+              await applyPunchInFollowUps();
             } else {
               print(
-                  '[PROFILE-ONLINE] ℹ️ No local today punches found, checking server state...');
-              serverPunchRemark = await Services().getCurrentPunchState(token);
-              print(
-                  '[PROFILE-ONLINE] 📊 Server punch state: $serverPunchRemark');
+                  '[PROFILE-ONLINE] ℹ️ No local today punches found, checking local previous-day open state...');
+              await _restorePunchStateAndAutoCloseIfNeeded(
+                userCd: effectiveUserCd,
+                syncIdValue: syncId,
+                locService: locService,
+                logTag: '[PROFILE-ONLINE]',
+              );
 
-              if (serverPunchRemark != null && serverPunchRemark.isNotEmpty) {
-                _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
+              if (!_data!.isPunchIn) {
                 print(
-                    '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=${_data!.isPunchIn}');
+                    '[PROFILE-ONLINE] ℹ️ No local open punch found, checking server state...');
+                serverPunchRemark =
+                    await Services().getCurrentPunchState(token);
+                print(
+                    '[PROFILE-ONLINE] 📊 Server punch state: $serverPunchRemark');
 
-                if (_data!.isPunchIn) {
-                  final deferredAutoPunchOutPending =
-                      await _isDeferredAutoPunchOutPending();
-                  if (deferredAutoPunchOutPending) {
-                    _data!.isPunchIn = false;
-                    print(
-                        '[PROFILE-ONLINE] ℹ️ Deferred auto punch-out is pending sync. Set isPunchIn=false and skipped trip resume.');
-                  } else {
-                    try {
-                      print(
-                          '[PROFILE-ONLINE] 🔍 Checking for active trip on server...');
-                      final activeTrip = await Services()
-                          .getActiveTripStatus(effectiveUserCd, syncId, token);
-
-                      if (activeTrip != null) {
-                        final tripId = activeTrip['trip_id'] is int
-                            ? activeTrip['trip_id'] as int
-                            : int.tryParse(
-                                activeTrip['trip_id']?.toString() ?? '');
-                        if (tripId == null) {
-                          print(
-                              '[PROFILE-ONLINE] ⚠️ Active trip found but trip_id is invalid: ${activeTrip['trip_id']}');
-                        } else if (_shouldSkipDuplicateResume(tripId)) {
-                          print(
-                              '[PROFILE-ONLINE] ℹ️ Duplicate resume skipped for trip_id=$tripId');
-                        } else {
-                          print(
-                              '[PROFILE-ONLINE] ✅ Found active trip ($tripId) - RESUMING');
-                          await locService.resumeExistingTrip(
-                              tripId: tripId,
-                              userCd: effectiveUserCd,
-                              syncId: syncId,
-                              token: token);
-                        }
-                      } else {
-                        print(
-                            '[PROFILE-ONLINE] ℹ️ No active trip found on server');
-                      }
-                    } catch (e) {
-                      print(
-                          '[PROFILE-ONLINE] ⚠️ Could not check/resume active trip: $e');
-                    }
-                  }
+                if (serverPunchRemark != null && serverPunchRemark.isNotEmpty) {
+                  _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
+                  print(
+                      '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=${_data!.isPunchIn}');
                 }
               } else {
-                await _restorePunchStateAndAutoCloseIfNeeded(
-                  userCd: effectiveUserCd,
-                  syncIdValue: syncId,
-                  locService: locService,
-                  canAutoPunchOut: true,
-                  logTag: '[PROFILE-ONLINE]',
-                );
+                print(
+                    '[PROFILE-ONLINE] ✅ Preserved punched-in state from previous-day local record.');
               }
+
+              await applyPunchInFollowUps();
             }
           } else {
             print(
@@ -429,7 +397,6 @@ class ProfileProvider extends DisposableProvider {
               userCd: effectiveUserCd,
               syncIdValue: syncId,
               locService: locService,
-              canAutoPunchOut: true,
               logTag: '[PROFILE-ONLINE]',
             );
           }
@@ -793,13 +760,13 @@ class ProfileProvider extends DisposableProvider {
     _data!.moduleNos = moduleNos.toList();
   }
 
-  /// Restore punch state from today's records.
-  /// If day changed and previous state was still open, auto-run punch out online.
+  /// Restore punch state from local records.
+  /// If there is a previous-day open punch (last record is PUNCH IN), keep
+  /// punched-in state until an explicit punch out is recorded.
   Future<void> _restorePunchStateAndAutoCloseIfNeeded({
     required String userCd,
     required int syncIdValue,
     required LocationService locService,
-    required bool canAutoPunchOut,
     required String logTag,
   }) async {
     if (_data == null) return;
@@ -856,41 +823,9 @@ class ProfileProvider extends DisposableProvider {
     }
 
     print(
-        '$logTag ⚠️ Found previous-day open punch (date=$latestDate). Need real punch out before showing Punch IN.');
-
-    if (!canAutoPunchOut) {
-      _data!.isPunchIn = true;
-      print(
-          '$logTag ℹ️ Offline mode: cannot auto punch out now. Keeping isPunchIn=true until online.');
-      return;
-    }
-
-    final syncIdInt = syncIdValue;
-    final vouchTime = now.toString().split(' ')[1].split('.').first;
-
-    final spForToken = await SharedPreferences.getInstance();
-    final token = spForToken.getString('token') ?? '';
-
-    print('$logTag 🔄 Auto triggering day-change PUNCH OUT...');
-    final autoPunchOutResult = await locService.punchOut(
-      userCd: actualUserCd,
-      syncId: syncIdInt,
-      token: token,
-      vouchDt: todayStr,
-      vouchTime: vouchTime,
-      moduleNo: '301',
-      remark: 'PUNCH OUT',
-    );
-
-    if (autoPunchOutResult['success'] == true) {
-      _data!.isPunchIn = false;
-      print('$logTag ✅ Day-change auto PUNCH OUT success. Set isPunchIn=false');
-    } else {
-      _data!.isPunchIn = true;
-      print(
-          '$logTag ❌ Day-change auto PUNCH OUT failed: ${autoPunchOutResult['message'] ?? autoPunchOutResult['error']}');
-      print('$logTag Keeping isPunchIn=true so user can retry punch out.');
-    }
+        '$logTag ⚠️ Found previous-day open punch (date=$latestDate). Preserving punched-in state across day change.');
+    _data!.isPunchIn = true;
+    print('$logTag ✅ Set isPunchIn=true from previous-day open punch.');
   }
 
   /// Trigger async sync of pending order trackings (START/END order records)

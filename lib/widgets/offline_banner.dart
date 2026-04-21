@@ -1,6 +1,8 @@
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/sync_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,11 +17,50 @@ class _OfflineBannerState extends State<OfflineBanner> {
   int _pendingOrdersCount = 0;
   int _failedOrdersCount = 0;
   bool _isSyncing = false;
+  bool _wasOffline = false;
+  final Connectivity _connectivity = Connectivity();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _checkPendingOrders();
+    _initConnectivityListener();
+
+    // Periodic refresh every 5 seconds to check for pending orders
+    _refreshTimer = Timer.periodic(Duration(seconds: 5), (_) {
+      _checkPendingOrders();
+    });
+  }
+
+  void _initConnectivityListener() {
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
+      (List<ConnectivityResult> results) async {
+        final isOnline = !results.contains(ConnectivityResult.none);
+
+        if (isOnline && _wasOffline) {
+          print(
+              '[OfflineBanner] 🟢 INTERNET RESTORED - Refreshing pending orders...');
+          _wasOffline = false;
+
+          // Wait a moment for auto-sync to start, then refresh
+          await Future.delayed(Duration(milliseconds: 500));
+          if (mounted) {
+            await _checkPendingOrders();
+          }
+        } else if (!isOnline) {
+          _wasOffline = true;
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkPendingOrders() async {

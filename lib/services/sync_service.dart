@@ -33,6 +33,21 @@ class SyncService {
     print(
         '[SyncService] Found ${pendingOrders.length} pending order(s) for SYNC_ID=$syncId');
 
+    // 🔥 DEBUG: Log detailed info if no orders found
+    if (pendingOrders.isEmpty && syncId != null && syncId > 0) {
+      print('[SyncService] 🔍 DEBUG: No pending orders found!');
+      print('[SyncService]   Query: sync_status=pending AND SYNC_ID=$syncId');
+
+      // Try querying ALL orders to see what's in the database
+      final allOrders = await db.getPendingOrders();
+      print(
+          '[SyncService]   Total orders with sync_status=pending (any SYNC_ID): ${allOrders.length}');
+      for (var o in allOrders) {
+        print(
+            '[SyncService]     - id=${o['id']}, SYNC_ID=${o['SYNC_ID']}, status=${o['sync_status']}');
+      }
+    }
+
     for (var order in pendingOrders) {
       // Validate order items before attempting sync
       final items = await db.getOrderItems(order['id']);
@@ -605,6 +620,74 @@ class SyncService {
       } catch (e) {
         print('[SyncService] Cleanup error for order ${order['id']}: $e');
       }
+
+      // 🔥 CRITICAL: Also clear server-side cart for this party!
+      // After syncing offline order, delete cart items from server to prevent re-loading
+      try {
+        final partyCd = order['server_party_id']?.toString() ?? '';
+        if (partyCd.isNotEmpty) {
+          print('[SyncService] 🌐 Clearing server cart for party: $partyCd');
+
+          // Fetch current server cart for this party to get cart IDs
+          try {
+            final response = await http.get(
+              Uri.parse("${AppConfig.baseURL}cart?partyCd=$partyCd"),
+              headers: {
+                "Authorization": "Bearer $token",
+                'x-app-type': 'oms',
+              },
+            ).timeout(Duration(seconds: 10));
+
+            if (response.statusCode == 200) {
+              try {
+                final cartData = jsonDecode(response.body);
+                final cartItems = cartData['data'] as List? ?? [];
+
+                print(
+                    '[SyncService]   Found ${cartItems.length} cart items to delete');
+
+                // Delete each cart item
+                for (var item in cartItems) {
+                  try {
+                    final cartId = item['cId'];
+                    if (cartId != null) {
+                      final deleteResponse = await http.delete(
+                        Uri.parse("${AppConfig.baseURL}cart/$cartId"),
+                        headers: {
+                          "Authorization": "Bearer $token",
+                          'x-app-type': 'oms',
+                        },
+                      ).timeout(Duration(seconds: 5));
+
+                      if (deleteResponse.statusCode == 200) {
+                        print(
+                            '[SyncService]   ✅ Deleted server cart item cId=$cartId');
+                      } else {
+                        print(
+                            '[SyncService]   ⚠️ Failed to delete cart item cId=$cartId (HTTP ${deleteResponse.statusCode})');
+                      }
+                    }
+                  } catch (itemErr) {
+                    print(
+                        '[SyncService]   ⚠️ Error deleting cart item: $itemErr');
+                    // Continue with next item
+                  }
+                }
+              } catch (parseErr) {
+                print(
+                    '[SyncService]   ⚠️ Error parsing server cart response: $parseErr');
+              }
+            } else {
+              print(
+                  '[SyncService]   ⚠️ Failed to fetch server cart (HTTP ${response.statusCode})');
+            }
+          } catch (fetchErr) {
+            print('[SyncService]   ⚠️ Error fetching server cart: $fetchErr');
+          }
+        }
+      } catch (e) {
+        print('[SyncService] ℹ️ Server cart clear skipped (not critical): $e');
+      }
     } else if (response.statusCode == 400 || response.statusCode == 429) {
       // Backend rejected order due to limit exceeded or too many requests
       final errorMsg = response.statusCode == 400
@@ -721,16 +804,78 @@ class SyncService {
     }
 
     int synced = 0;
+    final Map<String, List<dynamic>> serverCartByParty = {};
     print(
         '[SyncService] Syncing ${pendingItems.length} pending cart item(s) to server');
 
     for (var item in pendingItems) {
       try {
+        final partyCd = item['party_cd']?.toString() ?? '';
         final itemCd = item['item_cd']?.toString() ?? '';
-        if (itemCd.isEmpty) continue;
+        if (itemCd.isEmpty || partyCd.isEmpty) continue;
+
+        // Safety guard for legacy data: if server already has same item with same qty,
+        // mark local row as synced and skip re-post to avoid quantity doubling.
+        if (!serverCartByParty.containsKey(partyCd)) {
+          try {
+            final response = await http.get(
+              Uri.parse("${AppConfig.baseURL}cart?partyCd=$partyCd"),
+              headers: {
+                "Authorization": "Bearer $token",
+                'x-app-type': 'oms',
+              },
+            );
+
+            if (response.statusCode == 200) {
+              final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+              serverCartByParty[partyCd] = (decoded['data'] as List?) ?? [];
+            } else {
+              serverCartByParty[partyCd] = [];
+            }
+          } catch (_) {
+            serverCartByParty[partyCd] = [];
+          }
+        }
+
+        final localQty =
+            double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
+        final serverItems = serverCartByParty[partyCd] ?? const [];
+        Map<String, dynamic>? matchingServerItem;
+        for (final serverItem in serverItems) {
+          if (serverItem is Map) {
+            final map = Map<String, dynamic>.from(serverItem);
+            final serverItemCd =
+                map['itemCd']?.toString() ?? map['ITEM_CD']?.toString() ?? '';
+            if (serverItemCd == itemCd) {
+              matchingServerItem = map;
+              break;
+            }
+          }
+        }
+
+        if (matchingServerItem != null) {
+          final serverQty = double.tryParse(
+                  matchingServerItem['quantity']?.toString() ??
+                      matchingServerItem['qty']?.toString() ??
+                      '0') ??
+              0.0;
+
+          if ((serverQty - localQty).abs() < 0.0001) {
+            await dbInst.update(
+              'cart_items',
+              {'sync_status': 'synced'},
+              where: 'id = ?',
+              whereArgs: [item['id']],
+            );
+            synced++;
+            print(
+                '[SyncService] Skipped cart sync for $itemCd ($partyCd): already present on server with same quantity');
+            continue;
+          }
+        }
 
         var cartPayload = {
-          "partyCd": item['party_cd']?.toString() ?? '',
+          "partyCd": partyCd,
           "itemCd": itemCd,
           "qty": item['quantity']?.toString() ?? '0',
           "rate": item['rate']?.toString() ?? '0',

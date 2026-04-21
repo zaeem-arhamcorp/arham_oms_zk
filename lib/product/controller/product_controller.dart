@@ -963,6 +963,10 @@ class ProductController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
+    // 🔥 Load persisted party selection
+    _loadPersistedPartySelection();
+
     fetchProductsFromAPI();
     fetchPartyNames();
     //fetchOptions();
@@ -978,6 +982,52 @@ class ProductController extends GetxController {
             baseOffset: 0, extentOffset: searchController.text.length);
       }
     });
+  }
+
+  /// Load persisted party selection from SharedPreferences (survives app restart)
+  Future<void> _loadPersistedPartySelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final persistedPartyId = prefs.getString('ACTIVE_ORDER_PARTY_ID') ?? '';
+      if (persistedPartyId.isNotEmpty) {
+        selectedPartyId.value = persistedPartyId;
+        // Also restore party name if available
+        final persistedPartyName =
+            prefs.getString('ACTIVE_ORDER_PARTY_NAME') ?? '';
+        if (persistedPartyName.isNotEmpty) {
+          selectedPartyName.value = persistedPartyName;
+        }
+        print(
+            '[ProductController] ✅ Restored persisted party: $persistedPartyId / $persistedPartyName');
+      }
+    } catch (e) {
+      print('[ProductController] ⚠️ Error loading persisted party: $e');
+    }
+  }
+
+  /// Save party selection to SharedPreferences (survives app restart until End Order)
+  Future<void> persistPartySelection(String partyId, String partyName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('ACTIVE_ORDER_PARTY_ID', partyId);
+      await prefs.setString('ACTIVE_ORDER_PARTY_NAME', partyName);
+      print(
+          '[ProductController] 💾 Persisted party selection: $partyId / $partyName');
+    } catch (e) {
+      print('[ProductController] ⚠️ Error persisting party: $e');
+    }
+  }
+
+  /// Clear persisted party selection when End Order is completed
+  Future<void> clearPersistedPartySelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('ACTIVE_ORDER_PARTY_ID');
+      await prefs.remove('ACTIVE_ORDER_PARTY_NAME');
+      print('[ProductController] 🗑️ Cleared persisted party selection');
+    } catch (e) {
+      print('[ProductController] ⚠️ Error clearing persisted party: $e');
+    }
   }
 
   @override

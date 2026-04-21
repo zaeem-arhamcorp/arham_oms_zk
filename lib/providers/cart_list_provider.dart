@@ -120,6 +120,7 @@ class CartListProvider extends DisposableProvider {
                 otherDesc: item.otherDesc?.toString() ?? '',
                 fld5: item.fld5?.toString() ?? '',
                 itemName: item.item?.itemName?.toString() ?? '',
+                syncStatus: 'synced',
               );
             }
             print(
@@ -303,6 +304,13 @@ class CartListProvider extends DisposableProvider {
       CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
     }
+  }
+
+  /// Clear cart data in memory and notify listeners
+  void clearData() {
+    _data.clear();
+    notifyListeners();
+    print('[CART_PROVIDER] Cleared in-memory cart data');
   }
 
   @override

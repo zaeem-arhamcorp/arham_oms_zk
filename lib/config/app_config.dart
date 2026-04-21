@@ -17,11 +17,11 @@ class AppConfig {
   //8140263919
   //3919
 
-  //9824747862 Firoj Khan - 1          Child
   //9033881931 Rizwan Ansari - 1       Master
   //9227451051 Mubassira - 2           Master
-  //9875 Abrar - 98                    Parent
   //9723760786 Zaeem Kadri - 1         Master
+  //9875 Abrar - 98                    Parent
+  //9824747862 Firoj Khan - 1          Child
 
   //Nevil Pharma
   //9033546913 Mahesh Patadiya - Password: 101
@@ -30,10 +30,10 @@ class AppConfig {
   //        Old Commit                                 New Commit
   //77f08058cf3f204c343128a5b54e2c4786eee775 8d57534bdd366b9607b0f73d16b6e5f1a5b7f1eb
 
-  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
-  static const String baseURL =
-      "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  // static const String baseURL =
+  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // static const String baseURL =
   //     "https://api.arhamcorp.in/api/"; //TODO: Production
@@ -77,4 +77,9 @@ class AppConfig {
   static const String tripEndURL = '${baseURL}location/trip/end';
   static const String childrenURL = '${baseURL}users/children';
   // static const String timelineURL = '${baseURL}timeline';
+
+  // Task Management APIs
+  static const String getStockistsURL = '${baseURL}products/party?groupCd=136';
+  static const String getMyDepartmentsURL = '${baseURL}my-departments';
+  static const String assignIssueURL = '${baseURL}dealer-flow/issues';
 }

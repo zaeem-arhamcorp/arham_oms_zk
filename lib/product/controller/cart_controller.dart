@@ -114,6 +114,7 @@ class CartController extends GetxController {
             fld5: remarks ?? '',
             itemName: itemName ?? '',
             stockist: stockist ?? '',
+            syncStatus: 'synced',
           );
           print(
               '[OFFLINE_DB] ✅ Item $itemCd successfully saved to local DB (ONLINE mode)');
@@ -175,6 +176,7 @@ class CartController extends GetxController {
             fld5: remarks ?? '',
             itemName: itemName ?? '',
             stockist: stockist ?? '',
+            syncStatus: 'pending',
           );
 
           productAddedStates[itemCd] = true;

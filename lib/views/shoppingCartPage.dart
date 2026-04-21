@@ -26,6 +26,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -2080,6 +2081,59 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           await DatabaseHelper().clearCartForParty(selectedPartyId);
           print(
               '[ORDER_PLACEMENT] ✅ Cart cleared from database for party: $selectedPartyId');
+
+          // 🔄 IMPORTANT: Also clear CartListProvider in-memory data to sync UI state
+          try {
+            final cartProvider =
+                Provider.of<CartListProvider>(context, listen: false);
+            cartProvider.clearData();
+            print(
+                '[ORDER_PLACEMENT] ✅ Cleared CartListProvider in-memory data');
+          } catch (e) {
+            print('[ORDER_PLACEMENT] ⚠️ Error clearing CartListProvider: $e');
+          }
+
+          // 🌐 IMPORTANT: Also clear server-side cart for this party (try online if available)
+          try {
+            if (datacart.isNotEmpty) {
+              print(
+                  '[ORDER_PLACEMENT] Attempting to clear server cart items for party: $selectedPartyId');
+              final userProvider =
+                  Provider.of<UserProvider>(context, listen: false);
+              if (userProvider.token != null &&
+                  userProvider.token!.isNotEmpty) {
+                // Try to delete all cart items from server
+                for (var item in datacart) {
+                  try {
+                    final cartId = item.cId;
+                    final response = await http.delete(
+                      Uri.parse("${AppConfig.baseURL}cart/$cartId"),
+                      headers: {
+                        "Authorization": "Bearer ${userProvider.token}",
+                        'x-app-type': 'oms',
+                      },
+                    ).timeout(Duration(seconds: 5));
+
+                    if (response.statusCode == 200) {
+                      print(
+                          '[ORDER_PLACEMENT] ✅ Deleted server cart item cId=$cartId');
+                    } else {
+                      print(
+                          '[ORDER_PLACEMENT] ⚠️ Failed to delete server cart item cId=$cartId (HTTP ${response.statusCode})');
+                    }
+                  } catch (itemErr) {
+                    print(
+                        '[ORDER_PLACEMENT] ⚠️ Error deleting server cart item: $itemErr');
+                    // Continue with other items
+                  }
+                }
+              }
+            }
+          } catch (serverErr) {
+            print(
+                '[ORDER_PLACEMENT] ℹ️ Server cart clear skipped (might be offline): $serverErr');
+            // Offline is OK - cart will be cleared locally
+          }
         } catch (e) {
           print('[ORDER_PLACEMENT] ⚠️ Error clearing cart from DB: $e');
         }
@@ -2143,13 +2197,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     try {
       // Check if offline license limit is already hit
       try {
-        int syncId = 0;
-        final profileSyncId = profile.data?.syncId;
-        if (profileSyncId is int) {
-          syncId = profileSyncId;
-        } else if (profileSyncId is String) {
-          syncId = int.tryParse(profileSyncId) ?? 0;
-        }
+        // 🔥 Use UserProvider.syncId instead of profile.data.syncId
+        int syncId = int.tryParse(ub.syncId ?? '0') ?? 0;
+        print(
+            '[ORDER_PLACEMENT] 🔥 ONLINE ORDER: Using UserProvider.syncId = $syncId');
 
         if (syncId > 0) {
           final db = DatabaseHelper();
@@ -2184,13 +2235,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       try {
         final OfflineOrderService offlineService = OfflineOrderService();
 
-        int syncId = 0;
-        final profileSyncId = profile.data?.syncId;
-        if (profileSyncId is int) {
-          syncId = profileSyncId;
-        } else if (profileSyncId is String) {
-          syncId = int.tryParse(profileSyncId) ?? 0;
-        }
+        // 🔥 Use UserProvider.syncId instead of profile.data.syncId (which might be NULL)
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        int syncId = int.tryParse(userProvider.syncId ?? '0') ?? 0;
+
+        print(
+            '[ORDER_PLACEMENT] 🔥 OFFLINE ORDER: Using UserProvider.syncId = $syncId');
 
         // Calculate total amount from netAmount
         double totalAmount = double.parse(netAmount);
@@ -2213,6 +2263,48 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         );
 
         print('[ORDER_PLACEMENT] ✅ Order saved to local DB with ID: $orderId');
+
+        // 🔥 CRITICAL: Clear cart state IMMEDIATELY after order is saved!
+        // This ensures product_page won't reload stale cart items if user navigates back
+        print('[ORDER_PLACEMENT] 🔥 CLEARING CART STATE IMMEDIATELY...');
+
+        // Step 1: Clear CartController state
+        cartController.productAddedStates.clear();
+        cartController.cartCount.value = 0;
+        cartController.update();
+        print('[ORDER_PLACEMENT] ✅ Cleared CartController state');
+
+        // Step 2: Clear CartListProvider in-memory data
+        try {
+          final cartProvider =
+              Provider.of<CartListProvider>(context, listen: false);
+          cartProvider.clearData();
+          print('[ORDER_PLACEMENT] ✅ Cleared CartListProvider in-memory data');
+        } catch (e) {
+          print('[ORDER_PLACEMENT] ⚠️ Error clearing CartListProvider: $e');
+        }
+
+        // Step 3: Clear database
+        try {
+          final selectedPartyId =
+              profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+          await DatabaseHelper().clearCartForParty(selectedPartyId);
+          print(
+              '[ORDER_PLACEMENT] ✅ Cart cleared from database for party: $selectedPartyId');
+        } catch (e) {
+          print('[ORDER_PLACEMENT] ⚠️ Error clearing cart from DB: $e');
+        }
+
+        // Step 4: Clear local widget state
+        setState(() {
+          datacart.clear();
+          qty.clear();
+          freeQty.clear();
+          rate.clear();
+          remarks.clear();
+          loading = false;
+        });
+        print('[ORDER_PLACEMENT] ✅ Cleared local widget state');
 
         // Create PLACE ORDER tracking for sync
         try {
@@ -2289,25 +2381,6 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         // Offline order is successful placement: clear stockist selection
         await controller.clearStockistSelection();
 
-        // ⚡ Clear cart from database
-        print(
-            '[ORDER_PLACEMENT] Clearing cart from database (offline order)...');
-        try {
-          final selectedPartyId =
-              profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
-          await DatabaseHelper().clearCartForParty(selectedPartyId);
-          print(
-              '[ORDER_PLACEMENT] ✅ Cart cleared from database for party: $selectedPartyId (offline)');
-        } catch (e) {
-          print(
-              '[ORDER_PLACEMENT] ⚠️ Error clearing cart from DB (offline): $e');
-        }
-
-        // Clear CartController state
-        cartController.productAddedStates.clear();
-        cartController.cartCount.value = 0;
-        cartController.update(); // Ensure UI rebuilds with cleared count
-
         print('[ORDER_PLACEMENT] ✅ OFFLINE ORDER COMPLETE');
         print('[ORDER_PLACEMENT] Order ID: $orderId');
         print('[ORDER_PLACEMENT] Will sync when online');
@@ -2316,16 +2389,6 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           message: "Order saved (offline - will sync)",
           backgroundColor: Colors.orange,
         );
-
-        // ⚡ FAST: Just clear local cart state
-        setState(() {
-          datacart.clear();
-          qty.clear();
-          freeQty.clear();
-          rate.clear();
-          remarks.clear();
-          loading = false;
-        });
 
         // Navigate to confirmation page with offline flag
         Get.to(() => OrderConformationPage(),

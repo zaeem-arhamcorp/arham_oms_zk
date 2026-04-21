@@ -617,6 +617,9 @@ class _ProductsPageState extends State<ProductsPage> {
                             controller.selectedPartyName.value = '';
                             controller.selectedPartyId.value = '';
 
+                            // 🔥 Clear persisted party selection
+                            controller.clearPersistedPartySelection();
+
                             // Reset state
                             setState(() {
                               dataProduct.clear();
@@ -1631,6 +1634,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
           controller.selectedPartyName.value = selectedParty.accName;
           controller.selectedPartyId.value = selectedParty.accCd;
+
+          // 🔥 Persist party selection (survives app restart)
+          controller.persistPartySelection(
+              selectedParty.accCd, selectedParty.accName);
 
           log("Selected Party Name: ${controller.selectedPartyName.value}");
           log("Selected Party ID: ${controller.selectedPartyId.value}");

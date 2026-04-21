@@ -38,6 +38,8 @@ class BackgroundLocationService {
       'pending_auto_punch_out_time_ms';
   static const String _pendingAutoPunchOutLocIdKey =
       'pending_auto_punch_out_loc_id';
+  static const String _manualReopenAfterAutoPunchOutDateKey =
+      'manual_reopen_after_auto_punch_out_date';
   static const platform = MethodChannel('com.arhamerp.app/notification');
   static const trackingControlPlatform =
       MethodChannel('com.arhamerp.app/tracking_control');
@@ -347,6 +349,29 @@ class BackgroundLocationService {
           await prefs.setInt('active_sync_id', syncId);
           await prefs.setString(_activeTripTokenKey, token);
           await prefs.setBool('tracking_explicitly_stopped', false);
+
+          final now = DateTime.now();
+          final today = _formatLocalDate(now);
+          final autoDoneToday =
+              prefs.getBool(_autoPunchOutDoneKeyForDate(now)) ?? false;
+
+          // If user manually punches in again after 11 PM auto punch-out,
+          // allow tracking for the rest of the same calendar day.
+          if (autoDoneToday && now.hour >= 23) {
+            await prefs.setString(
+              _manualReopenAfterAutoPunchOutDateKey,
+              today,
+            );
+            print(
+                '[BackgroundLocationService] ℹ️ Manual post-11PM punch-in detected. Keeping tracking active for $today.');
+          } else {
+            final manualReopenDate =
+                prefs.getString(_manualReopenAfterAutoPunchOutDateKey);
+            if (manualReopenDate != null && manualReopenDate != today) {
+              await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
+            }
+          }
+
           print(
               '[BackgroundLocationService] ✅ Trip data saved to SharedPreferences');
         } catch (e) {
@@ -427,8 +452,12 @@ class BackgroundLocationService {
       final deferredAutoPunchOutPending =
           prefs.getBool(_pendingAutoPunchOutKey) ?? false;
       final autoPunchOutCompletedToday = await isAutoPunchOutCompletedToday();
+      final today = _formatLocalDate(DateTime.now());
+      final manualReopenDate =
+          prefs.getString(_manualReopenAfterAutoPunchOutDateKey);
+      final allowManualReopenToday = manualReopenDate == today;
 
-      if (autoPunchOutCompletedToday) {
+      if (autoPunchOutCompletedToday && !allowManualReopenToday) {
         print(
             '[BackgroundLocationService] Resume skipped: auto punch-out already completed today. Clearing stale active-trip context.');
         await prefs.setBool('tracking_explicitly_stopped', true);
@@ -436,6 +465,7 @@ class BackgroundLocationService {
         await prefs.remove('active_user_cd');
         await prefs.remove('active_sync_id');
         await prefs.remove(_activeTripTokenKey);
+        await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
 
         _isRunning = false;
         _currentUserCd = null;
@@ -445,6 +475,9 @@ class BackgroundLocationService {
 
         await dismissTrackingForegroundArtifacts();
         return false;
+      } else if (autoPunchOutCompletedToday && allowManualReopenToday) {
+        print(
+            '[BackgroundLocationService] ℹ️ Resume allowed: manual post-11PM punch-in reopened shift after auto punch-out.');
       }
 
       if (explicitlyStopped || deferredAutoPunchOutPending) {
@@ -653,6 +686,7 @@ class BackgroundLocationService {
               await prefs.remove('active_user_cd');
               await prefs.remove('active_sync_id');
               await prefs.remove(_activeTripTokenKey);
+              await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
               print(
                   '[BackgroundLocationService] ✅ Cleared trip data from SharedPreferences');
             } catch (e) {
@@ -755,6 +789,7 @@ class BackgroundLocationService {
         await prefs.remove('active_user_cd');
         await prefs.remove('active_sync_id');
         await prefs.remove(_activeTripTokenKey);
+        await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
         print(
             '[BackgroundLocationService] ✅ Trip ended and SharedPreferences cleared');
         return true;
@@ -882,6 +917,7 @@ class BackgroundLocationService {
       await prefs.remove(_pendingAutoPunchOutSyncIdKey);
       await prefs.remove(_pendingAutoPunchOutTimeMsKey);
       await prefs.remove(_pendingAutoPunchOutLocIdKey);
+      await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
 
       print('[AUTO-PUNCH-OUT] Deferred trip-end sync completed successfully.');
       return true;
@@ -1066,8 +1102,17 @@ class BackgroundLocationService {
       final today = formatDate(now);
       final autoDoneKey = 'auto_punch_out_done_$today';
       final prefs = await SharedPreferences.getInstance();
+      final manualReopenDate =
+          prefs.getString(_manualReopenAfterAutoPunchOutDateKey);
+      final allowManualReopenToday = manualReopenDate == today;
 
       if ((prefs.getBool(autoDoneKey) ?? false) == true) {
+        if (allowManualReopenToday) {
+          print(
+              '[AUTO-PUNCH-OUT] Already completed for $today, but user manually punched in again. Keeping tracking active.');
+          return false;
+        }
+
         print(
             '[AUTO-PUNCH-OUT] Already completed for $today. Stopping active tracking.');
 
@@ -1077,6 +1122,7 @@ class BackgroundLocationService {
         await prefs.remove('active_user_cd');
         await prefs.remove('active_sync_id');
         await prefs.remove(_activeTripTokenKey);
+        await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
 
         final instance = BackgroundLocationService();
         instance._isRunning = false;
@@ -1147,6 +1193,7 @@ class BackgroundLocationService {
         await prefs.remove('active_user_cd');
         await prefs.remove('active_sync_id');
         await prefs.remove(_activeTripTokenKey);
+        await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
         await prefs.setBool(autoDoneKey, true);
 
         final instance = BackgroundLocationService();
@@ -1247,6 +1294,7 @@ class BackgroundLocationService {
       await prefs.remove(_pendingAutoPunchOutSyncIdKey);
       await prefs.remove(_pendingAutoPunchOutTimeMsKey);
       await prefs.remove(_pendingAutoPunchOutLocIdKey);
+      await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
       await prefs.setBool(autoDoneKey, true);
 
       final instance = BackgroundLocationService();
