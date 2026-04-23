@@ -23,11 +23,12 @@ class _AssignTaskViewState extends State<AssignTaskView> {
 
   // Data lists
   List<Stockist> _stockists = [];
-  List<String> _departmentCodes = [];
+  List<Department> _departments = [];
 
   // Selected values
   Stockist? _selectedStockist;
   String? _selectedDepartmentCode;
+  String? _selectedDepartmentName;
   String? _selectedCategory;
   DateTime? _selectedDueDate;
   String _selectedUrgency = 'High';
@@ -148,7 +149,12 @@ class _AssignTaskViewState extends State<AssignTaskView> {
           'Departments parsed response: status=${response.status}, message=${response.message}, codes=${response.data.deptCodes.length}');
 
       setState(() {
-        _departmentCodes = response.data.deptCodes;
+        _departments = response.data.departments;
+        if (_departments.isEmpty) {
+          _departments = response.data.deptCodes
+              .map((String code) => Department(deptCd: code, deptName: code))
+              .toList();
+        }
         _isLoadingDepartments = false;
       });
     } catch (e) {
@@ -168,13 +174,6 @@ class _AssignTaskViewState extends State<AssignTaskView> {
   Future<void> _submitAssignIssue() async {
     final String title = _titleController.text.trim();
     final String description = _descriptionController.text.trim();
-
-    if (_selectedStockist == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a dealer')),
-      );
-      return;
-    }
 
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -200,6 +199,13 @@ class _AssignTaskViewState extends State<AssignTaskView> {
     if (_selectedDueDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select due date')),
+      );
+      return;
+    }
+
+    if (_selectedStockist == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a dealer')),
       );
       return;
     }
@@ -268,6 +274,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
         _selectedCategory = null;
         _selectedDueDate = null;
         _selectedDepartmentCode = null;
+        _selectedDepartmentName = null;
         _selectedUrgency = 'High';
       });
     } catch (e) {
@@ -697,7 +704,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
   }
 
   Future<void> _openDepartmentBottomSheet() async {
-    final String? picked = await showModalBottomSheet<String>(
+    final Department? picked = await showModalBottomSheet<Department>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -707,9 +714,11 @@ class _AssignTaskViewState extends State<AssignTaskView> {
         return StatefulBuilder(
           builder: (BuildContext context,
               void Function(void Function()) setModalState) {
-            final List<String> filteredDepartments =
-                _departmentCodes.where((String dept) {
-              return dept.toLowerCase().contains(query.toLowerCase());
+            final List<Department> filteredDepartments =
+                _departments.where((Department dept) {
+              final String q = query.toLowerCase();
+              return dept.deptName.toLowerCase().contains(q) ||
+                  dept.deptCd.toLowerCase().contains(q);
             }).toList();
 
             return SafeArea(
@@ -806,10 +815,10 @@ class _AssignTaskViewState extends State<AssignTaskView> {
                                 separatorBuilder: (_, __) =>
                                     const SizedBox(height: 10),
                                 itemBuilder: (BuildContext context, int index) {
-                                  final String dept =
+                                  final Department dept =
                                       filteredDepartments[index];
                                   final bool isSelected =
-                                      _selectedDepartmentCode == dept;
+                                      _selectedDepartmentCode == dept.deptCd;
 
                                   return InkWell(
                                     onTap: () {
@@ -851,7 +860,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Text(
-                                              dept,
+                                              dept.deptName,
                                               style: const TextStyle(
                                                 fontSize: 15,
                                                 color: Color(0xFF1B1F29),
@@ -886,7 +895,8 @@ class _AssignTaskViewState extends State<AssignTaskView> {
     }
 
     setState(() {
-      _selectedDepartmentCode = picked;
+      _selectedDepartmentCode = picked.deptCd;
+      _selectedDepartmentName = picked.deptName;
     });
   }
 
@@ -909,7 +919,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
             onPressed: () {
               Get.to(() => TaskListView());
             },
-            icon: const Icon(Icons.notifications_none_rounded),
+            icon: const Icon(Icons.notes),
           ),
         ],
       ),
@@ -933,10 +943,10 @@ class _AssignTaskViewState extends State<AssignTaskView> {
               // ),
               // const SizedBox(height: 16),
               _buildFormCard(),
-              // const SizedBox(height: 16),
-              // _buildRoutingCard(),
               const SizedBox(height: 16),
-              _buildStatsCard(),
+              // _buildRoutingCard(),
+              // const SizedBox(height: 16),
+              // _buildStatsCard(),
             ],
           ),
         ),
@@ -1018,47 +1028,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
             ),
           ),
           const SizedBox(height: 18),
-          _buildFieldLabel('DEALER NAME'),
-          InkWell(
-            onTap: _openDealershipBottomSheet,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9ECF4),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.store_outlined,
-                    color: Color(0xFF8892A8),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _selectedStockist?.accName ??
-                          'Search and select dealership',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: _selectedStockist != null
-                            ? const Color(0xFF1E232D)
-                            : const Color(0xFF8B94A8),
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFF5D667A),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+
           _buildFieldLabel('ISSUE TITLE'),
           _buildInputContainer(
             child: TextField(
@@ -1136,6 +1106,17 @@ class _AssignTaskViewState extends State<AssignTaskView> {
             ),
           ),
           const SizedBox(height: 14),
+          _buildFieldLabel('URGENCY MATRIX'),
+          Row(
+            children: <Widget>[
+              _buildUrgencyButton('High'),
+              const SizedBox(width: 8),
+              _buildUrgencyButton('Medium'),
+              const SizedBox(width: 8),
+              _buildUrgencyButton('Low'),
+            ],
+          ),
+          const SizedBox(height: 14),
           _buildFieldLabel('DUE DATE'),
           InkWell(
             onTap: _pickDueDate,
@@ -1178,17 +1159,49 @@ class _AssignTaskViewState extends State<AssignTaskView> {
             ),
           ),
           const SizedBox(height: 14),
-          _buildFieldLabel('URGENCY MATRIX'),
-          Row(
-            children: <Widget>[
-              _buildUrgencyButton('High'),
-              const SizedBox(width: 8),
-              _buildUrgencyButton('Medium'),
-              const SizedBox(width: 8),
-              _buildUrgencyButton('Low'),
-            ],
+          _buildFieldLabel('DEALER NAME'),
+          InkWell(
+            onTap: _openDealershipBottomSheet,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9ECF4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.store_outlined,
+                    color: Color(0xFF8892A8),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedStockist?.accName ??
+                          'Search and select dealership',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: _selectedStockist != null
+                            ? const Color(0xFF1E232D)
+                            : const Color(0xFF8B94A8),
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Color(0xFF5D667A),
+                  ),
+                ],
+              ),
+            ),
           ),
+          // const SizedBox(height: 12),
           const SizedBox(height: 14),
+
           _buildFieldLabel('ASSIGN TO DEPARTMENT'),
           InkWell(
             onTap: _openDepartmentBottomSheet,
@@ -1209,11 +1222,14 @@ class _AssignTaskViewState extends State<AssignTaskView> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _selectedDepartmentCode ?? 'Tap to choose department',
+                      _selectedDepartmentName ??
+                          _selectedDepartmentCode ??
+                          'Tap to choose department',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: _selectedDepartmentCode != null
+                        color: _selectedDepartmentName != null ||
+                                _selectedDepartmentCode != null
                             ? const Color(0xFF1E232D)
                             : const Color(0xFF8B94A8),
                       ),
@@ -1227,10 +1243,10 @@ class _AssignTaskViewState extends State<AssignTaskView> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 26),
           SizedBox(
             width: double.infinity,
-            height: 40,
+            height: 45,
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _submitAssignIssue,
               style: ElevatedButton.styleFrom(
@@ -1445,13 +1461,13 @@ class _AssignTaskViewState extends State<AssignTaskView> {
       textColor = const Color(0xFFC82A2A);
       backgroundColor = const Color(0xFFFDEEEF);
     } else if (level == 'Medium' && isSelected) {
-      borderColor = const Color(0xFF9C9AD8); //0xFFD8C49A
-      textColor = const Color(0xFF4D4A88); //0xFFC8792A
-      backgroundColor = const Color(0xFFD9D8F3);
+      borderColor = const Color(0xFF95815A); //0xFFD8C49A
+      textColor = const Color(0xFF8A5B00); //0xFFC8792A
+      backgroundColor = const Color(0xFFF8E8BE);
     } else if (isSelected) {
-      borderColor = const Color(0xFF879BBA);
-      textColor = const Color(0xFF2D5F8C);
-      backgroundColor = const Color(0xFFE8EEF8);
+      borderColor = const Color(0xFF6DA671);
+      textColor = const Color(0xFF4CAF50);
+      backgroundColor = const Color(0xFFEBFFF2);
     }
 
     return Expanded(

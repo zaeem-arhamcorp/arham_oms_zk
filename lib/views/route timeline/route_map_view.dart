@@ -946,6 +946,122 @@ class _RouteMapViewState extends State<RouteMapView> {
         .trim();
   }
 
+  Map<String, dynamic> _normalizeTripSummary(Map<String, dynamic> summary) {
+    final normalized = <String, dynamic>{...summary};
+
+    final dynamic timing = normalized['orderTrackingTiming'];
+    if (timing is Map) {
+      final Map<String, dynamic> timingMap = Map<String, dynamic>.from(timing);
+      final dynamic coverage = timingMap['coverage'];
+      if (coverage is Map) {
+        final Map<String, dynamic> coverageMap =
+            Map<String, dynamic>.from(coverage);
+        normalized.addAll(coverageMap);
+      }
+      final dynamic distanceBreakdown = timingMap['distance_breakdown'];
+      if (distanceBreakdown is Map) {
+        normalized['distance_breakdown'] =
+            Map<String, dynamic>.from(distanceBreakdown);
+      }
+      final dynamic tripWindow = timingMap['trip_window'];
+      if (tripWindow is Map) {
+        normalized['trip_window'] = Map<String, dynamic>.from(tripWindow);
+      }
+    }
+
+    dynamic pickValue(List<String> keys) {
+      for (final key in keys) {
+        final dynamic value = normalized[key];
+        if (value != null) {
+          final text = value.toString().trim();
+          if (text.isNotEmpty) {
+            return value;
+          }
+        }
+      }
+      return null;
+    }
+
+    void setAlias(String targetKey, List<String> aliases) {
+      final dynamic value = pickValue(<String>[targetKey, ...aliases]);
+      if (value != null) {
+        normalized[targetKey] = value;
+      }
+    }
+
+    setAlias('total_distance', <String>[
+      'TOTAL_DISTANCE',
+      'TOTAL_DISTANCE_KM',
+      'total_distance_km',
+      'TOTAL_DISTANCE_KM',
+    ]);
+    setAlias('total_distance_km', <String>[
+      'TOTAL_DISTANCE_KM',
+      'total_distance',
+      'TOTAL_DISTANCE',
+      'TOTAL_KM',
+    ]);
+    setAlias('total_duration_formatted', <String>[
+      'TOTAL_DURATION_FORMATTED',
+      'total_duration',
+      'TOTAL_DURATION',
+      'TOTAL_DURATION_FORMATTED',
+    ]);
+    setAlias('total_calls_count', <String>[
+      'TOTAL_CALLS_COUNT',
+      'total_calls',
+      'TOTAL_CALLS',
+    ]);
+    setAlias('productive_calls_count', <String>[
+      'PRODUCTIVE_CALLS_COUNT',
+      'productive_calls',
+      'PRODUCTIVE_CALLS',
+    ]);
+    setAlias('non_productive_calls_count', <String>[
+      'NON_PRODUCTIVE_CALLS_COUNT',
+      'non_productive_calls',
+      'NON_PRODUCTIVE_CALLS',
+    ]);
+    setAlias('total_sale_amount', <String>[
+      'TOTAL_SALE_AMOUNT',
+      'sale_amount',
+      'SALE_AMOUNT',
+    ]);
+    setAlias('start_time', <String>['START_TIME', 'started_at', 'STARTED_AT']);
+    setAlias('started_at', <String>['STARTED_AT', 'start_time', 'START_TIME']);
+    setAlias('last_point', <String>['LAST_POINT']);
+
+    return normalized;
+  }
+
+  num? _readSummaryNum(Map<String, dynamic> summary, List<String> keys) {
+    for (final String key in keys) {
+      final dynamic value = summary[key];
+      if (value is num) {
+        return value;
+      }
+      final parsed = num.tryParse(value?.toString() ?? '');
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+    return null;
+  }
+
+  String _readSummaryText(Map<String, dynamic> summary, List<String> keys,
+      {String fallback = ''}) {
+    for (final String key in keys) {
+      final dynamic value = summary[key];
+      if (value != null) {
+        final text = value.toString().trim();
+        if (text.isNotEmpty) {
+          return text;
+        }
+      }
+    }
+    return fallback;
+  }
+
   int _extractTripIdFromTripPayload(Map<String, dynamic> trip) {
     final candidates = [
       trip['id'],
@@ -1415,6 +1531,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         },
       );
 
+      print('[RouteMapView] Timeline API response: ${response.body}');
+
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body) as Map<String, dynamic>;
         final data = decoded['data'] as Map<String, dynamic>?;
@@ -1422,15 +1540,35 @@ class _RouteMapViewState extends State<RouteMapView> {
         if (data is Map<String, dynamic>) {
           // Timeline endpoint carries business metrics used in summary cards.
           final mergedSummary = <String, dynamic>{};
+          final orderTrackingTiming = data['orderTrackingTiming'];
           final timelineSummary = data['timelineSummary'];
           final orderTrackingSummary = data['orderTrackingSummary'];
 
+          if (orderTrackingTiming is Map) {
+            final timingMap =
+                Map<String, dynamic>.from(orderTrackingTiming as Map);
+            final coverage = timingMap['coverage'];
+            if (coverage is Map) {
+              mergedSummary.addAll(
+                _normalizeTripSummary(
+                  Map<String, dynamic>.from(coverage),
+                ),
+              );
+            }
+            mergedSummary['orderTrackingTiming'] = timingMap;
+          }
+
           if (timelineSummary is Map) {
-            mergedSummary.addAll(Map<String, dynamic>.from(timelineSummary));
+            mergedSummary.addAll(
+              _normalizeTripSummary(Map<String, dynamic>.from(timelineSummary)),
+            );
           }
           if (orderTrackingSummary is Map) {
-            mergedSummary
-                .addAll(Map<String, dynamic>.from(orderTrackingSummary));
+            mergedSummary.addAll(
+              _normalizeTripSummary(
+                Map<String, dynamic>.from(orderTrackingSummary),
+              ),
+            );
           }
 
           if (mergedSummary.isNotEmpty) {
@@ -1533,7 +1671,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     final trip = tripData['trip'] as Map<String, dynamic>?;
     if (trip == null) return [];
 
-    final encoded = (trip['polyline_encoded'] ?? '').toString().trim();
+    final encoded = (trip['POLYLINE_ENCODED'] ?? '').toString().trim();
     if (encoded.isEmpty) return [];
 
     try {
@@ -2743,7 +2881,7 @@ class _RouteMapViewState extends State<RouteMapView> {
           if (summary != null) {
             // Store trip summary data
             setState(() {
-              _tripSummaryData[tripId] = summary;
+              _tripSummaryData[tripId] = _normalizeTripSummary(summary);
             });
 
             // Extract and display last_point on map
@@ -3883,24 +4021,33 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   Widget _buildTripSummaryWidget() {
     final tripId = _getTripIdAtIndex(_selectedTripIndex);
-    final summary = _tripSummaryData[tripId] ?? {};
+    final summary = _normalizeTripSummary(_tripSummaryData[tripId] ?? {});
 
     // Extract summary data
-    final totalDistance = (summary['total_distance'] as num?)?.toDouble() ??
-        (summary['total_distance_km'] as num?)?.toDouble() ??
+    final totalDistance = _readSummaryNum(
+                summary, <String>['total_distance', 'total_distance_km'])
+            ?.toDouble() ??
         0.0;
-    final totalDurationFormatted =
-        summary['total_duration_formatted'] ?? '0h 0m 0s';
+    final totalDurationFormatted = _readSummaryText(
+      summary,
+      <String>['total_duration_formatted', 'total_duration'],
+      fallback: '0h 0m 0s',
+    );
 
     // Extract call and sales data from summary
     final totalCallsCount =
-        (summary['total_calls_count'] as num?)?.toInt() ?? 0;
+        _readSummaryNum(summary, <String>['total_calls_count'])?.toInt() ?? 0;
     final productiveCallsCount =
-        (summary['productive_calls_count'] as num?)?.toInt() ?? 0;
-    final nonProductiveCallsCount =
-        (summary['non_productive_calls_count'] as num?)?.toInt() ?? 0;
+        _readSummaryNum(summary, <String>['productive_calls_count'])?.toInt() ??
+            0;
+    final nonProductiveCallsCount = _readSummaryNum(
+          summary,
+          <String>['non_productive_calls_count'],
+        )?.toInt() ??
+        0;
     final totalSaleAmount =
-        (summary['total_sale_amount'] as num?)?.toDouble() ?? 0.0;
+        _readSummaryNum(summary, <String>['total_sale_amount'])?.toDouble() ??
+            0.0;
     final totalSaleAmountText = totalSaleAmount % 1 == 0
         ? totalSaleAmount.toInt().toString()
         : totalSaleAmount.toStringAsFixed(2);

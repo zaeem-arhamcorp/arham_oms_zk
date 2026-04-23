@@ -26,6 +26,7 @@ import 'package:arham_corporation/views/referral/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/tasks/assign_task_view.dart';
+import 'package:arham_corporation/views/tasks/task_list_view.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
 import 'package:arham_corporation/widgets/location_permission_dialog.dart';
@@ -1488,17 +1489,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               ListTile(
                 leading: Icon(
-                  Icons.task,
+                  Icons.add_task,
                   size: 30,
                 ),
                 title: Text(
-                  'Task System',
+                  'Assign Tasks',
                   style: TextStyle(
                     fontSize: 20,
                   ),
                 ),
                 onTap: () {
                   Get.to(() => AssignTaskView());
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.task,
+                  size: 30,
+                ),
+                title: Text(
+                  'View Tasks',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+                onTap: () {
+                  Get.to(() => TaskListView());
                 },
               ),
               ListTile(

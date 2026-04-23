@@ -30,34 +30,40 @@ class DepartmentData {
   final String userCd;
   final String syncId;
   final List<String> deptCodes;
-  final List<Department>? departments;
+  final List<Department> departments;
 
   DepartmentData({
     required this.userCd,
     required this.syncId,
     required this.deptCodes,
-    this.departments,
+    required this.departments,
   });
 
   factory DepartmentData.fromJson(Map<String, dynamic> json) {
-    // Handle new structure with departments array
-    final List<dynamic>? deptList = json['departments'] as List<dynamic>?;
-    final List<Department> parsedDepartments = deptList != null
-        ? deptList
-            .map((e) => Department.fromJson(e as Map<String, dynamic>))
-            .toList()
-        : [];
+    final List<dynamic> deptList =
+        (json['departments'] ?? json['DEPARTMENTS']) as List<dynamic>? ??
+            <dynamic>[];
+    final List<Department> parsedDepartments = deptList
+        .whereType<Map<String, dynamic>>()
+        .map((Map<String, dynamic> e) => Department.fromJson(e))
+        .toList();
 
-    // Extract department codes from either DEPT_CODES or departments array
-    final List<String> codes = json['DEPT_CODES'] != null
-        ? List<String>.from(json['DEPT_CODES'] as List)
-        : parsedDepartments.map((d) => d.deptCd).toList();
+    final List<dynamic> rawCodes =
+        (json['DEPT_CODES'] ?? json['deptCodes']) as List<dynamic>? ??
+            <dynamic>[];
+    final List<String> codesFromPayload = rawCodes
+        .map((dynamic e) => e.toString().trim())
+        .where((String e) => e.isNotEmpty)
+        .toList();
+    final List<String> codes = codesFromPayload.isNotEmpty
+        ? codesFromPayload
+        : parsedDepartments.map((Department d) => d.deptCd).toList();
 
     return DepartmentData(
-      userCd: json['USER_CD'] ?? '',
-      syncId: json['SYNC_ID'] ?? '',
+      userCd: (json['USER_CD'] ?? json['userCd'] ?? '').toString(),
+      syncId: (json['SYNC_ID'] ?? json['syncId'] ?? '').toString(),
       deptCodes: codes,
-      departments: parsedDepartments.isNotEmpty ? parsedDepartments : null,
+      departments: parsedDepartments,
     );
   }
 
@@ -66,8 +72,7 @@ class DepartmentData {
       'USER_CD': userCd,
       'SYNC_ID': syncId,
       'DEPT_CODES': deptCodes,
-      if (departments != null)
-        'departments': departments!.map((d) => d.toJson()).toList(),
+      'departments': departments.map((Department d) => d.toJson()).toList(),
     };
   }
 }
@@ -83,8 +88,8 @@ class Department {
 
   factory Department.fromJson(Map<String, dynamic> json) {
     return Department(
-      deptCd: json['DEPT_CD'] ?? '',
-      deptName: json['DEPT_NAME'] ?? '',
+      deptCd: (json['DEPT_CD'] ?? json['deptCd'] ?? '').toString(),
+      deptName: (json['DEPT_NAME'] ?? json['deptName'] ?? '').toString(),
     );
   }
 

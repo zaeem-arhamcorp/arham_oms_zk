@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
-import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -336,6 +335,34 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return raw?.toString() ?? '-';
   }
 
+  String _tripUserNameFromMap(Map<String, dynamic> trip) {
+    final dynamic directName = trip['user_name'] ??
+        trip['USER_NAME'] ??
+        trip['userName'] ??
+        trip['USERNAME'];
+    final String directNameText = directName?.toString().trim() ?? '';
+    if (directNameText.isNotEmpty) {
+      return directNameText;
+    }
+
+    final String userCode = _tripUserFromMap(trip).trim();
+    if (userCode.isEmpty || userCode == '-') {
+      return '-';
+    }
+
+    for (final user in _users) {
+      final String code = (user['userCode'] ?? '').toString().trim();
+      if (code == userCode) {
+        final String name = (user['userName'] ?? '').toString().trim();
+        if (name.isNotEmpty) {
+          return name;
+        }
+      }
+    }
+
+    return userCode;
+  }
+
   String _tripStartFromMap(Map<String, dynamic> trip) {
     final dynamic raw = trip['start_time'] ??
         trip['START_TIME'] ??
@@ -555,31 +582,18 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
   Future<void> _fetchTrips() async {
     final ub = Provider.of<UserProvider>(context, listen: false);
-    final profile = Provider.of<ProfileProvider>(context, listen: false);
-
     final token = ub.token;
 
-    // Use _selectedUserCode if user selected from dropdown,
-    // otherwise use widget.selectedUserCd or logged-in user's code
+    // Use selected user when available; if empty, fetch all users' trips.
     final userCd = _selectedUserCode.isNotEmpty
         ? _selectedUserCode
-        : (widget.selectedUserCd ??
-            (profile.userCode?.trim().isNotEmpty == true
-                ? profile.userCode!.trim()
-                : ''));
+        : (widget.selectedUserCd?.trim() ?? '');
 
     final syncId = ub.syncId?.trim() ?? '';
 
     if (token == null || token.isEmpty) {
       setState(() {
         _error = 'Missing auth token';
-      });
-      return;
-    }
-
-    if (userCd.isEmpty) {
-      setState(() {
-        _error = 'Missing user code for trip lookup';
       });
       return;
     }
@@ -598,12 +612,16 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         },
       );
 
+      final Map<String, String> queryParams = <String, String>{
+        'fromDate': _fmtDate(_fromDate),
+        'toDate': _fmtDate(_toDate),
+      };
+      if (userCd.isNotEmpty) {
+        queryParams['user_cd'] = userCd;
+      }
+
       final uri = Uri.parse('${AppConfig.baseURL}location/trip').replace(
-        queryParameters: {
-          'fromDate': _fmtDate(_fromDate),
-          'toDate': _fmtDate(_toDate),
-          'user_cd': userCd,
-        },
+        queryParameters: queryParams,
       );
 
       print('[RouteReport] GET $uri');
@@ -620,7 +638,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         List<Map<String, dynamic>> trips =
             _extractTripsFromResponseBody(response.body);
 
-        if (trips.isEmpty && syncId.isNotEmpty && syncId != userCd) {
+        if (userCd.isNotEmpty &&
+            trips.isEmpty &&
+            syncId.isNotEmpty &&
+            syncId != userCd) {
           final fallbackUri =
               Uri.parse('${AppConfig.baseURL}location/trip').replace(
             queryParameters: {
@@ -692,6 +713,8 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   Widget _buildTripTile(Map<String, dynamic> trip) {
     final tripId = _tripIdFromMap(trip);
     final isActive = _tripActiveFromMap(trip);
+    final userName = _tripUserNameFromMap(trip);
+    final userCode = _tripUserFromMap(trip);
     final detail = trip;
     _ensureTripGapInfo(tripId);
     final gapInfo = _gapInfoByTripId[tripId];
@@ -781,6 +804,8 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                         ),
                 ],
               ),
+              const SizedBox(height: 6),
+              _iconInfo(Icons.person_outline, 'User: $userName ($userCode)'),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

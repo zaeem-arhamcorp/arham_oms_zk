@@ -4,6 +4,7 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/views/tasks/models/stockist_model.dart';
 import 'package:arham_corporation/views/tasks/models/department_model.dart';
 import 'package:arham_corporation/views/tasks/models/assign_issue_model.dart';
+import 'package:arham_corporation/views/tasks/models/hierarchy_user_model.dart';
 import 'package:arham_corporation/views/tasks/models/self_assign_task_model.dart';
 import 'package:arham_corporation/views/tasks/models/task_detail_model.dart';
 import 'package:arham_corporation/views/tasks/models/task_queue_model.dart';
@@ -93,6 +94,46 @@ class TaskApiService {
     }
   }
 
+  /// Fetch hierarchy users for current user from dealer-flow/users/hierarchy
+  static Future<HierarchyUsersResponse> getHierarchyUsers({
+    required String token,
+  }) async {
+    try {
+      final Uri url = Uri.parse(AppConfig.hierarchyUsersURL);
+      final Map<String, String> headers = <String, String>{
+        'x-app-type': 'oms',
+        'Authorization': 'Bearer $token',
+      };
+
+      _log('GET URL: $url');
+      _log('Current token param: $token');
+      _log('Token passed in Authorization header: ${headers['Authorization']}');
+
+      final http.Response response = await http
+          .get(
+            url,
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _log('GET response status: ${response.statusCode}');
+      _log('GET response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        return HierarchyUsersResponse.fromJson(jsonResponse);
+      } else {
+        throw Exception(
+          'Failed to fetch hierarchy users: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      _log('getHierarchyUsers error: $e');
+      throw Exception('Error fetching hierarchy users: $e');
+    }
+  }
+
   /// Submit an issue to dealer-flow/issues
   static Future<AssignIssueResponse> assignIssue({
     required String token,
@@ -142,6 +183,7 @@ class TaskApiService {
   static Future<SelfAssignTaskResponse> selfAssignTask({
     required String token,
     required String taskId,
+    String? userCd,
   }) async {
     try {
       final String url =
@@ -157,10 +199,22 @@ class TaskApiService {
       _log('Current token param: $token');
       _log('Token passed in Authorization header: ${headers['Authorization']}');
 
+      String? requestBody;
+      if (userCd != null && userCd.trim().isNotEmpty) {
+        final String normalizedUserCd = userCd.trim();
+        final int? parsedUserCd = int.tryParse(normalizedUserCd);
+        final dynamic userCdValue = parsedUserCd ?? normalizedUserCd;
+        requestBody = jsonEncode(<String, dynamic>{
+          'user_cd': userCdValue,
+        });
+        _log('PATCH request body: $requestBody');
+      }
+
       final http.Response response = await http
           .patch(
             uri,
             headers: headers,
+            body: requestBody,
           )
           .timeout(const Duration(seconds: 30));
 
@@ -293,6 +347,68 @@ class TaskApiService {
     } catch (e) {
       _log('getDepartmentTaskQueue error: $e');
       throw Exception('Error fetching task queue: $e');
+    }
+  }
+
+  /// Fetch current user and children tasks from dealer-flow/users/hierarchy/tasks
+  static Future<TaskQueueResponse> getHierarchyUserTasks({
+    required String token,
+    String? status,
+    String? priority,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final Uri baseUri = Uri.parse(AppConfig.hierarchyTasksURL);
+      final Map<String, String> queryParams = <String, String>{};
+      if (status != null && status.isNotEmpty) {
+        queryParams['status'] = status;
+      }
+      if (priority != null && priority.isNotEmpty) {
+        queryParams['priority'] = priority;
+      }
+      if (fromDate != null && fromDate.isNotEmpty) {
+        queryParams['fromDate'] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        queryParams['toDate'] = toDate;
+      }
+
+      final Uri uri = queryParams.isEmpty
+          ? baseUri
+          : baseUri.replace(queryParameters: queryParams);
+      final Map<String, String> headers = <String, String>{
+        'x-app-type': 'oms',
+        'Authorization': 'Bearer $token',
+      };
+
+      _log('GET URL: $uri');
+      _log('GET query params: $queryParams');
+      _log('Current token param: $token');
+      _log('Token passed in Authorization header: ${headers['Authorization']}');
+
+      final http.Response response = await http
+          .get(
+            uri,
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _log('GET response status: ${response.statusCode}');
+      _log('GET response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        return TaskQueueResponse.fromJson(jsonResponse);
+      } else {
+        throw Exception(
+          'Failed to fetch hierarchy user tasks: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      _log('getHierarchyUserTasks error: $e');
+      throw Exception('Error fetching hierarchy user tasks: $e');
     }
   }
 

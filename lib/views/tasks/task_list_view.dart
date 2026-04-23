@@ -1,5 +1,6 @@
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/tasks/models/department_model.dart';
+import 'package:arham_corporation/views/tasks/models/hierarchy_user_model.dart';
 import 'package:arham_corporation/views/tasks/models/self_assign_task_model.dart';
 import 'package:arham_corporation/views/tasks/models/stockist_model.dart';
 import 'package:arham_corporation/views/tasks/models/task_queue_model.dart';
@@ -74,7 +75,7 @@ class _TaskListViewState extends State<TaskListView> {
           'getMyDepartments response: departments=${deptResponse.data.deptCodes.length}');
 
       _deptNameMap = <String, String>{};
-      for (final Department dept in deptResponse.data.departments!) {
+      for (final Department dept in deptResponse.data.departments) {
         _deptNameMap[dept.deptCd] = dept.deptName;
       }
 
@@ -135,20 +136,19 @@ class _TaskListViewState extends State<TaskListView> {
         throw Exception('Authentication token not found. Please login again.');
       }
 
-      // Fetch tasks without deptCd parameter
+      // Fetch current user + hierarchy tasks.
       _logDebug(
-          'Calling getDepartmentTaskQueue API with status=${status ?? _filterStatus} priority=${priority ?? _filterPriority} fromDate=${fromDate ?? _filterFromDate} toDate=${toDate ?? _filterToDate}');
+          'Calling getHierarchyUserTasks API with status=${status ?? _filterStatus} priority=${priority ?? _filterPriority} fromDate=${fromDate ?? _filterFromDate} toDate=${toDate ?? _filterToDate}');
       final TaskQueueResponse response =
-          await TaskApiService.getDepartmentTaskQueue(
+          await TaskApiService.getHierarchyUserTasks(
         token: token,
-        deptCd: null,
         status: status ?? _filterStatus,
         priority: priority ?? _filterPriority,
         fromDate: fromDate ?? _filterFromDate,
         toDate: toDate ?? _filterToDate,
       );
       _logDebug(
-          'getDepartmentTaskQueue response: tasks=${response.data.length}');
+          'getHierarchyUserTasks response: tasks=${response.data.length}');
 
       // Enrich tasks with stockist names and department names
       final List<Task> enrichedTasks = <Task>[];
@@ -196,6 +196,152 @@ class _TaskListViewState extends State<TaskListView> {
           SnackBar(content: Text(_errorMessage ?? 'Error loading tasks')),
         );
       }
+    }
+  }
+
+  Future<List<HierarchyUser>> _fetchAssignableHierarchyUsers() async {
+    final UserProvider userProvider =
+        Provider.of<UserProvider>(context, listen: false);
+    final String? token = userProvider.token;
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token not found. Please login again.');
+    }
+
+    _logDebug('Calling getHierarchyUsers API for assignable users list');
+    final HierarchyUsersResponse response =
+        await TaskApiService.getHierarchyUsers(token: token);
+
+    final Map<String, HierarchyUser> uniqueUsers = <String, HierarchyUser>{};
+    for (final HierarchyUser user in response.data) {
+      final String key = user.userCd.trim();
+      if (key.isNotEmpty) {
+        uniqueUsers[key] = user;
+      }
+    }
+
+    final List<HierarchyUser> assignableUsers = uniqueUsers.values.toList()
+      ..sort((HierarchyUser a, HierarchyUser b) {
+        if (a.level != b.level) {
+          return a.level.compareTo(b.level);
+        }
+        return a.userName.toLowerCase().compareTo(b.userName.toLowerCase());
+      });
+
+    _logDebug('Hierarchy assignable users count: ${assignableUsers.length}');
+    return assignableUsers;
+  }
+
+  Future<void> _assignTaskToSelectedUser({
+    required Task task,
+    required HierarchyUser selectedUser,
+  }) async {
+    final UserProvider userProvider =
+        Provider.of<UserProvider>(context, listen: false);
+    final String? token = userProvider.token;
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token not found. Please login again.');
+    }
+
+    final SelfAssignTaskResponse response = await TaskApiService.selfAssignTask(
+      token: token,
+      taskId: task.taskId,
+      userCd: selectedUser.userCd,
+    );
+    _logDebug(
+      'selfAssignTask response for user ${selectedUser.userCd}: ${response.message}',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+
+    await _fetchDepartmentTasks();
+  }
+
+  Future<void> _showAssignTaskDialog(Task task) async {
+    try {
+      final List<HierarchyUser> assignableUsers =
+          await _fetchAssignableHierarchyUsers();
+
+      if (!mounted) {
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Assign Task'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: assignableUsers.isEmpty
+                  ? const Text('No users found')
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: assignableUsers.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (BuildContext context, int index) {
+                        final HierarchyUser selectedUser =
+                            assignableUsers[index];
+                        final bool isSelf = _normalize(selectedUser.userCd) ==
+                            _normalize(_currentUserCd);
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            isSelf
+                                ? '${selectedUser.userName} (You)'
+                                : selectedUser.userName,
+                          ),
+                          subtitle: Text('User Code: ${selectedUser.userCd}'),
+                          onTap: () async {
+                            Navigator.of(context).pop();
+                            try {
+                              await _assignTaskToSelectedUser(
+                                task: task,
+                                selectedUser: selectedUser,
+                              );
+                            } catch (e) {
+                              if (!mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error assigning task: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to load child users: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -405,6 +551,7 @@ class _TaskListViewState extends State<TaskListView> {
                         ElevatedButton(
                           onPressed: () => _fetchDepartmentTasks(),
                           style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
                             backgroundColor: const Color(0xFF245B87),
                           ),
                           child: const Text('Retry'),
@@ -452,7 +599,7 @@ class _TaskListViewState extends State<TaskListView> {
                             // _buildSortRow(),
                             // const SizedBox(height: 16),
                             ...visibleTasks.map(_buildTaskCard),
-                            if (visibleTasks.length >= 5) _buildMoreQueueCard(),
+                            // if (visibleTasks.length >= 5) _buildMoreQueueCard(),
                           ],
                         ),
                       ),
@@ -937,8 +1084,8 @@ class _TaskListViewState extends State<TaskListView> {
         ? (assigneeName.isNotEmpty ? assigneeName : assigneeCd)
         : 'Unassigned';
 
-    String actionLabel = 'TAKE TASK';
-    VoidCallback? actionHandler = () => _handleTakeTask(task);
+    String actionLabel = 'ACCEPT TASK';
+    VoidCallback? actionHandler = () => _showAssignTaskDialog(task);
     Color actionBgColor = const Color(0xFF235987);
 
     if (isAssigned) {
@@ -957,7 +1104,7 @@ class _TaskListViewState extends State<TaskListView> {
       } else {
         actionLabel = 'START TASK';
         actionHandler = () => _handleStartTask(task);
-        actionBgColor = const Color(0xFF00C0DF);
+        actionBgColor = const Color(0xFFFF9800);
       }
     }
 
@@ -1093,7 +1240,7 @@ class _TaskListViewState extends State<TaskListView> {
                   children: <Widget>[
                     Expanded(
                       child: SizedBox(
-                        height: 46,
+                        height: 40,
                         child: ElevatedButton(
                           onPressed: actionHandler,
                           style: ElevatedButton.styleFrom(
@@ -1116,24 +1263,24 @@ class _TaskListViewState extends State<TaskListView> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    InkWell(
-                      onTap: () {},
-                      borderRadius: BorderRadius.circular(23),
-                      child: Ink(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7F8FB),
-                          borderRadius: BorderRadius.circular(23),
-                          border: Border.all(color: const Color(0xFFE1E5EC)),
-                        ),
-                        child: const Icon(
-                          Icons.more_vert,
-                          color: Color(0xFF535B6C),
-                        ),
-                      ),
-                    ),
+                    // const SizedBox(width: 12),
+                    // InkWell(
+                    //   onTap: () {},
+                    //   borderRadius: BorderRadius.circular(23),
+                    //   child: Ink(
+                    //     width: 46,
+                    //     height: 46,
+                    //     decoration: BoxDecoration(
+                    //       color: const Color(0xFFF7F8FB),
+                    //       borderRadius: BorderRadius.circular(23),
+                    //       border: Border.all(color: const Color(0xFFE1E5EC)),
+                    //     ),
+                    //     child: const Icon(
+                    //       Icons.more_vert,
+                    //       color: Color(0xFF535B6C),
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
               ],
