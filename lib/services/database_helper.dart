@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 19,
+      version: 20,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -91,6 +91,8 @@ class DatabaseHelper {
       // ✅ Ensure location_tracking has activity_type column for activity recognition
       await _ensureColumnExists(
           db, 'location_tracking', 'activity_type', "TEXT DEFAULT 'UNKNOWN'");
+      await _ensureColumnExists(
+          db, 'location_tracking', 'sync_status', "TEXT DEFAULT 'pending'");
 
       // ✅ Ensure location_on_demand table exists for on-demand GPS locations
       await _ensureTableExists(
@@ -437,6 +439,20 @@ class DatabaseHelper {
           'CREATE INDEX IF NOT EXISTS idx_location_on_demand_activity ON location_on_demand(activity_type)');
       print(
           '[DATABASE] ✅ Created location_on_demand table for on-demand GPS tracking');
+    }
+    if (oldVersion < 20) {
+      // v19 to v20: Add sync_status to location_tracking so rejected points are
+      // not retried blindly on every offline flush.
+      try {
+        await db.execute(
+            "ALTER TABLE location_tracking ADD COLUMN sync_status TEXT DEFAULT 'pending'");
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_location_tracking_sync_status ON location_tracking(sync_status)');
+        print('[DATABASE] ✅ Added sync_status column to location_tracking');
+      } catch (e) {
+        print(
+            '[DATABASE] ℹ️ sync_status column for location_tracking may already exist: $e');
+      }
     }
   }
 
@@ -1569,6 +1585,7 @@ class DatabaseHelper {
         longitude NUMERIC(10,8) NOT NULL DEFAULT 0.0,
         timestamp INTEGER NOT NULL,
         synced INTEGER NOT NULL DEFAULT 0,
+        sync_status TEXT NOT NULL DEFAULT 'pending',
         user_cd TEXT NOT NULL,
         sync_id INTEGER NOT NULL,
         trip_id INTEGER DEFAULT 0,
@@ -1968,6 +1985,7 @@ class DatabaseHelper {
       'longitude': longitude,
       'timestamp': timestamp,
       'synced': 0,
+      'sync_status': 'pending',
       'user_cd': userCd,
       'sync_id': syncId,
       'trip_id': tripId,
@@ -1985,8 +2003,8 @@ class DatabaseHelper {
     final db = await database;
     return await db.query(
       'location_tracking',
-      where: 'synced = ?',
-      whereArgs: [0],
+      where: 'synced = ? AND COALESCE(sync_status, ?) = ?',
+      whereArgs: [0, 'pending', 'pending'],
       orderBy: 'timestamp ASC',
     );
   }
@@ -1997,8 +2015,9 @@ class DatabaseHelper {
     final db = await database;
     return await db.query(
       'location_tracking',
-      where: 'synced = ? AND user_cd = ? AND sync_id = ?',
-      whereArgs: [0, userCd, syncId],
+      where:
+          'synced = ? AND COALESCE(sync_status, ?) = ? AND user_cd = ? AND sync_id = ?',
+      whereArgs: [0, 'pending', 'pending', userCd, syncId],
       orderBy: 'timestamp ASC',
     );
   }
@@ -2008,7 +2027,17 @@ class DatabaseHelper {
     final db = await database;
     await db.update(
       'location_tracking',
-      {'synced': 1},
+      {'synced': 1, 'sync_status': 'synced'},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markLocationTrackingRejected(int id) async {
+    final db = await database;
+    await db.update(
+      'location_tracking',
+      {'sync_status': 'rejected'},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -2095,7 +2124,17 @@ class DatabaseHelper {
     final db = await database;
     final placeholders = List.filled(ids.length, '?').join(',');
     await db.rawUpdate(
-      'UPDATE location_tracking SET synced = 1 WHERE id IN ($placeholders)',
+      "UPDATE location_tracking SET synced = 1, sync_status = 'synced' WHERE id IN ($placeholders)",
+      ids,
+    );
+  }
+
+  Future<void> markLocationTrackingsRejected(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    await db.rawUpdate(
+      "UPDATE location_tracking SET sync_status = 'rejected' WHERE id IN ($placeholders)",
       ids,
     );
   }
@@ -2104,8 +2143,8 @@ class DatabaseHelper {
   Future<int> getUnsyncedLocationTrackingCount() async {
     final db = await database;
     final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM location_tracking WHERE synced = ?',
-      [0],
+      'SELECT COUNT(*) as count FROM location_tracking WHERE synced = ? AND COALESCE(sync_status, ?) = ?',
+      [0, 'pending', 'pending'],
     );
     return result.first['count'] as int;
   }

@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/services/services.dart';
 import 'database_helper.dart';
 
 /// Location Sync Service
@@ -43,10 +44,126 @@ class LocationSyncService {
     return null;
   }
 
+  int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  List<int> _extractIdList(dynamic value) {
+    if (value is! List) return <int>[];
+    return value.map((entry) => _parseInt(entry)).whereType<int>().toList();
+  }
+
+  Map<String, dynamic>? _decodeJsonBody(String body) {
+    try {
+      final decoded = json.decode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<int?> _refreshActiveTripId({
+    required String userCd,
+    required int syncId,
+    required String token,
+  }) async {
+    try {
+      final activeTrip =
+          await Services().getActiveTripStatus(userCd, syncId, token);
+      final tripId = _parseInt(activeTrip?['trip_id']);
+      if (tripId != null && tripId > 0) {
+        print(
+            '[LocationSyncService] ✅ Refreshed active trip_id=$tripId for user_cd=$userCd');
+        return tripId;
+      }
+    } catch (e) {
+      print('[LocationSyncService] ⚠️ Failed to refresh active trip: $e');
+    }
+    return null;
+  }
+
+  Future<void> _applyBatchOutcome({
+    required List<int> ids,
+    required Map<String, dynamic>? responseData,
+  }) async {
+    if (ids.isEmpty) return;
+
+    if (responseData == null) {
+      await _db.markLocationTrackingsSynced(ids);
+      return;
+    }
+
+    final acceptedIds = _extractIdList(
+      responseData['accepted_point_ids'] ??
+          responseData['accepted_ids'] ??
+          responseData['synced_ids'],
+    );
+    final rejectedIds = _extractIdList(
+      responseData['rejected_point_ids'] ??
+          responseData['rejected_ids'] ??
+          responseData['failed_ids'],
+    );
+
+    final acceptedCount = _parseInt(
+          responseData['accepted_points_count'] ??
+              responseData['accepted_count'] ??
+              responseData['synced_count'],
+        ) ??
+        (acceptedIds.isNotEmpty ? acceptedIds.length : null);
+    final rejectedCount = _parseInt(
+          responseData['rejected_points_count'] ??
+              responseData['rejected_count'] ??
+              responseData['failed_count'],
+        ) ??
+        (rejectedIds.isNotEmpty ? rejectedIds.length : null);
+
+    final normalizedAcceptedIds = <int>[];
+    final normalizedRejectedIds = <int>[];
+
+    if (acceptedIds.isNotEmpty) {
+      normalizedAcceptedIds.addAll(acceptedIds.where(ids.contains));
+    } else if (acceptedCount != null) {
+      normalizedAcceptedIds.addAll(
+        ids.take(acceptedCount.clamp(0, ids.length).toInt()),
+      );
+    }
+
+    if (rejectedIds.isNotEmpty) {
+      normalizedRejectedIds.addAll(rejectedIds.where(ids.contains));
+    } else if (rejectedCount != null) {
+      final acceptedSet = normalizedAcceptedIds.toSet();
+      normalizedRejectedIds.addAll(
+        ids
+            .where((id) => !acceptedSet.contains(id))
+            .take(rejectedCount.clamp(0, ids.length).toInt()),
+      );
+    }
+
+    if (normalizedAcceptedIds.isEmpty && normalizedRejectedIds.isEmpty) {
+      await _db.markLocationTrackingsSynced(ids);
+      return;
+    }
+
+    if (normalizedAcceptedIds.isNotEmpty) {
+      await _db.markLocationTrackingsSynced(
+        normalizedAcceptedIds.toSet().toList(),
+      );
+    }
+
+    if (normalizedRejectedIds.isNotEmpty) {
+      await _db.markLocationTrackingsRejected(
+        normalizedRejectedIds.toSet().toList(),
+      );
+    }
+  }
+
   /// Sync background location tracking records in BULK
   /// Groups locations by trip_id and sends in batch format for efficiency
   /// Offline scenarios: Instead of 50+ individual API calls, sends 1-2 bulk calls
-  /// Format: { trip_id: X, batch: [{lat, lng, accuracy, speed, altitude}, ...] }
+  /// Format: { trip_id: X, points: [{local_id, lat, lng, accuracy, speed, altitude, timestamp}, ...] }
   /// Returns: {synced: count, failed: count}
   Future<Map<String, int>> syncLocationTracking(String token) async {
     print('[LocationSyncService] 🔄 Starting location tracking sync...');
@@ -120,6 +237,9 @@ class LocationSyncService {
         final tripId = entry.key;
         final locations = entry.value;
         final ids = idsByTrip[tripId]!;
+        final firstLocation = locations.first;
+        final userCd = (firstLocation['user_cd'] ?? '').toString();
+        final syncId = (firstLocation['sync_id'] as num?)?.toInt() ?? 0;
 
         print(
             '[LocationSyncService] 📦 Preparing bulk sync for trip_id=$tripId');
@@ -128,7 +248,8 @@ class LocationSyncService {
 
         try {
           // Build batch array
-          final batch = locations.map((location) {
+          final points = locations.map((location) {
+            final localId = _parseInt(location['id']);
             final latitude = (location['latitude'] as num?)?.toDouble() ?? 0.0;
             final longitude =
                 (location['longitude'] as num?)?.toDouble() ?? 0.0;
@@ -138,6 +259,7 @@ class LocationSyncService {
             final timestamp = _parseTimestamp(location['timestamp']);
 
             return {
+              if (localId != null) 'local_id': localId,
               'lat': latitude,
               'lng': longitude,
               'accuracy': accuracy > 0 ? accuracy : null,
@@ -151,37 +273,95 @@ class LocationSyncService {
           print(
               '[LocationSyncService] 📤 Sending OFFLINE SYNC bulk request to /location/update');
           print('[LocationSyncService]    trip_id: $tripId');
-          print('[LocationSyncService]    locations: ${batch.length}');
+          print('[LocationSyncService]    points: ${points.length}');
           print('[LocationSyncService]    Method: POST');
           print('[LocationSyncService]    Content-Type: application/json');
           print(
               '[LocationSyncService] API HIT: ${AppConfig.baseURL}location/update');
 
-          final response = await http.post(
-            Uri.parse('${AppConfig.baseURL}location/update'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'x-app-type': 'oms',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'trip_id': tripId,
-              'batch': batch,
-            }),
-          );
+          Future<http.Response> postPoints(int targetTripId) {
+            return http.post(
+              Uri.parse('${AppConfig.baseURL}location/update'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'x-app-type': 'oms',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'trip_id': targetTripId,
+                'points': points,
+              }),
+            );
+          }
+
+          final response = await postPoints(tripId);
+          final responseData = _decodeJsonBody(response.body);
+
+          if (response.statusCode == 409) {
+            final refreshedTripId = await _refreshActiveTripId(
+              userCd: userCd,
+              syncId: syncId,
+              token: token,
+            );
+            if (refreshedTripId != null && refreshedTripId != tripId) {
+              print(
+                  '[LocationSyncService] 🔄 Retrying batch with refreshed trip_id=$refreshedTripId');
+              final retryResponse = await postPoints(refreshedTripId);
+              if (retryResponse.statusCode == 200 ||
+                  retryResponse.statusCode == 201) {
+                final retryData = _decodeJsonBody(retryResponse.body);
+                await _applyBatchOutcome(ids: ids, responseData: retryData);
+                final acceptedCount = _parseInt(
+                      retryData?['accepted_points_count'],
+                    ) ??
+                    ids.length;
+                final rejectedCount = _parseInt(
+                      retryData?['rejected_points_count'],
+                    ) ??
+                    0;
+                totalSynced += acceptedCount.clamp(0, ids.length).toInt();
+                totalFailed += rejectedCount.clamp(0, ids.length).toInt();
+                print(
+                    '[LocationSyncService] ✅ OFFLINE SYNC SUCCESS after refresh for trip_id=$refreshedTripId');
+                print(
+                    '[LocationSyncService]    Status Code: ${retryResponse.statusCode}');
+                print(
+                    '[LocationSyncService]    Accepted points: $acceptedCount');
+                print(
+                    '[LocationSyncService]    Rejected points: $rejectedCount');
+                print(
+                    '[LocationSyncService]    Server Response: ${retryResponse.body}');
+                continue;
+              }
+              print(
+                  '[LocationSyncService] ⚠️ Retry after 409 still failed: ${retryResponse.statusCode} ${retryResponse.body}');
+            }
+
+            totalFailed += ids.length;
+            print(
+                '[LocationSyncService] ⚠️ OFFLINE SYNC CONFLICT for trip_id=$tripId - keeping points pending');
+            continue;
+          }
 
           if (response.statusCode == 200 || response.statusCode == 201) {
-            // Mark all locations as synced in local database
-            await _db.markLocationTrackingsSynced(ids);
-            totalSynced += ids.length;
+            await _applyBatchOutcome(ids: ids, responseData: responseData);
+            final acceptedCount = _parseInt(
+                  responseData?['accepted_points_count'],
+                ) ??
+                ids.length;
+            final rejectedCount = _parseInt(
+                  responseData?['rejected_points_count'],
+                ) ??
+                0;
+            totalSynced += acceptedCount.clamp(0, ids.length).toInt();
+            totalFailed += rejectedCount.clamp(0, ids.length).toInt();
             print(
                 '[LocationSyncService] ✅ OFFLINE SYNC SUCCESS for trip_id=$tripId');
             print(
                 '[LocationSyncService]    Status Code: ${response.statusCode}');
-            print('[LocationSyncService]    Records synced: ${ids.length}');
+            print('[LocationSyncService]    Accepted points: $acceptedCount');
+            print('[LocationSyncService]    Rejected points: $rejectedCount');
             print('[LocationSyncService]    Record IDs: ${ids.join(', ')}');
-            print(
-                '[LocationSyncService]    Action: All marked as synced in local DB');
             print('[LocationSyncService]    Server Response: ${response.body}');
           } else {
             totalFailed += ids.length;

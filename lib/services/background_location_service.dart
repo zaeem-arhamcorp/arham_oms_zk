@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:arham_corporation/services/services.dart';
+import 'package:arham_corporation/services/user_status_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'database_helper.dart';
-import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:http/http.dart' as http;
-import 'package:arham_corporation/config/app_config.dart';
-import 'package:arham_corporation/services/user_status_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'activity_recognition_service.dart';
+import 'database_helper.dart';
 import 'location_sync_service.dart';
 
 /// Background Location Tracking Service
@@ -90,6 +93,53 @@ class BackgroundLocationService {
 
   static String _autoPunchOutDoneKeyForDate(DateTime dt) {
     return 'auto_punch_out_done_${_formatLocalDate(dt)}';
+  }
+
+  static Map<String, dynamic>? _decodeResponseBody(String body) {
+    try {
+      final decoded = json.decode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int? _parseIntFromMap(
+    Map<String, dynamic>? decoded,
+    List<String> keys,
+  ) {
+    if (decoded == null) return null;
+    for (final key in keys) {
+      final value = decoded[key];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value != null) {
+        final parsed = int.tryParse(value.toString());
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  static Future<int?> _refreshActiveTripId({
+    required String userCd,
+    required int syncId,
+    required String token,
+  }) async {
+    try {
+      final activeTrip =
+          await Services().getActiveTripStatus(userCd, syncId, token);
+      final tripId = _parseIntFromMap(activeTrip, ['trip_id']);
+      if (tripId != null && tripId > 0) {
+        print(
+            '[BackgroundLocationService] [Background] ✅ Refreshed active trip_id=$tripId');
+        return tripId;
+      }
+    } catch (e) {
+      print(
+          '[BackgroundLocationService] [Background] ⚠️ Trip refresh failed: $e');
+    }
+    return null;
   }
 
   // Fallback classifier when native activity recognition is unavailable in background isolate.
@@ -1468,6 +1518,8 @@ class BackgroundLocationService {
                 position.altitude,
                 tripId,
                 token,
+                userCd: userCd,
+                syncId: syncId,
                 activityType: resolvedActivityType);
           } catch (e) {
             print(
@@ -1536,6 +1588,24 @@ class BackgroundLocationService {
                     '[BackgroundLocationService] [Background]    Activity: $resolvedActivityType');
                 print(
                     '[BackgroundLocationService] [Background]    Note: Location services disabled, using last known position');
+
+                print(
+                    '[BackgroundLocationService] [Background] 📤 Starting immediate server sync for fallback location...');
+                await _syncSingleLocation(
+                  db,
+                  id,
+                  lastKnownPosition.latitude,
+                  lastKnownPosition.longitude,
+                  timestamp,
+                  lastKnownPosition.accuracy,
+                  lastKnownPosition.speed,
+                  lastKnownPosition.altitude,
+                  tripId,
+                  token,
+                  userCd: userCd,
+                  syncId: syncId,
+                  activityType: resolvedActivityType,
+                );
               } catch (storageError) {
                 print(
                     '[BackgroundLocationService] [Background] ❌ Error storing fallback location: $storageError');
@@ -1607,10 +1677,18 @@ class BackgroundLocationService {
     double altitude,
     int tripId,
     String token, {
+    required String userCd,
+    required int syncId,
     String activityType = 'UNKNOWN',
   }) async {
     try {
       final syncStartTime = DateTime.now();
+
+      if (accuracy > 30) {
+        print(
+            '[BackgroundLocationService] [Background] ⚠️ Skipping immediate sync for low-quality fix (accuracy=${accuracy.toStringAsFixed(1)}m > 30m). Keeping locally queued.');
+        return;
+      }
 
       // Check internet connection
       print(
@@ -1635,6 +1713,21 @@ class BackgroundLocationService {
         'timestamp': timestamp,
         'activity_type': activityType,
       };
+
+      Future<http.Response> postLocation(int targetTripId) {
+        return http.post(
+          Uri.parse('${AppConfig.baseURL}location/update'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            ...payload,
+            'trip_id': targetTripId,
+          }),
+        );
+      }
 
       print(
           '[BackgroundLocationService] [Background]    📨 HTTP POST Request Details:');
@@ -1669,15 +1762,22 @@ class BackgroundLocationService {
       print('[BackgroundLocationService] [Background]    ⏳ Sending request...');
       print(
           '[BackgroundLocationService] [Background] API HIT: ${AppConfig.baseURL}location/update');
-      final response = await http.post(
-        Uri.parse('${AppConfig.baseURL}location/update'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(payload),
-      );
+      var response = await postLocation(tripId);
+
+      if (response.statusCode == 409) {
+        print(
+            '[BackgroundLocationService] [Background] ⚠️ Server returned 409 for trip_id=$tripId, refreshing active trip and retrying once...');
+        final refreshedTripId = await _refreshActiveTripId(
+          userCd: userCd,
+          syncId: syncId,
+          token: token,
+        );
+        if (refreshedTripId != null && refreshedTripId > 0) {
+          response = await postLocation(refreshedTripId);
+          print(
+              '[BackgroundLocationService] [Background] 🔄 Retry after refresh used trip_id=$refreshedTripId');
+        }
+      }
 
       final syncEndTime = DateTime.now();
       final syncElapsed = syncEndTime.difference(syncStartTime).inMilliseconds;
@@ -1685,6 +1785,13 @@ class BackgroundLocationService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Mark as synced
         await db.markLocationTrackingSynced(recordId);
+        final responseData = _decodeResponseBody(response.body);
+        final acceptedCount = _parseIntFromMap(responseData,
+                ['accepted_points_count', 'accepted_count', 'synced_count']) ??
+            1;
+        final rejectedCount = _parseIntFromMap(responseData,
+                ['rejected_points_count', 'rejected_count', 'failed_count']) ??
+            0;
         print(
             '[BackgroundLocationService] [Background] ✅ SERVER SYNC SUCCESS (${syncElapsed}ms)');
         print(
@@ -1693,9 +1800,18 @@ class BackgroundLocationService {
             '[BackgroundLocationService] [Background]    Record ID: $recordId');
         print('[BackgroundLocationService] [Background]    Trip ID: $tripId');
         print(
+            '[BackgroundLocationService] [Background]    Accepted points: $acceptedCount');
+        print(
+            '[BackgroundLocationService] [Background]    Rejected points: $rejectedCount');
+        print(
             '[BackgroundLocationService] [Background]    Action: Marked as synced in local DB');
         print(
             '[BackgroundLocationService] [Background]    Server Response: ${response.body}');
+      } else if (response.statusCode == 409) {
+        print(
+            '[BackgroundLocationService] [Background] ⚠️ SERVER SYNC CONFLICT after refresh attempt for record=$recordId');
+        print(
+            '[BackgroundLocationService] [Background]    Server Error: ${response.body}');
       } else {
         print(
             '[BackgroundLocationService] [Background] ⚠️ SERVER SYNC FAILED (${syncElapsed}ms)');
@@ -1828,7 +1944,6 @@ class BackgroundLocationService {
     }
 
     print('[BackgroundLocationService] 🔄 Manual retry sync triggered');
-    await _syncPendingLocations(
-        _db, _currentUserCd!, _currentSyncId!, _token!, _currentTripId!);
+    await LocationSyncService().syncLocationTracking(_token!);
   }
 }
