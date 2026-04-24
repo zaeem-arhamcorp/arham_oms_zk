@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:dio/dio.dart';
@@ -12,6 +12,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../config/app_config.dart';
 import '../../models/narrationModal.dart';
 import '../../models/partynameModal.dart';
@@ -434,7 +435,7 @@ class ProductController extends GetxController {
     log("Filtered products: ${filteredList}");
   }
 
-  void searchProducts(String query) {
+  void searchProductsMultiWord(String query) {
     final queryNormalized = query.trim().toLowerCase();
 
     // 🔍 Filter products by selected department first
@@ -498,6 +499,106 @@ class ProductController extends GetxController {
 
     filteredProducts.assignAll(filteredList);
     log("Filtered products: $filteredList");
+  }
+
+  void searchProducts(String query) {
+    final queryNormalized = query.trim().toLowerCase();
+    final isExactMatchSearchEnabled = _isExactMatchSearchEnabled();
+
+    // 🔍 Filter products by selected department first
+    List<ProductItem> baseList = selectedChip.value.isEmpty
+        ? products
+        : products
+            .where((product) =>
+                product.deptCd.toLowerCase() ==
+                selectedChip.value.toLowerCase())
+            .toList();
+
+    List<ProductItem> filteredList;
+
+    if (queryNormalized.isEmpty) {
+      // If query is empty, show all from the current department
+      filteredList = baseList;
+    } else if (isExactMatchSearchEnabled) {
+      // Setting enabled:
+      // - default: strict word-to-word (prefix) search
+      // - with '*': wildcard multi-search
+      if (queryNormalized.contains('*')) {
+        final searchPattern = queryNormalized.replaceAll('*', '.*');
+        final regex = RegExp(searchPattern, caseSensitive: false);
+
+        filteredList = baseList.where((product) {
+          return regex.hasMatch(product.itemName.toLowerCase()) ||
+              regex.hasMatch(product.itemLname?.toLowerCase() ?? "") ||
+              regex.hasMatch(product.itemCd.toLowerCase()) ||
+              regex.hasMatch(product.itemBrand?.toLowerCase() ?? "") ||
+              regex.hasMatch(product.itemCat?.toLowerCase() ?? "");
+        }).toList();
+      } else {
+        final strictQuery = queryNormalized.trim();
+        filteredList = baseList.where((product) {
+          final fields = [
+            product.itemName.toLowerCase(),
+            product.itemLname?.toLowerCase() ?? "",
+            product.itemCd.toLowerCase(),
+            product.itemBrand?.toLowerCase() ?? "",
+            product.itemCat?.toLowerCase() ?? ""
+          ];
+
+          return fields.any((field) => field.startsWith(strictQuery));
+        }).toList();
+      }
+    } else {
+      // Setting disabled: loose search by default (no '*' required).
+      // Split by spaces and '*' so users can type natural multi-word queries.
+      final searchWords = queryNormalized
+          .split(RegExp(r'[\s*]+'))
+          .where((word) => word.isNotEmpty)
+          .toList();
+
+      filteredList = baseList.where((product) {
+        final searchableFields = [
+          product.itemName.toLowerCase(),
+          product.itemLname?.toLowerCase() ?? "",
+          product.itemCd.toLowerCase(),
+          product.itemBrand?.toLowerCase() ?? "",
+          product.itemCat?.toLowerCase() ?? ""
+        ];
+
+        return searchWords.every(
+          (word) => searchableFields.any((field) => field.contains(word)),
+        );
+      }).toList();
+    }
+
+    filteredProducts.assignAll(filteredList);
+    log("Filtered products: $filteredList");
+  }
+
+  bool _isExactMatchSearchEnabled() {
+    try {
+      final context = Get.context;
+      if (context == null) return false;
+
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      final settings = profileProvider.data?.profileSettings;
+      if (settings == null || settings.isEmpty) return false;
+
+      for (final setting in settings) {
+        final variable = setting.variable?.toString().trim().toLowerCase();
+        if (variable == 'enableexactmatchsearch') {
+          final value = setting.value?.toString().trim().toUpperCase() ?? '';
+          return value == 'Y' ||
+              value == 'YES' ||
+              value == 'TRUE' ||
+              value == '1';
+        }
+      }
+    } catch (e) {
+      print('[ProductSearch] Failed to read enableExactMatchSearch: $e');
+    }
+    return false;
   }
 
   void toggleChipSelection1(String deptCd) {
