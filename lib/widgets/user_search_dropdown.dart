@@ -4,6 +4,7 @@ class UserSearchDropdown extends StatefulWidget {
   final List<Map<String, dynamic>> users;
   final String? selectedUserCode;
   final ValueChanged<String?> onChanged;
+  final ValueChanged<String>? onSearchQueryChanged;
   final bool loading;
   final String? hint;
 
@@ -12,6 +13,7 @@ class UserSearchDropdown extends StatefulWidget {
     required this.users,
     required this.selectedUserCode,
     required this.onChanged,
+    this.onSearchQueryChanged,
     this.loading = false,
     this.hint,
   }) : super(key: key);
@@ -48,6 +50,7 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
 
   void _onSearchChange() {
     final query = _searchController.text.toLowerCase().trim();
+    widget.onSearchQueryChanged?.call(query);
     setState(() {
       if (query.isEmpty) {
         _filteredUsers = widget.users;
@@ -59,6 +62,26 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
         }).toList();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant UserSearchDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.users != widget.users) {
+      final query = _searchController.text.toLowerCase().trim();
+      setState(() {
+        if (query.isEmpty) {
+          _filteredUsers = widget.users;
+        } else {
+          _filteredUsers = widget.users.where((user) {
+            final name =
+                (user['userName'] ?? '').toString().toLowerCase().trim();
+            final phone = (user['phone'] ?? '').toString().toLowerCase().trim();
+            return name.contains(query) || phone.contains(query);
+          }).toList();
+        }
+      });
+    }
   }
 
   void _showDropdown() {

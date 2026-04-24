@@ -15,9 +15,9 @@ import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -704,6 +704,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
+          Text("Build date: 23 April 2026 | Version: "),
         ],
       ),
       drawer: CommonAppDrawer(

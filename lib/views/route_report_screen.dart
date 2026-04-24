@@ -42,7 +42,13 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
   // User dropdown state
   List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _allUsersForSearch = [];
   bool _loadingUsers = false;
+  bool _isLoadingAllUsersForSearch = false;
+  bool _hasLoadedAllUsersForSearch = false;
+  static const int _usersPerPage = 20;
+  int _currentUsersPage = 1;
+  int _totalUsersPages = 1;
   String? _selectedUserName;
   String _selectedUserCode = '';
   bool _usersFetchInitiated = false;
@@ -58,12 +64,63 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     _toDate = DateTime(now.year, now.month, now.day);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchUsers();
+      _fetchAllUsersForSearch(
+        forceRefresh: true,
+        syncPrimaryUsers: true,
+        source: 'init_preload',
+      );
       _fetchTrips();
     });
   }
 
-  Future<void> _fetchUsers() async {
+  int _toInt(dynamic value, int fallback) {
+    if (value is int) {
+      return value;
+    }
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  List<Map<String, dynamic>> _mapUsers(List<dynamic> usersList) {
+    return List<Map<String, dynamic>>.from(
+      usersList.whereType<Map>().map((user) {
+        final normalized = Map<String, dynamic>.from(user);
+        final userCode = (normalized['USER_CD'] ?? '').toString().trim();
+        final userName = (normalized['USER_NAME'] ?? '').toString().trim();
+        final phone = (normalized['MOBILENO'] ?? '').toString().trim();
+        return {
+          'userCode': userCode,
+          'userName': userName,
+          'phone': phone,
+        };
+      }),
+    );
+  }
+
+  List<Map<String, dynamic>> _mergeUsersByCode(
+    List<Map<String, dynamic>> base,
+    List<Map<String, dynamic>> incoming,
+  ) {
+    final merged = <Map<String, dynamic>>[];
+    final seenCodes = <String>{};
+
+    for (final user in base) {
+      final code = (user['userCode'] ?? '').toString().trim();
+      if (code.isEmpty || seenCodes.add(code)) {
+        merged.add(user);
+      }
+    }
+
+    for (final user in incoming) {
+      final code = (user['userCode'] ?? '').toString().trim();
+      if (code.isEmpty || seenCodes.add(code)) {
+        merged.add(user);
+      }
+    }
+
+    return merged;
+  }
+
+  Future<void> _fetchUsers({int page = 1}) async {
     setState(() {
       _loadingUsers = true;
     });
@@ -78,7 +135,13 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         });
         return;
       }
-      final uri = Uri.parse('${AppConfig.baseURL}users/children');
+      final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
+        queryParameters: {
+          'date': _fmtDate(DateTime.now()),
+          'page': page.toString(),
+          'items_per_page': _usersPerPage.toString(),
+        },
+      );
       final response = await http.get(
         uri,
         headers: {
@@ -91,20 +154,27 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final usersList = (data['data'] is List) ? data['data'] : [];
+        final payload = data['payload'] as Map<String, dynamic>?;
+        final pagination = payload?['pagination'] as Map<String, dynamic>?;
+        final pageFromResponse = _toInt(pagination?['page'], page);
+        final lastPage = _toInt(pagination?['last_page'], pageFromResponse);
+        final mappedUsers = _mapUsers(usersList);
+        final hasPaginationMeta =
+            pagination != null && pagination['last_page'] != null;
+        final hasMoreByMeta = pageFromResponse < lastPage;
+        final hasMoreBySize = mappedUsers.length >= _usersPerPage;
+        final hasMorePages = hasPaginationMeta ? hasMoreByMeta : hasMoreBySize;
 
         setState(() {
-          _users = List<Map<String, dynamic>>.from(
-            usersList.map((user) {
-              final userCode = user['USER_CD'] ?? '';
-              final userName = (user['USER_NAME'] ?? '').trim();
-              final phone = (user['MOBILENO'] ?? '').trim();
-              return {
-                'userCode': userCode,
-                'userName': userName,
-                'phone': phone,
-              };
-            }),
-          );
+          if (page == 1) {
+            _users = mappedUsers;
+            _allUsersForSearch = [];
+            _hasLoadedAllUsersForSearch = false;
+          } else {
+            _users = _mergeUsersByCode(_users, mappedUsers);
+          }
+          _currentUsersPage = page;
+          _totalUsersPages = hasMorePages ? page + 1 : page;
           _loadingUsers = false;
         });
       } else {
@@ -124,6 +194,158 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         reason: 'route_report_users_fetch_failed',
       );
     }
+  }
+
+  Future<void> _fetchAllUsersForSearch({
+    bool forceRefresh = false,
+    bool syncPrimaryUsers = false,
+    String source = 'search',
+  }) async {
+    if (_isLoadingAllUsersForSearch) {
+      return;
+    }
+
+    if (!forceRefresh && _hasLoadedAllUsersForSearch) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingAllUsersForSearch = true;
+      if (syncPrimaryUsers) {
+        _loadingUsers = true;
+      }
+    });
+
+    try {
+      final ub = Provider.of<UserProvider>(context, listen: false);
+      final token = ub.token;
+      if (token == null || token.isEmpty) {
+        setState(() {
+          _isLoadingAllUsersForSearch = false;
+        });
+        return;
+      }
+
+      final allUsers = <Map<String, dynamic>>[];
+      final seenPageSignatures = <String>{};
+      int currentPage = 1;
+      const int maxPagesToFetch = 200;
+
+      print(
+          '[RouteReport] [$source] Start full users preload | items_per_page=$_usersPerPage');
+
+      while (currentPage <= maxPagesToFetch) {
+        final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
+          queryParameters: {
+            'date': _fmtDate(DateTime.now()),
+            'page': currentPage.toString(),
+            'items_per_page': _usersPerPage.toString(),
+          },
+        );
+
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+            'Content-Type': 'application/json',
+          },
+        );
+
+        print('[RouteReport] [$source] Request page=$currentPage uri=$uri');
+
+        if (response.statusCode != 200) {
+          print(
+              '[RouteReport] [$source] Stop preload: HTTP ${response.statusCode} on page=$currentPage');
+          setState(() {
+            _isLoadingAllUsersForSearch = false;
+            if (syncPrimaryUsers) {
+              _loadingUsers = false;
+            }
+          });
+          return;
+        }
+
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final usersList = (data['data'] is List) ? data['data'] : <dynamic>[];
+        final mappedPageUsers = _mapUsers(usersList);
+        print(
+            '[RouteReport] [$source] Page=$currentPage received=${mappedPageUsers.length} users');
+        if (mappedPageUsers.isEmpty) {
+          print('[RouteReport] [$source] Stop preload: empty page');
+          break;
+        }
+
+        final signature = mappedPageUsers
+            .map((u) => (u['userCode'] ?? '').toString())
+            .join('|');
+        if (signature.isNotEmpty && !seenPageSignatures.add(signature)) {
+          print(
+              '[RouteReport] [$source] Stop preload: repeated page signature at page=$currentPage');
+          break;
+        }
+
+        allUsers.addAll(mappedPageUsers);
+
+        final payload = data['payload'] as Map<String, dynamic>?;
+        final pagination = payload?['pagination'] as Map<String, dynamic>?;
+        final hasPaginationMeta =
+            pagination != null && pagination['last_page'] != null;
+        if (hasPaginationMeta) {
+          final pageFromResponse = _toInt(pagination?['page'], currentPage);
+          final lastPage = _toInt(pagination?['last_page'], pageFromResponse);
+          if (pageFromResponse >= lastPage) {
+            print(
+                '[RouteReport] [$source] Stop preload: reached last_page=$lastPage');
+            break;
+          }
+          currentPage = pageFromResponse + 1;
+          continue;
+        }
+
+        if (mappedPageUsers.length < _usersPerPage) {
+          print(
+              '[RouteReport] [$source] Stop preload: received < items_per_page on page=$currentPage');
+          break;
+        }
+
+        currentPage += 1;
+      }
+
+      setState(() {
+        final mergedUsers =
+            _mergeUsersByCode(<Map<String, dynamic>>[], allUsers);
+        _allUsersForSearch = mergedUsers;
+        if (syncPrimaryUsers) {
+          _users = mergedUsers;
+          _currentUsersPage = 1;
+          _totalUsersPages = 1;
+          _loadingUsers = false;
+        }
+        _hasLoadedAllUsersForSearch = true;
+        _isLoadingAllUsersForSearch = false;
+      });
+
+      print(
+          '[RouteReport] [$source] Full preload complete: totalUsers=${_allUsersForSearch.length}');
+    } catch (_) {
+      setState(() {
+        _isLoadingAllUsersForSearch = false;
+        if (syncPrimaryUsers) {
+          _loadingUsers = false;
+        }
+      });
+    }
+  }
+
+  void _onUserSearchQueryChanged(String query) {
+    if (query.isNotEmpty && !_hasLoadedAllUsersForSearch) {
+      _fetchAllUsersForSearch();
+    }
+  }
+
+  List<Map<String, dynamic>> get _usersForDropdown {
+    return _hasLoadedAllUsersForSearch ? _allUsersForSearch : _users;
   }
 
   String _fmtDate(DateTime d) {
@@ -1017,10 +1239,11 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           ),
           SizedBox(height: 5),
           UserSearchDropdown(
-            users: _users,
+            users: _usersForDropdown,
             selectedUserCode: _selectedUserCode,
             loading: _loadingUsers,
             hint: "Select User",
+            onSearchQueryChanged: _onUserSearchQueryChanged,
             onChanged: (value) {
               CrashlyticsService.logAction(
                 'route_report_user_filter_changed',
@@ -1030,7 +1253,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                 _selectedUserCode = value ?? '';
                 _selectedUserName = value == ''
                     ? 'Everyone'
-                    : _users.firstWhere(
+                    : _usersForDropdown.firstWhere(
                         (user) => user['userCode'] == value,
                         orElse: () => {'userName': 'Unknown'},
                       )['userName'];

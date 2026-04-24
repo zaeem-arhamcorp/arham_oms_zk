@@ -764,11 +764,12 @@ class _ProductCardState extends State<ProductCard> {
                           return;
                         }
 
-                        if (controller.selectedStockistId.value.isEmpty) {
-                          AppSnackBar.showGetXCustomSnackBar(
-                              message: "Please Select Stockist");
-                          return;
-                        }
+                        // This condition prevents Add to Cart to even those users who don't have a stockist in syncId 1234
+                        // if (controller.selectedStockistId.value.isEmpty) {
+                        //   AppSnackBar.showGetXCustomSnackBar(
+                        //       message: "Please Select Stockist");
+                        //   return;
+                        // }
 
                         // Prevent multiple clicks
                         if (cartController.productAddedStates[

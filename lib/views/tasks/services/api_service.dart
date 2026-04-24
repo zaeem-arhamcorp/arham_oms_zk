@@ -1,14 +1,15 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
 import 'package:arham_corporation/config/app_config.dart';
-import 'package:arham_corporation/views/tasks/models/stockist_model.dart';
-import 'package:arham_corporation/views/tasks/models/department_model.dart';
 import 'package:arham_corporation/views/tasks/models/assign_issue_model.dart';
+import 'package:arham_corporation/views/tasks/models/department_model.dart';
 import 'package:arham_corporation/views/tasks/models/hierarchy_user_model.dart';
 import 'package:arham_corporation/views/tasks/models/self_assign_task_model.dart';
+import 'package:arham_corporation/views/tasks/models/stockist_model.dart';
 import 'package:arham_corporation/views/tasks/models/task_detail_model.dart';
 import 'package:arham_corporation/views/tasks/models/task_queue_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class TaskApiService {
   static const String _contentType = 'application/json';
@@ -281,6 +282,20 @@ class TaskApiService {
       _log('updateTaskStatus error: $e');
       throw Exception('Error updating task status: $e');
     }
+  }
+
+  /// Reopen a completed task via PATCH dealer-flow/tasks/{taskId}/status
+  static Future<void> reopenTask({
+    required String token,
+    required String taskId,
+    String note = 'Task reopened by creator',
+  }) async {
+    await updateTaskStatus(
+      token: token,
+      taskId: taskId,
+      status: 'REOPEN',
+      note: note,
+    );
   }
 
   /// Fetch department task queue from dealer-flow/departments/tasks/queue (without deptCd parameter)

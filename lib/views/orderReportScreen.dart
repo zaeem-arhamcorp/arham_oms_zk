@@ -61,10 +61,16 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   TextEditingController userController = TextEditingController();
 
   List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _allUsersForSearch = [];
   String _selectedUserCode = ''; // Tracks current dropdown selection
   bool _userHasChildren =
       false; // Stores if user has children (set once on initial load)
+  bool _loadingUsers = false;
+  bool _isLoadingAllUsersForSearch = false;
+  bool _hasLoadedAllUsersForSearch = false;
   static const int _usersPerPage = 20;
+  int _currentUsersPage = 1;
+  int _totalUsersPages = 1;
 
   bool isWhatsappInstalled = false;
   bool isWhatsappBussinessInstalled = false;
@@ -97,6 +103,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         await WhatsappShare.isInstalled(package: Package.businessWhatsapp) ??
             false;
     return null;
+  }
+
+  bool isEmptyOrNull(String? value) {
+    return value == null || value.trim().isEmpty;
   }
 
   getDate() async {
@@ -144,8 +154,12 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
           }
         });
 
-        // Fetch children with phone numbers from API
-        await _fetchChildrenWithPhones();
+        // Fetch all children with phone numbers from API using frontend pagination.
+        await _fetchAllUsersForSearch(
+          forceRefresh: true,
+          syncPrimaryUsers: true,
+          source: 'order_report_getDate',
+        );
 
         // Check if user has children based on API data
         if (!mounted) return;
@@ -467,22 +481,79 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
   /// Fetch children users with phone numbers from /api/users/children endpoint
   /// Stores result in _users list for use in UserSearchDropdown
-  Future<void> _fetchChildrenWithPhones() async {
+  int _toInt(dynamic value, int fallback) {
+    if (value is int) {
+      return value;
+    }
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  List<Map<String, dynamic>> _mapUsers(List<dynamic> usersList) {
+    return List<Map<String, dynamic>>.from(
+      usersList.whereType<Map>().map((child) {
+        final normalized = Map<String, dynamic>.from(child);
+        return {
+          'userCode': (normalized['USER_CD'] ?? '').toString().trim(),
+          'userName': (normalized['USER_NAME'] ?? '').toString().trim(),
+          'phone': (normalized['MOBILENO'] ?? '').toString().trim(),
+        };
+      }),
+    );
+  }
+
+  List<Map<String, dynamic>> _mergeUsersByCode(
+    List<Map<String, dynamic>> base,
+    List<Map<String, dynamic>> incoming,
+  ) {
+    final merged = <Map<String, dynamic>>[];
+    final seenCodes = <String>{};
+
+    for (final user in base) {
+      final code = (user['userCode'] ?? '').toString().trim();
+      if (code.isEmpty || seenCodes.add(code)) {
+        merged.add(user);
+      }
+    }
+
+    for (final user in incoming) {
+      final code = (user['userCode'] ?? '').toString().trim();
+      if (code.isEmpty || seenCodes.add(code)) {
+        merged.add(user);
+      }
+    }
+
+    return merged;
+  }
+
+  Future<void> _fetchChildrenWithPhones({int page = 1}) async {
+    if (page == 1 && mounted) {
+      setState(() {
+        _loadingUsers = true;
+      });
+    }
+
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       var token = userProvider.token ?? '';
-      final url = '${AppConfig.baseURL}users/children';
 
       // Ensure token has Bearer prefix
       if (!token.startsWith('Bearer ')) {
         token = 'Bearer $token';
       }
 
-      print('Fetching children from: $url');
+      final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
+        queryParameters: {
+          'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          'page': page.toString(),
+          'items_per_page': _usersPerPage.toString(),
+        },
+      );
+
+      print('Fetching children from: $uri');
       print('Token length: ${token.length}, Token valid: ${token.isNotEmpty}');
 
       final response = await http.get(
-        Uri.parse(url),
+        uri,
         headers: {
           'Authorization': token,
           'x-app-type': 'oms',
@@ -496,17 +567,30 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
         final List<dynamic> childrenList = jsonData['data'] ?? [];
+        final payload = jsonData['payload'] as Map<String, dynamic>?;
+        final pagination = payload?['pagination'] as Map<String, dynamic>?;
+        final pageFromResponse = _toInt(pagination?['page'], page);
+        final lastPage = _toInt(pagination?['last_page'], pageFromResponse);
+        final mappedUsers = _mapUsers(childrenList);
+        final hasPaginationMeta =
+            pagination != null && pagination['last_page'] != null;
+        final hasMoreByMeta = pageFromResponse < lastPage;
+        final hasMoreBySize = mappedUsers.length >= _usersPerPage;
+        final hasMorePages = hasPaginationMeta ? hasMoreByMeta : hasMoreBySize;
 
         if (!mounted) return;
 
         setState(() {
-          _users = childrenList.map((child) {
-            return {
-              'userCode': child['USER_CD'] ?? '',
-              'userName': child['USER_NAME'] ?? '',
-              'phone': child['MOBILENO'] ?? '',
-            };
-          }).toList();
+          if (page == 1) {
+            _users = mappedUsers;
+            _allUsersForSearch = [];
+            _hasLoadedAllUsersForSearch = false;
+          } else {
+            _users = _mergeUsersByCode(_users, mappedUsers);
+          }
+          _currentUsersPage = page;
+          _totalUsersPages = hasMorePages ? page + 1 : page;
+          _loadingUsers = false;
 
           print('Children fetched: ${_users.length} users');
           _users.forEach((user) {
@@ -520,6 +604,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         if (!mounted) return;
         setState(() {
           _users = [];
+          _allUsersForSearch = [];
+          _hasLoadedAllUsersForSearch = false;
+          _currentUsersPage = 1;
+          _totalUsersPages = 1;
+          _loadingUsers = false;
         });
       } else {
         print('Failed to fetch children: ${response.statusCode}');
@@ -527,6 +616,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         if (!mounted) return;
         setState(() {
           _users = [];
+          _loadingUsers = false;
         });
       }
     } catch (e, stack) {
@@ -539,8 +629,161 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       if (!mounted) return;
       setState(() {
         _users = [];
+        _loadingUsers = false;
       });
     }
+  }
+
+  Future<void> _fetchAllUsersForSearch({
+    bool forceRefresh = false,
+    bool syncPrimaryUsers = false,
+    String source = 'search',
+  }) async {
+    if (_isLoadingAllUsersForSearch) {
+      return;
+    }
+
+    if (!forceRefresh && _hasLoadedAllUsersForSearch) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingAllUsersForSearch = true;
+      if (syncPrimaryUsers) {
+        _loadingUsers = true;
+      }
+    });
+
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      var token = userProvider.token ?? '';
+      if (!token.startsWith('Bearer ')) {
+        token = 'Bearer $token';
+      }
+
+      final allUsers = <Map<String, dynamic>>[];
+      final seenPageSignatures = <String>{};
+      int currentPage = 1;
+      const int maxPagesToFetch = 200;
+
+      print(
+          '[OrderReport] [$source] Start full users preload | items_per_page=$_usersPerPage');
+
+      while (currentPage <= maxPagesToFetch) {
+        final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
+          queryParameters: {
+            'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            'page': currentPage.toString(),
+            'items_per_page': _usersPerPage.toString(),
+          },
+        );
+
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': token,
+            'x-app-type': 'oms',
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        print('[OrderReport] [$source] Request page=$currentPage uri=$uri');
+
+        if (response.statusCode != 200) {
+          if (!mounted) return;
+          print(
+              '[OrderReport] [$source] Stop preload: HTTP ${response.statusCode} on page=$currentPage');
+          setState(() {
+            _isLoadingAllUsersForSearch = false;
+            if (syncPrimaryUsers) {
+              _loadingUsers = false;
+            }
+          });
+          return;
+        }
+
+        final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> childrenList = jsonData['data'] ?? <dynamic>[];
+        final mappedPageUsers = _mapUsers(childrenList);
+        print(
+            '[OrderReport] [$source] Page=$currentPage received=${mappedPageUsers.length} users');
+        if (mappedPageUsers.isEmpty) {
+          print('[OrderReport] [$source] Stop preload: empty page');
+          break;
+        }
+
+        final signature = mappedPageUsers
+            .map((u) => (u['userCode'] ?? '').toString())
+            .join('|');
+        if (signature.isNotEmpty && !seenPageSignatures.add(signature)) {
+          print(
+              '[OrderReport] [$source] Stop preload: repeated page signature at page=$currentPage');
+          break;
+        }
+
+        allUsers.addAll(mappedPageUsers);
+
+        final payload = jsonData['payload'] as Map<String, dynamic>?;
+        final pagination = payload?['pagination'] as Map<String, dynamic>?;
+        final hasPaginationMeta =
+            pagination != null && pagination['last_page'] != null;
+        if (hasPaginationMeta) {
+          final pageFromResponse = _toInt(pagination?['page'], currentPage);
+          final lastPage = _toInt(pagination?['last_page'], pageFromResponse);
+          if (pageFromResponse >= lastPage) {
+            print(
+                '[OrderReport] [$source] Stop preload: reached last_page=$lastPage');
+            break;
+          }
+          currentPage = pageFromResponse + 1;
+          continue;
+        }
+
+        if (mappedPageUsers.length < _usersPerPage) {
+          print(
+              '[OrderReport] [$source] Stop preload: received < items_per_page on page=$currentPage');
+          break;
+        }
+
+        currentPage += 1;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        final mergedUsers =
+            _mergeUsersByCode(<Map<String, dynamic>>[], allUsers);
+        _allUsersForSearch = mergedUsers;
+        if (syncPrimaryUsers) {
+          _users = mergedUsers;
+          _currentUsersPage = 1;
+          _totalUsersPages = 1;
+          _loadingUsers = false;
+        }
+        _hasLoadedAllUsersForSearch = true;
+        _isLoadingAllUsersForSearch = false;
+      });
+
+      print(
+          '[OrderReport] [$source] Full preload complete: totalUsers=${_allUsersForSearch.length}');
+    } catch (e) {
+      print('Error fetching all users for search: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingAllUsersForSearch = false;
+        if (syncPrimaryUsers) {
+          _loadingUsers = false;
+        }
+      });
+    }
+  }
+
+  void _onUserSearchQueryChanged(String query) {
+    if (query.isNotEmpty && !_hasLoadedAllUsersForSearch) {
+      _fetchAllUsersForSearch();
+    }
+  }
+
+  List<Map<String, dynamic>> get _usersForDropdown {
+    return _hasLoadedAllUsersForSearch ? _allUsersForSearch : _users;
   }
 
   /// Check if current user has children in _users list (populated from API)
@@ -1202,12 +1445,13 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                           Text("Filter by User"),
                           SizedBox(height: 5.h),
                           UserSearchDropdown(
-                            users: _users,
+                            users: _usersForDropdown,
                             selectedUserCode: _selectedUserCode.isEmpty
                                 ? null
                                 : _selectedUserCode,
-                            loading: false,
+                            loading: _loadingUsers,
                             hint: "Select User",
+                            onSearchQueryChanged: _onUserSearchQueryChanged,
                             onChanged: (value) {
                               CrashlyticsService.logAction(
                                 'order_report_user_filter_changed',
@@ -2118,17 +2362,18 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                   //             .userCd)
                                                   Container(
                                                     child: (profile.userCode ==
-                                                                data[index]
-                                                                    .user
-                                                                    .userCd ||
-                                                            (profile.data
-                                                                    ?.profileSettings
-                                                                    .any((e) =>
+                                                                    data[index]
+                                                                        .user
+                                                                        .userCd ||
+                                                                (profile.data?.profileSettings.any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==
                                                                             'Y') ??
-                                                                false))
+                                                                    false)) &&
+                                                            isEmptyOrNull(
+                                                                data[index]
+                                                                    .orderNo)
                                                         ? IconButton(
                                                             onPressed: () {
                                                               Services()
@@ -2388,17 +2633,18 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                   //             .userCd)
                                                   Container(
                                                     child: (profile.userCode ==
-                                                                data[index]
-                                                                    .user
-                                                                    .userCd ||
-                                                            (profile.data
-                                                                    ?.profileSettings
-                                                                    .any((e) =>
+                                                                    data[index]
+                                                                        .user
+                                                                        .userCd ||
+                                                                (profile.data?.profileSettings.any((e) =>
                                                                         e.variable ==
                                                                             'omsWithoutErpSync' &&
                                                                         e.value ==
                                                                             'Y') ??
-                                                                false))
+                                                                    false)) &&
+                                                            isEmptyOrNull(
+                                                                data[index]
+                                                                    .billNo)
                                                         ? IconButton(
                                                             onPressed: () {
                                                               showDialog(

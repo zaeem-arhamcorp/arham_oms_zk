@@ -85,7 +85,11 @@ class _RouteMapViewState extends State<RouteMapView> {
       });
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchUsers();
+      _fetchAllUsersForSearch(
+        forceRefresh: true,
+        syncPrimaryUsers: true,
+        source: 'init_preload',
+      );
     });
     _searchController.addListener(_onSearchQueryChanged);
   }
@@ -176,24 +180,23 @@ class _RouteMapViewState extends State<RouteMapView> {
         // Extract pagination info
         final payload = data['payload'] as Map<String, dynamic>?;
         final pagination = payload?['pagination'] as Map<String, dynamic>?;
-
-        if (pagination != null) {
-          // 🛡️ Mounted guard: Widget might be disposed before setState
-          if (mounted) {
-            setState(() {
-              _currentUsersPage = pagination['page'] ?? 1;
-              _totalUsersPages = pagination['last_page'] ?? 1;
-              _totalUsersCount = pagination['total'] ?? 0;
-              _usersPerPage = pagination['items_per_page'] ?? 20;
-            });
-          }
-        }
+        final pageFromResponse =
+            int.tryParse((pagination?['page'] ?? page).toString()) ?? page;
+        final lastPageFromResponse = int.tryParse(
+                (pagination?['last_page'] ?? pageFromResponse).toString()) ??
+            pageFromResponse;
+        final totalFromResponse =
+            int.tryParse((pagination?['total'] ?? 0).toString()) ?? 0;
+        final hasPaginationMeta =
+            pagination != null && pagination['last_page'] != null;
 
         // Map users with initial data
         final usersWithData = _mapUsersFromChildrenPayload(
           usersList,
           today: today,
         );
+        final hasMoreByMeta = pageFromResponse < lastPageFromResponse;
+        final hasMoreBySize = usersWithData.length >= _usersPerPage;
 
         // Set users data (replace for first page, append for subsequent pages)
         // 🛡️ Mounted guard: Widget might be disposed before setState
@@ -201,8 +204,33 @@ class _RouteMapViewState extends State<RouteMapView> {
           setState(() {
             if (isFirstPage) {
               _users = usersWithData;
+              _currentUsersPage = 1;
+              _totalUsersPages =
+                  (hasPaginationMeta ? hasMoreByMeta : hasMoreBySize) ? 2 : 1;
+              _totalUsersCount =
+                  hasPaginationMeta ? totalFromResponse : _users.length;
             } else {
-              _users.addAll(usersWithData);
+              final existingCodes = _users
+                  .map((u) => _normalizeCode(u['userCode']))
+                  .where((code) => code.isNotEmpty)
+                  .toSet();
+              final uniqueIncoming = usersWithData.where((u) {
+                final code = _normalizeCode(u['userCode']);
+                if (code.isEmpty) {
+                  return true;
+                }
+                return !existingCodes.contains(code);
+              }).toList();
+
+              _users.addAll(uniqueIncoming);
+              final receivedNewUsers = uniqueIncoming.isNotEmpty;
+              final canContinue = hasPaginationMeta
+                  ? hasMoreByMeta
+                  : (hasMoreBySize && receivedNewUsers);
+              _currentUsersPage = page;
+              _totalUsersPages = canContinue ? page + 1 : page;
+              _totalUsersCount =
+                  hasPaginationMeta ? totalFromResponse : _users.length;
             }
             print(
                 '[RouteMapView] ===== Users list after update: totalUsers=${_users.length}');
@@ -394,8 +422,16 @@ class _RouteMapViewState extends State<RouteMapView> {
     return usersWithData;
   }
 
-  Future<void> _fetchAllUsersForSearch() async {
-    if (_isLoadingAllUsersForSearch || _hasLoadedAllUsersForSearch) {
+  Future<void> _fetchAllUsersForSearch({
+    bool forceRefresh = false,
+    bool syncPrimaryUsers = false,
+    String source = 'search',
+  }) async {
+    if (_isLoadingAllUsersForSearch) {
+      return;
+    }
+
+    if (!forceRefresh && _hasLoadedAllUsersForSearch) {
       return;
     }
 
@@ -405,6 +441,9 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     setState(() {
       _isLoadingAllUsersForSearch = true;
+      if (syncPrimaryUsers) {
+        _loadingUsers = true;
+      }
     });
 
     try {
@@ -421,12 +460,18 @@ class _RouteMapViewState extends State<RouteMapView> {
       }
 
       final allRawUsers = <dynamic>[];
+      final seenPageSignatures = <String>{};
       int currentPage = 1;
-      int lastPage = 1;
+      const int maxPagesToFetch = 200;
+      final today = DateTime.now();
 
-      do {
+      print(
+          '[RouteMapView] [$source] Start full users preload | items_per_page=$_usersPerPage');
+
+      while (currentPage <= maxPagesToFetch) {
         final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
           queryParameters: {
+            'date': _fmtDate(today),
             'page': currentPage.toString(),
             'items_per_page': _usersPerPage.toString(),
           },
@@ -440,32 +485,73 @@ class _RouteMapViewState extends State<RouteMapView> {
             'Content-Type': 'application/json',
           },
         );
-        print('[RouteMapView] Search Users API (all): $uri');
+        print('[RouteMapView] [$source] Request page=$currentPage uri=$uri');
 
         if (response.statusCode != 200) {
           if (!mounted) {
             return;
           }
+          print(
+              '[RouteMapView] [$source] Stop preload: HTTP ${response.statusCode} on page=$currentPage');
           setState(() {
             _isLoadingAllUsersForSearch = false;
+            if (syncPrimaryUsers) {
+              _loadingUsers = false;
+            }
           });
           return;
         }
 
         final data = json.decode(response.body) as Map<String, dynamic>;
         final usersList = (data['data'] is List) ? data['data'] : <dynamic>[];
+        print(
+            '[RouteMapView] [$source] Page=$currentPage received=${usersList.length} users');
+        if (usersList.isEmpty) {
+          print('[RouteMapView] [$source] Stop preload: empty page');
+          break;
+        }
+
+        final pageSignature = usersList
+            .whereType<Map>()
+            .map((u) => (u['USER_CD'] ?? '').toString())
+            .join('|');
+        if (pageSignature.isNotEmpty &&
+            !seenPageSignatures.add(pageSignature)) {
+          print(
+              '[RouteMapView] [$source] Stop preload: repeated page signature at page=$currentPage');
+          break;
+        }
+
         allRawUsers.addAll(usersList);
 
         final payload = data['payload'] as Map<String, dynamic>?;
         final pagination = payload?['pagination'] as Map<String, dynamic>?;
-        final pageFromResponse =
-            int.tryParse((pagination?['page'] ?? currentPage).toString()) ??
-                currentPage;
-        lastPage = int.tryParse(
-                (pagination?['last_page'] ?? pageFromResponse).toString()) ??
-            pageFromResponse;
-        currentPage = pageFromResponse + 1;
-      } while (currentPage <= lastPage);
+        final hasPaginationMeta =
+            pagination != null && pagination['last_page'] != null;
+        if (hasPaginationMeta) {
+          final pageFromResponse =
+              int.tryParse((pagination?['page'] ?? currentPage).toString()) ??
+                  currentPage;
+          final lastPage = int.tryParse(
+                  (pagination?['last_page'] ?? pageFromResponse).toString()) ??
+              pageFromResponse;
+          if (pageFromResponse >= lastPage) {
+            print(
+                '[RouteMapView] [$source] Stop preload: reached last_page=$lastPage');
+            break;
+          }
+          currentPage = pageFromResponse + 1;
+          continue;
+        }
+
+        if (usersList.length < _usersPerPage) {
+          print(
+              '[RouteMapView] [$source] Stop preload: received < items_per_page on page=$currentPage');
+          break;
+        }
+
+        currentPage += 1;
+      }
 
       final mappedUsers =
           _mapUsersFromChildrenPayload(allRawUsers, today: DateTime.now());
@@ -476,20 +562,32 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       setState(() {
         _allUsersForSearch = mappedUsers;
+        if (syncPrimaryUsers) {
+          _users = mappedUsers;
+          _currentUsersPage = 1;
+          _totalUsersPages = 1;
+          _totalUsersCount = mappedUsers.length;
+          _loadingUsers = false;
+          _isLoadingMoreUsers = false;
+        }
         _hasLoadedAllUsersForSearch = true;
         _isLoadingAllUsersForSearch = false;
       });
 
+      final loadedPages = currentPage > 0 ? currentPage : 1;
       print(
-          '[RouteMapView] Search users loaded across $lastPage pages: ${mappedUsers.length}');
+          '[RouteMapView] [$source] Full preload complete across $loadedPages pages: totalUsers=${mappedUsers.length}');
     } catch (e) {
       if (!mounted) {
         return;
       }
       setState(() {
         _isLoadingAllUsersForSearch = false;
+        if (syncPrimaryUsers) {
+          _loadingUsers = false;
+        }
       });
-      print('[RouteMapView] Error fetching all users for search: $e');
+      print('[RouteMapView] [$source] Error fetching all users for search: $e');
     }
   }
 

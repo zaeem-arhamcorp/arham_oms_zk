@@ -49,6 +49,10 @@ class _TaskListViewState extends State<TaskListView> {
     _fetchDepartmentsAndTasks();
   }
 
+  Future<void> _onRefresh() async {
+    await _fetchDepartmentTasks();
+  }
+
   Future<void> _fetchDepartmentsAndTasks() async {
     setState(() {
       _isLoading = true;
@@ -367,6 +371,10 @@ class _TaskListViewState extends State<TaskListView> {
     return _normalize(task.assigneeUserCd) == _normalize(_currentUserCd);
   }
 
+  bool _isTaskCreator(Task task) {
+    return _normalize(task.createdBy) == _normalize(_currentUserCd);
+  }
+
   String _assigneeLabel(Task task) {
     if (!_isAssigned(task)) {
       return 'Unassigned';
@@ -528,81 +536,95 @@ class _TaskListViewState extends State<TaskListView> {
             ? const Center(
                 child: CircularProgressIndicator(),
               )
-            : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Color(0xFF9B2C32),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF4A5261),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () => _fetchDepartmentTasks(),
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xFF245B87),
-                          ),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : visibleTasks.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            const Icon(
-                              Icons.inbox_outlined,
-                              size: 48,
-                              color: Color(0xFF8C93A2),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'No tasks available',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF4A5261),
-                                fontWeight: FontWeight.w500,
+            : RefreshIndicator(
+                onRefresh: _onRefresh,
+                child: _errorMessage != null
+                    ? RefreshIndicator(
+                        onRefresh: _onRefresh,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Color(0xFF9B2C32),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF4A5261),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: () => _fetchDepartmentTasks(),
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: const Color(0xFF245B87),
+                                ),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
                         ),
                       )
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const Text(
-                              'Manage incoming dealer support requests.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                height: 1.35,
-                                color: Color(0xFF4A5261),
-                                fontWeight: FontWeight.w500,
+                    : RefreshIndicator(
+                        onRefresh: _onRefresh,
+                        child: visibleTasks.isEmpty
+                            ? SingleChildScrollView(
+                                physics: AlwaysScrollableScrollPhysics(),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: <Widget>[
+                                      const Icon(
+                                        Icons.inbox_outlined,
+                                        size: 48,
+                                        color: Color(0xFF8C93A2),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'No tasks available',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Color(0xFF4A5261),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding:
+                                    const EdgeInsets.fromLTRB(18, 16, 18, 24),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    const Text(
+                                      'Manage incoming dealer support requests.',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        height: 1.35,
+                                        color: Color(0xFF4A5261),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    // _buildSortRow(),
+                                    // const SizedBox(height: 16),
+                                    ...visibleTasks.map(_buildTaskCard),
+                                    // if (visibleTasks.length >= 5) _buildMoreQueueCard(),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            // _buildSortRow(),
-                            // const SizedBox(height: 16),
-                            ...visibleTasks.map(_buildTaskCard),
-                            // if (visibleTasks.length >= 5) _buildMoreQueueCard(),
-                          ],
-                        ),
                       ),
+              ),
       ),
     );
   }
@@ -1077,6 +1099,7 @@ class _TaskListViewState extends State<TaskListView> {
     final bool isAssigned =
         assigneeCd.isNotEmpty && assigneeCd.toLowerCase() != 'null';
     final bool isAssignedToCurrentUser = _isAssignedToCurrentUser(task);
+    final bool isTaskCreator = _isTaskCreator(task);
     final String workflowStatus = _taskWorkflowStatus(task);
     final bool isCompleted = workflowStatus == 'COMPLETED';
     final bool isInProgress = workflowStatus == 'IN_PROGRESS';
@@ -1089,24 +1112,38 @@ class _TaskListViewState extends State<TaskListView> {
     Color actionBgColor = const Color(0xFF235987);
 
     if (isAssigned) {
-      if (!isAssignedToCurrentUser) {
-        actionLabel = 'ASSIGNED';
-        actionHandler = null;
-        actionBgColor = const Color(0xFF5F6B7A);
-      } else if (isCompleted) {
-        actionLabel = 'COMPLETED';
-        actionHandler = null;
-        actionBgColor = const Color(0xFF5F6B7A);
-      } else if (isInProgress) {
-        actionLabel = 'COMPLETE TASK';
-        actionHandler = () => _handleCompleteTask(task);
-        actionBgColor = const Color(0xFF2E7D32);
+      if (isAssignedToCurrentUser) {
+        if (isCompleted) {
+          actionLabel = 'COMPLETED';
+          actionHandler = null;
+          actionBgColor = const Color(0xFF5F6B7A);
+        } else if (isInProgress) {
+          actionLabel = 'COMPLETE TASK';
+          actionHandler = () => _handleCompleteTask(task);
+          actionBgColor = const Color(0xFF2E7D32);
+        } else {
+          actionLabel = 'START TASK';
+          actionHandler = () => _handleStartTask(task);
+          actionBgColor = const Color(0xFFFF9800);
+        }
       } else {
-        actionLabel = 'START TASK';
-        actionHandler = () => _handleStartTask(task);
-        actionBgColor = const Color(0xFFFF9800);
+        actionLabel = workflowStatus == 'PENDING' ? 'ASSIGNED' : workflowStatus;
+        actionHandler = null;
+        actionBgColor = const Color(0xFF5F6B7A);
       }
     }
+
+    if (!isAssigned && isCompleted) {
+      actionLabel = 'COMPLETED';
+      actionHandler = null;
+      actionBgColor = const Color(0xFF5F6B7A);
+    } else if (isAssigned && isInProgress) {
+      actionLabel = 'IN PROGRESS';
+      actionHandler = null;
+      actionBgColor = const Color(0xFF5F6B7A);
+    }
+
+    final bool showCreatorReopen = isTaskCreator && isCompleted;
 
     if (priorityText == 'HIGH') {
       priorityColor = const Color(0xFFE8BCBE);
@@ -1263,24 +1300,82 @@ class _TaskListViewState extends State<TaskListView> {
                         ),
                       ),
                     ),
-                    // const SizedBox(width: 12),
-                    // InkWell(
-                    //   onTap: () {},
-                    //   borderRadius: BorderRadius.circular(23),
-                    //   child: Ink(
-                    //     width: 46,
-                    //     height: 46,
-                    //     decoration: BoxDecoration(
-                    //       color: const Color(0xFFF7F8FB),
-                    //       borderRadius: BorderRadius.circular(23),
-                    //       border: Border.all(color: const Color(0xFFE1E5EC)),
-                    //     ),
-                    //     child: const Icon(
-                    //       Icons.more_vert,
-                    //       color: Color(0xFF535B6C),
-                    //     ),
-                    //   ),
-                    // ),
+                    if (showCreatorReopen) ...<Widget>[
+                      const SizedBox(width: 10),
+                      Builder(
+                        builder: (context) {
+                          return IconButton(
+                            icon: const Icon(
+                              Icons.more_vert,
+                            ),
+                            style: IconButton.styleFrom(
+                                side: BorderSide(color: Colors.grey)),
+                            onPressed: () async {
+                              final RenderBox button =
+                                  context.findRenderObject() as RenderBox;
+                              final RenderBox overlay = Overlay.of(context)
+                                  .context
+                                  .findRenderObject() as RenderBox;
+
+                              final Offset position = button.localToGlobal(
+                                  Offset.zero,
+                                  ancestor: overlay);
+
+                              final selected = await showMenu<String>(
+                                context: context,
+                                position: RelativeRect.fromLTRB(
+                                  position.dx, // align left with icon
+                                  position.dy +
+                                      button.size.height, // BELOW the icon
+                                  position.dx + button.size.width,
+                                  0,
+                                ),
+                                items: [
+                                  PopupMenuItem<String>(
+                                    value: 'reopen',
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 12),
+                                    child: const SizedBox(
+                                      width: 150,
+                                      child: Text(
+                                        'Reopen Task',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+
+                              if (selected == 'reopen') {
+                                _handleReopenTask(task);
+                              }
+                            },
+                          );
+                        },
+                      ),
+                      // SizedBox(
+                      //   width: double.infinity,
+                      //   height: 40,
+                      //   child: OutlinedButton(
+                      //     onPressed: () => _handleReopenTask(task),
+                      //     style: OutlinedButton.styleFrom(
+                      //       foregroundColor: const Color(0xFF2D5F8C),
+                      //       side: const BorderSide(color: Color(0xFF2D5F8C)),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(24),
+                      //       ),
+                      //     ),
+                      //     child: const Text(
+                      //       'REOPEN TASK',
+                      //       style: TextStyle(
+                      //         fontSize: 14,
+                      //         letterSpacing: 1.4,
+                      //         fontWeight: FontWeight.w700,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                    ],
                   ],
                 ),
               ],
@@ -1347,6 +1442,44 @@ class _TaskListViewState extends State<TaskListView> {
       note: 'Execution finished',
       successMessage: 'Task completed successfully',
     );
+  }
+
+  Future<void> _handleReopenTask(Task task) async {
+    try {
+      final UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
+      final String? token = userProvider.token;
+
+      if (token == null || token.isEmpty) {
+        throw Exception('Authentication token not found. Please login again.');
+      }
+
+      await TaskApiService.reopenTask(
+        token: token,
+        taskId: task.taskId,
+      );
+
+      _logDebug('reopenTask response: taskId=${task.taskId}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task reopened successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchDepartmentTasks();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error reopening task: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleUpdateTaskStatus({

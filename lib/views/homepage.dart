@@ -1487,36 +1487,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   Get.to(() => ChangePasswordView());
                 },
               ),
-              ListTile(
-                leading: Icon(
-                  Icons.add_task,
-                  size: 30,
-                ),
-                title: Text(
-                  'Assign Tasks',
-                  style: TextStyle(
-                    fontSize: 20,
+              if (p.data != null &&
+                  p.data!.modulesList!.any((module) =>
+                      module.mODULENO == "232" &&
+                      module.rEADRIGHT == true)) ...[
+                ListTile(
+                  leading: Icon(
+                    Icons.add_task,
+                    size: 30,
                   ),
-                ),
-                onTap: () {
-                  Get.to(() => AssignTaskView());
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  Icons.task,
-                  size: 30,
-                ),
-                title: Text(
-                  'View Tasks',
-                  style: TextStyle(
-                    fontSize: 20,
+                  title: Text(
+                    'Assign Tasks',
+                    style: TextStyle(
+                      fontSize: 20,
+                    ),
                   ),
+                  onTap: () {
+                    Get.to(() => AssignTaskView());
+                  },
                 ),
-                onTap: () {
-                  Get.to(() => TaskListView());
-                },
-              ),
+                ListTile(
+                  leading: Icon(
+                    Icons.task,
+                    size: 30,
+                  ),
+                  title: Text(
+                    'View Tasks',
+                    style: TextStyle(
+                      fontSize: 20,
+                    ),
+                  ),
+                  onTap: () {
+                    Get.to(() => TaskListView());
+                  },
+                ),
+              ],
               ListTile(
                 leading: Icon(
                   Icons.group_add,
