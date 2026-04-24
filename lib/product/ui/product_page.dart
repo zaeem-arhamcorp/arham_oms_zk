@@ -1,19 +1,25 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-import 'package:arham_corporation/product/widget/order_loading_dialog.dart';
 import 'package:arham_corporation/product/widget/product_card.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
+import 'package:arham_corporation/views/party_managment/services/api_service.dart';
+import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-//import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/productModal.dart';
 import '../../providers/cart_list_provider.dart';
@@ -27,6 +33,234 @@ import '../controller/cart_controller.dart';
 import '../controller/product_controller.dart';
 import '../widget/app_bar.dart';
 import '../widget/chip_widget.dart';
+
+// ...existing code...
+
+final Rx<File?> selfieFile = Rx<File?>(null);
+final RxBool isSelfieUploading = false.obs;
+final ImagePicker selfiePicker = ImagePicker();
+
+Future<bool> _checkSelfieUploadedToday() async {
+  final prefs = await SharedPreferences.getInstance();
+  final today = DateTime.now();
+  final todayStr = Helper.toApi(today.toString());
+  final selfieDate = prefs.getString('selfie_uploaded_date');
+  return selfieDate == todayStr;
+}
+
+Future<void> _setSelfieUploadedToday() async {
+  final prefs = await SharedPreferences.getInstance();
+  final today = DateTime.now();
+  final todayStr = Helper.toApi(today.toString());
+  await prefs.setString('selfie_uploaded_date', todayStr);
+}
+
+Future<File?> _pickSelfieFromCamera() async {
+  try {
+    final picked = await selfiePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 90);
+    if (picked == null) return null;
+
+    // Convert XFile to File
+    final pickedFile = File(picked.path);
+    final originalSize = await pickedFile.length();
+    print(
+        '[SELFIE-COMPRESSION] Original image size: ${(originalSize / 1024 / 1024).toStringAsFixed(2)} MB');
+
+    // Compress to under 1MB
+    final compressed = await FlutterImageCompress.compressAndGetFile(
+      picked.path,
+      picked.path + '_compressed.jpg',
+      quality: 85,
+      minWidth: 600,
+      minHeight: 800,
+    );
+    if (compressed != null) {
+      final compressedSize = await compressed.length();
+      print(
+          '[SELFIE-COMPRESSION] After quality=85: ${(compressedSize / 1024 / 1024).toStringAsFixed(2)} MB');
+      print('[SELFIE-COMPRESSION] Compressed file path: ${compressed.path}');
+      if (compressedSize < 1024 * 1024) {
+        print(
+            '[SELFIE-COMPRESSION] ✅ Size OK (${(compressedSize / 1024).toStringAsFixed(0)} KB), using quality=85 compression');
+        final compressedFile = File(compressed.path);
+        print(
+            '[SELFIE-COMPRESSION] File exists: ${await compressedFile.exists()}');
+        return compressedFile;
+      } else {
+        // Try again with lower quality if still >1MB
+        final lower = await FlutterImageCompress.compressAndGetFile(
+          picked.path,
+          picked.path + '_compressed2.jpg',
+          quality: 70,
+          minWidth: 480,
+          minHeight: 640,
+        );
+        if (lower != null) {
+          final lowerSize = await lower.length();
+          print(
+              '[SELFIE-COMPRESSION] After quality=70: ${(lowerSize / 1024 / 1024).toStringAsFixed(2)} MB');
+          print('[SELFIE-COMPRESSION] Compressed file path: ${lower.path}');
+          if (lowerSize < 1024 * 1024) {
+            print(
+                '[SELFIE-COMPRESSION] ✅ Size OK (${(lowerSize / 1024).toStringAsFixed(0)} KB), using quality=70 compression');
+            final lowerFile = File(lower.path);
+            print(
+                '[SELFIE-COMPRESSION] File exists: ${await lowerFile.exists()}');
+            return lowerFile;
+          }
+        }
+      }
+    }
+    print(
+        '[SELFIE-COMPRESSION] ⚠️ Compression failed, using original (${(originalSize / 1024 / 1024).toStringAsFixed(2)} MB)');
+    return pickedFile;
+  } catch (e) {
+    print('[SELFIE-COMPRESSION] Camera error: $e');
+    return null;
+  }
+}
+
+Future<bool> _uploadSelfie(File selfie, String userCd) async {
+  try {
+    isSelfieUploading.value = true;
+
+    // Retrieve trip ID from SharedPreferences (stored during punch-in)
+    final prefs = await SharedPreferences.getInstance();
+    final tripId = prefs.getInt('active_trip_id') ?? 0;
+
+    print('[SELFIE-UPLOAD] File path: ${selfie.path}');
+    print('[SELFIE-UPLOAD] Checking if file exists...');
+
+    // Check if file exists
+    final exists = await selfie.exists();
+    if (!exists) {
+      print('[SELFIE-UPLOAD] ❌ File does not exist at ${selfie.path}');
+      isSelfieUploading.value = false;
+      AppSnackBar.showGetXCustomSnackBar(
+          message: 'Image file was not saved. Please capture again.');
+      return false;
+    }
+
+    final fileSize = await selfie.length();
+    print(
+        '[SELFIE-UPLOAD] File to upload: ${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB (${(fileSize / 1024).toStringAsFixed(0)} KB)');
+    print('[SELFIE-UPLOAD] Uploading selfie for user=$userCd, trip_id=$tripId');
+    print(
+        '[SELFIE-UPLOAD] Sending headers: x-app-type=oms, fields: user_cd=$userCd, trip_id=$tripId, image=${selfie.path}');
+
+    final api = ApiService(baseUrl: AppConfig.baseURL);
+    final resp = await api.postMultipart(
+      '/trip/upload-selfie',
+      headers: {
+        'x-app-type': 'oms',
+      },
+      fields: {
+        'user_cd': userCd,
+        if (tripId > 0) 'trip_id': tripId.toString(),
+      },
+      files: {'image': selfie},
+    );
+    isSelfieUploading.value = false;
+    print('[SELFIE-UPLOAD] Response status: ${resp['statusCode']}');
+    print('[SELFIE-UPLOAD] Response body: ${resp['json']}');
+    if (resp['statusCode'] == 200 &&
+        (resp['json']?['success'] == true || resp['json']?['status'] == true)) {
+      print('[SELFIE-UPLOAD] ✅ Upload successful');
+      return true;
+    }
+    print(
+        '[SELFIE-UPLOAD] ❌ Upload failed: ${resp['json']?['message'] ?? resp['body']}');
+    AppSnackBar.showGetXCustomSnackBar(
+        message:
+            'Selfie upload failed: ${resp['json']?['message'] ?? resp['body']}');
+    return false;
+  } catch (e) {
+    isSelfieUploading.value = false;
+    print('[SELFIE-UPLOAD] ❌ Exception: $e');
+    AppSnackBar.showGetXCustomSnackBar(message: 'Selfie upload error: $e');
+    return false;
+  }
+}
+
+Future<bool> _showSelfieDialogAndUpload(
+    ProfileProvider profile, PartyProvider party) async {
+  selfieFile.value = null;
+  bool uploadSuccess = false;
+  await Get.dialog(
+    CommonUploadInputDialog(
+      title: 'Upload Selfie',
+      message: 'Please take a selfie before starting your first order today.',
+      controllerValue: TextEditingController(),
+      isLoading: isSelfieUploading,
+      fileRx: selfieFile,
+      webFileRx: Rxn<Uint8List>(),
+      onUploadTap: () async {
+        print('[SELFIE-DIALOG] onUploadTap called - picking from camera');
+        final file = await _pickSelfieFromCamera();
+        if (file != null) {
+          print('[SELFIE-DIALOG] File selected: ${file.path}');
+          print('[SELFIE-DIALOG] File exists: ${await file.exists()}');
+          selfieFile.value = file;
+          print('[SELFIE-DIALOG] selfieFile.value set');
+        } else {
+          print('[SELFIE-DIALOG] File pick returned null');
+        }
+      },
+      onDeleteTap: () {
+        print('[SELFIE-DIALOG] Deleting selected file');
+        selfieFile.value = null;
+      },
+      onSubmit: () async {
+        print('[SELFIE-DIALOG] onSubmit called');
+        if (selfieFile.value == null) {
+          print('[SELFIE-DIALOG] No file selected');
+          AppSnackBar.showGetXCustomSnackBar(
+              message: 'Please capture a selfie');
+          return;
+        }
+        print('[SELFIE-DIALOG] File: ${selfieFile.value!.path}');
+        print(
+            '[SELFIE-DIALOG] File exists before upload: ${await selfieFile.value!.exists()}');
+        if (isSelfieUploading.value) {
+          print('[SELFIE-DIALOG] Already uploading, ignoring submit');
+          return;
+        }
+        final userCd = profile.userCode ?? '';
+        if (userCd.isEmpty) {
+          print('[SELFIE-DIALOG] User code missing');
+          AppSnackBar.showGetXCustomSnackBar(message: 'User code missing');
+          return;
+        }
+        // Verify trip is active before uploading
+        final prefs = await SharedPreferences.getInstance();
+        final tripId = prefs.getInt('active_trip_id') ?? 0;
+        if (tripId <= 0) {
+          print('[SELFIE-DIALOG] No active trip');
+          AppSnackBar.showGetXCustomSnackBar(
+              message: 'No active trip. Please punch in first.');
+          return;
+        }
+        print('[SELFIE-DIALOG] Calling _uploadSelfie...');
+        final ok = await _uploadSelfie(selfieFile.value!, userCd);
+        if (ok) {
+          print('[SELFIE-DIALOG] Upload successful');
+          await _setSelfieUploadedToday();
+          uploadSuccess = true;
+          Get.back();
+        }
+      },
+      onCancel: () {
+        print('[SELFIE-DIALOG] onCancel called');
+        Get.back();
+      }, // Block cancel
+    ),
+    barrierDismissible: false,
+  );
+  return uploadSuccess;
+}
 
 class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
@@ -547,7 +781,7 @@ class _ProductsPageState extends State<ProductsPage> {
               ? TextButton(
                   onPressed: _isOrderProcessing
                       ? null
-                      : () {
+                      : () async {
                           // ⚡ Prevent multiple clicks
                           if (_isOrderProcessing) return;
 
@@ -565,8 +799,20 @@ class _ProductsPageState extends State<ProductsPage> {
                             return;
                           }
 
-                          // All validations passed - show party menu
-                          showMenu();
+                          // All validations passed - check selfie
+                          final selfieOk = await _checkSelfieUploadedToday();
+                          if (selfieOk) {
+                            showMenu();
+                          } else {
+                            final profile = Provider.of<ProfileProvider>(
+                                context,
+                                listen: false);
+                            final party = Provider.of<PartyProvider>(context,
+                                listen: false);
+                            final uploaded = await _showSelfieDialogAndUpload(
+                                profile, party);
+                            if (uploaded) showMenu();
+                          }
                         },
                   child: _isOrderProcessing
                       ? Row(
