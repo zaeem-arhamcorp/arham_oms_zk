@@ -1,7 +1,6 @@
 ﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 //import 'package:fluttertoast/fluttertoast.dart';
@@ -14,8 +13,8 @@ import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -74,6 +73,15 @@ class _EditUserScreenState extends State<EditUserScreen> {
   List<String> selectedFirmNames = [];
   bool allowWebAccess = false;
   bool isLoading = true; // Indicates loading state
+
+  bool _resolveWebAccess(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value.toInt() == 1;
+
+    final text = value.toString().trim().toLowerCase();
+    return text == '1' || text == 'true' || text == 'yes' || text == 'y';
+  }
 
   getModules() {
     Services().getModules(context).then((value) {
@@ -337,6 +345,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     setState(() {
       userCdClt.text = widget.data!.userCd;
       userNameClt.text = widget.data!.userName;
+      allowWebAccess = _resolveWebAccess(widget.data?.type);
       //passwordClt.text = widget.data!.userPwd;
       activeuser = !widget.data!.blacklist;
       mobileNumberClt.text = widget.data!.mobileno ?? "";

@@ -157,6 +157,20 @@ class DatumPerson {
   dynamic modules;
   dynamic userImageUrl;
   dynamic email;
+  int? type;
+
+  static int? _parseWebAccess(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value ? 1 : 0;
+    if (value is num) return value.toInt();
+
+    final text = value.toString().trim().toLowerCase();
+    if (text.isEmpty) return null;
+    if (text == 'true' || text == 'yes' || text == 'y') return 1;
+    if (text == 'false' || text == 'no' || text == 'n') return 0;
+
+    return int.tryParse(text);
+  }
 
   DatumPerson({
     required this.userCd,
@@ -179,6 +193,7 @@ class DatumPerson {
     this.modules,
     this.userImageUrl,
     this.email,
+    this.type,
   });
 
   factory DatumPerson.fromJson(Map<String, dynamic> json) => DatumPerson(
@@ -202,6 +217,7 @@ class DatumPerson {
         modules: json["modules"],
         userImageUrl: json["USER_IMAGE_URL"],
         email: json["emailID"],
+        type: _parseWebAccess(json["WEB_ACCESS"] ?? json["type"]),
       );
 
   Map<String, dynamic> toJson() => {
@@ -225,6 +241,7 @@ class DatumPerson {
         "modules": modules,
         "USER_IMAGE_URL": userImageUrl,
         "emailID": email,
+        "WEB_ACCESS": type,
       };
 }
 

@@ -159,9 +159,8 @@ class PersonProvider extends DisposableProvider {
       "firms": firmIds
     };
 
-    if (sendWebType) {
-      payload["type"] = 1;
-    }
+    payload["type"] = sendWebType ? 1 : 0;
+    print('[UpdateUser] WEB_ACCESS(type): ${payload["type"]}');
 
     try {
       // Make HTTP POST request for each firm ID
@@ -241,13 +240,14 @@ class PersonProvider extends DisposableProvider {
       "mobileNo": phonenumber,
       "emailID": email,
       "isLock": active,
+      "parentUser": "null",
+      "userTarget": 0,
       "modules": modules,
       "firms": firmIds
     };
 
-    if (sendWebType) {
-      payload["type"] = "web";
-    }
+    payload["type"] = sendWebType ? 1 : 0;
+    print('[UpdateUser] type payload value: ${payload["type"]}');
 
     try {
       print("[UpdateUser] Flow started");
