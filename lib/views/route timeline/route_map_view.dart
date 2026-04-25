@@ -2000,11 +2000,11 @@ class _RouteMapViewState extends State<RouteMapView> {
                   itemCount: items.length,
                   itemBuilder: (context, index) {
                     final item = items[index];
-                    final itemName = item['item_name'] as String? ?? '';
-                    final itemSname = item['item_sname'] as String? ?? '';
-                    final quantity = item['quantity'] ?? 0;
-                    final rate = item['rate'] ?? 0;
-                    final amount = item['amount'] ?? 0;
+                    final itemName = item['ITEM_NAME'] as String? ?? '';
+                    final itemSname = item['ITEM_SNAME'] as String? ?? '';
+                    final quantity = item['QUANTITY'] ?? 0;
+                    final rate = item['RATE'] ?? 0;
+                    final amount = item['AMOUNT'] ?? 0;
 
                     return Card(
                       margin: const EdgeInsets.symmetric(vertical: 8),

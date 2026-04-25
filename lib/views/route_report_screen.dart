@@ -4,9 +4,11 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../widgets/user_search_dropdown.dart';
@@ -391,6 +393,91 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return parts.length > 1 ? parts.sublist(1).join(' ') : '-';
   }
 
+  DateTime? _tryParseDateTime(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty) return null;
+
+    final direct = DateTime.tryParse(text);
+    if (direct != null) return direct;
+
+    final normalized = text.replaceFirst(' ', 'T').split('.').first;
+    return DateTime.tryParse(normalized);
+  }
+
+  DateTime? _tripStartDateTimeFromMap(Map<String, dynamic> trip) {
+    final dynamic raw = trip['start_time'] ??
+        trip['START_TIME'] ??
+        trip['started_at'] ??
+        trip['STARTED_AT'] ??
+        trip['created_at'] ??
+        trip['CREATED_AT'];
+    return _tryParseDateTime(raw);
+  }
+
+  DateTime? _tripEndDateTimeFromMap(Map<String, dynamic> trip) {
+    final dynamic raw = trip['end_time'] ??
+        trip['END_TIME'] ??
+        trip['ended_at'] ??
+        trip['ENDED_AT'];
+    return _tryParseDateTime(raw);
+  }
+
+  String _formatClock(DateTime? value) {
+    if (value == null) return '-';
+    return DateFormat('hh:mm a').format(value);
+  }
+
+  String _formatSectionDate(DateTime? value) {
+    if (value == null) return '-';
+    return DateFormat('EEEE, MMM d').format(value);
+  }
+
+  String _tripSectionKey(Map<String, dynamic> trip) {
+    final start = _tripStartDateTimeFromMap(trip);
+    if (start != null) {
+      return DateFormat('yyyy-MM-dd').format(start);
+    }
+    return _tripStartDateFromMap(trip);
+  }
+
+  int _durationLabelToMinutes(String value) {
+    final text = value.toLowerCase().trim();
+    if (text.isEmpty || text == '-' || text.contains('no order')) {
+      return 0;
+    }
+
+    final colon =
+        RegExp(r'^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$').firstMatch(text);
+    if (colon != null) {
+      final h = int.tryParse(colon.group(1) ?? '0') ?? 0;
+      final m = int.tryParse(colon.group(2) ?? '0') ?? 0;
+      final s = int.tryParse(colon.group(3) ?? '0') ?? 0;
+      return h * 60 + m + (s > 0 ? 1 : 0);
+    }
+
+    final hMatch = RegExp(r'(\d+)\s*h').firstMatch(text);
+    final mMatch = RegExp(r'(\d+)\s*m').firstMatch(text);
+    final sMatch = RegExp(r'(\d+)\s*s').firstMatch(text);
+
+    if (hMatch != null || mMatch != null || sMatch != null) {
+      final h = int.tryParse(hMatch?.group(1) ?? '0') ?? 0;
+      final m = int.tryParse(mMatch?.group(1) ?? '0') ?? 0;
+      final s = int.tryParse(sMatch?.group(1) ?? '0') ?? 0;
+      return h * 60 + m + (s > 0 ? 1 : 0);
+    }
+
+    final directMinutes = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+    return directMinutes ?? 0;
+  }
+
+  int _detectedGapCount(String inGap, String outGap) {
+    int count = 0;
+    if (_durationLabelToMinutes(inGap) > 0) count += 1;
+    if (_durationLabelToMinutes(outGap) > 0) count += 1;
+    return count;
+  }
+
   /// Open date picker for "from date"
   Future<void> _pickFromDate() async {
     final picked = await showDatePicker(
@@ -428,7 +515,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFFF3F4FA),
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade300),
         ),
@@ -436,14 +523,14 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Filter by Date Range',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 10),
+          // const Text(
+          //   'Filter by Date Range',
+          //   style: TextStyle(
+          //     fontSize: 14,
+          //     fontWeight: FontWeight.bold,
+          //   ),
+          // ),
+          // const SizedBox(height: 10),
           Row(
             children: [
               // From Date
@@ -457,7 +544,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(12),
                       color: Colors.white,
                     ),
                     child: Column(
@@ -495,7 +582,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(12),
                       color: Colors.white,
                     ),
                     child: Column(
@@ -916,56 +1003,68 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     }
   }
 
-  Widget _iconInfo(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: Colors.blueGrey),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 13),
+  Widget _metricTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color valueColor = const Color(0xFF1B1D2A),
+    IconData? iconOverride,
+  }) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(iconOverride ?? icon,
+                  size: 16, color: const Color(0xFF7F8599)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    color: Color(0xFF7F8599),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.0,
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTripTile(Map<String, dynamic> trip) {
     final tripId = _tripIdFromMap(trip);
     final isActive = _tripActiveFromMap(trip);
-    final userName = _tripUserNameFromMap(trip);
-    final userCode = _tripUserFromMap(trip);
-    final detail = trip;
     _ensureTripGapInfo(tripId);
     final gapInfo = _gapInfoByTripId[tripId];
     final distanceBreakdown = _distanceBreakdownByTripId[tripId];
-    final startDate = _tripStartDateFromMap(detail);
-    final endDate = _tripEndDateFromMap(detail);
-    final startTime = _tripStartTimeFromMap(detail);
-    final endTime = _tripEndTimeFromMap(detail);
-
-    final punchGapText = gapInfo == null
-        ? 'No order placed'
-        : '${gapInfo['punchFormatted'] ?? 'No order placed'}';
-
-    final punchDistanceGapText =
-        gapInfo == null ? 'No order placed' : '${gapInfo['punchKm'] ?? '-'}';
-
-    final outGapText = gapInfo == null
-        ? 'No order placed'
-        : '${gapInfo['outFormatted'] ?? 'No order placed'}';
-
-    final outDistanceGapText =
-        gapInfo == null ? 'No order placed' : '${gapInfo['outKm'] ?? '-'}';
-
-    final businessKmText = distanceBreakdown == null
-        ? 'No order'
-        : '${distanceBreakdown['businessKm'] ?? '-'}';
+    final start = _tripStartDateTimeFromMap(trip);
+    final end = _tripEndDateTimeFromMap(trip);
+    final inGapText =
+        gapInfo == null ? '-' : '${gapInfo['punchFormatted'] ?? '-'}';
+    final outGapText =
+        gapInfo == null ? '-' : '${gapInfo['outFormatted'] ?? '-'}';
     final transitKmText = distanceBreakdown == null
-        ? 'No order'
+        ? '-'
         : '${distanceBreakdown['transitKm'] ?? '-'}';
+    final gapCount = _detectedGapCount(inGapText, outGapText);
 
     return GestureDetector(
       onTap: () {
@@ -980,232 +1079,219 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           ),
         );
       },
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
+      child: Container(
+        margin: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE7E9F2)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x120C1A4B),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        _formatClock(start),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1B1D2A),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(
+                          CupertinoIcons.arrow_right,
+                          size: 20,
+                        ),
+                      ),
+                      Text(
+                        _formatClock(end),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1B1D2A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFFFFF4E4)
+                        : const Color(0xFFF4F6FA),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: isActive
+                          ? const Color(0xFFFFE2B9)
+                          : const Color(0xFFE1E4EE),
+                    ),
+                  ),
+                  child: Text(
+                    isActive ? 'ACTIVE' : 'ENDED',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: isActive
+                          ? const Color(0xFFB46A00)
+                          : const Color(0xFF7B8195),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // const SizedBox(height: 2),
+            Text(
+              'Trip ID: $tripId',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF7B8195),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Color(0xFFE6E8F1)),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _metricTile(
+                  icon: Icons.schedule,
+                  label: 'DURATION',
+                  value: _durationFromMap(trip),
+                ),
+                const SizedBox(width: 10),
+                _metricTile(
+                  icon: Icons.place_outlined,
+                  label: 'DISTANCE',
+                  value: _distanceKmFromMap(trip),
+                ),
+                const SizedBox(width: 10),
+                gapCount > 0
+                    ? _metricTile(
+                        icon: Icons.warning_amber_rounded,
+                        label: 'GAPS',
+                        value: '$gapCount detected',
+                        valueColor: const Color(0xFFC62828),
+                        iconOverride: Icons.warning_amber_rounded,
+                      )
+                    : _metricTile(
+                        icon: Icons.speed_outlined,
+                        label: 'AVG SPEED',
+                        value: _speedFromMap(trip),
+                      ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                _metricTile(
+                  icon: Icons.login,
+                  label: 'IN GAP',
+                  value: inGapText,
+                ),
+                const SizedBox(width: 10),
+                _metricTile(
+                  icon: Icons.logout,
+                  label: 'OUT GAP',
+                  value: outGapText,
+                ),
+                const SizedBox(width: 10),
+                _metricTile(
+                  icon: Icons.alt_route,
+                  label: 'TRANSIT',
+                  value: transitKmText,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTripsList() {
+    final sortedTrips = [..._trips]..sort((a, b) {
+        final aStart = _tripStartDateTimeFromMap(a);
+        final bStart = _tripStartDateTimeFromMap(b);
+        if (aStart == null && bStart == null) return 0;
+        if (aStart == null) return 1;
+        if (bStart == null) return -1;
+        return bStart.compareTo(aStart);
+      });
+
+    final Map<String, List<Map<String, dynamic>>> grouped =
+        <String, List<Map<String, dynamic>>>{};
+    for (final trip in sortedTrips) {
+      final key = _tripSectionKey(trip);
+      grouped.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(trip);
+    }
+
+    final entries = grouped.entries.toList();
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: entries.length,
+      itemBuilder: (context, sectionIndex) {
+        final dayTrips = entries[sectionIndex].value;
+        final firstTripStart = dayTrips.isNotEmpty
+            ? _tripStartDateTimeFromMap(dayTrips.first)
+            : null;
+
+        return Padding(
+          padding: EdgeInsets.only(top: sectionIndex == 0 ? 10 : 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(
-                    'Trip: $tripId',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                  SizedBox(
-                    width: 8,
-                  ),
-                  isActive
-                      ? Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(5),
-                              border:
-                                  Border.all(color: Colors.orange.shade200)),
-                          child: Text(
-                            "Active",
-                            style: TextStyle(color: Colors.orange),
-                          ),
-                        )
-                      : Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                              color: Colors.blueGrey.shade50,
-                              borderRadius: BorderRadius.circular(5),
-                              border:
-                                  Border.all(color: Colors.blueGrey.shade100)),
-                          child: Text(
-                            "Ended",
-                            style: TextStyle(color: Colors.blueGrey),
-                          ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatSectionDate(firstTripStart),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1B1D2A),
                         ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              _iconInfo(Icons.person_outline, 'User: $userName ($userCode)'),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blueGrey.shade100,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _iconInfo(
-                              Icons.calendar_today_outlined, '$startDate'),
-                          SizedBox(
-                            height: 5,
-                          ),
-                          _iconInfo(Icons.access_time_outlined, '$startTime'),
-                          // Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //   children: [
-                          //     _iconInfo(Icons.calendar_today_outlined, '$startDate'),
-                          //     // Icon(Icons.arrow_right_alt),
-                          //     Text("|"),
-                          //     _iconInfo(Icons.calendar_today_outlined, '$endDate'),
-                          //   ],
-                          // ),
-                          // const SizedBox(height: 6),
-                          // Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //   children: [
-                          //     _iconInfo(Icons.access_time_outlined, '$startTime'),
-                          //     // Icon(Icons.arrow_right_alt),
-                          //     Text("|"),
-                          //     _iconInfo(Icons.access_time_outlined, '$endTime'),
-                          //   ],
-                          // ),
-                        ],
                       ),
                     ),
-                    Container(
-                      height: 30,
-                      width: 1,
-                      color: Colors.black,
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          _iconInfo(Icons.calendar_today_outlined, '$endDate'),
-                          SizedBox(
-                            height: 5,
-                          ),
-                          _iconInfo(Icons.access_time_outlined, '$endTime'),
-                          // Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //   children: [
-                          //     _iconInfo(Icons.calendar_today_outlined, '$startDate'),
-                          //     // Icon(Icons.arrow_right_alt),
-                          //     Text("|"),
-                          //     _iconInfo(Icons.calendar_today_outlined, '$endDate'),
-                          //   ],
-                          // ),
-                          // const SizedBox(height: 6),
-                          // Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //   children: [
-                          //     _iconInfo(Icons.access_time_outlined, '$startTime'),
-                          //     // Icon(Icons.arrow_right_alt),
-                          //     Text("|"),
-                          //     _iconInfo(Icons.access_time_outlined, '$endTime'),
-                          //   ],
-                          // ),
-                        ],
+                    Text(
+                      '${dayTrips.length} ${dayTrips.length == 1 ? 'TRIP' : 'TRIPS'}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: Color(0xFF7F8599),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _iconInfo(Icons.timer_outlined,
-                        'Duration: ${_durationFromMap(detail)}'),
-                    _iconInfo(Icons.social_distance_outlined,
-                        'Distance: ${_distanceKmFromMap(detail)}'),
-                    // _iconInfo(Icons.speed_outlined, 'Speed: ${_speedFromMap(detail)}'),
-                    // _iconInfo(Icons.person_outline, 'User: ${_tripUserFromMap(detail)}'),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.grey,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.login_outlined,
-                                size: 16,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                "IN gap",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                          // _iconInfo(Icons.login_outlined, 'IN gap'),
-                          _iconInfo(
-                              Icons.timer_outlined, 'Time: $punchGapText'),
-                          SizedBox(width: 6),
-                          _iconInfo(Icons.social_distance_outlined,
-                              'Distance: $punchDistanceGapText'),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Icon(
-                                Icons.logout_outlined,
-                                size: 16,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                "OUT gap",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                          // _iconInfo(Icons.login_outlined, 'OUT gap'),
-                          _iconInfo(Icons.timer_outlined, 'Time: $outGapText'),
-                          _iconInfo(Icons.social_distance_outlined,
-                              'Distance: $outDistanceGapText'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _iconInfo(Icons.business_center_outlined,
-                        'Business Km: $businessKmText'),
-                    _iconInfo(
-                        Icons.alt_route_outlined, 'Transit Km: $transitKmText'),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
+              for (int i = 0; i < dayTrips.length; i++) ...[
+                _buildTripTile(dayTrips[i]),
+                // if (i == dayTrips.length - 1) const SizedBox(height: 5),
+              ],
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1225,19 +1311,19 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     }
     if (_users.isEmpty) return SizedBox.shrink();
     return Container(
-      color: Colors.white,
+      color: Color(0xFFF3F4FA),
       padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Filter by User",
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 5),
+          // Text(
+          //   "Filter by User",
+          //   style: TextStyle(
+          //     fontSize: 14,
+          //     fontWeight: FontWeight.bold,
+          //   ),
+          // ),
+          // SizedBox(height: 5),
           UserSearchDropdown(
             users: _usersForDropdown,
             selectedUserCode: _selectedUserCode,
@@ -1277,7 +1363,8 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       appBar: CustomAppBar(
         title: title,
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF3F4FA),
+      floatingActionButton: null,
       body: Column(
         children: [
           _buildUserDropdown(),
@@ -1295,11 +1382,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _trips.isEmpty
                     ? const Center(child: Text('No trip history found'))
-                    : ListView.builder(
-                        itemCount: _trips.length,
-                        itemBuilder: (context, index) =>
-                            _buildTripTile(_trips[index]),
-                      ),
+                    : _buildTripsList(),
           ),
         ],
       ),
