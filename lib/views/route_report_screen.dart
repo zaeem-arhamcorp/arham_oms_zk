@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -12,7 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../widgets/user_search_dropdown.dart';
-import 'trip_detail_map_screen.dart';
+import 'route%20timeline/route_map_view.dart';
 
 class RouteReportScreen extends StatefulWidget {
   final String? selectedUserCd;
@@ -66,6 +67,24 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     _toDate = DateTime(now.year, now.month, now.day);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      final initialUserCode =
+          (widget.selectedUserCd?.trim().isNotEmpty ?? false)
+              ? widget.selectedUserCd!.trim()
+              : '';
+      final initialUserName =
+          (widget.selectedUserName?.trim().isNotEmpty ?? false)
+              ? widget.selectedUserName!.trim()
+              : (profileProvider.userName?.trim() ?? '');
+
+      if (initialUserCode.isNotEmpty) {
+        _selectedUserCode = initialUserCode;
+      }
+      if (initialUserName.isNotEmpty) {
+        _selectedUserName = initialUserName;
+      }
+
       _fetchAllUsersForSearch(
         forceRefresh: true,
         syncPrimaryUsers: true,
@@ -324,6 +343,22 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           _totalUsersPages = 1;
           _loadingUsers = false;
         }
+
+        // Resolve initial title from loaded users when only code is available.
+        if ((_selectedUserName == null || _selectedUserName!.trim().isEmpty) &&
+            _selectedUserCode.trim().isNotEmpty) {
+          final match = mergedUsers.firstWhere(
+            (user) =>
+                (user['userCode'] ?? '').toString().trim() ==
+                _selectedUserCode.trim(),
+            orElse: () => <String, dynamic>{},
+          );
+          final resolvedName = (match['userName'] ?? '').toString().trim();
+          if (resolvedName.isNotEmpty) {
+            _selectedUserName = resolvedName;
+          }
+        }
+
         _hasLoadedAllUsersForSearch = true;
         _isLoadingAllUsersForSearch = false;
       });
@@ -512,6 +547,73 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
   /// Build date range filter widget
   Widget _buildDateRangeFilter() {
+    Widget buildDateField({
+      required String label,
+      required DateTime value,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: SizedBox(
+            height: 55,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  top: 9,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      border: Border.all(color: const Color(0xFF0D5C92)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            DateFormat('dd-MM-yyyy').format(value),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF1E1E1E),
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.calendar_month_outlined,
+                          color: Color(0xFF0D5C92),
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  top: 0,
+                  child: Container(
+                    color: const Color(0xFFF3F4FA),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF555555),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -533,80 +635,16 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           // const SizedBox(height: 10),
           Row(
             children: [
-              // From Date
-              Expanded(
-                child: GestureDetector(
-                  onTap: _pickFromDate,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'From Date',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _fmtDate(_fromDate),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              buildDateField(
+                label: 'From Date',
+                value: _fromDate,
+                onTap: _pickFromDate,
               ),
               const SizedBox(width: 10),
-              // To Date
-              Expanded(
-                child: GestureDetector(
-                  onTap: _pickToDate,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'To Date',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _fmtDate(_toDate),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              buildDateField(
+                label: 'To Date',
+                value: _toDate,
+                onTap: _pickToDate,
               ),
             ],
           ),
@@ -751,6 +789,17 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return null;
   }
 
+  Map<String, dynamic>? _firstMapValue(
+    Map<String, dynamic> map,
+    List<String> keys,
+  ) {
+    final value = _firstValue(map, keys);
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return null;
+  }
+
   String _durationFromMap(Map<String, dynamic> map) {
     final formatted = _firstValue(map, [
       'duration_formatted',
@@ -795,12 +844,17 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return value == null ? '-' : '${value.toStringAsFixed(2)} km';
   }
 
-  String _speedFromMap(Map<String, dynamic> map) {
-    final speed = _firstValue(map,
-        ['avg_speed', 'average_speed', 'avgSpeed', 'averageSpeed', 'speed']);
-    if (speed == null) return '-';
-    final value = double.tryParse(speed.toString());
-    return value == null ? '-' : '${value.toStringAsFixed(2)} km/h';
+  String _businessKmFromMap(Map<String, dynamic> map) {
+    final business = _firstValue(map, [
+      'BUSINESS_KM',
+      'business_km',
+      'businesskm',
+      'businessKM',
+      'BUSINESSKM'
+    ]);
+    if (business == null) return '-';
+    final value = double.tryParse(business.toString());
+    return value == null ? '-' : '${value.toStringAsFixed(2)} km';
   }
 
   String _kmString(dynamic value) {
@@ -832,6 +886,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           'x-app-type': 'oms',
         },
       );
+      print(uri);
 
       if (response.statusCode != 200) return;
 
@@ -839,40 +894,61 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       final data = decoded['data'];
       if (data is! Map) return;
 
-      final orderTiming = data['order_tracking_timing'];
-      if (orderTiming is! Map) return;
+      final orderTiming = _firstMapValue(Map<String, dynamic>.from(data), [
+        'orderTrackingTiming',
+        'order_tracking_timing',
+      ]);
+      if (orderTiming == null) return;
 
-      final punchGap = orderTiming['punch_in_to_first_in_gap'];
-      final outGap = orderTiming['last_out_to_punch_out_gap'];
-      final distanceBreakdown = orderTiming['distance_breakdown'];
+      final punchGap = _firstMapValue(orderTiming, [
+        'punch_in_to_first_in_gap',
+        'punchInToFirstInGap',
+      ]);
+      final outGap = _firstMapValue(orderTiming, [
+        'last_out_to_punch_out_gap',
+        'lastOutToPunchOutGap',
+      ]);
+      final distanceBreakdown = _firstMapValue(orderTiming, [
+        'distance_breakdown',
+        'distanceBreakdown',
+      ]);
 
-      final punchFormatted =
-          (punchGap is Map) ? (punchGap['formatted']?.toString() ?? '-') : '-';
-      final punchKm =
-          (punchGap is Map) ? _kmString(punchGap['distance_km']) : '-';
+      String _readFormatted(Map<String, dynamic>? value) {
+        if (value == null) return '-';
+        final formatted = _firstValue(value, ['formatted', 'FORMATTED']);
+        return formatted?.toString().trim().isNotEmpty == true
+            ? formatted.toString()
+            : '-';
+      }
 
-      final outFormatted =
-          (outGap is Map) ? (outGap['formatted']?.toString() ?? '-') : '-';
-      final outKm = (outGap is Map) ? _kmString(outGap['distance_km']) : '-';
+      final punchFormatted = _readFormatted(punchGap);
+      final outFormatted = _readFormatted(outGap);
 
-      final businessKm = (distanceBreakdown is Map)
-          ? _kmString(distanceBreakdown['business_km'])
-          : '-';
-      final transitKm = (distanceBreakdown is Map)
-          ? _kmString(distanceBreakdown['transit_km'])
-          : '-';
+      final businessKm = distanceBreakdown == null
+          ? '-'
+          : _kmString(_firstValue(distanceBreakdown, [
+              'business_km',
+              'BUSINESS_KM',
+              'businessKm',
+            ]));
+
+      final transitKm = distanceBreakdown == null
+          ? '-'
+          : _kmString(_firstValue(distanceBreakdown, [
+              'transit_km',
+              'TRANSIT_KM',
+              'transitKm',
+            ]));
 
       if (!mounted) return;
       setState(() {
         _gapInfoByTripId[tripId] = {
           'punchFormatted': punchFormatted,
-          'punchKm': punchKm,
           'outFormatted': outFormatted,
-          'outKm': outKm,
         };
 
         _distanceBreakdownByTripId[tripId] = {
-          'businessKm': businessKm,
+          'BUSINESS_KM': businessKm,
           'transitKm': transitKm,
         };
       });
@@ -1057,6 +1133,8 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final distanceBreakdown = _distanceBreakdownByTripId[tripId];
     final start = _tripStartDateTimeFromMap(trip);
     final end = _tripEndDateTimeFromMap(trip);
+    final userCode = _tripUserFromMap(trip);
+    final userName = _tripUserNameFromMap(trip);
     final inGapText =
         gapInfo == null ? '-' : '${gapInfo['punchFormatted'] ?? '-'}';
     final outGapText =
@@ -1064,8 +1142,9 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final transitKmText = distanceBreakdown == null
         ? '-'
         : '${distanceBreakdown['transitKm'] ?? '-'}';
-    final gapCount = _detectedGapCount(inGapText, outGapText);
-
+    final businessKmText = distanceBreakdown == null
+        ? '-'
+        : '${distanceBreakdown['BUSINESS_KM'] ?? '-'}';
     return GestureDetector(
       onTap: () {
         CrashlyticsService.logAction(
@@ -1073,9 +1152,11 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           context: {'trip_id': tripId},
         );
         Get.to(
-          () => TripDetailMapScreen(
-            tripId: tripId,
-            userName: widget.selectedUserName,
+          () => RouteMapView(
+            initialTripId: tripId,
+            initialTripDate: start ?? DateTime.now(),
+            initialUserCode: userCode.trim(),
+            initialUserName: userName.trim(),
           ),
         );
       },
@@ -1156,14 +1237,39 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                 ),
               ],
             ),
-            // const SizedBox(height: 2),
-            Text(
-              'Trip ID: $tripId',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF7B8195),
-              ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Trip ID: $tripId',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7B8195),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.person,
+                        size: 15,
+                        color: Colors.grey,
+                      ),
+                      Text(
+                        "View Selfie",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              ],
             ),
             const SizedBox(height: 14),
             const Divider(height: 1, color: Color(0xFFE6E8F1)),
@@ -1182,19 +1288,11 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                   value: _distanceKmFromMap(trip),
                 ),
                 const SizedBox(width: 10),
-                gapCount > 0
-                    ? _metricTile(
-                        icon: Icons.warning_amber_rounded,
-                        label: 'GAPS',
-                        value: '$gapCount detected',
-                        valueColor: const Color(0xFFC62828),
-                        iconOverride: Icons.warning_amber_rounded,
-                      )
-                    : _metricTile(
-                        icon: Icons.speed_outlined,
-                        label: 'AVG SPEED',
-                        value: _speedFromMap(trip),
-                      ),
+                _metricTile(
+                  icon: CupertinoIcons.briefcase,
+                  label: 'BUSINESS',
+                  value: businessKmText,
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -1329,8 +1427,11 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
             selectedUserCode: _selectedUserCode,
             loading: _loadingUsers,
             hint: "Select User",
+            compact: true,
             onSearchQueryChanged: _onUserSearchQueryChanged,
             onChanged: (value) {
+              final profileProvider =
+                  Provider.of<ProfileProvider>(context, listen: false);
               CrashlyticsService.logAction(
                 'route_report_user_filter_changed',
                 context: {'selected_user_cd': value ?? ''},
@@ -1338,7 +1439,9 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
               setState(() {
                 _selectedUserCode = value ?? '';
                 _selectedUserName = value == ''
-                    ? 'Everyone'
+                    ? (profileProvider.userName?.trim().isNotEmpty ?? false)
+                        ? profileProvider.userName!.trim()
+                        : null
                     : _usersForDropdown.firstWhere(
                         (user) => user['userCode'] == value,
                         orElse: () => {'userName': 'Unknown'},
@@ -1355,7 +1458,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   @override
   Widget build(BuildContext context) {
     final title = _selectedUserName != null
-        // ? ' 0{_selectedUserName}\'s Route Report'
+        // ? '{_selectedUserName}\'s Route Report'
         ? "$_selectedUserName's Route Report"
         : 'Route Report';
 

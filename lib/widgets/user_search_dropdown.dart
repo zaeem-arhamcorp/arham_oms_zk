@@ -7,6 +7,7 @@ class UserSearchDropdown extends StatefulWidget {
   final ValueChanged<String>? onSearchQueryChanged;
   final bool loading;
   final String? hint;
+  final bool compact;
 
   const UserSearchDropdown({
     Key? key,
@@ -16,6 +17,7 @@ class UserSearchDropdown extends StatefulWidget {
     this.onSearchQueryChanged,
     this.loading = false,
     this.hint,
+    this.compact = false,
   }) : super(key: key);
 
   @override
@@ -215,14 +217,20 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
           controller: _searchController,
           focusNode: _focusNode,
           enabled: !widget.loading,
+          style: TextStyle(
+            fontSize: widget.compact ? 14 : 16,
+          ),
           decoration: InputDecoration(
             isDense: true,
             hintText: widget.hint ?? 'Search and select user',
             border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: widget.compact ? 8 : 12,
+            ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: Icon(Icons.close, size: 20),
+                    icon: Icon(Icons.close, size: widget.compact ? 18 : 20),
                     onPressed: () {
                       _searchController.clear();
                       _focusNode.unfocus();

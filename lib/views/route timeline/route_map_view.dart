@@ -14,7 +14,18 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RouteMapView extends StatefulWidget {
-  const RouteMapView({super.key});
+  final String? initialUserCode;
+  final String? initialUserName;
+  final int? initialTripId;
+  final DateTime? initialTripDate;
+
+  const RouteMapView({
+    super.key,
+    this.initialUserCode,
+    this.initialUserName,
+    this.initialTripId,
+    this.initialTripDate,
+  });
 
   @override
   State<RouteMapView> createState() => _RouteMapViewState();
@@ -38,6 +49,7 @@ class _RouteMapViewState extends State<RouteMapView> {
   List<Map<String, dynamic>> _allUsersForSearch = [];
   bool _isLoadingAllUsersForSearch = false;
   bool _hasLoadedAllUsersForSearch = false;
+  bool _hasAppliedInitialSelection = false;
 
   // Selected user and timeline state
   Map<String, dynamic>? _selectedUser;
@@ -577,6 +589,8 @@ class _RouteMapViewState extends State<RouteMapView> {
       final loadedPages = currentPage > 0 ? currentPage : 1;
       print(
           '[RouteMapView] [$source] Full preload complete across $loadedPages pages: totalUsers=${mappedUsers.length}');
+
+      _applyInitialSelectionIfNeeded();
     } catch (e) {
       if (!mounted) {
         return;
@@ -596,6 +610,41 @@ class _RouteMapViewState extends State<RouteMapView> {
       return; // Already on last page
     }
     await _fetchUsers(page: _currentUsersPage + 1);
+  }
+
+  void _applyInitialSelectionIfNeeded() {
+    if (_hasAppliedInitialSelection) return;
+
+    final initialUserCode = widget.initialUserCode?.trim() ?? '';
+    final initialTripId = widget.initialTripId ?? 0;
+    if (initialUserCode.isEmpty || initialTripId <= 0) return;
+    if (_users.isEmpty) return;
+
+    final userIndex = _users.indexWhere((user) {
+      return _normalizeCode(_extractUserCodeFromUserPayload(user)) ==
+          _normalizeCode(initialUserCode);
+    });
+    if (userIndex < 0) return;
+
+    _hasAppliedInitialSelection = true;
+    final user = _users[userIndex];
+    final initialDate = widget.initialTripDate ?? DateTime.now();
+
+    setState(() {
+      _selectedUser = user;
+      _selectedTimelineDate = initialDate;
+      _selectedTrip = null;
+    });
+
+    _polylines.clear();
+    _markers.clear();
+    _markers.addAll(_userLocationMarkers);
+
+    _fetchTimelineForUser(
+      user,
+      initialDate,
+      preferredTripId: initialTripId,
+    );
   }
 
   String _normalizeCode(dynamic value) => value?.toString().trim() ?? '';
@@ -1310,7 +1359,10 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Future<void> _fetchTimelineForUser(
-      Map<String, dynamic> user, DateTime date) async {
+    Map<String, dynamic> user,
+    DateTime date, {
+    int? preferredTripId,
+  }) async {
     final requestId = ++_timelineRequestId;
     final userCode = _normalizeCode(user['userCode']);
 
@@ -1344,7 +1396,19 @@ class _RouteMapViewState extends State<RouteMapView> {
         Map<int, List<Map<String, dynamic>>> timelineByTrip = {};
         final tripsSnapshot =
             List<Map<String, dynamic>>.from(_tripsForSelectedDate);
-        final firstTrip = tripsSnapshot[0];
+        final selectedTripIndex = preferredTripId != null && preferredTripId > 0
+            ? tripsSnapshot.indexWhere((trip) {
+                final tripId = trip['id'] ??
+                    trip['ID'] ??
+                    trip['trip_id'] ??
+                    trip['TRIP_ID'] ??
+                    0;
+                return tripId == preferredTripId;
+              })
+            : 0;
+        final effectiveTripIndex =
+            selectedTripIndex >= 0 ? selectedTripIndex : 0;
+        final firstTrip = tripsSnapshot[effectiveTripIndex];
         final firstTripId = firstTrip['id'] ??
             firstTrip['ID'] ??
             firstTrip['trip_id'] ??
@@ -1352,7 +1416,7 @@ class _RouteMapViewState extends State<RouteMapView> {
             0;
 
         setState(() {
-          _selectedTripIndex = 0;
+          _selectedTripIndex = effectiveTripIndex;
           _selectedTrip = firstTrip;
           _totalTripsToLoad = tripsSnapshot.length;
           _loadedTripsCount = 0;
@@ -1607,6 +1671,69 @@ class _RouteMapViewState extends State<RouteMapView> {
     }
   }
 
+  List<Map<String, dynamic>> _extractOrderItemsFromTimelineItem(
+    Map<String, dynamic> item,
+  ) {
+    final candidates = <dynamic>[
+      item['order_items'],
+      item['ORDER_ITEMS'],
+      (item['order'] is Map) ? (item['order'] as Map)['ITEMS'] : null,
+      (item['order'] is Map) ? (item['order'] as Map)['items'] : null,
+      (item['ORDER'] is Map) ? (item['ORDER'] as Map)['ITEMS'] : null,
+      (item['ORDER'] is Map) ? (item['ORDER'] as Map)['items'] : null,
+      (item['ORDER'] is Map) ? (item['ORDER'] as Map)['ITEM_LIST'] : null,
+      (item['order'] is Map) ? (item['order'] as Map)['item_list'] : null,
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate is List) {
+        final list = candidate
+            .whereType<Map>()
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .toList();
+        if (list.isNotEmpty) {
+          return list;
+        }
+      }
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
+  Map<String, String> _extractPartyInfoFromTimelineItem(
+    Map<String, dynamic> item,
+  ) {
+    final dynamic partyRaw = item['party'] ?? item['PARTY'];
+    final Map<String, dynamic> partyMap = partyRaw is Map
+        ? Map<String, dynamic>.from(partyRaw as Map)
+        : <String, dynamic>{};
+
+    final partyName = (item['party_name'] ??
+            item['PARTY_NAME'] ??
+            partyMap['PARTY_NAME'] ??
+            partyMap['party_name'] ??
+            '')
+        .toString();
+    final partyCode = (item['party_code'] ??
+            item['PARTY_CODE'] ??
+            partyMap['PARTY_CODE'] ??
+            partyMap['party_code'] ??
+            '')
+        .toString();
+    final partyAddress = (item['party_address'] ??
+            item['PARTY_ADDRESS'] ??
+            partyMap['PARTY_ADDRESS'] ??
+            partyMap['party_address'] ??
+            '')
+        .toString();
+
+    return {
+      'partyName': partyName,
+      'partyCode': partyCode,
+      'partyAddress': partyAddress,
+    };
+  }
+
   Future<List<Map<String, dynamic>>> _fetchTripTimeline(int tripId) async {
     final ub = Provider.of<UserProvider>(context, listen: false);
     final token = ub.token;
@@ -1690,8 +1817,26 @@ class _RouteMapViewState extends State<RouteMapView> {
                 _formatEventType(eventType)) as String;
 
             // Extract party and order information for order events
-            final party = event['party'] as Map<String, dynamic>? ?? {};
-            final order = event['order'] as Map<String, dynamic>? ?? {};
+            final dynamic partyRaw = event['PARTY'] ?? event['party'];
+            final Map<String, dynamic> party = partyRaw is Map
+                ? Map<String, dynamic>.from(partyRaw as Map)
+                : <String, dynamic>{};
+
+            final dynamic orderRaw = event['ORDER'] ?? event['order'];
+            final Map<String, dynamic> order = orderRaw is Map
+                ? Map<String, dynamic>.from(orderRaw as Map)
+                : <String, dynamic>{};
+
+            final dynamic orderItemsRaw = order['ITEMS'] ??
+                order['items'] ??
+                event['ORDER_ITEMS'] ??
+                event['order_items'];
+            final List<Map<String, dynamic>> orderItems = orderItemsRaw is List
+                ? orderItemsRaw
+                    .whereType<Map>()
+                    .map((entry) => Map<String, dynamic>.from(entry))
+                    .toList()
+                : <Map<String, dynamic>>[];
 
             return {
               'timestamp': timestamp,
@@ -1705,13 +1850,13 @@ class _RouteMapViewState extends State<RouteMapView> {
               'reason': event['reason'],
               'gap_formatted': event['gap_formatted'],
               'closure_type': event['closure_type'],
-              'party_code': event['party_code'],
-              'party_name': party['party_name'] ?? '',
-              'party_address': party['party_address'] ?? '',
+              'party_code': event['PARTY_CODE'] ?? event['party_code'] ?? '',
+              'party_name': party['PARTY_NAME'] ?? party['party_name'] ?? '',
+              'party_address':
+                  party['PARTY_ADDRESS'] ?? party['party_address'] ?? '',
               'order': order,
-              'order_items':
-                  (order['items'] as List?)?.cast<Map<String, dynamic>>() ?? [],
-              'order_amount': event['order_amount'],
+              'order_items': orderItems,
+              'order_amount': event['ORDER_AMOUNT'] ?? event['order_amount'],
               // 🔥 NEW: Store additional fields from updated API
               'display_type': event['DISPLAY_TYPE'] ?? event['display_type'],
               'event_timestamp':
@@ -2000,11 +2145,15 @@ class _RouteMapViewState extends State<RouteMapView> {
                   itemCount: items.length,
                   itemBuilder: (context, index) {
                     final item = items[index];
-                    final itemName = item['ITEM_NAME'] as String? ?? '';
-                    final itemSname = item['ITEM_SNAME'] as String? ?? '';
-                    final quantity = item['QUANTITY'] ?? 0;
-                    final rate = item['RATE'] ?? 0;
-                    final amount = item['AMOUNT'] ?? 0;
+                    final itemName =
+                        (item['ITEM_NAME'] ?? item['item_name'] ?? '')
+                            .toString();
+                    final itemSname =
+                        (item['ITEM_SNAME'] ?? item['item_sname'] ?? '')
+                            .toString();
+                    final quantity = item['QUANTITY'] ?? item['quantity'] ?? 0;
+                    final rate = item['RATE'] ?? item['rate'] ?? 0;
+                    final amount = item['AMOUNT'] ?? item['amount'] ?? 0;
 
                     return Card(
                       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -4014,11 +4163,21 @@ class _RouteMapViewState extends State<RouteMapView> {
                   // Check if this is an order_placed event
                   final isOrderPlaced =
                       eventType.toLowerCase() == 'order_placed';
-                  final orderItems =
-                      item['order_items'] as List<Map<String, dynamic>>? ?? [];
-                  final partyName = item['party_name'] as String? ?? '';
-                  final partyCode = item['party_code'] as String? ?? '';
-                  final partyAddress = item['party_address'] as String? ?? '';
+                  final orderItems = _extractOrderItemsFromTimelineItem(item);
+                  final partyInfo = _extractPartyInfoFromTimelineItem(item);
+                  final partyName = partyInfo['partyName'] ?? '';
+                  final partyCode = partyInfo['partyCode'] ?? '';
+                  final partyAddress = partyInfo['partyAddress'] ?? '';
+
+                  if (isOrderPlaced && orderItems.isEmpty) {
+                    final dynamic rawOrder = item['ORDER'] ?? item['order'];
+                    final orderKeys = rawOrder is Map
+                        ? rawOrder.keys.map((k) => k.toString()).join(',')
+                        : 'none';
+                    print(
+                      '[RouteMapView] [ORDER_DEBUG] Empty order items for order_placed | O_ID=${item['O_ID'] ?? item['o_id'] ?? '-'} | eventKeys=${item.keys.take(30).join(',')} | orderKeys=$orderKeys',
+                    );
+                  }
 
                   print(
                       '[RouteMapView] Timeline Event - Type: "$eventType", isOrderPlaced: $isOrderPlaced, itemsCount: ${orderItems.length}, partyName: "$partyName"');
@@ -4059,7 +4218,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                           onTap: () {
                             _fetchAndShowPartyHistory(
                               _selectedUser?['userCode'] as String? ?? '',
-                              item['party_code'] as String? ?? '',
+                              partyCode,
                               partyName: partyName,
                             );
                           },
