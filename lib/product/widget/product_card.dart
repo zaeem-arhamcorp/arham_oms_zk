@@ -359,7 +359,8 @@ class _ProductCardState extends State<ProductCard> {
                         ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          SingleDecimalFormatter(),
                         ],
                         // onChanged: (val){
                         //   controller.isKeyboardOpen.value = false;
@@ -426,6 +427,9 @@ class _ProductCardState extends State<ProductCard> {
                         ),
                         controller: freeQtyController,
                         // Create a TextEditingController for this field
+                        inputFormatters: [
+                          SingleDecimalFormatter(),
+                        ],
                         onChanged: (value) {
                           selectedFreeDescription = value;
                         },
@@ -654,6 +658,7 @@ class _ProductCardState extends State<ProductCard> {
                             decimal: true),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          SingleDecimalFormatter(),
                         ],
                         onChanged: (value) {
                           cartController.setQuantity(
@@ -689,6 +694,9 @@ class _ProductCardState extends State<ProductCard> {
                           ),
                         ),
                         controller: freeQtyController,
+                        inputFormatters: [
+                          SingleDecimalFormatter(),
+                        ],
                         onChanged: (value) {
                           selectedFreeDescription = value;
                           cartController.setFreeQuantity(
@@ -1170,5 +1178,22 @@ class _ProductCardState extends State<ProductCard> {
     }
 
     return qtyText; // User entered qty
+  }
+}
+
+class SingleDecimalFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+
+    // Allow only one decimal point
+    if ('.'.allMatches(text).length > 1) {
+      return oldValue;
+    }
+
+    return newValue;
   }
 }

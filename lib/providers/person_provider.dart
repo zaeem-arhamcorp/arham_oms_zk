@@ -2,20 +2,20 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/providers/disposable_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
+
 import '../config/app_config.dart';
 import '../models/personModal.dart';
 import '../views/loginpage.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class PersonProvider extends DisposableProvider {
   PersonModal? person;
@@ -138,7 +138,8 @@ class PersonProvider extends DisposableProvider {
       modules,
       List<String> firmID,
       String email,
-      {String? imagePath}) async {
+      {bool sendWebType = false,
+      String? imagePath}) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final String addUserUrl = AppConfig.baseURL + "users";
     List<Map<String, dynamic>> firmIds = firmID
@@ -157,6 +158,10 @@ class PersonProvider extends DisposableProvider {
       "modules": modules,
       "firms": firmIds
     };
+
+    if (sendWebType) {
+      payload["type"] = 1;
+    }
 
     try {
       // Make HTTP POST request for each firm ID
@@ -219,7 +224,7 @@ class PersonProvider extends DisposableProvider {
 
   Future updatePerson(BuildContext context, usenname, userCd, password,
       phonenumber, type, active, modules, List<String> firmID, String email,
-      {String? imagePath}) async {
+      {bool sendWebType = false, String? imagePath}) async {
     personData.clear();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     final String updateUserUrl = AppConfig.baseURL + "users";
@@ -239,6 +244,10 @@ class PersonProvider extends DisposableProvider {
       "modules": modules,
       "firms": firmIds
     };
+
+    if (sendWebType) {
+      payload["type"] = "web";
+    }
 
     try {
       print("[UpdateUser] Flow started");

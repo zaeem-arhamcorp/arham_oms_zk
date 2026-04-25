@@ -64,6 +64,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
   List<Map<String, dynamic>> firmList = [];
   List<String> selectedFirmIds = [];
   List<String> selectedFirmNames = [];
+  bool allowWebAccess = false;
   bool isLoading = true; // Indicates loading state
 
   getModules() {
@@ -465,6 +466,19 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   ),
                                 ),
                               ),
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: allowWebAccess,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        allowWebAccess = value ?? false;
+                                      });
+                                    },
+                                  ),
+                                  const Text("Allow Web Access"),
+                                ],
+                              )
                             ],
                           ),
                         ),
@@ -804,6 +818,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   selectModules,
                                   selectedFirmIds,
                                   emailClt.text,
+                                  sendWebType: allowWebAccess,
                                   imagePath: _selectedUserImage?.path)
                               .then((value) {
                             person.changeLoading(false);
@@ -830,6 +845,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                                   selectModules,
                                   selectedFirmIds,
                                   emailClt.text,
+                                  sendWebType: allowWebAccess,
                                   imagePath: _selectedUserImage?.path)
                               .then((value) {
                             person.changeLoading(false);

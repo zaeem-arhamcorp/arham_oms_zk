@@ -166,6 +166,7 @@ class AuthServices {
       "mobileNo": mobileno,
       "firm_name": firmName,
       "email": emailId,
+      "type": "web",
     };
 
     // Only include referral_code when a non-empty value is provided

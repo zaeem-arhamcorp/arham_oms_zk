@@ -72,6 +72,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   List<Map<String, dynamic>> firmList = [];
   List<String> selectedFirmIds = [];
   List<String> selectedFirmNames = [];
+  bool allowWebAccess = false;
   bool isLoading = true; // Indicates loading state
 
   getModules() {
@@ -672,6 +673,19 @@ class _EditUserScreenState extends State<EditUserScreen> {
                                   ),
                                 ),
                               ),
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: allowWebAccess,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        allowWebAccess = value ?? false;
+                                      });
+                                    },
+                                  ),
+                                  const Text("Allow Web Access"),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -1008,6 +1022,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                                   selectModules,
                                   selectedFirmIds,
                                   email,
+                                  sendWebType: allowWebAccess,
                                   imagePath: _selectedUserImage?.path)
                               .then((value) {
                             person.changeLoading(false);
@@ -1040,6 +1055,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                                   selectModules,
                                   selectedFirmIds,
                                   email,
+                                  sendWebType: allowWebAccess,
                                   imagePath: _selectedUserImage?.path)
                               .then((value) {
                             print(value);

@@ -7,6 +7,10 @@ import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/user_exits_response.dart';
 import 'package:arham_corporation/network.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+//import 'package:fluttertoast/fluttertoast.dart';
+import 'package:arham_corporation/services/authservices.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/widgets/app_dimensions.dart';
 import 'package:arham_corporation/widgets/app_font_weight.dart';
 import 'package:arham_corporation/widgets/common_button.dart';
@@ -17,15 +21,11 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
-//import 'package:fluttertoast/fluttertoast.dart';
-import 'package:arham_corporation/services/authservices.dart';
-import 'package:arham_corporation/views/loginpage.dart';
 import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/global.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -798,4 +798,3 @@ class _SignUpPageState extends State<SignUpPage> {
 // isVerified.value = responseData['data']['user']['IS_VERIFIED'];
 // isVerified.value = response.data['data']['IS_VERIFIED'];
 }
-
