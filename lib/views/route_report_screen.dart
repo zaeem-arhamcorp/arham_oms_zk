@@ -1,12 +1,18 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/constants/constants.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -147,6 +153,16 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       _loadingUsers = true;
     });
     try {
+      final online = await NetworkHelper.hasInternet();
+      if (!online) {
+        if (!mounted) return;
+        setState(() {
+          _users = [];
+          _loadingUsers = false;
+        });
+        return;
+      }
+
       await CrashlyticsService.logAction('route_report_users_api_triggered');
       final ub = Provider.of<UserProvider>(context, listen: false);
       final token = ub.token;
@@ -244,6 +260,18 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     });
 
     try {
+      final online = await NetworkHelper.hasInternet();
+      if (!online) {
+        if (!mounted) return;
+        setState(() {
+          _isLoadingAllUsersForSearch = false;
+          if (syncPrimaryUsers) {
+            _loadingUsers = false;
+          }
+        });
+        return;
+      }
+
       final ub = Provider.of<UserProvider>(context, listen: false);
       final token = ub.token;
       if (token == null || token.isEmpty) {
@@ -401,6 +429,11 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     return '${d.year}-$mm-$dd';
   }
 
+  String _routeTripsCacheKey(String userCd) {
+    final normalizedUser = userCd.trim().isEmpty ? 'all' : userCd.trim();
+    return 'route_report_trips_${normalizedUser}_${_fmtDate(_fromDate)}_${_fmtDate(_toDate)}';
+  }
+
   String _displayDate(String? raw) {
     if (raw == null || raw.trim().isEmpty) return '-';
     final v = raw.trim();
@@ -525,34 +558,40 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
   /// Open date picker for "from date"
   Future<void> _pickFromDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fromDate,
-      firstDate: DateTime(2020),
-      lastDate: _toDate,
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: DateTime(2020, 1, 1),
+      maxTime: _toDate,
+      currentTime: _fromDate,
+      locale: LocaleType.en,
+      onConfirm: (date) {
+        if (!mounted) return;
+        setState(() {
+          _fromDate = DateTime(date.year, date.month, date.day);
+        });
+        _fetchTrips();
+      },
     );
-    if (picked != null) {
-      setState(() {
-        _fromDate = picked;
-      });
-      _fetchTrips();
-    }
   }
 
   /// Open date picker for "to date"
   Future<void> _pickToDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _toDate,
-      firstDate: _fromDate,
-      lastDate: DateTime.now(),
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: _fromDate,
+      maxTime: DateTime.now(),
+      currentTime: _toDate,
+      locale: LocaleType.en,
+      onConfirm: (date) {
+        if (!mounted) return;
+        setState(() {
+          _toDate = DateTime(date.year, date.month, date.day);
+        });
+        _fetchTrips();
+      },
     );
-    if (picked != null) {
-      setState(() {
-        _toDate = picked;
-      });
-      _fetchTrips();
-    }
   }
 
   /// Build date range filter widget
@@ -566,7 +605,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         child: GestureDetector(
           onTap: onTap,
           child: SizedBox(
-            height: 55,
+            height: 60,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -578,7 +617,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                     decoration: BoxDecoration(
                       color: Colors.transparent,
                       border: Border.all(color: const Color(0xFF0D5C92)),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                     child: Row(
                       children: [
@@ -975,6 +1014,14 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     }
   }
 
+  bool _tripHasSelfie(Map<String, dynamic> trip) {
+    final raw = trip['HAS_SELFIE'] ?? trip['has_selfie'];
+    if (raw is bool) return raw;
+
+    final value = raw?.toString().toLowerCase();
+    return value == 'true' || value == '1' || value == 'y';
+  }
+
   Future<void> _fetchTrips() async {
     final ub = Provider.of<UserProvider>(context, listen: false);
     final token = ub.token;
@@ -983,6 +1030,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final userCd = _selectedUserCode.isNotEmpty
         ? _selectedUserCode
         : (widget.selectedUserCd?.trim() ?? '');
+    final cacheKey = _routeTripsCacheKey(userCd);
 
     final syncId = ub.syncId?.trim() ?? '';
 
@@ -999,6 +1047,19 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       _loading = true;
       _error = null;
     });
+
+    final online = await NetworkHelper.hasInternet();
+    if (!online) {
+      AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
+      if (!mounted) return;
+      setState(() {
+        _trips = <Map<String, dynamic>>[];
+        _error = null;
+        _loading = false;
+      });
+      return;
+    }
+
     try {
       await CrashlyticsService.logAction(
         'route_report_trips_api_triggered',
@@ -1066,7 +1127,12 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         if (!mounted) return;
         setState(() {
           _trips = trips;
+          _error = null;
         });
+
+        try {
+          await DatabaseHelper().cacheHomeData(cacheKey, jsonEncode(trips));
+        } catch (_) {}
       } else {
         if (!mounted) return;
         setState(() {
@@ -1077,14 +1143,19 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     } catch (e, stack) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to fetch trip history: $e';
+        _error = 'Failed to fetch trip history';
         _trips = <Map<String, dynamic>>[];
       });
-      await CrashlyticsService.recordNonFatal(
-        e,
-        stack,
-        reason: 'route_report_trips_fetch_failed',
-      );
+
+      final isOfflineSocketIssue =
+          e is SocketException || e.toString().contains('SocketException');
+      if (!isOfflineSocketIssue) {
+        await CrashlyticsService.recordNonFatal(
+          e,
+          stack,
+          reason: 'route_report_trips_fetch_failed',
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -1343,6 +1414,8 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final businessKmText = distanceBreakdown == null
         ? '-'
         : '${distanceBreakdown['BUSINESS_KM'] ?? '-'}';
+    final hasSelfie = _tripHasSelfie(trip);
+
     return GestureDetector(
       onTap: () {
         CrashlyticsService.logAction(
@@ -1440,7 +1513,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Trip ID: $tripId',
+                  'Trip#$tripId',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -1451,29 +1524,35 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                   "View Details",
                   style: TextStyle(color: Color(0xff006709)),
                 ),
-                GestureDetector(
-                  onTap: () => _openTripSelfie(tripId),
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(50),
-                      border: Border.all(color: Colors.grey),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.person,
-                          size: 15,
-                          color: Color(0xff4c4c4c),
-                        ),
-                        Text(
-                          'View Selfie',
-                          style: TextStyle(color: Color(0xff4c4c4c)),
-                        ),
-                      ],
+                if (hasSelfie) ...[
+                  GestureDetector(
+                    onTap: () => _openTripSelfie(tripId),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(50),
+                        border: Border.all(color: Colors.grey),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.person,
+                            size: 15,
+                            color: Color(0xff4c4c4c),
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Selfie',
+                            style: TextStyle(color: Color(0xff4c4c4c)),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                )
+                ]
               ],
             ),
             const SizedBox(height: 14),
@@ -1602,7 +1681,9 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   Widget _buildUserDropdown() {
     if (_loadingUsers && _users.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+        ),
         child: Row(
           children: [
             CircularProgressIndicator(strokeWidth: 2),
@@ -1615,7 +1696,11 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     if (_users.isEmpty) return SizedBox.shrink();
     return Container(
       color: Color(0xFFF3F4FA),
-      padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+      padding: EdgeInsets.only(
+        left: 10,
+        right: 10,
+        top: 10,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

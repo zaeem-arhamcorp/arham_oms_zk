@@ -108,19 +108,27 @@ class Account {
   Account({
     required this.accName,
     required this.accCd,
+    required this.accCity,
+    required this.accZone,
   });
 
   String accName;
   String accCd;
+  String accCity;
+  String accZone;
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
         accName: json["ACC_NAME"],
         accCd: json["ACC_CD"],
+        accCity: json["CITY"],
+        accZone: json["ZONE"],
       );
 
   Map<String, dynamic> toJson() => {
         "ACC_NAME": accName,
         "ACC_CD": accCd,
+        "CITY": accCity,
+        "ZONE": accZone,
       };
 }
 

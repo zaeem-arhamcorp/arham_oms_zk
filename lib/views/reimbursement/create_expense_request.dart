@@ -7,6 +7,7 @@ import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/widgets/bottomnavebar.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -164,21 +165,23 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
 
   Future<void> _pickDate() async {
     debugPrint('[Reimbursement][Create] Opening date picker');
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: DateTime(2000, 1, 1),
+      maxTime: DateTime.now().add(const Duration(days: 365)),
+      currentTime: _selectedDate,
+      locale: LocaleType.en,
+      onConfirm: (date) {
+        if (!mounted) return;
+        setState(() {
+          _selectedDate = DateTime(date.year, date.month, date.day);
+        });
+        debugPrint(
+          '[Reimbursement][Create] Date selected: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}',
+        );
+      },
     );
-
-    if (pickedDate != null) {
-      setState(() {
-        _selectedDate = pickedDate;
-      });
-      debugPrint(
-        '[Reimbursement][Create] Date selected: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}',
-      );
-    }
   }
 
   // Future<void> _pickImageDailyAllowance() async {

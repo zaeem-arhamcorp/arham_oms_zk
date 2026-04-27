@@ -1,9 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/constants/constants.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/reimbursement/reimbursement_edit_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -45,16 +50,32 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
 
   Future<void> _fetchReimbursements() async {
     debugPrint('[Reimbursement][MyRequests][API] Fetch started');
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      final bool online = await NetworkHelper.hasInternet();
+      if (!online) {
+        AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
+        if (!mounted) return;
+        setState(() {
+          _requests = <Map<String, dynamic>>[];
+          _myRequestCount = 0;
+          _myAmountTotal = 0.0;
+          _errorMessage = null;
+          _isLoading = false;
+        });
+        return;
+      }
+
       final String? token =
           Provider.of<UserProvider>(context, listen: false).token;
       if (token == null || token.isEmpty) {
         debugPrint('[Reimbursement][MyRequests][API] Missing token');
+        if (!mounted) return;
         setState(() {
           _errorMessage = 'User token not found. Please login again.';
           _isLoading = false;
@@ -67,6 +88,7 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
           Provider.of<UserProvider>(context, listen: false).syncId;
       if (syncId == null || syncId.isEmpty) {
         debugPrint('[Reimbursement][MyRequests][API] Missing syncId');
+        if (!mounted) return;
         setState(() {
           _errorMessage = 'Firm information not found. Please login again.';
           _isLoading = false;
@@ -101,6 +123,8 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
       );
       debugPrint(
           '[Reimbursement][MyRequests][API] Response length: ${response.body.length} bytes');
+
+      if (!mounted) return;
 
       final dynamic rawData = decoded['data'];
       final List<Map<String, dynamic>> allRecords = (rawData is List)
@@ -164,8 +188,24 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
       }
     } catch (e) {
       debugPrint('[Reimbursement][MyRequests][API] Exception: $e');
+      if (!mounted) return;
+
+      final bool isOfflineSocketIssue =
+          e is SocketException || e.toString().contains('SocketException');
+      if (isOfflineSocketIssue) {
+        AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
+        setState(() {
+          _requests = <Map<String, dynamic>>[];
+          _myRequestCount = 0;
+          _myAmountTotal = 0.0;
+          _errorMessage = null;
+          _isLoading = false;
+        });
+        return;
+      }
+
       setState(() {
-        _errorMessage = 'Failed to fetch reimbursements: $e';
+        _errorMessage = 'Failed to fetch reimbursements';
         _isLoading = false;
       });
     }
@@ -175,39 +215,42 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
     debugPrint(
       '[Reimbursement][MyRequests] Opening ${isFromDate ? 'fromDate' : 'toDate'} picker',
     );
-    final DateTime initialDate = isFromDate ? _fromDate : _toDate;
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: DateTime(2000, 1, 1),
+      maxTime: DateTime(2100, 12, 31),
+      currentTime: isFromDate ? _fromDate : _toDate,
+      locale: LocaleType.en,
+      onConfirm: (date) async {
+        if (!mounted) return;
+        final DateTime pickedDate = DateTime(date.year, date.month, date.day);
 
-    if (pickedDate == null) return;
+        final DateTime oldFromDate = _fromDate;
+        final DateTime oldToDate = _toDate;
 
-    final DateTime oldFromDate = _fromDate;
-    final DateTime oldToDate = _toDate;
+        setState(() {
+          if (isFromDate) {
+            _fromDate = pickedDate;
+            if (_fromDate.isAfter(_toDate)) {
+              _toDate = _fromDate;
+            }
+          } else {
+            _toDate = pickedDate;
+            if (_toDate.isBefore(_fromDate)) {
+              _fromDate = _toDate;
+            }
+          }
+        });
+        debugPrint(
+          '[Reimbursement][MyRequests] Selected range: ${_apiDateFormat.format(_fromDate)} to ${_apiDateFormat.format(_toDate)}',
+        );
 
-    setState(() {
-      if (isFromDate) {
-        _fromDate = pickedDate;
-        if (_fromDate.isAfter(_toDate)) {
-          _toDate = _fromDate;
+        if (oldFromDate != _fromDate || oldToDate != _toDate) {
+          await _fetchReimbursements();
         }
-      } else {
-        _toDate = pickedDate;
-        if (_toDate.isBefore(_fromDate)) {
-          _fromDate = _toDate;
-        }
-      }
-    });
-    debugPrint(
-      '[Reimbursement][MyRequests] Selected range: ${_apiDateFormat.format(_fromDate)} to ${_apiDateFormat.format(_toDate)}',
+      },
     );
-
-    if (oldFromDate != _fromDate || oldToDate != _toDate) {
-      await _fetchReimbursements();
-    }
   }
 
   Color _statusColor(String status) {
@@ -251,11 +294,28 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Filter By Date',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'From',
+                    style: TextStyle(
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'To',
+                    style: TextStyle(
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 2),
             Row(
               children: [
                 Expanded(
@@ -263,14 +323,18 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
                     onPressed: () => _pickDate(isFromDate: true),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
                     ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text(_apiDateFormat.format(_fromDate)),
                         Icon(
                           Icons.calendar_today_outlined,
-                          size: 12,
+                          size: 18,
                         ),
-                        Text(' From: ${_apiDateFormat.format(_fromDate)}'),
                       ],
                     ),
                   ),
@@ -281,14 +345,18 @@ class _MyReimbursementsViewState extends State<MyReimbursementsView>
                     onPressed: () => _pickDate(isFromDate: false),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
                     ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text('${_apiDateFormat.format(_toDate)}'),
                         Icon(
                           Icons.calendar_today_outlined,
-                          size: 12,
+                          size: 18,
                         ),
-                        Text(' To: ${_apiDateFormat.format(_toDate)}'),
                       ],
                     ),
                   ),

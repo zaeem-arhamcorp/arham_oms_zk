@@ -7,6 +7,7 @@ import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/widgets/common_timeline_tile.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -2074,20 +2075,24 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Future<void> _selectDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedTimelineDate,
-      firstDate: DateTime(2024, 1, 1),
-      lastDate: DateTime.now(),
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: DateTime(2024, 1, 1),
+      maxTime: DateTime.now(),
+      currentTime: _selectedTimelineDate,
+      locale: LocaleType.en,
+      onConfirm: (date) {
+        if (!mounted) return;
+        final picked = DateTime(date.year, date.month, date.day);
+        setState(() {
+          _selectedTimelineDate = picked;
+        });
+        if (_selectedUser != null) {
+          _fetchTimelineForUser(_selectedUser!, picked);
+        }
+      },
     );
-    if (picked != null) {
-      setState(() {
-        _selectedTimelineDate = picked;
-      });
-      if (_selectedUser != null) {
-        _fetchTimelineForUser(_selectedUser!, picked);
-      }
-    }
   }
 
   void _callUser(String phoneNumber) async {
@@ -2460,17 +2465,21 @@ class _RouteMapViewState extends State<RouteMapView> {
                       Expanded(
                         child: InkWell(
                           onTap: () async {
-                            final picked = await showDatePicker(
-                              context: dialogContext,
-                              initialDate: fromDate,
-                              firstDate: DateTime(2020, 1, 1),
-                              lastDate: toDate,
+                            DatePicker.showDatePicker(
+                              dialogContext,
+                              showTitleActions: true,
+                              minTime: DateTime(2020, 1, 1),
+                              maxTime: toDate,
+                              currentTime: fromDate,
+                              locale: LocaleType.en,
+                              onConfirm: (date) {
+                                if (!dialogContext.mounted) return;
+                                setDialogState(() {
+                                  fromDate =
+                                      DateTime(date.year, date.month, date.day);
+                                });
+                              },
                             );
-                            if (picked != null) {
-                              setDialogState(() {
-                                fromDate = picked;
-                              });
-                            }
                           },
                           child: InputDecorator(
                             decoration: const InputDecoration(
@@ -2488,17 +2497,21 @@ class _RouteMapViewState extends State<RouteMapView> {
                       Expanded(
                         child: InkWell(
                           onTap: () async {
-                            final picked = await showDatePicker(
-                              context: dialogContext,
-                              initialDate: toDate,
-                              firstDate: fromDate,
-                              lastDate: DateTime.now(),
+                            DatePicker.showDatePicker(
+                              dialogContext,
+                              showTitleActions: true,
+                              minTime: fromDate,
+                              maxTime: DateTime.now(),
+                              currentTime: toDate,
+                              locale: LocaleType.en,
+                              onConfirm: (date) {
+                                if (!dialogContext.mounted) return;
+                                setDialogState(() {
+                                  toDate =
+                                      DateTime(date.year, date.month, date.day);
+                                });
+                              },
                             );
-                            if (picked != null) {
-                              setDialogState(() {
-                                toDate = picked;
-                              });
-                            }
                           },
                           child: InputDecorator(
                             decoration: const InputDecoration(

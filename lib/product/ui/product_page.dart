@@ -418,6 +418,13 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   @override
+  void setState(VoidCallback fn) {
+    if (mounted) {
+      super.setState(fn);
+    }
+  }
+
+  @override
   void initState() {
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
@@ -1487,10 +1494,11 @@ class _ProductsPageState extends State<ProductsPage> {
                   _hasLoadedPartyDataInThisSheet = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) async {
                     // 🛡️ Mounted guard: Prevent null context if widget disposed
-                    if (!mounted) return;
+                    if (!mounted || !context.mounted) return;
                     await pp.getPartyNameProductPage(context);
                     await pp.sortPartiesByDistance();
-                    if (!mounted) return; // Guard before setState
+                    if (!mounted || !context.mounted)
+                      return; // Guard before setState
                     setStatee(() {});
                   });
                 }
@@ -1558,7 +1566,9 @@ class _ProductsPageState extends State<ProductsPage> {
                                             pageContext);
 
                                         //  STEP 2: Rebuild bottom sheet UI
-                                        if (mounted) setStatee(() {});
+                                        if (mounted && context.mounted) {
+                                          setStatee(() {});
+                                        }
 
                                         //  STEP 3: (Optional) Update selected values
                                         controller.selectedPartyName.value =
@@ -1576,7 +1586,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                   controller: searchPartyClt,
                                   onChanged: (value) {
                                     //4
-                                    if (mounted) {
+                                    if (mounted && context.mounted) {
                                       setStatee(() {
                                         final searchResults =
                                             Helper.buildSearchList(
@@ -1931,25 +1941,29 @@ class _ProductsPageState extends State<ProductsPage> {
             print('[START_ORDER] ✅ Start order API completed');
 
             // Update UI immediately
-            setState(() {
-              dataProduct.clear();
-              isLoading = true;
-              qty.clear();
-              freeQty.clear();
-            });
+            if (mounted) {
+              this.setState(() {
+                dataProduct.clear();
+                isLoading = true;
+                qty.clear();
+                freeQty.clear();
+              });
+            }
 
             print('[START_ORDER] 📦 Background: Fetching products...');
             // 📦 Background: Fetch products and cart (non-blocking)
             Future.microtask(() async {
               try {
+                if (!mounted) return;
                 await controller.fetchProductsFromAPI();
                 print('[START_ORDER] ✅ Background: Products fetched');
 
                 // Update cart
                 if (controller.selectedPartyId.isNotEmpty) {
                   cartController.productAddedStates.clear();
+                  if (!mounted) return;
                   await cart.getCartItem(
-                      Get.context!, controller.selectedPartyId.value);
+                      context, controller.selectedPartyId.value);
 
                   for (var item in cart.data) {
                     cartController.productAddedStates[item.itemCd] = true;
@@ -1962,14 +1976,18 @@ class _ProductsPageState extends State<ProductsPage> {
                   print('[START_ORDER] ✅ Background: Cart updated');
                 }
 
-                setState(() {
-                  isLoading = false;
-                });
+                if (mounted) {
+                  this.setState(() {
+                    isLoading = false;
+                  });
+                }
               } catch (e) {
                 print('[START_ORDER] ❌ Background error: $e');
-                setState(() {
-                  isLoading = false;
-                });
+                if (mounted) {
+                  this.setState(() {
+                    isLoading = false;
+                  });
+                }
               }
             });
           } catch (e) {

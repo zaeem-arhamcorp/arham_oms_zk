@@ -78,9 +78,11 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   bool loading = false;
 
   deleteCartItem(cartid, itemCd) async {
-    setState(() {
-      loading = true;
-    });
+    if (mounted) {
+      setState(() {
+        loading = true;
+      });
+    }
 
     // 📡 Optimistic loading: Try API immediately (no pre-flight check)
     // If offline, delete locally and sync when internet returns
@@ -110,16 +112,17 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         }
 
         // ⚡ FAST: Just update local state, don't refetch entire cart
-        setState(() {
-          datacart.removeWhere((item) => item.itemCd == itemCd);
-          qty.remove(itemCd);
-          freeQty.remove(itemCd);
-          rate.remove(itemCd);
-          remarks.remove(itemCd);
-          loading = false;
-          // Recalculate totals
-          calculateNetAmount();
-        });
+        if (mounted) {
+          setState(() {
+            datacart.removeWhere((item) => item.itemCd == itemCd);
+            qty.remove(itemCd);
+            freeQty.remove(itemCd);
+            rate.remove(itemCd);
+            remarks.remove(itemCd);
+            // Recalculate totals
+            calculateNetAmount();
+          });
+        }
         CartController controller = Get.put(CartController());
         controller.removeProductLocally(itemCd);
       } else {
@@ -148,24 +151,28 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             backgroundColor: Colors.orange);
 
         // ⚡ FAST: Just update local state
-        setState(() {
-          datacart.removeWhere((item) => item.itemCd == itemCd);
-          qty.remove(itemCd);
-          freeQty.remove(itemCd);
-          rate.remove(itemCd);
-          remarks.remove(itemCd);
-          loading = false;
-          // Recalculate totals
-          calculateNetAmount();
-        });
+        if (mounted) {
+          setState(() {
+            datacart.removeWhere((item) => item.itemCd == itemCd);
+            qty.remove(itemCd);
+            freeQty.remove(itemCd);
+            rate.remove(itemCd);
+            remarks.remove(itemCd);
+            // Recalculate totals
+            calculateNetAmount();
+          });
+        }
         CartController controller = Get.put(CartController());
         controller.removeProductLocally(itemCd);
       } catch (deleteError) {
+        AppSnackBar.showGetXCustomSnackBar(message: "Failed to remove item");
+        print('[CART] Error deleting offline: $deleteError');
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           loading = false;
         });
-        AppSnackBar.showGetXCustomSnackBar(message: "Failed to remove item");
-        print('[CART] Error deleting offline: $deleteError');
       }
     }
   }
@@ -859,7 +866,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             child: Container(
               padding: EdgeInsets.only(
                   top: 10.h, left: 15.h, bottom: 10.h, right: 15.h),
-              height: 120.h,
+              // height: 120.h,
               width: size.width,
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -944,7 +951,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                       //   ),
                       // ),
                       SizedBox(
-                        width: 25.w,
+                        width: 15.w,
                       ),
                       GestureDetector(
                         onTap: () {
@@ -1037,7 +1044,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                           ),
                           child: Text(
                             "Order Now",
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 10.w),
                           ),
                         ),
                       )
@@ -1223,8 +1231,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                           : datacart.isEmpty &&
                                                   searchItemClt.text.isEmpty
                                               ? Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
+                                                  child: loading
+                                                      ? CircularProgressIndicator()
+                                                      : Text("No Item Found"),
                                                 )
                                               : Padding(
                                                   padding:

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
@@ -6,6 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
+import '../../constants/constants.dart';
+import '../../helper/network_helper.dart';
+import '../../product/widget/app_snack_bar.dart';
 
 // ApprovalActionSheet widget must be at the top of the file for visibility
 class ApprovalActionSheet extends StatefulWidget {
@@ -170,6 +175,19 @@ class _ReimbursementApprovalsViewState
       _errorMessage = null;
     });
 
+    final bool online = await NetworkHelper.hasInternet();
+    if (!online) {
+      AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
+
+      if (!mounted) return;
+      setState(() {
+        _requests = <Map<String, dynamic>>[];
+        _errorMessage = null;
+        _isLoading = false;
+      });
+      return;
+    }
+
     try {
       final String? token =
           Provider.of<UserProvider>(context, listen: false).token;
@@ -276,13 +294,27 @@ class _ReimbursementApprovalsViewState
       }
     } catch (e) {
       debugPrint('[Reimbursement][Approvals][API] Exception: $e');
-      // 🛡️ Mounted guard: Widget might be disposed during exception handling
-      if (mounted) {
+
+      if (!mounted) return;
+
+      final bool isOfflineSocketIssue =
+          e is SocketException || e.toString().contains('SocketException');
+
+      if (isOfflineSocketIssue) {
+        AppSnackBar.showGetXCustomSnackBar(message: Constants.networkMsg);
+
         setState(() {
-          _errorMessage = 'Failed to fetch approval reimbursements: $e';
+          _requests = <Map<String, dynamic>>[];
+          _errorMessage = null;
           _isLoading = false;
         });
+        return;
       }
+
+      setState(() {
+        _errorMessage = 'Failed to fetch approval reimbursements';
+        _isLoading = false;
+      });
     }
   }
 

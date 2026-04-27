@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/ItemWiseReportModal.dart';
@@ -25,6 +26,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../config/app_config.dart';
+import '../constants/constants.dart';
 import '../models/accountLeagerReportModal.dart';
 import '../models/dailReportListModal.dart';
 import '../models/dashboardmodal.dart';
@@ -63,7 +65,13 @@ class Services {
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+
+      final isNetworkError =
+          e is SocketException || e.toString().contains('SocketException');
+
+      AppSnackBar.showGetXCustomSnackBar(
+        message: isNetworkError ? Constants.networkMsg : "Something went wrong",
+      );
       print("Error in Services getDashboard data Dashboard ${e.toString()}");
     }
     return null;
@@ -298,7 +306,13 @@ class Services {
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
-      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+
+      final isNetworkError =
+          e is SocketException || e.toString().contains('SocketException');
+
+      AppSnackBar.showGetXCustomSnackBar(
+        message: isNetworkError ? Constants.networkMsg : "Something went wrong",
+      );
       //Fluttertoast.showToast(msg: "Something went wrong");;
       print("Error in Services addItemtoCart data ${e.toString()}");
     }

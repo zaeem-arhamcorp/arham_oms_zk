@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/constants/constants.dart';
 import 'package:arham_corporation/network.dart';
@@ -7,9 +8,9 @@ import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:http/http.dart' as http;
 
 class ReferralController extends GetxController {
   var isLoading = false.obs;

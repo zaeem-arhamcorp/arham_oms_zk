@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/tasks/models/department_model.dart';
 import 'package:arham_corporation/views/tasks/models/hierarchy_user_model.dart';
@@ -8,8 +11,11 @@ import 'package:arham_corporation/views/tasks/services/api_service.dart';
 import 'package:arham_corporation/views/tasks/task_detail_view.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../constants/constants.dart';
 
 class TaskListView extends StatefulWidget {
   const TaskListView({super.key});
@@ -51,6 +57,12 @@ class _TaskListViewState extends State<TaskListView> {
 
   Future<void> _onRefresh() async {
     await _fetchDepartmentTasks();
+  }
+
+  String getErrorMessage(dynamic e) {
+    return (e is SocketException || e.toString().contains('SocketException'))
+        ? Constants.networkMsg
+        : "Something went wrong";
   }
 
   Future<void> _fetchDepartmentsAndTasks() async {
@@ -109,12 +121,19 @@ class _TaskListViewState extends State<TaskListView> {
       await _fetchDepartmentTasks();
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error loading data: $e';
+        final isNetworkError =
+            e is SocketException || e.toString().contains('SocketException');
+
+        _errorMessage =
+            isNetworkError ? Constants.networkMsg : 'Error loading data';
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_errorMessage ?? 'Error loading data')),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //     SnackBar(content: Text(_errorMessage ?? Constants.networkMsg)));
+        AppSnackBar.showGetXCustomSnackBar(
+          message: _errorMessage ?? Constants.networkMsg,
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -196,8 +215,12 @@ class _TaskListViewState extends State<TaskListView> {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_errorMessage ?? 'Error loading tasks')),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(content: Text(getErrorMessage(e))),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: getErrorMessage(e),
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -258,11 +281,15 @@ class _TaskListViewState extends State<TaskListView> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response.message),
-          backgroundColor: Colors.green,
-        ),
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(
+      //     content: Text(response.message),
+      //     backgroundColor: Colors.green,
+      //   ),
+      // );
+      AppSnackBar.showGetXCustomSnackBar(
+        message: response.message,
+        backgroundColor: Colors.green,
       );
     }
 
@@ -315,11 +342,15 @@ class _TaskListViewState extends State<TaskListView> {
                               if (!mounted) {
                                 return;
                               }
-                              ScaffoldMessenger.of(this.context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error assigning task: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
+                              // ScaffoldMessenger.of(this.context).showSnackBar(
+                              //   SnackBar(
+                              //     content: Text('Error assigning task: $e'),
+                              //     backgroundColor: Colors.red,
+                              //   ),
+                              // );
+                              AppSnackBar.showGetXCustomSnackBar(
+                                message: 'Error assigning task: $e',
+                                backgroundColor: Colors.red,
                               );
                             }
                           },
@@ -340,11 +371,15 @@ class _TaskListViewState extends State<TaskListView> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to load child users: $e'),
-          backgroundColor: Colors.red,
-        ),
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(
+      //     content: Text('Unable to load child users: $e'),
+      //     backgroundColor: Colors.red,
+      //   ),
+      // );
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Unable to load child users: $e',
+        backgroundColor: Colors.red,
       );
     }
   }
@@ -778,18 +813,20 @@ class _TaskListViewState extends State<TaskListView> {
                           Expanded(
                             child: InkWell(
                               onTap: () async {
-                                final DateTime? picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2023),
-                                  lastDate: DateTime(2100),
+                                DatePicker.showDatePicker(
+                                  context,
+                                  showTitleActions: true,
+                                  minTime: DateTime(2023, 1, 1),
+                                  maxTime: DateTime(2100, 12, 31),
+                                  currentTime: DateTime.now(),
+                                  locale: LocaleType.en,
+                                  onConfirm: (date) {
+                                    setDialogState(() {
+                                      localFilterFromDate =
+                                          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                    });
+                                  },
                                 );
-                                if (picked != null) {
-                                  setDialogState(() {
-                                    localFilterFromDate =
-                                        '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-                                  });
-                                }
                               },
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
@@ -832,18 +869,20 @@ class _TaskListViewState extends State<TaskListView> {
                           Expanded(
                             child: InkWell(
                               onTap: () async {
-                                final DateTime? picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2023),
-                                  lastDate: DateTime(2100),
+                                DatePicker.showDatePicker(
+                                  context,
+                                  showTitleActions: true,
+                                  minTime: DateTime(2023, 1, 1),
+                                  maxTime: DateTime(2100, 12, 31),
+                                  currentTime: DateTime.now(),
+                                  locale: LocaleType.en,
+                                  onConfirm: (date) {
+                                    setDialogState(() {
+                                      localFilterToDate =
+                                          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                    });
+                                  },
                                 );
-                                if (picked != null) {
-                                  setDialogState(() {
-                                    localFilterToDate =
-                                        '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-                                  });
-                                }
                               },
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
@@ -1404,11 +1443,15 @@ class _TaskListViewState extends State<TaskListView> {
       _logDebug('selfAssignTask response: ${response.message}');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.green,
-          ),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text(response.message),
+        //     backgroundColor: Colors.green,
+        //   ),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: response.message,
+          backgroundColor: Colors.green,
         );
 
         // Refresh the task list
@@ -1416,11 +1459,15 @@ class _TaskListViewState extends State<TaskListView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error taking task: $e'),
-            backgroundColor: Colors.red,
-          ),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text('Error taking task: $e'),
+        //     backgroundColor: Colors.red,
+        //   ),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Error taking task: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -1462,21 +1509,29 @@ class _TaskListViewState extends State<TaskListView> {
       _logDebug('reopenTask response: taskId=${task.taskId}');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task reopened successfully'),
-            backgroundColor: Colors.green,
-          ),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(
+        //     content: Text('Task reopened successfully'),
+        //     backgroundColor: Colors.green,
+        //   ),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Task reopened successfully',
+          backgroundColor: Colors.green,
         );
         _fetchDepartmentTasks();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error reopening task: $e'),
-            backgroundColor: Colors.red,
-          ),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text('Error reopening task: $e'),
+        //     backgroundColor: Colors.red,
+        //   ),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Error reopening task: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -1507,21 +1562,29 @@ class _TaskListViewState extends State<TaskListView> {
           'updateTaskStatus response: taskId=${task.taskId} status=$status note=$note');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(successMessage),
-            backgroundColor: Colors.green,
-          ),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text(successMessage),
+        //     backgroundColor: Colors.green,
+        //   ),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: successMessage,
+          backgroundColor: Colors.green,
         );
         _fetchDepartmentTasks();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating task status: $e'),
-            backgroundColor: Colors.red,
-          ),
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text('Error updating task status: $e'),
+        //     backgroundColor: Colors.red,
+        //   ),
+        // );
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Error updating task status: $e',
+          backgroundColor: Colors.red,
         );
       }
     }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -365,18 +366,23 @@ class _ReimbursementEditPageState extends State<ReimbursementEditPage> {
   }
 
   Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: DateTime(2020, 1, 1),
+      maxTime: DateTime.now(),
+      currentTime: _selectedDate,
+      locale: LocaleType.en,
+      onConfirm: (date) {
+        if (!mounted) return;
+        final picked = DateTime(date.year, date.month, date.day);
+        if (picked != _selectedDate) {
+          setState(() {
+            _selectedDate = picked;
+            _dateController.text = _displayDateFormat.format(_selectedDate);
+          });
+        }
+      },
     );
-
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-        _dateController.text = _displayDateFormat.format(_selectedDate);
-      });
-    }
   }
 }

@@ -207,6 +207,62 @@ class AuthServices {
     }
   }
 
+  Future<Map<String, dynamic>> validateReferralCode(referralCode) async {
+    try {
+      final requestUrl = AppConfig.validateReferralCodeUrl;
+      final requestPayload = {
+        'app_type': 'oms',
+        'referral_code': referralCode?.toString() ?? '',
+      };
+
+      print('[AuthServices][validateReferralCode] URL: $requestUrl');
+      print(
+        '[AuthServices][validateReferralCode] Payload: ${jsonEncode(requestPayload)}',
+      );
+
+      final response = await http.post(
+        Uri.parse(requestUrl),
+        headers: {
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestPayload),
+      );
+
+      print(
+        '[AuthServices][validateReferralCode] Response (${response.statusCode}): ${response.body}',
+      );
+
+      final decoded = json.decode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final status = decoded is Map && decoded['status'] is bool
+            ? decoded['status'] as bool
+            : true;
+
+        return {
+          'status': status,
+          'message': decoded is Map && decoded['message'] != null
+              ? decoded['message'].toString()
+              : '',
+        };
+      }
+
+      return {
+        'status': false,
+        'message': decoded is Map && decoded['message'] != null
+            ? decoded['message'].toString()
+            : 'Invalid referral code',
+      };
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      return {
+        'status': false,
+        'message': 'Unable to validate referral code',
+      };
+    }
+  }
+
   Future<dynamic> verifyOTP(
       String mobileNumber, String otp, BuildContext context) async {
     final Global global = Provider.of<Global>(context, listen: false);

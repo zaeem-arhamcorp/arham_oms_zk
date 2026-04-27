@@ -6,6 +6,7 @@ import 'package:arham_corporation/views/tasks/models/stockist_model.dart';
 import 'package:arham_corporation/views/tasks/services/api_service.dart';
 import 'package:arham_corporation/views/tasks/task_list_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
@@ -59,20 +60,20 @@ class _AssignTaskViewState extends State<AssignTaskView> {
   Future<void> _pickDueDate() async {
     final DateTime now = DateTime.now();
     final DateTime initialDate = _selectedDueDate ?? now;
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: now,
-      lastDate: DateTime(2100),
+    DatePicker.showDatePicker(
+      context,
+      showTitleActions: true,
+      minTime: now,
+      maxTime: DateTime(2100, 12, 31),
+      currentTime: initialDate,
+      locale: LocaleType.en,
+      onConfirm: (date) {
+        if (!mounted) return;
+        setState(() {
+          _selectedDueDate = DateTime(date.year, date.month, date.day);
+        });
+      },
     );
-
-    if (picked == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _selectedDueDate = picked;
-    });
   }
 
   @override

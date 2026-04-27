@@ -636,6 +636,8 @@ class _ProfilePageState extends State<ProfilePage> {
         ? (_existingImageUrl ?? '').trim()
         : (p.data?.userImageUrl ?? '').toString().trim();
 
+    const buildTime = String.fromEnvironment('BUILD_TIME');
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(
@@ -704,7 +706,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          Text("Build date: 23 April 2026 | Version: "),
+          Text("Build date: $buildTime"),
         ],
       ),
       drawer: CommonAppDrawer(
@@ -800,18 +802,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 label: "Email",
               ),
               Padding(
-                padding:
-                    const EdgeInsets.only(top: 30.0), // Increased top padding
+                padding: const EdgeInsets.only(
+                  top: 30.0,
+                  left: 9,
+                  right: 9,
+                ), // Increased top padding
                 child: Center(
-                  child: Card(
-                    shadowColor: Colors
-                        .lightBlueAccent, // Slightly different color for variety
-                    elevation: 5,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(
-                            color: Colors
-                                .black54)), // Slightly less prominent border
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                     child: TextButton(
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
@@ -821,15 +823,15 @@ class _ProfilePageState extends State<ProfilePage> {
                               8), // Match card's border radius
                         ),
                       ),
-                      child: const Text(
-                        "Delete Account",
-                        style: TextStyle(
-                            color: Colors.red, fontWeight: FontWeight.bold),
-                      ),
                       onPressed: () {
                         _showDeleteConfirmationDialog(context,
                             userProvider); // Pass userProvider if needed for deletion
                       },
+                      child: const Text(
+                        "Delete Account",
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ),
@@ -849,9 +851,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(
           vertical: 8.0, horizontal: 8.0), // Consistent padding
-      child: Card(
-        shadowColor: Colors.lightBlue,
-        elevation: 5,
+      child: Container(
         child: TextFormField(
           readOnly: true,
           controller: controller,

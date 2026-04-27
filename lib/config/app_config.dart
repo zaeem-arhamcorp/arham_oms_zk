@@ -31,11 +31,11 @@ class AppConfig {
   //77f08058cf3f204c343128a5b54e2c4786eee775 8d57534bdd366b9607b0f73d16b6e5f1a5b7f1eb
 
   // TODO: Update today's date before building apk
-  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
   // TODO: Update today's date before building apk
-  static const String baseURL =
-      "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  // static const String baseURL =
+  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // static const String baseURL =
   //     "https://api.arhamcorp.in/api/"; //TODO: Production
@@ -61,6 +61,9 @@ class AppConfig {
   static String transactionUploadImageURL =
       "${baseURL}transaction-images/upload";
   static String generateReferralCodeURL = "${baseURL}referral/generate-code";
+  static String validateReferralCodeUrl = "${baseURL}referral/validate-code";
+  static String referralEarningsUrl = "${baseURL}referral/earnings";
+  static String claimReferralRewardUrl = "${baseURL}referral/claim-reward";
 
   static const String createAccounttURL = '${baseURL}master-entry/account';
   static const String uploadImageURL =

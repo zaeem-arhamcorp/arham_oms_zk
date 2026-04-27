@@ -7,7 +7,7 @@ import 'package:arham_corporation/services/offline_caching_service.dart'
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
-import 'package:arham_corporation/views/referral/referral_view.dart';
+import 'package:arham_corporation/views/referral/views/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
@@ -17,6 +17,8 @@ import 'package:provider/provider.dart';
 
 import '../views/company_management/firm_list.dart';
 import '../views/loginpage.dart';
+import '../views/tasks/assign_task_view.dart';
+import '../views/tasks/task_list_view.dart';
 
 class CommonAppDrawer extends StatefulWidget {
   final String? narrationModuleNo;
@@ -312,6 +314,13 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
     );
   }
 
+  String narrationModuleNo = '';
+  bool narrationReadRight = false;
+  bool narrationWriteRights = false;
+  bool narrationUpdateRights = false;
+  bool narrationDeleteRight = false;
+  bool narrationPrintRights = false;
+
   @override
   Widget build(BuildContext context) {
     final UserProvider ub = context.watch<UserProvider>();
@@ -335,13 +344,66 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                     'assets/arhamOMS_icon.png',
                     fit: BoxFit.contain,
                     width: MediaQuery.of(context).size.width * 0.55,
-                    height: MediaQuery.of(context).size.height * 0.14,
+                    // Don't use full screen height here
+                    height: MediaQuery.of(context).size.height *
+                        0.14, // Reduce height
                   ),
                 ),
               ],
             ),
           ),
-          // Narration (Module 109)
+
+          // FAZAL Changes 15-12-2025
+          // ListTile(
+          //   leading: Icon(
+          //     Icons.home,
+          //     size: 30,
+          //   ),
+          //   title: Text(
+          //     'Home',
+          //     style: TextStyle(
+          //       fontSize: 20,
+          //     ),
+          //   ),
+          //   onTap: () {
+          //     //Get.to(() => HomePage());
+          //     Get.offAll(() =>
+          //         BottomnavigationBarScreen()); // FAZAL Changes 14-02-2025
+          //   },
+          // ),
+          // ADD : FAZAL Changes 15-12-2025
+          // ListTile(
+          //   leading: Icon(
+          //     Icons.widgets_outlined,
+          //     size: 30,
+          //   ),
+          //   title: Text(
+          //     'Menus',
+          //     style: TextStyle(
+          //       fontSize: 20,
+          //     ),
+          //   ),
+          //   onTap: () {
+          //     Get.to(() => NewMenu());
+          //   },
+          // ),
+          // if (p.data?.modulesList != null &&
+          //     p.data!.modulesList!.any((module) =>
+          //         module.mODULENO == "301" &&
+          //         module.rEADRIGHT == true))
+          //   ListTile(
+          //     leading: Icon(
+          //       Icons.dashboard,
+          //       size: 30,
+          //     ),
+          //     title: Text(
+          //       'DashBoard',
+          //       style: TextStyle(fontSize: 20),
+          //     ),
+          //     onTap: () {
+          //       Get.to(() => DailyReportScreen());
+          //     },
+          //   ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
                   module.mODULENO == "109" && module.rEADRIGHT == true))
@@ -356,16 +418,15 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               ),
               onTap: () {
                 Get.to(NarrationView(), arguments: {
-                  "ModuleNo": widget.narrationModuleNo ?? "109",
-                  "ReadRight": widget.narrationReadRight ?? true,
-                  "WriteRight": widget.narrationWriteRights ?? true,
-                  "UpdateRight": widget.narrationUpdateRights ?? true,
-                  "DeleteRight": widget.narrationDeleteRight ?? true,
-                  "PrintRight": widget.narrationPrintRights ?? true,
+                  "ModuleNo": narrationModuleNo,
+                  "ReadRight": narrationReadRight,
+                  "WriteRight": narrationWriteRights,
+                  "UpdateRight": narrationUpdateRights,
+                  "DeleteRight": narrationDeleteRight,
+                  "PrintRight": narrationPrintRights,
                 });
               },
             ),
-          // Firm Management (Master User Only)
           if (ub.role == AppConfig.masteruser)
             ListTile(
               leading: Icon(
@@ -377,11 +438,9 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 style: TextStyle(fontSize: 20),
               ),
               onTap: () {
-                // Import FirmListPage
                 Get.to(() => FirmListPage());
               },
             ),
-          // User Management (Module 110)
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
                   module.mODULENO == "110" && module.rEADRIGHT == true))
@@ -400,7 +459,19 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 Get.to(() => UserScreen());
               },
             ),
-          // Settings (Master User Only)
+          // ListTile(
+          //   leading: Icon(
+          //     Icons.account_circle,
+          //     size: 30,
+          //   ),
+          //   title: Text(
+          //     'Profile',
+          //     style: TextStyle(fontSize: 20),
+          //   ),
+          //   onTap: () {
+          //     Get.to(() => ProfilePage());
+          //   },
+          // ),
           if (ub.role == AppConfig.masteruser)
             ListTile(
               leading: Icon(
@@ -417,14 +488,18 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 Get.to(() => SettingScreen());
               },
             ),
-          // Go Offline (if enabled)
+          // ✅ Show Go Offline button only if offline mode is enabled
           Selector<ProfileProvider, bool>(
             selector: (context, profileProvider) =>
                 profileProvider.isOfflineModeEnabled(),
             builder: (context, isOfflineModeEnabled, child) {
               if (!isOfflineModeEnabled) {
-                return SizedBox.shrink();
+                print(
+                    '[HomePage] Offline mode disabled - hiding Go Offline button');
+                return SizedBox.shrink(); // Hide if offline mode disabled
               }
+              print(
+                  '[HomePage] Offline mode enabled - showing Go Offline button');
               return ListTile(
                 leading: Icon(
                   Icons.cloud_download,
@@ -442,7 +517,6 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               );
             },
           ),
-          // Change Password
           ListTile(
             leading: Icon(
               Icons.key,
@@ -458,7 +532,40 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               Get.to(() => ChangePasswordView());
             },
           ),
-          // Generate Referral
+          if (p.data != null &&
+              p.data!.modulesList!.any((module) =>
+                  module.mODULENO == "232" && module.rEADRIGHT == true)) ...[
+            ListTile(
+              leading: Icon(
+                Icons.add_task,
+                size: 30,
+              ),
+              title: Text(
+                'Assign Tasks',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => AssignTaskView());
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.task,
+                size: 30,
+              ),
+              title: Text(
+                'View Tasks',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => TaskListView());
+              },
+            ),
+          ],
           ListTile(
             leading: Icon(
               Icons.group_add,
@@ -494,7 +601,6 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 Get.to(() => GetExpenseView());
               },
             ),
-          // About Us
           ListTile(
             leading: Icon(
               Icons.info_outline,
@@ -510,7 +616,6 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               Get.to(() => AboutPage());
             },
           ),
-          // Logout
           ListTile(
             leading: Icon(
               Icons.logout,
@@ -524,6 +629,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               ),
             ),
             onTap: () {
+              // Show confirmation dialog
               showDialog(
                 context: context,
                 builder: (BuildContext context) {
@@ -532,12 +638,16 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                     content: Text('Are you sure you want to log out?'),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          // Cancel button: Close the dialog
+                          Navigator.of(context).pop();
+                        },
                         child: Text('Cancel'),
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.pop(context);
+                          // Confirm logout
+                          Navigator.of(context).pop(); // Close the dialog
                           ub.userSignout(context).then((value) {
                             Get.offAll(() => LoginPage());
                           });

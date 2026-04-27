@@ -799,6 +799,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   Widget build(BuildContext context) {
     final PartyProvider party = context.watch<PartyProvider>();
     final ProfileProvider profile = context.watch<ProfileProvider>();
+    final bool isOmsWithoutErpSync = profile.data?.profileSettings
+            .any((e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+        false;
 
     // If selectedUserName provided, show it; otherwise show "Order Report"
     final title = widget.selectedUserName != null
@@ -1115,10 +1118,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                   //     ),
                   //   ),
                   Visibility(
-                    visible: !(profile.data?.profileSettings.any((e) =>
-                            e.variable == 'omsWithoutErpSync' &&
-                            e.value == 'Y') ??
-                        false),
+                    visible: !isOmsWithoutErpSync,
                     child: Padding(
                       padding: const EdgeInsets.only(
                           left: 5.0, top: 5.0, bottom: 5.0),
@@ -1523,7 +1523,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                   Colors.black),
                                                         ),
                                                         Text(
-                                                          "${data[index].orderNo ?? ""}",
+                                                          isOmsWithoutErpSync
+                                                              ? "${data[index].oId ?? ""}"
+                                                              : "${data[index].orderNo ?? ""}",
                                                           textAlign:
                                                               TextAlign.center,
                                                           style: TextStyle(
@@ -1534,6 +1536,33 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                       ],
                                                     ),
                                                   ),
+                                                  if (isOmsWithoutErpSync)
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            "Order Dt:",
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            Helper.convertToFormat(
+                                                                "${data[index].vouchDt ?? ""}",
+                                                                'dd-MM-yy'),
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .grey),
+                                                          )
+                                                        ],
+                                                      ),
+                                                    ),
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
@@ -1557,84 +1586,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                       ],
                                                     ),
                                                   ),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          "Bill No:",
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: Colors.black,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          "${data[index].billNo ?? ""}",
-                                                          style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.grey),
-                                                        )
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          "Bill Dt:",
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: Colors.black,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          Helper.convertToFormat(
-                                                              "${data[index].billDt ?? ""}",
-                                                              'dd-MM-yy'),
-                                                          style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.grey),
-                                                        )
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          "Bill Amt:",
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: Colors.black,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          "${data[index].netAmt ?? ""}",
-                                                          style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.grey),
-                                                        )
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    top: 10.0),
-                                                child: Row(
-                                                  children: <Widget>[
+                                                  if (!isOmsWithoutErpSync)
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment:
@@ -1642,7 +1594,32 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            "Order Date:",
+                                                            "Bill No:",
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            "${data[index].billNo ?? ""}",
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .grey),
+                                                          )
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  if (!isOmsWithoutErpSync)
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            "Bill Dt:",
                                                             style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1651,7 +1628,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                           ),
                                                           Text(
                                                             Helper.convertToFormat(
-                                                                "${data[index].vouchDt ?? ""}",
+                                                                "${data[index].billDt ?? ""}",
                                                                 'dd-MM-yy'),
                                                             style: TextStyle(
                                                                 fontSize: 12,
@@ -1661,6 +1638,106 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                         ],
                                                       ),
                                                     ),
+                                                  if (!isOmsWithoutErpSync)
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            "Bill Amt:",
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            "${data[index].netAmt ?? ""}",
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .grey),
+                                                          )
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  SizedBox(
+                                                    width: 10,
+                                                  ),
+                                                  if (profile.data
+                                                              ?.profileSettings
+                                                              .firstWhere(
+                                                                (element) =>
+                                                                    element
+                                                                        .variable ==
+                                                                    'orderReportMastUser',
+                                                                orElse: () =>
+                                                                    DatumSettings(), // return null if not found
+                                                              )
+                                                              .value ==
+                                                          'Y' &&
+                                                      isOmsWithoutErpSync)
+                                                    Expanded(
+                                                      flex: 2,
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            "User:",
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            "${Helper.trimValue(data[index].user.userName, 14)}",
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .grey),
+                                                          )
+                                                        ],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 10.0),
+                                                child: Row(
+                                                  children: <Widget>[
+                                                    if (!isOmsWithoutErpSync)
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              "Order Date:",
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .black,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              Helper.convertToFormat(
+                                                                  "${data[index].vouchDt ?? ""}",
+                                                                  'dd-MM-yy'),
+                                                              style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: Colors
+                                                                      .grey),
+                                                            )
+                                                          ],
+                                                        ),
+                                                      ),
                                                     Expanded(
                                                       flex: 2,
                                                       child: Column(
@@ -1686,6 +1763,34 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                         ],
                                                       ),
                                                     ),
+
+                                                    if (isOmsWithoutErpSync)
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              "City:",
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .black,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              "${Helper.trimValue(data[index].account.accCity, 14)}",
+                                                              style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: Colors
+                                                                      .grey),
+                                                            )
+                                                          ],
+                                                        ),
+                                                      ),
+
                                                     // if (profile.data
                                                     //         ?.profileSettings
                                                     //         .firstWhere((element) =>
@@ -1695,17 +1800,18 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                     //         .value ==
                                                     //     'Y')
                                                     if (profile.data
-                                                            ?.profileSettings
-                                                            .firstWhere(
-                                                              (element) =>
-                                                                  element
-                                                                      .variable ==
-                                                                  'orderReportMastUser',
-                                                              orElse: () =>
-                                                                  DatumSettings(), // return null if not found
-                                                            )
-                                                            .value ==
-                                                        'Y')
+                                                                ?.profileSettings
+                                                                .firstWhere(
+                                                                  (element) =>
+                                                                      element
+                                                                          .variable ==
+                                                                      'orderReportMastUser',
+                                                                  orElse: () =>
+                                                                      DatumSettings(), // return null if not found
+                                                                )
+                                                                .value ==
+                                                            'Y' &&
+                                                        !isOmsWithoutErpSync)
                                                       Expanded(
                                                         flex: 2,
                                                         child: Column(

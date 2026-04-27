@@ -14,97 +14,96 @@ class _AboutPageState extends State<AboutPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: CustomAppBar(
-          title: 'About Arham Corp.',
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-                horizontal: screenWidth * 0.05, vertical: screenHeight * 0.02),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'At Arham Corp., we don’t just provide software solutions — we provide intelligent systems that'
-                  ' transform the way your business operates\n\nOur expertise in :-',
-                  style: TextStyle(fontSize: screenWidth * 0.045),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: CustomAppBar(
+        title: 'About Arham Corp.',
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05, vertical: screenHeight * 0.02),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'At Arham Corp., we don’t just provide software solutions — we provide intelligent systems that'
+                ' transform the way your business operates\n\nOur expertise in :-',
+                style: TextStyle(fontSize: screenWidth * 0.045),
+              ),
+              _buildBulletPoint('Order Management Systems (OMS)', screenWidth),
+              _buildBulletPoint(
+                  'Enterprise Resource Planning (ERP)', screenWidth),
+              _buildBulletPoint(
+                  'Invoice Management Systems (IMS)', screenWidth),
+              _buildBulletPoint('Point of Sale (POS)', screenWidth),
+              SizedBox(height: screenHeight * 0.02),
+              Text(
+                'Why Choose Arham Corp?',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.06,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0XFF2c9ed9),
                 ),
-                _buildBulletPoint(
-                    'Order Management Systems (OMS)', screenWidth),
-                _buildBulletPoint(
-                    'Enterprise Resource Planning (ERP)', screenWidth),
-                _buildBulletPoint(
-                    'Invoice Management Systems (IMS)', screenWidth),
-                _buildBulletPoint('Point of Sale (POS)', screenWidth),
-                SizedBox(height: screenHeight * 0.02),
-                Text(
-                  'Why Choose Arham Corp?',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.06,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0XFF2c9ed9),
-                  ),
+              ),
+              SizedBox(height: screenHeight * 0.01),
+              _buildBulletPoint(
+                  'Tailored Solutions for Your Business Needs', screenWidth),
+              _buildBulletPoint(
+                  'Real-Time Sales Tracking and Monitoring', screenWidth),
+              _buildBulletPoint(
+                  'Multi-Firm, Multi-Branch, Multi-User  Support', screenWidth),
+              _buildBulletPoint(
+                  'Comprehensive Reporting and Analytics', screenWidth),
+              _buildBulletPoint(
+                  'Barcode Scanning and Inventory Management', screenWidth),
+              _buildBulletPoint('Security and Data Protection', screenWidth),
+              SizedBox(height: screenHeight * 0.02),
+              Text(
+                'Contact Us',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.06,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0XFF2c9ed9),
                 ),
-                SizedBox(height: screenHeight * 0.01),
-                _buildBulletPoint(
-                    'Tailored Solutions for Your Business Needs', screenWidth),
-                _buildBulletPoint(
-                    'Real-Time Sales Tracking and Monitoring', screenWidth),
-                _buildBulletPoint(
-                    'Multi-Firm, Multi-Branch, Multi-User  Support',
-                    screenWidth),
-                _buildBulletPoint(
-                    'Comprehensive Reporting and Analytics', screenWidth),
-                _buildBulletPoint(
-                    'Barcode Scanning and Inventory Management', screenWidth),
-                _buildBulletPoint('Security and Data Protection', screenWidth),
-                SizedBox(height: screenHeight * 0.02),
-                Text(
-                  'Contact Us',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.06,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0XFF2c9ed9),
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.01),
-                _buildContactInfo(
-                  screenWidth,
-                  screenHeight,
-                  Icons.location_on_rounded,
-                  'Arham Corporation',
-                  'https://maps.app.goo.gl/8jd4n2zfc1iv6QZ19',
-                  '420, 4th Floor, Sheetal Varsha - Mahavir Business Park, Near Jamalpur Cross Road, Ahmedabad-380022',
-                ),
-                _buildContactInfo(
-                  screenWidth,
-                  screenHeight,
-                  Icons.call,
-                  'Call Us',
-                  'tel:+919173919797',
-                  '+91 917391 9797',
-                ),
-                _buildContactInfo(
-                  screenWidth,
-                  screenHeight,
-                  Icons.alternate_email,
-                  'Email Us',
-                  'mailto:info@arhamcorp.in',
-                  'info@arhamcorp.in',
-                ),
-                _buildContactInfo(
-                  screenWidth,
-                  screenHeight,
-                  Icons.search,
-                  'Visit On',
-                  'https://arhamcorp.in',
-                  'arhamcorp.in.in',
-                ),
-              ],
-            ),
+              ),
+              SizedBox(height: screenHeight * 0.01),
+              _buildContactInfo(
+                screenWidth,
+                screenHeight,
+                Icons.location_on_rounded,
+                'Arham Corporation',
+                'https://maps.app.goo.gl/8jd4n2zfc1iv6QZ19',
+                '420, 4th Floor, Sheetal Varsha - Mahavir Business Park, Near Jamalpur Cross Road, Ahmedabad-380022',
+              ),
+              _buildContactInfo(
+                screenWidth,
+                screenHeight,
+                Icons.call,
+                'Call Us',
+                'tel:+919173919797',
+                '+91 917391 9797',
+              ),
+              _buildContactInfo(
+                screenWidth,
+                screenHeight,
+                Icons.alternate_email,
+                'Email Us',
+                'mailto:info@arhamcorp.in',
+                'info@arhamcorp.in',
+              ),
+              _buildContactInfo(
+                screenWidth,
+                screenHeight,
+                Icons.search,
+                'Visit On',
+                'https://arhamcorp.in',
+                'arhamcorp.in.in',
+              ),
+              SizedBox(
+                height: 45,
+              ),
+            ],
           ),
         ),
       ),

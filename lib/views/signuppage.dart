@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
@@ -331,7 +331,7 @@ class _SignUpPageState extends State<SignUpPage> {
               message: 'Please check your internet connection.',
             );
           } else {
-            _handleSignup(global);
+            await _handleSignup(global);
           }
         },
         style: ButtonStyle(
@@ -471,7 +471,7 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  void _handleSignup(Global global) {
+  Future<void> _handleSignup(Global global) async {
     if (_userCd.text.isEmpty) {
       AppSnackBar.showGetXCustomSnackBar(message: "Please Enter User Code");
     } else if (_password.text.isEmpty) {
@@ -494,8 +494,25 @@ class _SignUpPageState extends State<SignUpPage> {
     } else {
       FocusManager.instance.primaryFocus?.unfocus();
       global.loadingsignup(true);
-      AuthServices()
-          .signup(
+      final referralCode = _referral.text;
+
+      if (referralCode.trim().isNotEmpty) {
+        final validateReferralResponse =
+            await AuthServices().validateReferralCode(referralCode);
+
+        if (validateReferralResponse['status'] != true) {
+          global.loadingsignup(false);
+          AppSnackBar.showGetXCustomSnackBar(
+            message:
+                (validateReferralResponse['message'] ?? 'Invalid referral code')
+                    .toString(),
+            backgroundColor: Colors.red,
+          );
+          return;
+        }
+      }
+
+      final response = await AuthServices().signup(
         _userCd.text,
         _password.text,
         _username.text,
@@ -504,29 +521,28 @@ class _SignUpPageState extends State<SignUpPage> {
         _emailID.text,
         _referral.text,
         context,
-      )
-          .then((response) {
-        global.loadingsignup(false);
+      );
 
-        if (response.status) {
-          if (response.data != null) {
-            mobileNo.value = response.data!['user']['MOBILENO'];
-            isVerified.value = response.data!['user']['IS_VERIFIED'];
-          }
+      global.loadingsignup(false);
 
-          // AppSnackBar.showGetXCustomSnackBar(
-          //   message: "Account Created Successfully",
-          //   backgroundColor: Colors.green,
-          // );
-          //
-          // Get.offAll(() => LoginPage());
-        } else {
-          AppSnackBar.showGetXCustomSnackBar(
-            message: response.message,
-            backgroundColor: Colors.red,
-          );
+      if (response.status) {
+        if (response.data != null) {
+          mobileNo.value = response.data!['user']['MOBILENO'];
+          isVerified.value = response.data!['user']['IS_VERIFIED'];
         }
-      });
+
+        // AppSnackBar.showGetXCustomSnackBar(
+        //   message: "Account Created Successfully",
+        //   backgroundColor: Colors.green,
+        // );
+        //
+        // Get.offAll(() => LoginPage());
+      } else {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: response.message,
+          backgroundColor: Colors.red,
+        );
+      }
     }
   }
 

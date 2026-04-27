@@ -10,7 +10,7 @@ import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/company_management/firm_list.dart';
 import 'package:arham_corporation/views/loginpage.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
-import 'package:arham_corporation/views/referral/referral_view.dart';
+import 'package:arham_corporation/views/referral/views/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';

@@ -371,12 +371,15 @@ class _NewMenuState extends State<NewMenu> {
   }
 
   Widget _buildIconTextWrap(List<Widget> iconTextBoxes) {
-    return GridView.count(
-      crossAxisCount: 4,
+    return GridView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.symmetric(vertical: 5),
-      children: iconTextBoxes,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: iconTextBoxes.length,
+      itemBuilder: (context, index) => iconTextBoxes[index],
     );
   }
 
@@ -419,6 +422,7 @@ class IconTextBox extends StatelessWidget {
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 padding: EdgeInsets.all(iconSize * 0.25),
@@ -440,14 +444,19 @@ class IconTextBox extends StatelessWidget {
                       ),
               ),
               SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
                     fontSize: fontSize,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
-                    letterSpacing: 1),
-                textAlign: TextAlign.center,
+                    letterSpacing: 0.5,
+                  ),
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                ),
               ),
             ],
           ),
