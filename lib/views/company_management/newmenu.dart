@@ -326,7 +326,7 @@ class _NewMenuState extends State<NewMenu> {
                     _buildIconTextBox(Icons.account_balance, "Route Report",
                         () {
                       Get.to(() => const RouteReportScreen());
-                    }, iconUrl: "assets/icons/route_report.png"),
+                    }, iconUrl: "assets/icons/route_report_icon.png"),
                   if (p.data != null &&
                       p.data!.modulesList!.any((module) =>
                           module.mODULENO == "321" && module.rEADRIGHT == true))

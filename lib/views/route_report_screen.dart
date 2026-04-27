@@ -142,6 +142,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   }
 
   Future<void> _fetchUsers({int page = 1}) async {
+    if (!mounted) return;
     setState(() {
       _loadingUsers = true;
     });
@@ -150,6 +151,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       final ub = Provider.of<UserProvider>(context, listen: false);
       final token = ub.token;
       if (token == null || token.isEmpty) {
+        if (!mounted) return;
         setState(() {
           _users = [];
           _loadingUsers = false;
@@ -186,6 +188,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         final hasMoreBySize = mappedUsers.length >= _usersPerPage;
         final hasMorePages = hasPaginationMeta ? hasMoreByMeta : hasMoreBySize;
 
+        if (!mounted) return;
         setState(() {
           if (page == 1) {
             _users = mappedUsers;
@@ -199,12 +202,14 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           _loadingUsers = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           _users = [];
           _loadingUsers = false;
         });
       }
     } catch (e, stack) {
+      if (!mounted) return;
       setState(() {
         _users = [];
         _loadingUsers = false;
@@ -230,6 +235,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoadingAllUsersForSearch = true;
       if (syncPrimaryUsers) {
@@ -241,6 +247,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       final ub = Provider.of<UserProvider>(context, listen: false);
       final token = ub.token;
       if (token == null || token.isEmpty) {
+        if (!mounted) return;
         setState(() {
           _isLoadingAllUsersForSearch = false;
         });
@@ -278,6 +285,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         if (response.statusCode != 200) {
           print(
               '[RouteReport] [$source] Stop preload: HTTP ${response.statusCode} on page=$currentPage');
+          if (!mounted) return;
           setState(() {
             _isLoadingAllUsersForSearch = false;
             if (syncPrimaryUsers) {
@@ -333,6 +341,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         currentPage += 1;
       }
 
+      if (!mounted) return;
       setState(() {
         final mergedUsers =
             _mergeUsersByCode(<Map<String, dynamic>>[], allUsers);
@@ -366,6 +375,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       print(
           '[RouteReport] [$source] Full preload complete: totalUsers=${_allUsersForSearch.length}');
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         _isLoadingAllUsersForSearch = false;
         if (syncPrimaryUsers) {
@@ -977,12 +987,14 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final syncId = ub.syncId?.trim() ?? '';
 
     if (token == null || token.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _error = 'Missing auth token';
       });
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -1051,16 +1063,19 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           }
         }
 
+        if (!mounted) return;
         setState(() {
           _trips = trips;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           _error = 'Failed to fetch trip history';
           _trips = <Map<String, dynamic>>[];
         });
       }
     } catch (e, stack) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to fetch trip history: $e';
         _trips = <Map<String, dynamic>>[];
@@ -1076,6 +1091,189 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  String? _normalizeSelfieUrl(dynamic raw) {
+    final value = raw?.toString().trim() ?? '';
+    if (value.isEmpty || value.toLowerCase() == 'null') {
+      return null;
+    }
+    return value;
+  }
+
+  String? _extractSelfieUrlFromPayload(dynamic decoded) {
+    if (decoded is! Map) {
+      return null;
+    }
+
+    final root = Map<String, dynamic>.from(decoded);
+    final data = root['data'];
+
+    String? readFromMap(Map<String, dynamic> map) {
+      final direct = _firstValue(map, [
+        'selfie_url',
+        'SELFIE_URL',
+        'selfieUrl',
+        'url',
+        'URL',
+        'image_url',
+        'IMAGE_URL',
+        'imageUrl',
+        'photo_url',
+        'PHOTO_URL',
+        'photoUrl',
+      ]);
+      final normalizedDirect = _normalizeSelfieUrl(direct);
+      if (normalizedDirect != null) {
+        return normalizedDirect;
+      }
+
+      final selfieMap =
+          _firstMapValue(map, ['selfie', 'SELFIE', 'photo', 'PHOTO']);
+      if (selfieMap != null) {
+        final nested = _firstValue(selfieMap, [
+          'selfie_url',
+          'SELFIE_URL',
+          'selfieUrl',
+          'url',
+          'URL',
+          'image_url',
+          'IMAGE_URL',
+          'imageUrl',
+          'photo_url',
+          'PHOTO_URL',
+          'photoUrl',
+        ]);
+        return _normalizeSelfieUrl(nested);
+      }
+      return null;
+    }
+
+    final rootUrl = readFromMap(root);
+    if (rootUrl != null) {
+      return rootUrl;
+    }
+
+    if (data is String) {
+      return _normalizeSelfieUrl(data);
+    }
+
+    if (data is Map) {
+      return readFromMap(Map<String, dynamic>.from(data));
+    }
+
+    return null;
+  }
+
+  Future<String?> _fetchTripSelfieUrl(int tripId) async {
+    final ub = Provider.of<UserProvider>(context, listen: false);
+    final token = ub.token;
+    if (token == null || token.isEmpty || tripId <= 0) {
+      return null;
+    }
+
+    final uri = Uri.parse('${AppConfig.baseURL}trip/$tripId/selfie');
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'x-app-type': 'oms',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      return null;
+    }
+
+    try {
+      final decoded = json.decode(response.body);
+      return _extractSelfieUrlFromPayload(decoded);
+    } catch (_) {
+      return _normalizeSelfieUrl(response.body);
+    }
+  }
+
+  Future<void> _showTripSelfieViewer(String imageUrl, int tripId) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: Text('Trip $tripId Selfie'),
+          ),
+          body: SafeArea(
+            child: Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (_, __, ___) {
+                    return const Text(
+                      'Unable to load selfie image',
+                      style: TextStyle(color: Colors.white),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTripSelfie(int tripId) async {
+    if (tripId <= 0) {
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final selfieUrl = await _fetchTripSelfieUrl(tripId);
+
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      if (selfieUrl == null || selfieUrl.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selfie not available for this trip')),
+        );
+        return;
+      }
+
+      await _showTripSelfieViewer(selfieUrl, tripId);
+    } catch (e, stack) {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      await CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'route_report_trip_selfie_fetch_failed',
+        context: {'trip_id': tripId},
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load trip selfie')),
+      );
     }
   }
 
@@ -1211,7 +1409,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                 ),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                   decoration: BoxDecoration(
                     color: isActive
                         ? const Color(0xFFFFF4E4)
@@ -1237,7 +1435,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1249,24 +1447,31 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                     color: Color(0xFF7B8195),
                   ),
                 ),
-                Container(
-                  padding: EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(50),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person,
-                        size: 15,
-                        color: Colors.grey,
-                      ),
-                      Text(
-                        "View Selfie",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
+                Text(
+                  "View Details",
+                  style: TextStyle(color: Color(0xff006709)),
+                ),
+                GestureDetector(
+                  onTap: () => _openTripSelfie(tripId),
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(50),
+                      border: Border.all(color: Colors.grey),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          size: 15,
+                          color: Color(0xff4c4c4c),
+                        ),
+                        Text(
+                          'View Selfie',
+                          style: TextStyle(color: Color(0xff4c4c4c)),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               ],
