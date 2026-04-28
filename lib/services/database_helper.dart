@@ -1798,7 +1798,8 @@ class DatabaseHelper {
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     return await db.query(
       'order_tracking',
-      where: 'SYNC_ID = ? AND VOUCH_DT = ? AND tracking_type IN (\'1\', \'3\')',
+      where:
+          'SYNC_ID = ? AND VOUCH_DT = ? AND tracking_type IN (\'1\', \'3\')',
       whereArgs: [syncId, vouchDt],
       orderBy: 'VOUCH_TIME ASC',
     );

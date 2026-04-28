@@ -1044,8 +1044,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                           ),
                           child: Text(
                             "Order Now",
-                            style: TextStyle(
-                                color: Colors.white, fontSize: 10.w),
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 10.w),
                           ),
                         ),
                       )

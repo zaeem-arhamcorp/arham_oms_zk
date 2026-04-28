@@ -1,19 +1,17 @@
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/material.dart';
+import 'dart:io';
 
 import 'package:arham_corporation/helper/notification_services.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:dio/dio.dart';
-
-import 'package:flutter/foundation.dart';
-
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
-import 'package:arham_corporation/services/crashlytics_service.dart';
 
 class Helper {
   static String maskMobileNumber(String mobile) {
@@ -392,6 +390,24 @@ class Helper {
       );
     }
 
+    // Format last order days into readable text
+    final lastOrderDaysValue = listOfParty[index].lastOrderDays;
+    String lastOrderText = '';
+    if (lastOrderDaysValue != null) {
+      final daysAgo = lastOrderDaysValue;
+      if (daysAgo == 0) {
+        lastOrderText = 'Last order: Today';
+      } else if (daysAgo == null) {
+        lastOrderText = 'No previous order';
+      } else if (daysAgo == 1) {
+        lastOrderText = 'Last order: Yesterday';
+      } else if (daysAgo > 1) {
+        lastOrderText = 'Last order: $daysAgo days ago';
+      } else {
+        lastOrderText = 'No previous order';
+      }
+    }
+
     return ListTile(
       leading: Text("${index + 1}"),
       title: Text(
@@ -407,14 +423,20 @@ class Helper {
           text:
               "${listOfParty[index].accAddress} || ${listOfParty[index].mobile}",
           style: TextStyle(color: Colors.black),
-          children: listOfParty[index].accCartItem != null
-              ? [
-                  TextSpan(
-                    text: " || ${listOfParty[index].accCartItem}",
-                    style: TextStyle(color: Colors.amber),
-                  )
-                ]
-              : [],
+          children: [
+            if (listOfParty[index].accCartItem != null)
+              TextSpan(
+                text: " || ${listOfParty[index].accCartItem}",
+                style: TextStyle(color: Colors.amber),
+              ),
+            TextSpan(
+              text: "\n$lastOrderText",
+              style: TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
       dense: true,

@@ -67,10 +67,10 @@ class LabelData {
   TargetAchievement? targetAchievement;
 
   factory LabelData.fromJson(Map<String, dynamic> json) => LabelData(
-        totalSales: json["total_sales"] ?? "0",
-        week: json["week"] ?? "0",
-        month: json["month"] ?? "0",
-        today: json['today'] ?? "0",
+        totalSales: json["TOTAL_SALES"] ?? "0",
+        week: json["WEEK"] ?? "0",
+        month: json["MONTH"] ?? "0",
+        today: json['TODAY'] ?? "0",
         transaction: json["transaction"] != null
             ? List<Transaction>.from(
                 json["transaction"].map((x) => Transaction.fromJson(x)))
@@ -81,10 +81,10 @@ class LabelData {
       );
 
   Map<String, dynamic> toJson() => {
-        "total_sales": totalSales,
-        "week": week,
-        "month": month,
-        "today": today,
+        "TOTAL_SALES": totalSales,
+        "WEEK": week,
+        "MONTH": month,
+        "TODAY": today,
         "transaction": List<dynamic>.from(transaction.map((x) => x.toJson())),
         "targetAchievement": targetAchievement?.toJson(),
       };
@@ -109,21 +109,21 @@ class TargetAchievement {
 
   factory TargetAchievement.fromJson(Map<String, dynamic> json) =>
       TargetAchievement(
-        userCd: json["userCd"]?.toString() ?? "",
-        userName: json["userName"]?.toString() ?? "",
-        target: _toDouble(json["target"]),
-        achieved: _toDouble(json["achieved"]),
-        percent: _toDouble(json["percent"]),
-        remaining: _toDouble(json["remaining"]),
+        userCd: json["USER_CD"]?.toString() ?? "",
+        userName: json["USER_NAME"]?.toString() ?? "",
+        target: _toDouble(json["TARGET"]),
+        achieved: _toDouble(json["ACHIEVED"]),
+        percent: _toDouble(json["PERCENT"]),
+        remaining: _toDouble(json["REMAINING"]),
       );
 
   Map<String, dynamic> toJson() => {
-        "userCd": userCd,
-        "userName": userName,
-        "target": target,
-        "achieved": achieved,
-        "percent": percent,
-        "remaining": remaining,
+        "USER_CD": userCd,
+        "USER_NAME": userName,
+        "TARGET": target,
+        "ACHIEVED": achieved,
+        "PERCENT": percent,
+        "REMAINING": remaining,
       };
 }
 
@@ -154,19 +154,19 @@ class Transaction {
   String orderDate;
 
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
-      name: json["name"] ?? "",
-      accCd: json["accCd"] ?? "",
-      amount: json["amount"] ?? 0,
-      orderNo: json["orderNo"] ?? "",
-      mobile: json['mobile'] ?? "",
-      orderDate: json['orderDate'] ?? "");
+      name: json["NAME"] ?? "",
+      accCd: json["ACC_CD"] ?? "",
+      amount: json["AMOUNT"] ?? 0,
+      orderNo: json["ORDER_NO"] ?? "",
+      mobile: json['MOBILE'] ?? "",
+      orderDate: json['ORDER_DATE'] ?? "");
 
   Map<String, dynamic> toJson() => {
-        "name": name,
-        "amount": amount,
-        "orderNo": orderNo,
-        "mobile": mobile,
-        "accCd": accCd,
-        "orderDate": orderDate
+        "NAME": name,
+        "AMOUNT": amount,
+        "ORDER_NO": orderNo,
+        "MOBILE": mobile,
+        "ACC_CD": accCd,
+        "ORDER_DATE": orderDate
       };
 }

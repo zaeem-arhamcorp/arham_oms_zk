@@ -49,7 +49,8 @@ class DatumPartyname {
       this.long,
       this.groupCD,
       this.clBAL,
-      this.distanceInMeters});
+      this.distanceInMeters,
+      this.lastOrderDays});
 
   String accCd;
   String accName;
@@ -69,27 +70,28 @@ class DatumPartyname {
   num? groupCD;
   num? clBAL;
   double? distanceInMeters;
+  int? lastOrderDays;
 
   factory DatumPartyname.fromJson(Map<String, dynamic> json) => DatumPartyname(
-        accCd: json["ACC_CD"] ?? "",
-        accName: json["ACC_NAME"] ?? "",
-        add1: json["ADD1"] ?? "",
-        add2: json["ADD2"] ?? "",
-        add3: json["ADD3"] ?? "",
-        city: json["CITY"] ?? "",
-        zone: json["ZONE"] ?? "",
-        accAddress: json["ACC_ADD"] ?? "",
-        mobile: json['MOBILE1'] ?? "",
-        accCartItem: json['ACC_CART_ITEM'] ?? "",
-        whNo: json['WA_NO'] ?? "",
-        person_nm: json['PERSON_NM'],
-        pincode: json['PINCODE'] ?? "",
-        lat: json['LAT'],
-        long: json['LONG'],
-        groupCD: json['GROUP_CD'] ?? 0,
-        clBAL: json['CL_BAL'] ?? 0,
-        distanceInMeters: null,
-      );
+      accCd: json["ACC_CD"] ?? "",
+      accName: json["ACC_NAME"] ?? "",
+      add1: json["ADD1"] ?? "",
+      add2: json["ADD2"] ?? "",
+      add3: json["ADD3"] ?? "",
+      city: json["CITY"] ?? "",
+      zone: json["ZONE"] ?? "",
+      accAddress: json["ACC_ADD"] ?? "",
+      mobile: json['MOBILE1'] ?? "",
+      accCartItem: json['ACC_CART_ITEM'] ?? "",
+      whNo: json['WA_NO'] ?? "",
+      person_nm: json['PERSON_NM'],
+      pincode: json['PINCODE'] ?? "",
+      lat: json['LAT'],
+      long: json['LONG'],
+      groupCD: json['GROUP_CD'] ?? 0,
+      clBAL: json['CL_BAL'] ?? 0,
+      distanceInMeters: null,
+      lastOrderDays: json['LAST_ORDER_DAYS_AGO'] ?? 0);
 
   Map<String, dynamic> toJson() => {
         "ACC_CD": accCd,

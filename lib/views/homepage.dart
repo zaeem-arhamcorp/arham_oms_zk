@@ -1631,21 +1631,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Column(
                 children: [
                   Padding(
-                    padding:
-                        const EdgeInsets.only(left: 20, bottom: 5, top: 10),
+                    padding: const EdgeInsets.only(left: 20, top: 10),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         Text(
                           _getGreetingMessage(),
                           style: TextStyle(
-                              fontSize: 16.0, color: Color(0XFF2c9ed9)),
+                            fontSize: 20,
+                            // color: Color(0XFF2c9ed9),
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        SizedBox(
-                          height: 5,
-                        ),
-                        SizedBox(
-                          width: 5,
-                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 20,
+                      bottom: 10,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
                         Text(
                           // p.userName!.toString() +
                           //     " (" +
@@ -1654,8 +1663,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           p.userName.toString(), // User Name + User Code
                           style: TextStyle(
                               color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.normal,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                               letterSpacing: 1),
                         ),
                       ],
@@ -1666,14 +1675,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     child: Row(
                       children: [
                         Text(
-                          'Total Orders : ',
-                          style:
-                              TextStyle(fontSize: 16, color: Color(0XFF2c9ed9)),
-                        ),
-                        Text(
-                          "  ₹ ${data != null ? Helper.parseNumericValue(data!.data.labelData.totalSales.toString()) : 0}",
+                          'TOTAL ORDERS',
                           style: TextStyle(
-                            color: Colors.black,
+                              fontSize: 13,
+                              // color: Color(0XFF2c9ed9),
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Text(
+                          "₹ ${data != null ? Helper.parseNumericValue(data!.data.labelData.totalSales.toString()) : 0}",
+                          style: TextStyle(
+                            color: Color(0XFF2c9ed9),
                             fontWeight: FontWeight.w600,
                             fontSize: 16.sp,
                           ),
