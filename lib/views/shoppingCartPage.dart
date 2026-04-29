@@ -16,6 +16,7 @@ import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/offline_order_service.dart';
 import 'package:arham_corporation/services/order_tracking_service.dart';
+import 'package:arham_corporation/views/user_monthly_target/services/api_services.dart';
 import 'package:arham_corporation/views/orderConformationPage.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -2062,6 +2063,28 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         AppSnackBar.showGetXCustomSnackBar(
             message: orderResponse, backgroundColor: Colors.green);
 
+        try {
+          final userProvider =
+              Provider.of<UserProvider>(context, listen: false);
+          final stockistCd = controller.selectedStockistId.value
+                  .trim()
+                  .isNotEmpty
+              ? controller.selectedStockistId.value.trim()
+              : (profile.YN == "Y" ? party.punchInOutPartyId : party.partyid)
+                  .toString()
+                  .trim();
+          final pobSynced = await (Get.isRegistered<MonthlyTargetApiService>()
+                  ? Get.find<MonthlyTargetApiService>()
+                  : Get.put(MonthlyTargetApiService()))
+              .syncPobMonthlyTarget(
+            stockistCd: stockistCd,
+            token: userProvider.token,
+          );
+          print('[ORDER_PLACEMENT] ✅ POB sync result: $pobSynced');
+        } catch (e) {
+          print('[ORDER_PLACEMENT] ⚠️ POB sync failed: $e');
+        }
+
         // ⚡ SAVE SHARE PAYLOAD FIRST before clearing stockist data!
         final selectedPartyId =
             profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
@@ -2393,6 +2416,29 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         print('[ORDER_PLACEMENT] ✅ OFFLINE ORDER COMPLETE');
         print('[ORDER_PLACEMENT] Order ID: $orderId');
         print('[ORDER_PLACEMENT] Will sync when online');
+
+        try {
+          final userProvider =
+              Provider.of<UserProvider>(context, listen: false);
+          final stockistCd = controller.selectedStockistId.value
+                  .trim()
+                  .isNotEmpty
+              ? controller.selectedStockistId.value.trim()
+              : (profile.YN == "Y" ? party.punchInOutPartyId : party.partyid)
+                  .toString()
+                  .trim();
+          final pobSynced = await (Get.isRegistered<MonthlyTargetApiService>()
+                  ? Get.find<MonthlyTargetApiService>()
+                  : Get.put(MonthlyTargetApiService()))
+              .syncPobMonthlyTarget(
+            stockistCd: stockistCd,
+            token: userProvider.token,
+          );
+          print(
+              '[ORDER_PLACEMENT] ✅ POB sync result (offline path): $pobSynced');
+        } catch (e) {
+          print('[ORDER_PLACEMENT] ⚠️ POB sync failed (offline path): $e');
+        }
 
         AppSnackBar.showGetXCustomSnackBar(
           message: "Order saved (offline - will sync)",

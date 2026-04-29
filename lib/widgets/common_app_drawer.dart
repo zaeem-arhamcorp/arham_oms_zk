@@ -7,6 +7,7 @@ import 'package:arham_corporation/services/offline_caching_service.dart'
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
+import 'package:arham_corporation/views/party_managment/screens/account_list_screen.dart';
 import 'package:arham_corporation/views/referral/views/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
@@ -472,6 +473,21 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
           //     Get.to(() => ProfilePage());
           //   },
           // ),
+          ListTile(
+            leading: Icon(
+              Icons.store,
+              size: 30,
+            ),
+            title: Text(
+              'Account Management',
+              style: TextStyle(
+                fontSize: 20,
+              ),
+            ),
+            onTap: () {
+              Get.to(() => AccountListScreen());
+            },
+          ),
           if (ub.role == AppConfig.masteruser)
             ListTile(
               leading: Icon(

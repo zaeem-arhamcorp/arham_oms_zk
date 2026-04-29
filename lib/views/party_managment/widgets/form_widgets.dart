@@ -119,6 +119,123 @@ class FormWidgets {
           isNumber: true,
         ),
         const SizedBox(height: 8),
+        _locationSection(controller),
+      ],
+    );
+  }
+
+  static Widget _locationSection(AccountController controller) {
+    if (controller.locationLocked) {
+      return Obx(() {
+        final latText = controller.latitudeRx.value.isNotEmpty
+            ? controller.latitudeRx.value
+            : AccountFormFields.latitudeController.text;
+        final longText = controller.longitudeRx.value.isNotEmpty
+            ? controller.longitudeRx.value
+            : AccountFormFields.longitudeController.text;
+        final selected = controller.selectedLatLng.value;
+        final target = selected ?? controller.defaultMapCenter;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            sectionHeader('Current Location'),
+            Card(
+              color: Colors.blue.shade50,
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.my_location,
+                            size: 18, color: Colors.blue),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Latitude: ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                        Text(
+                          latText.isEmpty ? '--' : latText,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 18, color: Colors.redAccent),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Longitude: ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                        Text(
+                          longText.isEmpty ? '--' : longText,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Location is locked for this account.',
+                      style: TextStyle(
+                        color: Colors.blueGrey.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: IgnorePointer(
+                child: SizedBox(
+                  height: 220,
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: target,
+                      zoom: selected != null ? 16 : 14,
+                    ),
+                    onMapCreated: controller.onMapCreated,
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('account_location_pin'),
+                        position: target,
+                        draggable: false,
+                      ),
+                    },
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                    scrollGesturesEnabled: false,
+                    zoomGesturesEnabled: false,
+                    rotateGesturesEnabled: false,
+                    tiltGesturesEnabled: false,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      });
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         sectionHeader('Current Location'),
         Obx(() {
           final latText = controller.latitudeRx.value.isNotEmpty

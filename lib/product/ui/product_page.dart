@@ -27,7 +27,7 @@ import '../../providers/location_provider.dart';
 import '../../services/database_helper.dart';
 import '../../services/services.dart';
 import '../../views/party_managment/bindings/account_bindings.dart';
-import '../../views/party_managment/screens/account_screen.dart';
+import '../../views/party_managment/screens/add_account_screen.dart';
 import '../../widgets/pdfViewerScreen.dart';
 import '../controller/cart_controller.dart';
 import '../controller/product_controller.dart';
@@ -1555,7 +1555,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                   TextButton(
                                     onPressed: () async {
                                       final accName = await Get.to(
-                                        () => const AccountScreen(),
+                                        () => const AddAccountScreen(),
                                         binding: AccountBindings(),
                                       );
 

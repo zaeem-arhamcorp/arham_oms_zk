@@ -45,26 +45,31 @@ class _UpdatePageScreenState extends State<UpdatePageScreen> {
                 SizedBox(
                   height: 20.h,
                 ),
-                FilledButton(onPressed: (){
-                  if (Platform.isAndroid || Platform.isIOS) {
-                    final appId = Platform.isAndroid ? 'com.arhamerp.app' : '6476415122';
-                    final url = Uri.parse(
-                      Platform.isAndroid
-                          ? "market://details?id=$appId"
-                          : "https://apps.apple.com/app/id$appId",
-                    );
-                    launchUrl(
-                      url,
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }else{
-                    Get.showSnackbar(GetSnackBar(
-                      title: "Error",
-                      message: "Update is not available",
-                      duration: Duration(milliseconds: 3000),
-                    ));
-                  }
-                }, child: Text("Update Now"))
+                FilledButton(
+                    onPressed: () {
+                      if (Platform.isAndroid || Platform.isIOS) {
+                        final appId = Platform.isAndroid
+                            ? 'com.arhamerp.app'
+                            : '6476415122';
+                        final url = Uri.parse(
+                          Platform.isAndroid
+                              ? "market://details?id=$appId"
+                              : "https://apps.apple.com/app/id$appId",
+                        );
+                        launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
+                        Get.showSnackbar(GetSnackBar(
+                          title: "Error",
+                          message: "Update is not available",
+                          snackPosition: SnackPosition.TOP,
+                          duration: Duration(milliseconds: 3000),
+                        ));
+                      }
+                    },
+                    child: Text("Update Now"))
               ],
             ),
           ),

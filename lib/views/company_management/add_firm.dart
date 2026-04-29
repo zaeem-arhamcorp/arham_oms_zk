@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -87,23 +88,19 @@ class _AddFirmPageState extends State<AddFirmPage> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Company added successfully!')),
-        );
+        AppSnackBar.showGetXCustomSnackBar(
+            message: 'Company added successfully!',
+            backgroundColor: Colors.green);
         widget.refreshList(); // Call the callback to refresh the list
         Navigator.pop(context); // Navigate back on success
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Failed to add company: ${response.statusCode} - ${response.body}'),
-          ),
-        );
+        AppSnackBar.showGetXCustomSnackBar(
+            message:
+                'Failed to add company: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: ${e.toString()}')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(
+          message: 'An error occurred: ${e.toString()}');
     }
   }
 

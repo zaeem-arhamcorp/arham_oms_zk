@@ -4,8 +4,8 @@ import 'package:get/get.dart';
 import '../controllers/account_controller.dart';
 import '../widgets/form_widgets.dart';
 
-class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key});
+class AddAccountScreen extends StatelessWidget {
+  const AddAccountScreen({super.key});
 
   // Module 102: Party Management / Account Management
   static const String accountModuleNo = '102';

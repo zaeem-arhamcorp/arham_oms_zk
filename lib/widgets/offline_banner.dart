@@ -1,6 +1,7 @@
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/sync_service.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -100,18 +101,15 @@ class _OfflineBannerState extends State<OfflineBanner> {
                   result['skipped'] == 0
               ? 'No pending orders to sync'
               : 'Synced: ${result['synced']}, Failed: ${result['failed']}, Skipped: ${result['skipped']}';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg), duration: Duration(seconds: 3)),
-          );
+          AppSnackBar.showGetXCustomSnackBar(
+              message: msg, backgroundColor: Colors.green);
         }
       }
     } catch (e) {
       print("[OfflineBanner] Manual sync failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Sync failed: $e'), duration: Duration(seconds: 3)),
-        );
+        AppSnackBar.showGetXCustomSnackBar(
+            message: 'Sync failed: $e', backgroundColor: Colors.red);
       }
     } finally {
       if (mounted) {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 
@@ -137,5 +138,28 @@ class ApiService {
       appLog('Error parsing MIME type: $e', tag: 'ApiService');
     }
     return http.MediaType('application', 'octet-stream');
+  }
+
+  Future<Map<String, dynamic>> put(
+    String endpoint, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    final url = _resolveUrl(endpoint);
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        ...?headers,
+      },
+      body: jsonEncode(body),
+    );
+
+    return {
+      'statusCode': response.statusCode,
+      'body': response.body,
+      'json': jsonDecode(response.body),
+    };
   }
 }

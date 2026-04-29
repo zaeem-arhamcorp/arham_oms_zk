@@ -91,6 +91,47 @@ class PartyProvider extends DisposableProvider {
     notifyListeners();
   }
 
+  /// 📝 UPDATE A SINGLE PARTY IN THE CACHED LIST AFTER EDIT
+  /// Called after successful account update to ensure next edit has fresh data
+  void updatePartyData(String accCd, Map<String, dynamic> updatedData) {
+    try {
+      final index = _data.indexWhere((party) => party.accCd == accCd);
+      if (index != -1) {
+        final party = _data[index];
+        // Update the party object with new data from API response
+        party.accName = updatedData['ACC_NAME'] ?? party.accName;
+        party.accAddress = updatedData['ADD1'] ?? party.accAddress;
+        party.mobile = updatedData['MOBILE1'] ?? party.mobile;
+        party.add1 = updatedData['ADD1'] ?? party.add1;
+        party.add2 = updatedData['ADD2'] ?? party.add2;
+        party.add3 = updatedData['ADD3'] ?? party.add3;
+        party.city = updatedData['CITY'] ?? party.city;
+        party.zone = updatedData['ZONE'] ?? party.zone;
+        party.state = updatedData['STATE'] ?? party.state;
+        party.pincode = updatedData['PINCODE'] ?? party.pincode;
+        party.person_nm = updatedData['PERSON_NM'] ?? party.person_nm;
+        party.email = updatedData['EMAIL'] ?? party.email;
+        party.panNo = updatedData['PAN_NO'] ?? party.panNo;
+        party.gstNo = updatedData['GST_NO'] ?? party.gstNo;
+        party.gstType = updatedData['GST_TYPE'] ?? party.gstType;
+        party.drugLic1 = updatedData['DRUG_LIC1'] ?? party.drugLic1;
+        party.drugLic2 = updatedData['DRUG_LIC2'] ?? party.drugLic2;
+        party.fssaiNo = updatedData['FSSAI_NO'] ?? party.fssaiNo;
+        party.lat = (updatedData['LATITUDE'] as num?)?.toDouble() ?? party.lat;
+        party.long =
+            (updatedData['LONGITUDE'] as num?)?.toDouble() ?? party.long;
+        party.clBAL = (updatedData['CL_BAL'] as num?) ?? party.clBAL;
+        party.creditDay =
+            (updatedData['CREDIT_DAY'] as num?) ?? party.creditDay;
+        party.crLimit = (updatedData['CR_LIMIT'] as num?) ?? party.crLimit;
+        notifyListeners();
+        print('✅ Updated party $accCd in PartyProvider cache with all fields');
+      }
+    } catch (e) {
+      print('❌ Error updating party data: $e');
+    }
+  }
+
   Future<PartynameModal?> getPartyNameProductPage(context) async {
     _data.clear();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);

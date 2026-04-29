@@ -48,6 +48,8 @@ enum AccountLocationMode { current, address }
 class AccountController extends GetxController {
   static const String _googlePlacesApiKey = AppConfig.googlePlacesApiKey;
 
+  bool locationLocked = false;
+
   final RxBool isLocationLoading = false.obs;
   final RxString latitudeRx = ''.obs;
   final RxString longitudeRx = ''.obs;
@@ -121,6 +123,10 @@ class AccountController extends GetxController {
   }
 
   Future<void> _forwardGeocodeAddressFields() async {
+    if (locationLocked) {
+      return;
+    }
+
     final addressQuery = _buildAddressQueryFromFields();
     if (addressQuery.isEmpty) {
       return;
@@ -166,12 +172,20 @@ class AccountController extends GetxController {
   }
 
   Future<void> onCurrentButtonPressed() async {
+    if (locationLocked) {
+      return;
+    }
+
     showAddressSearch.value = false;
     clearPlaceSuggestions();
     await useCurrentLocationAndFillAddress();
   }
 
   Future<void> onAddressButtonPressed() async {
+    if (locationLocked) {
+      return;
+    }
+
     showAddressSearch.value = true;
     locationMode.value = AccountLocationMode.address;
 
@@ -500,6 +514,10 @@ class AccountController extends GetxController {
     double longitude, {
     bool animateMap = true,
   }) {
+    if (locationLocked) {
+      return;
+    }
+
     AccountFormFields.latitudeController.text = latitude.toString();
     AccountFormFields.longitudeController.text = longitude.toString();
     latitudeRx.value = latitude.toString();
@@ -513,6 +531,10 @@ class AccountController extends GetxController {
   }
 
   void _updateLatLongTextOnly(double latitude, double longitude) {
+    if (locationLocked) {
+      return;
+    }
+
     AccountFormFields.latitudeController.text = latitude.toString();
     AccountFormFields.longitudeController.text = longitude.toString();
     latitudeRx.value = latitude.toString();
@@ -567,6 +589,10 @@ class AccountController extends GetxController {
   }
 
   void onMarkerDrag(LatLng position) {
+    if (locationLocked) {
+      return;
+    }
+
     locationMode.value = AccountLocationMode.address;
     // Keep the map smooth while dragging by updating only text fields in real-time.
     _updateLatLongTextOnly(position.latitude, position.longitude);
@@ -582,6 +608,10 @@ class AccountController extends GetxController {
   }
 
   Future<void> onMarkerDragEnd(LatLng position) async {
+    if (locationLocked) {
+      return;
+    }
+
     locationMode.value = AccountLocationMode.address;
     _updateLatLong(
       position.latitude,
@@ -598,6 +628,10 @@ class AccountController extends GetxController {
   }
 
   Future<void> onMapTap(LatLng position) async {
+    if (locationLocked) {
+      return;
+    }
+
     locationMode.value = AccountLocationMode.address;
     _updateLatLong(
       position.latitude,
@@ -638,6 +672,10 @@ class AccountController extends GetxController {
   Future<bool> useCurrentLocationAndFillAddress({
     bool showFailureSnackbar = true,
   }) async {
+    if (locationLocked) {
+      return false;
+    }
+
     locationMode.value = AccountLocationMode.current;
     showAddressSearch.value = false;
     clearPlaceSuggestions();
@@ -686,6 +724,10 @@ class AccountController extends GetxController {
   Future<bool> useAddressAndResolveLocation({
     bool showFailureSnackbar = true,
   }) async {
+    if (locationLocked) {
+      return false;
+    }
+
     locationMode.value = AccountLocationMode.address;
     showAddressSearch.value = true;
     isLocationLoading.value = true;
@@ -731,7 +773,19 @@ class AccountController extends GetxController {
   }
 
   Future<void> updateLocationFields() async {
+    if (locationLocked) {
+      return;
+    }
+
     await useCurrentLocationAndFillAddress(showFailureSnackbar: false);
+  }
+
+  void seedLockedLocation(double latitude, double longitude) {
+    AccountFormFields.latitudeController.text = latitude.toString();
+    AccountFormFields.longitudeController.text = longitude.toString();
+    latitudeRx.value = latitude.toString();
+    longitudeRx.value = longitude.toString();
+    selectedLatLng.value = LatLng(latitude, longitude);
   }
 
   Future<void> createAccountFromForm(BuildContext context) async {

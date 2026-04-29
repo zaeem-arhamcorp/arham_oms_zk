@@ -34,7 +34,7 @@ class AccountModel {
     this.fssaiNo,
   });
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJson({bool includeLocation = true}) {
     final Map<String, dynamic> data = {
       'accName': accName,
       'personNm': personNm,
@@ -48,9 +48,12 @@ class AccountModel {
       'state': state,
       'pincode': pincode,
       'gstType': gstType,
-      'latitude': latitude,
-      'longitude': longitude,
     };
+
+    if (includeLocation) {
+      data['latitude'] = latitude;
+      data['longitude'] = longitude;
+    }
 
     // Optional fields (only if present)
     if (gstNo != null && gstNo!.isNotEmpty) {

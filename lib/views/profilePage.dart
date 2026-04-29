@@ -11,6 +11,8 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/loginpage.dart';
+import 'package:arham_corporation/views/user_monthly_target/screens/monthly_target_view.dart';
+import 'package:arham_corporation/views/user_monthly_target/services/api_services.dart';
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -26,6 +28,8 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+
+import 'user_monthly_target/models/monthly_target_item_model.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -43,6 +47,8 @@ class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _addressClt;
   late TextEditingController _phoneNoClt; // Renamed for clarity
   late TextEditingController _emailController;
+  late TextEditingController _monthlyTargetController;
+  late MonthlyTargetApiService _monthlyTargetApiService;
 
   final ImagePicker _userImagePicker = ImagePicker();
   XFile? _selectedUserImage;
@@ -73,9 +79,14 @@ class _ProfilePageState extends State<ProfilePage> {
     _addressClt = TextEditingController();
     _phoneNoClt = TextEditingController();
     _emailController = TextEditingController();
+    _monthlyTargetController = TextEditingController();
+    _monthlyTargetApiService = Get.isRegistered<MonthlyTargetApiService>()
+        ? Get.find<MonthlyTargetApiService>()
+        : Get.put(MonthlyTargetApiService());
     _setData(); // Renamed for convention (private method)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfileImageFromChildrenApi();
+      _loadMonthlyTargetAmount();
     });
 
     final ProfileProvider p =
@@ -611,6 +622,60 @@ class _ProfilePageState extends State<ProfilePage> {
         userProvider.syncName ?? "No Company Name"; // Simplified null check
   }
 
+  Future<void> _loadMonthlyTargetAmount() async {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final currentUserCd = (profileProvider.data?.userCd ?? '').toString().trim();
+      final currentMonthTarget = DateTime(DateTime.now().year, DateTime.now().month, 1);
+      final currentMonthTargetText =
+          '${currentMonthTarget.year.toString().padLeft(4, '0')}-${currentMonthTarget.month.toString().padLeft(2, '0')}-${currentMonthTarget.day.toString().padLeft(2, '0')}';
+
+      final targets = await _monthlyTargetApiService.fetchMonthlyTargets(
+        targetMonth: currentMonthTargetText,
+        userCd: currentUserCd,
+        token: userProvider.token,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final matchingTargets = targets.where((target) {
+        final matchesUser =
+            currentUserCd.isEmpty || target.userCd.trim() == currentUserCd;
+        final matchesMonth = target.targetMonth.trim().isEmpty ||
+            target.targetDate.trim().startsWith('${currentMonthTarget.year.toString().padLeft(4, '0')}-${currentMonthTarget.month.toString().padLeft(2, '0')}');
+        return matchesUser && matchesMonth && target.type.toUpperCase() == 'POB';
+      }).toList();
+
+      MonthlyTargetItemModel? selectedTarget;
+      if (matchingTargets.isNotEmpty) {
+        matchingTargets.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        selectedTarget = matchingTargets.first;
+      } else if (targets.isNotEmpty) {
+        final pobTargets = targets.where((target) => target.type.toUpperCase() == 'POB').toList();
+        if (pobTargets.isNotEmpty) {
+          pobTargets.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          selectedTarget = pobTargets.first;
+        }
+      }
+
+      setState(() {
+        _monthlyTargetController.text = selectedTarget == null
+            ? 'No Monthly Target'
+            : selectedTarget.salesmanTargetAmount.toStringAsFixed(0);
+      });
+    } catch (e) {
+      print('[PROFILE] Failed to load monthly target amount: $e');
+      if (mounted) {
+        setState(() {
+          _monthlyTargetController.text = 'No Monthly Target';
+        });
+      }
+    }
+  }
+
   // Helper function to check connectivity
   Future<bool> _isConnected() async {
     final List<ConnectivityResult> connectivityResult =
@@ -800,6 +865,32 @@ class _ProfilePageState extends State<ProfilePage> {
               _buildProfileTextField(
                 controller: _emailController,
                 label: "Email",
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 8.0, horizontal: 8.0), // Consistent padding
+                child: Container(
+                  child: TextFormField(
+                    controller: _monthlyTargetController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      label: Text("Monthly Target"),
+                      focusedBorder: const OutlineInputBorder(), // Use const
+                      enabledBorder: const OutlineInputBorder(), // Use const
+                      isDense: true,
+                      suffixIcon: IconButton(
+                        onPressed: () async {
+                          await Get.to(() => const MonthlyTargetView());
+                          if (mounted) {
+                            await _loadMonthlyTargetAmount();
+                          }
+                        },
+                        icon: Icon(Icons.edit),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.only(

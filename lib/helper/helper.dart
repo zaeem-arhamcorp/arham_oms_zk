@@ -4,6 +4,8 @@ import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:arham_corporation/views/party_managment/bindings/account_bindings.dart';
+import 'package:arham_corporation/views/party_managment/screens/edit_account_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +14,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 
 class Helper {
   static String maskMobileNumber(String mobile) {
@@ -378,7 +381,8 @@ class Helper {
     return searchList;
   }
 
-  static Widget showPartyBottomSheetWithSearch(int index, List listOfParty) {
+  static Widget showPartyBottomSheetWithSearch(int index, List listOfParty,
+      {bool showEditButton = false}) {
     // 🛡️ Bounds check: Prevent RangeError when index is out of bounds
     if (index < 0 || index >= listOfParty.length) {
       print(
@@ -395,10 +399,11 @@ class Helper {
     String lastOrderText = '';
     if (lastOrderDaysValue != null) {
       final daysAgo = lastOrderDaysValue;
+      if (daysAgo == null) {
+        lastOrderText = 'No previous order';
+      }
       if (daysAgo == 0) {
         lastOrderText = 'Last order: Today';
-      } else if (daysAgo == null) {
-        lastOrderText = 'No previous order';
       } else if (daysAgo == 1) {
         lastOrderText = 'Last order: Yesterday';
       } else if (daysAgo > 1) {
@@ -410,6 +415,31 @@ class Helper {
 
     return ListTile(
       leading: Text("${index + 1}"),
+      trailing: showEditButton
+          ? IconButton(
+              onPressed: () async {
+                final accountData = _toAccountDataMap(listOfParty[index]);
+                final result = await Get.to<bool>(
+                  () => EditAccountScreen(accountData: accountData),
+                  binding: AccountBindings(),
+                );
+
+                if (result == true) {
+                  final context = Get.context;
+                  if (context != null) {
+                    try {
+                      await Provider.of<PartyProvider>(context, listen: false)
+                          .getPartyNameProductPage(context);
+                    } catch (e) {
+                      print(
+                          '[Helper] Failed to refresh party list after edit: $e');
+                    }
+                  }
+                }
+              },
+              icon: Icon(Icons.edit),
+            )
+          : null,
       title: Text(
           //"(${listOfParty[index].accCd}) ${listOfParty[index].accName} ${listOfParty[index].person_nm != null ? " - " + listOfParty[index].person_nm : ""}",
           "(${listOfParty[index].accCd}) "
@@ -441,6 +471,39 @@ class Helper {
       ),
       dense: true,
     );
+  }
+
+  static Map<String, dynamic> _toAccountDataMap(dynamic party) {
+    if (party is Map<String, dynamic>) {
+      return party;
+    }
+
+    return {
+      'ACC_CD': party.accCd ?? '',
+      'ACC_NAME': party.accName ?? '',
+      'PERSON_NM': party.person_nm ?? '',
+      'MOBILE1': party.mobile ?? '',
+      'ADD1': party.add1 ?? '',
+      'ZONE': party.zone ?? '',
+      'CITY': party.city ?? '',
+      'STATE': party.state ?? '',
+      'PINCODE': party.pincode ?? '',
+      'LATITUDE': party.lat ?? 0,
+      'LONGITUDE': party.long ?? 0,
+      'GST_NO': party.gstNo ?? '',
+      'GST_TYPE': party.gstType ?? '',
+      'DRUG_LIC1': party.drugLic1 ?? '',
+      'DRUG_LIC2': party.drugLic2 ?? '',
+      'FSSAI_NO': party.fssaiNo ?? '',
+      'EMAIL': party.email ?? '',
+      'PAN_NO': party.panNo ?? '',
+      'CREDIT_DAY': party.creditDay ?? 0,
+      'CR_LIMIT': party.crLimit ?? 0,
+      'CL_BAL': party.clBAL ?? 0,
+      'ACC_ADD': party.accAddress ?? '',
+      'ACC_CART_ITEM': party.accCartItem ?? '',
+      'LAST_ORDER_DAYS_AGO': party.lastOrderDays ?? 0,
+    };
   }
 
   static String formatAmount(double amount) {
@@ -500,6 +563,7 @@ class Helper {
       Get.showSnackbar(GetSnackBar(
         title: "Error",
         message: "Storage Permission is Required",
+        snackPosition: SnackPosition.TOP,
         duration: Duration(milliseconds: 1000),
       ));
     }

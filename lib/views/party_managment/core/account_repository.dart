@@ -13,7 +13,9 @@ class AccountRepository extends GetxService {
   @override
   void onInit() {
     super.onInit();
-    _apiService = Get.find<ApiService>();
+    _apiService = Get.isRegistered<ApiService>()
+        ? Get.find<ApiService>()
+        : Get.put(ApiService(baseUrl: AppConfig.baseURL));
   }
 
   Future<Map<String, dynamic>> createAccount(AccountModel account,
@@ -153,6 +155,78 @@ class AccountRepository extends GetxService {
         'success': false,
         'error': e.toString(),
         'message': 'Failed to upload account image: $e',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateAccount({
+    required AccountModel account,
+    required String accCode,
+    required double latitude,
+    required double longitude,
+    required String? token,
+  }) async {
+    try {
+      final response = await _apiService.put(
+        AppConfig.baseURL + 'master-entry/account', // or create a constant
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+        body: {
+          /// 🔑 REQUIRED FIELD
+          "accCd": accCode,
+
+          /// 🔹 From your model
+          ...account.toJson(includeLocation: false),
+
+          /// 🔒 FORCE LAT/LONG (no override allowed)
+          "latitude": latitude,
+          "longitude": longitude,
+
+          /// 🔹 Optional fields (safe defaults)
+          "add2": "",
+          "add3": "",
+          "mobile2": "",
+          "email": "",
+          "panNo": "",
+          "accKm": 0,
+          "age": 0,
+          "clBal": 0,
+          "crLimit": 0,
+          "creditDay": 0,
+          "depriPerc": 0,
+          "groupCd": 85,
+          "blackList": "N",
+          "moduleNo": 102,
+          "lat": latitude,
+          "lng": longitude,
+        },
+      );
+
+      appLog('Update API response: $response', tag: 'AccountRepository');
+
+      final statusCode = response['statusCode'] as int;
+      final json = response['json'] as Map<String, dynamic>?;
+
+      if (statusCode == 200 || statusCode == 201) {
+        return {
+          'success': true,
+          'data': json,
+          'message': json?['message'] ?? 'Account updated successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'error': 'Failed to update account: $statusCode',
+          'message': json?['message'] ?? 'Update failed',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': e.toString(),
+        'message': 'Failed to update account: $e',
       };
     }
   }

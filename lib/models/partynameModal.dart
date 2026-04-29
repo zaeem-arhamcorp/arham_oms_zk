@@ -50,7 +50,17 @@ class DatumPartyname {
       this.groupCD,
       this.clBAL,
       this.distanceInMeters,
-      this.lastOrderDays});
+      this.lastOrderDays,
+      this.state,
+      this.gstNo,
+      this.gstType,
+      this.drugLic1,
+      this.drugLic2,
+      this.fssaiNo,
+      this.email,
+      this.panNo,
+      this.creditDay,
+      this.crLimit});
 
   String accCd;
   String accName;
@@ -60,15 +70,25 @@ class DatumPartyname {
   String? add3;
   String? city;
   String? zone;
+  String? state;
   String mobile;
   String accCartItem;
   String? whNo;
   String? person_nm;
   String? pincode;
+  String? email;
+  String? panNo;
+  String? gstNo;
+  String? gstType;
+  String? drugLic1;
+  String? drugLic2;
+  String? fssaiNo;
   dynamic lat;
   dynamic long;
   num? groupCD;
   num? clBAL;
+  num? creditDay;
+  num? crLimit;
   double? distanceInMeters;
   int? lastOrderDays;
 
@@ -80,16 +100,26 @@ class DatumPartyname {
       add3: json["ADD3"] ?? "",
       city: json["CITY"] ?? "",
       zone: json["ZONE"] ?? "",
+      state: json["STATE"] ?? "",
       accAddress: json["ACC_ADD"] ?? "",
       mobile: json['MOBILE1'] ?? "",
       accCartItem: json['ACC_CART_ITEM'] ?? "",
       whNo: json['WA_NO'] ?? "",
       person_nm: json['PERSON_NM'],
       pincode: json['PINCODE'] ?? "",
+      email: json['EMAIL'] ?? "",
+      panNo: json['PAN_NO'] ?? "",
+      gstNo: json['GST_NO'] ?? "",
+      gstType: json['GST_TYPE'] ?? "",
+      drugLic1: json['DRUG_LIC1'] ?? "",
+      drugLic2: json['DRUG_LIC2'] ?? "",
+      fssaiNo: json['FSSAI_NO'] ?? "",
       lat: json['LAT'],
       long: json['LONG'],
       groupCD: json['GROUP_CD'] ?? 0,
       clBAL: json['CL_BAL'] ?? 0,
+      creditDay: json['CREDIT_DAY'],
+      crLimit: json['CR_LIMIT'],
       distanceInMeters: null,
       lastOrderDays: json['LAST_ORDER_DAYS_AGO'] ?? 0);
 
@@ -105,12 +135,22 @@ class DatumPartyname {
         "ADD3": add3,
         "CITY": city,
         "ZONE": zone,
+        "STATE": state,
         "PERSON_NM": person_nm,
         "PINCODE": pincode,
+        "EMAIL": email,
+        "PAN_NO": panNo,
+        "GST_NO": gstNo,
+        "GST_TYPE": gstType,
+        "DRUG_LIC1": drugLic1,
+        "DRUG_LIC2": drugLic2,
+        "FSSAI_NO": fssaiNo,
         "LAT": lat,
         "LONG": long,
         "GROUP_CD": groupCD,
         "CL_BAL": clBAL,
+        "CREDIT_DAY": creditDay,
+        "CR_LIMIT": crLimit,
         "distanceInMeters": distanceInMeters,
       };
 }
