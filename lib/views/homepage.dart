@@ -1638,23 +1638,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         Text(
                           _getGreetingMessage(),
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 15,
                             // color: Color(0XFF2c9ed9),
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      left: 20,
-                      bottom: 10,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
+                        SizedBox(
+                          width: 5,
+                        ),
                         Text(
                           // p.userName!.toString() +
                           //     " (" +
@@ -1663,24 +1655,90 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           p.userName.toString(), // User Name + User Code
                           style: TextStyle(
                               color: Colors.black,
-                              fontSize: 20,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1),
                         ),
                       ],
                     ),
                   ),
+                  // Padding(
+                  //   padding: const EdgeInsets.only(
+                  //     left: 20,
+                  //     bottom: 10,
+                  //   ),
+                  //   child: Row(
+                  //     mainAxisAlignment: MainAxisAlignment.start,
+                  //     children: [
+                  //       Text(
+                  //         // p.userName!.toString() +
+                  //         //     " (" +
+                  //         //     p.userCode!.toString() +
+                  //         //     ")", // User Name + User Code
+                  //         p.userName.toString(), // User Name + User Code
+                  //         style: TextStyle(
+                  //             color: Colors.black,
+                  //             fontSize: 20,
+                  //             fontWeight: FontWeight.bold,
+                  //             letterSpacing: 1),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
+                  SizedBox(
+                    height: 10,
+                  ),
                   Padding(
-                    padding: const EdgeInsets.only(left: 20),
+                    padding: const EdgeInsets.only(left: 20, right: 20),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'TOTAL ORDERS',
                           style: TextStyle(
                               fontSize: 13,
                               // color: Color(0XFF2c9ed9),
-                              color: Colors.grey,
+                              color: Colors.grey.shade700,
                               fontWeight: FontWeight.bold),
+                        ),
+                        Flexible(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              vertical: 3,
+                              horizontal: 10,
+                            ),
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: Color(0xFFE2EEFD)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: Colors.grey.shade700,
+                                ),
+                                SizedBox(
+                                  width: 5,
+                                ),
+                                Text(
+                                  DateFormat('d MMM yyyy')
+                                      .format(DateTime.now()),
+                                  style: TextStyle(
+                                    // fontSize:
+                                    //     MediaQuery.of(context)
+                                    //             .size
+                                    //             .width *
+                                    //         0.045,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1695,19 +1753,76 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           style: TextStyle(
                             color: Color(0XFF2c9ed9),
                             fontWeight: FontWeight.w600,
-                            fontSize: 16.sp,
+                            fontSize: 17.sp,
                           ),
                         ),
                       ],
                     ),
                   ),
 
+                  if (data?.data.labelData.targetAchievement != null) ...[
+                    Builder(
+                      builder: (context) {
+                        final targetAchievement =
+                            data!.data.labelData.targetAchievement!;
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: 20,
+                            right: 20,
+                            left: 20,
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    "Target: ₹${data!.data.labelData.targetAchievement!.target.toStringAsFixed(2)}",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xff006705),
+                                    ),
+                                  ),
+                                  Spacer(),
+                                  Text(
+                                    "Progress: ",
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  Text(
+                                    "${targetAchievement.percent.toStringAsFixed(2)}%",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: targetAchievement.percent > 0
+                                          ? Colors.green.shade700
+                                          : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              LinearProgressIndicator(
+                                value: targetAchievement.percent / 100,
+                                minHeight: 8,
+                                borderRadius: BorderRadius.circular(50),
+                                color: Color(0XFF2c9ed9),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
                   // Define a common size for the boxes
 
                   Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.only(
+                      top: 8,
+                      left: 8,
+                      right: 8,
+                    ),
                     child: Card(
-                      elevation: 20,
+                      color: Colors.transparent,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15)),
                       child: Container(
@@ -1735,34 +1850,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             Flexible(
                                               flex: 2,
                                               child: Text(
-                                                "Today Order",
+                                                "THIS MONTH",
                                                 style: TextStyle(
-                                                  fontSize:
-                                                      MediaQuery.of(context)
-                                                              .size
-                                                              .width *
-                                                          0.045,
+                                                  // fontSize: MediaQuery.of(context)
+                                                  //         .size
+                                                  //         .width *
+                                                  //     0.04,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
                                                   color: Colors.grey.shade700,
                                                 ),
-                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            ),
-                                            Flexible(
-                                              flex: 3,
-                                              child: Text(
-                                                DateFormat('d- MMM -yyyy')
-                                                    .format(DateTime.now()),
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      MediaQuery.of(context)
-                                                              .size
-                                                              .width *
-                                                          0.045,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Colors.grey.shade700,
-                                                ),
-                                                textAlign: TextAlign.right,
-                                              ),
+                                              // child: Text(
+                                              //   "TODAY'S ORDER",
+                                              //   style: TextStyle(
+                                              //     // fontSize:
+                                              //     //     MediaQuery.of(context)
+                                              //     //             .size
+                                              //     //             .width *
+                                              //     //         0.045,
+                                              //     fontSize: 13,
+                                              //     fontWeight: FontWeight.bold,
+                                              //     color: Colors.grey.shade700,
+                                              //   ),
+                                              //   overflow: TextOverflow.ellipsis,
+                                              // ),
                                             ),
                                           ],
                                         ),
@@ -1785,16 +1897,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               ),
                                             ),
                                             Expanded(
+                                              // child: Text(
+                                              //   "${data != null ? Helper.parseNumericValue(data!.data.labelData.today.toString()) : 0}",
+                                              //   style: TextStyle(
+                                              //     fontSize:
+                                              //         MediaQuery.of(context)
+                                              //                 .size
+                                              //                 .width *
+                                              //             0.05,
+                                              //     fontWeight: FontWeight.w600,
+                                              //     color: Colors.black,
+                                              //   ),
+                                              //   overflow: TextOverflow.ellipsis,
+                                              // ),
                                               child: Text(
-                                                "${data != null ? Helper.parseNumericValue(data!.data.labelData.today.toString()) : 0}",
+                                                "${data != null ? Helper.parseNumericValue(data!.data.labelData.month.toString()) : 0}",
                                                 style: TextStyle(
+                                                  color: Colors.black,
+                                                  fontWeight: FontWeight.w600,
                                                   fontSize:
                                                       MediaQuery.of(context)
                                                               .size
                                                               .width *
-                                                          0.05,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.black,
+                                                          0.04,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -1807,9 +1932,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 ),
                               ],
                             ),
+                            Divider(
+                              thickness: 0.8,
+                            ),
                             SizedBox(
-                                height: MediaQuery.of(context).size.height *
-                                    0.02), // Spacing between sections
+                              height: 10,
+                            ),
+                            // SizedBox(
+                            //     height: MediaQuery.of(context).size.height *
+                            //         0.02), // Spacing between sections
 
                             // Row for "This Week" and "This Month" cards
                             Row(
@@ -1818,34 +1949,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 // "This Week" Card
                                 Flexible(
                                   child: Card(
-                                    elevation: 20,
+                                    color: Colors.transparent,
+                                    elevation: 0,
                                     shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(15)),
                                     child: Container(
                                       width: MediaQuery.of(context).size.width *
                                           0.42,
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                              0.14,
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 15),
+                                      // height:
+                                      //     MediaQuery.of(context).size.height *
+                                      //         0.14,
+                                      // padding: EdgeInsets.symmetric(
+                                      //     horizontal: 10, vertical: 15),
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.all(
                                             Radius.circular(10.0)),
-                                        color: Color(0xFFE2EEFD),
+                                        // color: Color(0xFFE2EEFD),
+                                        color: Colors.transparent,
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            "This Week",
+                                            "THIS WEEK",
                                             style: TextStyle(
-                                              fontSize: MediaQuery.of(context)
-                                                      .size
-                                                      .width *
-                                                  0.04,
+                                              // fontSize: MediaQuery.of(context)
+                                              //         .size
+                                              //         .width *
+                                              //     0.04,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
                                               color: Colors.grey.shade700,
                                             ),
                                           ),
@@ -1894,36 +2029,53 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 // "This Month" Card
                                 Flexible(
                                   child: Card(
-                                    elevation: 20,
+                                    color: Colors.transparent,
+                                    elevation: 0,
                                     shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(15)),
                                     child: Container(
                                       width: MediaQuery.of(context).size.width *
                                           0.42,
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                              0.14,
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 15),
+                                      // height:
+                                      //     MediaQuery.of(context).size.height *
+                                      //         0.14,
+                                      // padding: EdgeInsets.symmetric(
+                                      //     horizontal: 10, vertical: 15),
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.all(
                                             Radius.circular(10.0)),
-                                        color: Color(0xFFF9E8EE),
+                                        color: Colors.transparent,
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
+                                          // Text(
+                                          //   "THIS MONTH",
+                                          //   style: TextStyle(
+                                          //     // fontSize: MediaQuery.of(context)
+                                          //     //         .size
+                                          //     //         .width *
+                                          //     //     0.04,
+                                          //     fontSize: 13,
+                                          //     fontWeight: FontWeight.bold,
+                                          //     color: Colors.grey.shade700,
+                                          //   ),
+                                          // ),
                                           Text(
-                                            "This Month",
+                                            "TODAY'S ORDER",
                                             style: TextStyle(
-                                              fontSize: MediaQuery.of(context)
-                                                      .size
-                                                      .width *
-                                                  0.04,
+                                              // fontSize:
+                                              //     MediaQuery.of(context)
+                                              //             .size
+                                              //             .width *
+                                              //         0.045,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
                                               color: Colors.grey.shade700,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           SizedBox(height: 5),
                                           Row(
@@ -1941,16 +2093,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                 ),
                                               ),
                                               Expanded(
+                                                // child: Text(
+                                                //   "${data != null ? Helper.parseNumericValue(data!.data.labelData.month.toString()) : 0}",
+                                                //   style: TextStyle(
+                                                //     color: Colors.black,
+                                                //     fontWeight: FontWeight.w600,
+                                                //     fontSize:
+                                                //         MediaQuery.of(context)
+                                                //                 .size
+                                                //                 .width *
+                                                //             0.04,
+                                                //   ),
+                                                //   overflow:
+                                                //       TextOverflow.ellipsis,
+                                                // ),
                                                 child: Text(
-                                                  "${data != null ? Helper.parseNumericValue(data!.data.labelData.month.toString()) : 0}",
+                                                  "${data != null ? Helper.parseNumericValue(data!.data.labelData.today.toString()) : 0}",
                                                   style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontWeight: FontWeight.w600,
                                                     fontSize:
                                                         MediaQuery.of(context)
                                                                 .size
                                                                 .width *
                                                             0.04,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.black,
                                                   ),
                                                   overflow:
                                                       TextOverflow.ellipsis,
@@ -1958,58 +2124,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               ),
                                             ],
                                           ),
-                                          if (data?.data.labelData
-                                                  .targetAchievement !=
-                                              null) ...[
-                                            Builder(
-                                              builder: (context) {
-                                                final targetAchievement = data!
-                                                    .data
-                                                    .labelData
-                                                    .targetAchievement!;
-                                                return Row(
-                                                  children: [
-                                                    Text(
-                                                      "Progress: ",
-                                                      style: TextStyle(
-                                                          fontSize: 13),
-                                                    ),
-                                                    Text(
-                                                      "${targetAchievement.percent.toStringAsFixed(2)}%",
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: targetAchievement
-                                                                    .percent >
-                                                                0
-                                                            ? Colors
-                                                                .green.shade700
-                                                            : Colors
-                                                                .grey.shade700,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  "Target: ₹${data!.data.labelData.targetAchievement!.target.toStringAsFixed(2)}",
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ]
                                         ],
                                       ),
                                     ),
                                   ),
                                 ),
                               ],
+                            ),
+                            Divider(
+                              thickness: 0.8,
                             ),
                           ],
                         ),
@@ -2024,12 +2147,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         padding: const EdgeInsets.only(
                             top: 0, left: 8, right: 8, bottom: 0),
                         child: Card(
-                          elevation: 20,
+                          color: Colors.transparent,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15)),
                           child: Padding(
                             padding: EdgeInsets.only(
-                                top: 15.h, left: 10, right: 10, bottom: 8),
+                                top: 0, left: 10, right: 10, bottom: 8),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2306,6 +2430,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               profile: profileProvider);
                                         },
                                         style: ElevatedButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(180)),
                                           backgroundColor:
                                               p.data?.isPunchIn == true
                                                   ? Colors.red
@@ -2353,7 +2480,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               child:
                                                   CircularProgressIndicator(),
                                             )
-                                          : ListView.builder(
+                                          : ListView.separated(
                                               itemCount: data!.data.labelData
                                                   .transaction.length,
                                               itemBuilder: (context, index) {
@@ -2402,136 +2529,136 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                     }
                                                   },
                                                   child: Card(
-                                                    elevation: 4,
+                                                    color: Colors.transparent,
+                                                    elevation: 0,
                                                     shape:
                                                         RoundedRectangleBorder(
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               6),
                                                     ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              10),
-                                                      child: Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          /// INDEX CIRCLE (CENTER LEFT)
-                                                          Container(
-                                                            width: 24,
-                                                            height: 24,
-                                                            alignment: Alignment
-                                                                .center,
-                                                            decoration:
-                                                                const BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              color: Color(
-                                                                  0XFF2c9ed9),
-                                                            ),
-                                                            child: Text(
-                                                              "${index + 1}",
-                                                              style:
-                                                                  const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
+                                                    child: Row(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        /// INDEX CIRCLE (CENTER LEFT)
+                                                        Container(
+                                                          width: 24,
+                                                          height: 24,
+                                                          alignment:
+                                                              Alignment.center,
+                                                          decoration:
+                                                              const BoxDecoration(
+                                                            shape:
+                                                                BoxShape.circle,
+                                                            color: Color(
+                                                                0XFF2c9ed9),
+                                                          ),
+                                                          child: Text(
+                                                            "${index + 1}",
+                                                            style:
+                                                                const TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
                                                             ),
                                                           ),
+                                                        ),
 
-                                                          const SizedBox(
-                                                              width: 16),
+                                                        const SizedBox(
+                                                            width: 16),
 
-                                                          /// NAME + MOBILE
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Text(
-                                                                  item.name
-                                                                      .toTitleCase(),
-                                                                  style:
-                                                                      const TextStyle(
-                                                                    fontSize:
-                                                                        14,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                  ),
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                ),
-                                                                const SizedBox(
-                                                                    height: 4),
-                                                                Text(
-                                                                  item.mobile,
-                                                                  style: const TextStyle(
-                                                                      fontSize:
-                                                                          12),
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-
-                                                          const SizedBox(
-                                                              width: 10),
-
-                                                          /// AMOUNT + DATE
-                                                          Column(
+                                                        /// NAME + MOBILE
+                                                        Expanded(
+                                                          child: Column(
                                                             crossAxisAlignment:
                                                                 CrossAxisAlignment
-                                                                    .end,
+                                                                    .start,
                                                             mainAxisSize:
                                                                 MainAxisSize
                                                                     .min,
                                                             children: [
                                                               Text(
-                                                                "₹ ${Helper.parseNumericValue(item.amount.toString())}",
+                                                                item.name
+                                                                    .toTitleCase(),
                                                                 style:
                                                                     const TextStyle(
+                                                                  fontSize: 14,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .bold,
-                                                                  fontSize: 14,
-                                                                  color: Colors
-                                                                      .green,
                                                                 ),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
                                                               ),
                                                               const SizedBox(
                                                                   height: 4),
                                                               Text(
-                                                                Helper
-                                                                    .convertToFormat(
-                                                                  item.orderDate
-                                                                      .toString(),
-                                                                  'dd-MM-yyyy',
-                                                                ),
+                                                                item.mobile,
                                                                 style:
                                                                     const TextStyle(
                                                                         fontSize:
                                                                             12),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
                                                               ),
                                                             ],
                                                           ),
-                                                        ],
-                                                      ),
+                                                        ),
+
+                                                        const SizedBox(
+                                                            width: 10),
+
+                                                        /// AMOUNT + DATE
+                                                        Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .end,
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              "₹ ${Helper.parseNumericValue(item.amount.toString())}",
+                                                              style:
+                                                                  const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize: 14,
+                                                                color: Colors
+                                                                    .green,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                                height: 4),
+                                                            Text(
+                                                              Helper
+                                                                  .convertToFormat(
+                                                                item.orderDate
+                                                                    .toString(),
+                                                                'dd-MM-yyyy',
+                                                              ),
+                                                              style:
+                                                                  const TextStyle(
+                                                                      fontSize:
+                                                                          12),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                 );
+                                              },
+                                              separatorBuilder:
+                                                  (BuildContext context,
+                                                      int index) {
+                                                return Divider();
                                               },
                                             )
 
