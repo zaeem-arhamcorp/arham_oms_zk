@@ -6,12 +6,14 @@ import 'package:arham_corporation/services/offline_caching_service.dart'
     show OfflineCachingService, CacheItemStatus;
 import 'package:arham_corporation/views/About%20me.dart';
 import 'package:arham_corporation/views/change_password/change_password_view.dart';
+import 'package:arham_corporation/views/monthly_target/screens/secondary_target_view.dart';
 import 'package:arham_corporation/views/narration/narration_view.dart';
 import 'package:arham_corporation/views/party_managment/screens/account_list_screen.dart';
 import 'package:arham_corporation/views/referral/views/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -505,6 +507,21 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               },
             ),
           // ✅ Show Go Offline button only if offline mode is enabled
+          ListTile(
+            leading: Icon(
+              CupertinoIcons.scope,
+              size: 30,
+            ),
+            title: Text(
+              'Secondary Target',
+              style: TextStyle(
+                fontSize: 20,
+              ),
+            ),
+            onTap: () {
+              Get.to(() => SecondaryTargetView());
+            },
+          ),
           Selector<ProfileProvider, bool>(
             selector: (context, profileProvider) =>
                 profileProvider.isOfflineModeEnabled(),

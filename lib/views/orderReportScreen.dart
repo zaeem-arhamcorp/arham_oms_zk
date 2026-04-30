@@ -34,6 +34,7 @@ import 'package:provider/provider.dart';
 import 'package:whatsapp_share/whatsapp_share.dart';
 
 import '../models/orderReportModal.dart';
+import 'monthly_target/services/api_services.dart';
 import '../providers/party_provider.dart';
 import '../widgets/pdfViewerScreen.dart';
 import '../widgets/user_search_dropdown.dart';
@@ -2521,6 +2522,37 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                           Colors
                                                                               .green);
 
+                                                                  // Trigger POB sync using STOCKIST_CD from report if available
+                                                                  try {
+                                                                    final userProvider = Provider.of<
+                                                                            UserProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                    final stockistToUse = data[index].stockistCd !=
+                                                                                null &&
+                                                                            data[index]
+                                                                                .stockistCd!
+                                                                                .isNotEmpty
+                                                                        ? data[index]
+                                                                            .stockistCd!
+                                                                        : data[index]
+                                                                            .account
+                                                                            .accCd;
+                                                                    await (Get.isRegistered<MonthlyTargetApiService>()
+                                                                            ? Get.find<MonthlyTargetApiService>()
+                                                                            : Get.put(MonthlyTargetApiService()))
+                                                                        .syncPobMonthlyTarget(
+                                                                      stockistCd:
+                                                                          stockistToUse,
+                                                                      token: userProvider
+                                                                          .token,
+                                                                    );
+                                                                  } catch (e) {
+                                                                    print(
+                                                                        '[OrderReport] POB sync after edit failed: $e');
+                                                                  }
+
                                                                   final PartyProvider
                                                                       partyProvider =
                                                                       Provider.of<
@@ -2559,7 +2591,13 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
                                                                   Get.to(
                                                                     () =>
-                                                                        ProductsPage(),
+                                                                        ProductsPage(
+                                                                      initialStockistCd: (data[index].stockistCd != null && data[index].stockistCd!.trim().isNotEmpty)
+                                                                          ? data[index]
+                                                                              .stockistCd!
+                                                                              .trim()
+                                                                          : null,
+                                                                    ),
                                                                   )?.then(
                                                                       (result) {
                                                                     if (result ==
@@ -2596,6 +2634,37 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                           Colors
                                                                               .green);
 
+                                                                  // Trigger POB sync using STOCKIST_CD from report if available (old response format path)
+                                                                  try {
+                                                                    final userProvider = Provider.of<
+                                                                            UserProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                    final stockistToUse = data[index].stockistCd !=
+                                                                                null &&
+                                                                            data[index]
+                                                                                .stockistCd!
+                                                                                .isNotEmpty
+                                                                        ? data[index]
+                                                                            .stockistCd!
+                                                                        : data[index]
+                                                                            .account
+                                                                            .accCd;
+                                                                    await (Get.isRegistered<MonthlyTargetApiService>()
+                                                                            ? Get.find<MonthlyTargetApiService>()
+                                                                            : Get.put(MonthlyTargetApiService()))
+                                                                        .syncPobMonthlyTarget(
+                                                                      stockistCd:
+                                                                          stockistToUse,
+                                                                      token: userProvider
+                                                                          .token,
+                                                                    );
+                                                                  } catch (e) {
+                                                                    print(
+                                                                        '[OrderReport] POB sync after edit (old format) failed: $e');
+                                                                  }
+
                                                                   final PartyProvider
                                                                       partyProvider =
                                                                       Provider.of<
@@ -2634,7 +2703,13 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
                                                                   Get.to(
                                                                     () =>
-                                                                        ProductsPage(),
+                                                                        ProductsPage(
+                                                                      initialStockistCd: (data[index].stockistCd != null && data[index].stockistCd!.trim().isNotEmpty)
+                                                                          ? data[index]
+                                                                              .stockistCd!
+                                                                              .trim()
+                                                                          : null,
+                                                                    ),
                                                                   )?.then(
                                                                       (result) {
                                                                     if (result ==
@@ -2780,14 +2855,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                             () {
                                                                           // Confirm logout
                                                                           Services()
-                                                                              .deleteOrder(data[index].oId, context)
+                                                                              .deleteOrder(data[index].oId, context, stockist: data[index].stockistCd ?? data[index].account.accCd)
                                                                               .then((value) {
                                                                             if (value !=
                                                                                 null) {
-                                                                              // Fluttertoast
-                                                                              //     .showToast(
-                                                                              //         msg:
-                                                                              //             value);
                                                                               Navigator.pop(context);
 
                                                                               AppSnackBar.showGetXCustomSnackBar(message: value, backgroundColor: Colors.green);

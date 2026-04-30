@@ -18,6 +18,7 @@ import 'package:arham_corporation/services/battery_optimization_service.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/location_permission_service.dart';
+import 'package:arham_corporation/views/monthly_target/models/monthly_target_item_model.dart';
 import 'package:arham_corporation/views/orderReportScreen.dart';
 import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
@@ -168,6 +169,86 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool narrationUpdateRights = false;
   bool narrationDeleteRight = false;
   bool narrationPrintRights = false;
+  late Future<MonthlyTargetItemModel?> _monthlyTargetFuture;
+
+  Future<MonthlyTargetItemModel?> _fetchCurrentMonthPobTarget() async {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final token = userProvider.token;
+      if (token == null || token.trim().isEmpty) {
+        print('[HomePage] Monthly target fetch skipped: missing token');
+        return null;
+      }
+
+      final targetMonth = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final uri = Uri.parse(
+        '${AppConfig.baseURL}monthly-sales-target?targetMonth=$targetMonth&type=POB',
+      );
+
+      print('[HomePage] Fetching monthly target: $uri');
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+      );
+
+      print('[HomePage] Monthly target response: ${response.statusCode}');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return null;
+      }
+
+      final decoded = jsonDecode(response.body);
+      final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+      if (data is! List || data.isEmpty) {
+        return null;
+      }
+
+      final now = DateTime.now();
+      MonthlyTargetItemModel? monthItem;
+
+      for (final item in data.whereType<Map>()) {
+        final model = MonthlyTargetItemModel.fromJson(
+          Map<String, dynamic>.from(item as Map),
+        );
+        if (model.type.toUpperCase() != 'POB') continue;
+
+        final parsedTargetDate = DateTime.tryParse(model.targetDate);
+        if (parsedTargetDate != null &&
+            parsedTargetDate.year == now.year &&
+            parsedTargetDate.month == now.month) {
+          monthItem = model;
+          break;
+        }
+
+        final monthNames = [
+          'january',
+          'february',
+          'march',
+          'april',
+          'may',
+          'june',
+          'july',
+          'august',
+          'september',
+          'october',
+          'november',
+          'december'
+        ];
+        final expectedMonth = '${now.year}-${monthNames[now.month - 1]}';
+        if (model.targetMonth.toLowerCase() == expectedMonth) {
+          monthItem = model;
+          break;
+        }
+      }
+
+      return monthItem;
+    } catch (e) {
+      print('[HomePage] Monthly target fetch error: $e');
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -187,6 +268,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // });
 
     _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    _monthlyTargetFuture = _fetchCurrentMonthPobTarget();
 
     // Add listener to show warning snackbar whenever it's set by the API
     _profileProvider.addListener(_handlePendingWarning);
@@ -307,6 +389,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     final ProfileProvider p = _profileProvider;
+    _monthlyTargetFuture = _fetchCurrentMonthPobTarget();
 
     var narrationEntryModule = p.data?.modulesList?.firstWhere(
           (module) => module.mODULENO == "109",
@@ -1931,6 +2014,71 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ),
                                 ),
                               ],
+                            ),
+                            SizedBox(height: 8),
+                            FutureBuilder<MonthlyTargetItemModel?>(
+                              future: _monthlyTargetFuture,
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData ||
+                                    snapshot.data == null) {
+                                  return SizedBox();
+                                }
+
+                                final pobItem = snapshot.data!;
+                                final currentMonthlySale = double.tryParse(
+                                      (data?.data.labelData.month ?? '0')
+                                          .toString()
+                                          .replaceAll(',', ''),
+                                    ) ??
+                                    0.0;
+
+                                final double target =
+                                    (pobItem.primaryTargetAmount > 0)
+                                        ? pobItem.primaryTargetAmount
+                                        : pobItem.salesmanTargetAmount;
+                                final double progress = (target > 0)
+                                    ? (currentMonthlySale / target)
+                                        .clamp(0.0, 1.0)
+                                    : 0.0;
+
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                      right: 0, left: 0, bottom: 4),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            "Target: ₹${target.toStringAsFixed(2)}",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xff006705),
+                                            ),
+                                          ),
+                                          Spacer(),
+                                          Text(
+                                            "${(progress * 100).toStringAsFixed(2)}%",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: progress > 0
+                                                  ? Colors.green.shade700
+                                                  : Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 6),
+                                      LinearProgressIndicator(
+                                        value: progress,
+                                        minHeight: 8,
+                                        borderRadius: BorderRadius.circular(50),
+                                        color: Color(0XFF2c9ed9),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
                             Divider(
                               thickness: 0.8,

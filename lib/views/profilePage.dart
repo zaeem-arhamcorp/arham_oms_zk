@@ -11,8 +11,9 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/loginpage.dart';
-import 'package:arham_corporation/views/user_monthly_target/screens/monthly_target_view.dart';
-import 'package:arham_corporation/views/user_monthly_target/services/api_services.dart';
+import 'package:arham_corporation/views/monthly_target/screens/monthly_target_view.dart';
+import 'package:arham_corporation/views/monthly_target/screens/edit_monthly_target_view.dart';
+import 'package:arham_corporation/views/monthly_target/services/api_services.dart';
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -29,7 +30,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import 'user_monthly_target/models/monthly_target_item_model.dart';
+import 'monthly_target/models/monthly_target_item_model.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -625,9 +626,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadMonthlyTargetAmount() async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
-      final currentUserCd = (profileProvider.data?.userCd ?? '').toString().trim();
-      final currentMonthTarget = DateTime(DateTime.now().year, DateTime.now().month, 1);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      final currentUserCd =
+          (profileProvider.data?.userCd ?? '').toString().trim();
+      final currentMonthTarget =
+          DateTime(DateTime.now().year, DateTime.now().month, 1);
       final currentMonthTargetText =
           '${currentMonthTarget.year.toString().padLeft(4, '0')}-${currentMonthTarget.month.toString().padLeft(2, '0')}-${currentMonthTarget.day.toString().padLeft(2, '0')}';
 
@@ -645,8 +649,11 @@ class _ProfilePageState extends State<ProfilePage> {
         final matchesUser =
             currentUserCd.isEmpty || target.userCd.trim() == currentUserCd;
         final matchesMonth = target.targetMonth.trim().isEmpty ||
-            target.targetDate.trim().startsWith('${currentMonthTarget.year.toString().padLeft(4, '0')}-${currentMonthTarget.month.toString().padLeft(2, '0')}');
-        return matchesUser && matchesMonth && target.type.toUpperCase() == 'POB';
+            target.targetDate.trim().startsWith(
+                '${currentMonthTarget.year.toString().padLeft(4, '0')}-${currentMonthTarget.month.toString().padLeft(2, '0')}');
+        return matchesUser &&
+            matchesMonth &&
+            target.type.toUpperCase() == 'POB';
       }).toList();
 
       MonthlyTargetItemModel? selectedTarget;
@@ -654,7 +661,9 @@ class _ProfilePageState extends State<ProfilePage> {
         matchingTargets.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         selectedTarget = matchingTargets.first;
       } else if (targets.isNotEmpty) {
-        final pobTargets = targets.where((target) => target.type.toUpperCase() == 'POB').toList();
+        final pobTargets = targets
+            .where((target) => target.type.toUpperCase() == 'POB')
+            .toList();
         if (pobTargets.isNotEmpty) {
           pobTargets.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
           selectedTarget = pobTargets.first;
@@ -881,12 +890,28 @@ class _ProfilePageState extends State<ProfilePage> {
                       isDense: true,
                       suffixIcon: IconButton(
                         onPressed: () async {
-                          await Get.to(() => const MonthlyTargetView());
+                          final text = _monthlyTargetController.text.trim();
+                          final isEmpty = text.isEmpty ||
+                              text.toLowerCase() == 'no monthly target';
+                          if (isEmpty) {
+                            await Get.to(() => const MonthlyTargetView());
+                          } else {
+                            await Get.to(() => const EditMonthlyTargetView());
+                          }
+
                           if (mounted) {
                             await _loadMonthlyTargetAmount();
                           }
                         },
-                        icon: Icon(Icons.edit),
+                        icon: Icon(
+                          (_monthlyTargetController.text.trim().isEmpty ||
+                                  _monthlyTargetController.text
+                                          .trim()
+                                          .toLowerCase() ==
+                                      'no monthly target')
+                              ? Icons.add
+                              : Icons.edit,
+                        ),
                       ),
                     ),
                   ),

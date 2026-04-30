@@ -29,8 +29,7 @@ class MonthlyTargetApiService extends GetxService {
       final queryParameters = <String, String>{
         if (targetMonth != null && targetMonth.trim().isNotEmpty)
           'targetMonth': targetMonth.trim(),
-        if (userCd != null && userCd.trim().isNotEmpty)
-          'userCd': userCd.trim(),
+        if (userCd != null && userCd.trim().isNotEmpty) 'userCd': userCd.trim(),
       };
 
       final endpoint = queryParameters.isEmpty
@@ -140,6 +139,40 @@ class MonthlyTargetApiService extends GetxService {
       return statusCode == 200 || statusCode == 201;
     } catch (e, stackTrace) {
       appLog('pob-sync API error: $e',
+          tag: 'MonthlyTarget', error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  Future<bool> saveSecondaryTarget({
+    required String targetDate, // yyyy-MM-dd
+    required String stockistCd,
+    String? targetDesc,
+    required num secondaryAmount,
+    String? token,
+  }) async {
+    try {
+      final body = {
+        'targetDate': targetDate,
+        'stockistCd': stockistCd,
+        'type': 'SECONDARY',
+        'targetDesc': targetDesc ?? '',
+        'secondaryAmount': secondaryAmount,
+      };
+
+      final response = await _apiService.post(
+        '${AppConfig.baseURL}monthly-sales-target',
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+        body: body,
+      );
+
+      final statusCode = response['statusCode'] as int;
+      return statusCode == 200 || statusCode == 201;
+    } catch (e, stackTrace) {
+      appLog('saveSecondaryTarget API error: $e',
           tag: 'MonthlyTarget', error: e, stackTrace: stackTrace);
       return false;
     }

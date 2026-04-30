@@ -24,7 +24,6 @@ class _MonthlyTargetViewState extends State<MonthlyTargetView> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _targetMonthController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
-  
 
   final TextEditingController _filterTargetMonthController =
       TextEditingController(text: '');
@@ -62,7 +61,7 @@ class _MonthlyTargetViewState extends State<MonthlyTargetView> {
   void dispose() {
     _targetMonthController.dispose();
     _amountController.dispose();
-    
+
     _filterTargetMonthController.dispose();
     _filterStockistCdController.dispose();
     _filterUserCdController.dispose();
@@ -78,15 +77,13 @@ class _MonthlyTargetViewState extends State<MonthlyTargetView> {
       _isLoadingList = true;
     });
 
-    final targets =
-        await _service.fetchMonthlyTargets(
+    final targets = await _service.fetchMonthlyTargets(
       targetMonth: _selectedMonth.toIso8601String().split('T').first,
-      userCd: (Provider.of<ProfileProvider>(context, listen: false)
-              .data
-              ?.userCd ??
-          '')
-          .toString()
-          .trim(),
+      userCd:
+          (Provider.of<ProfileProvider>(context, listen: false).data?.userCd ??
+                  '')
+              .toString()
+              .trim(),
       token: userProvider.token,
     );
 
@@ -105,16 +102,17 @@ class _MonthlyTargetViewState extends State<MonthlyTargetView> {
 
   void _syncCurrentMonthTarget(List<MonthlyTargetItemModel> targets) {
     final currentMonthKey = _selectedMonth.toIso8601String().split('T').first;
-    final currentUserCd = (Provider.of<ProfileProvider>(context, listen: false)
-            .data
-            ?.userCd ??
-        '')
-        .toString()
-        .trim();
+    final currentUserCd =
+        (Provider.of<ProfileProvider>(context, listen: false).data?.userCd ??
+                '')
+            .toString()
+            .trim();
 
     final matches = targets.where((target) {
-      final monthMatches = target.targetDate.startsWith(currentMonthKey.substring(0, 7));
-      final userMatches = currentUserCd.isEmpty || target.userCd.trim() == currentUserCd;
+      final monthMatches =
+          target.targetDate.startsWith(currentMonthKey.substring(0, 7));
+      final userMatches =
+          currentUserCd.isEmpty || target.userCd.trim() == currentUserCd;
       return monthMatches && userMatches && target.type.toUpperCase() == 'POB';
     }).toList();
 
@@ -127,7 +125,8 @@ class _MonthlyTargetViewState extends State<MonthlyTargetView> {
 
       // Preload editable target field with current month amount when available.
       if (selected != null && _amountController.text.trim().isEmpty) {
-        _amountController.text = selected.salesmanTargetAmount.toStringAsFixed(0);
+        _amountController.text =
+            selected.salesmanTargetAmount.toStringAsFixed(0);
       }
     });
   }

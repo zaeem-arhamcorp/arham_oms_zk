@@ -36,7 +36,9 @@ import '../models/orderReportModal.dart';
 import '../models/productModal.dart';
 import '../models/settingmodal.dart';
 import '../models/utlityModal.dart';
+import '../product/controller/product_controller.dart';
 import '../providers/user_provider.dart';
+import '../views/monthly_target/services/api_services.dart';
 import 'database_helper.dart';
 
 class Services {
@@ -684,7 +686,7 @@ class Services {
     return null;
   }
 
-  Future<String?> deleteOrder(oId, context) async {
+  Future<String?> deleteOrder(oId, context, {String? stockist}) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
     try {
@@ -695,6 +697,32 @@ class Services {
           'x-app-type': 'oms',
         },
       );
+      late final ProductController productcontroller =
+          Get.isRegistered<ProductController>()
+              ? Get.find<ProductController>()
+              : Get.put(ProductController());
+
+      final PartyProvider party =
+          Provider.of<PartyProvider>(context, listen: false);
+      final ProfileProvider profile =
+          Provider.of<ProfileProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final resolvedStockist = (stockist != null && stockist.trim().isNotEmpty)
+          ? stockist.trim()
+          : (productcontroller.selectedStockistId.value.trim().isNotEmpty
+              ? productcontroller.selectedStockistId.value.trim()
+              : (profile.YN == "Y" ? party.punchInOutPartyId : party.partyid)
+                  .toString()
+                  .trim());
+
+      final pobSynced = await (Get.isRegistered<MonthlyTargetApiService>()
+              ? Get.find<MonthlyTargetApiService>()
+              : Get.put(MonthlyTargetApiService()))
+          .syncPobMonthlyTarget(
+        stockistCd: resolvedStockist,
+        token: userProvider.token,
+      );
+      print('[DELETE_CART] ✅ POB sync result: $pobSynced');
       print(response.body);
       if (response.statusCode == 200) {
         return json.decode(response.body)["message"];

@@ -48,7 +48,8 @@ class DatumOrder {
       this.vouchDt,
       this.imgUrl,
       this.remark,
-      this.canEdit});
+      this.canEdit,
+      this.stockistCd});
 
   String partyCd;
   dynamic oId;
@@ -65,6 +66,7 @@ class DatumOrder {
   Account account;
   User user;
   List<Ordritm> ordritms;
+  String? stockistCd;
 
   factory DatumOrder.fromJson(Map<String, dynamic> json) => DatumOrder(
         partyCd: json["PARTY_CD"] ?? "",
@@ -83,6 +85,8 @@ class DatumOrder {
         user: User.fromJson(json['usermast']),
         ordritms: List<Ordritm>.from(
             json["ordritms"].map((x) => Ordritm.fromJson(x))),
+        stockistCd:
+            json['STOCKIST_CD']?.toString() ?? json['stockist_cd']?.toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -101,6 +105,7 @@ class DatumOrder {
         "account": account.toJson(),
         "usermast": user.toJson(),
         "ordritms": List<dynamic>.from(ordritms.map((x) => x.toJson())),
+        "STOCKIST_CD": stockistCd,
       };
 }
 

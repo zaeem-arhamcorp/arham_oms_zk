@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
@@ -10,6 +11,7 @@ import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/product/widget/product_card.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/party_managment/services/api_service.dart';
 import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
 import 'package:flutter/cupertino.dart';
@@ -17,10 +19,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../models/partynameModal.dart';
 import '../../models/productModal.dart';
 import '../../providers/cart_list_provider.dart';
 import '../../providers/location_provider.dart';
@@ -263,7 +268,9 @@ Future<bool> _showSelfieDialogAndUpload(
 }
 
 class ProductsPage extends StatefulWidget {
-  const ProductsPage({super.key});
+  final String? initialStockistCd;
+
+  const ProductsPage({super.key, this.initialStockistCd});
 
   @override
   State<ProductsPage> createState() => _ProductsPageState();
@@ -297,7 +304,10 @@ class _ProductsPageState extends State<ProductsPage> {
   var deleteRight = false;
   var printRight = false;
 
-  /// Check if continuous location tracking is enabled in settings
+  // Monthly target data map: stockist code -> target info for PRIMARY/POB.
+  Map<String, Map<String, dynamic>> _monthlyTargetByStockist = {};
+
+  /// Get fresh location via Geolocator for on-demand tracking
   bool _isContinuousLocationTrackingEnabled(ProfileProvider profile) {
     try {
       final setting = profile.data?.profileSettings.firstWhere(
@@ -471,6 +481,10 @@ class _ProductsPageState extends State<ProductsPage> {
         controller.hasStockistAccess.value = false;
       }
 
+      if ((widget.initialStockistCd ?? '').trim().isNotEmpty) {
+        await _applyInitialStockistSelection(widget.initialStockistCd!.trim());
+      }
+
       controller.selectedPartyName.value = Helper.trimValue(
           profile.YN == 'Y' ? party.punchInOutParty : party.party, 25);
       controller.selectedPartyId.value = Helper.trimValue(
@@ -531,8 +545,16 @@ class _ProductsPageState extends State<ProductsPage> {
 
       // Refresh stockists only when stockist link is enabled for this user.
       if (isStockistEnabled) {
-        controller.fetchStockists(groupCd: '136');
+        await controller.fetchStockists(groupCd: '136');
+
+        if ((widget.initialStockistCd ?? '').trim().isNotEmpty) {
+          await _applyInitialStockistSelection(
+              widget.initialStockistCd!.trim());
+        }
       }
+
+      // Fetch monthly target data for stockists
+      await _fetchMonthlyTargetData();
 
       // Initialize filteredDepartments by copying contents from deptment
       controller.filteredDepartments.assignAll(controller.deptment);
@@ -573,6 +595,117 @@ class _ProductsPageState extends State<ProductsPage> {
         controller.hasStockistAccess.value || controller.stockists.isNotEmpty;
 
     return hasStockistOptions && controller.selectedStockistId.value.isEmpty;
+  }
+
+  Future<void> _applyInitialStockistSelection(String stockistCd) async {
+    final code = stockistCd.trim();
+    if (code.isEmpty) {
+      return;
+    }
+
+    try {
+      DatumPartyname? matchedStockist;
+      for (final stockist in controller.stockists) {
+        if (stockist.accCd.trim() == code) {
+          matchedStockist = stockist;
+          break;
+        }
+      }
+
+      if (matchedStockist != null) {
+        controller.selectedStockistName.value = matchedStockist.accName;
+        controller.selectedStockistId.value = matchedStockist.accCd;
+        controller.selectedStockistAddress.value = matchedStockist.accAddress;
+        controller.selectedStockistCity.value = matchedStockist.city ?? '';
+        controller.selectedStockistMobile.value = matchedStockist.mobile;
+        controller.selectedStockistPersonName.value =
+            matchedStockist.person_nm ?? '';
+        controller.selectedStockistPincode.value =
+            matchedStockist.pincode ?? '';
+        controller.hasStockistAccess.value = true;
+        await controller.saveStockistSelection();
+      } else {
+        controller.selectedStockistId.value = code;
+        await controller.saveStockistSelection();
+      }
+    } catch (e) {
+      print('[Product] Error applying initial stockist selection: $e');
+    }
+  }
+
+  Future<void> _fetchMonthlyTargetData() async {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final token = userProvider.token;
+      if (token == null || token.trim().isEmpty) {
+        return;
+      }
+
+      final targetMonth = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final tempMap = <String, Map<String, dynamic>>{};
+      Future<void> loadType(String type) async {
+        final uri = Uri.parse(
+          '${AppConfig.baseURL}monthly-sales-target?targetMonth=$targetMonth&type=$type',
+        );
+
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+          },
+        );
+
+        if (response.statusCode != 200 && response.statusCode != 201) {
+          return;
+        }
+
+        final decoded = jsonDecode(response.body);
+        final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+        if (data is! List || data.isEmpty) {
+          return;
+        }
+
+        for (final item in data.whereType<Map>()) {
+          final stockistCd = (item['STOCKIST_CD'] ?? '').toString().trim();
+          if (stockistCd.isEmpty) {
+            continue;
+          }
+
+          final entry =
+              tempMap.putIfAbsent(stockistCd, () => <String, dynamic>{});
+          if (type.toUpperCase() == 'PRIMARY') {
+            entry['primaryTargetAmount'] = item['PRIMARY_TARGET_AMOUNT'] ?? 0;
+            entry['primaryTargetDesc'] = (item['TARGET_DESC'] ?? '').toString();
+          } else if (type.toUpperCase() == 'POB') {
+            entry['pobAmount'] = item['POB_AMOUNT'] ?? 0;
+            entry['pobTargetDesc'] = (item['TARGET_DESC'] ?? '').toString();
+            entry['pobLastSyncAt'] =
+                (item['POB_LAST_SYNC_AT'] ?? '').toString();
+          }
+        }
+      }
+
+      await Future.wait([
+        loadType('PRIMARY'),
+        loadType('POB'),
+      ]);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _monthlyTargetByStockist = tempMap;
+      });
+    } catch (e) {
+      print('[Product] Error fetching monthly target data: $e');
+    }
+  }
+
+  String _amountToString(dynamic value) {
+    final amount = double.tryParse(value?.toString() ?? '') ?? 0.0;
+    return amount.toStringAsFixed(2);
   }
 
   @override
@@ -1244,6 +1377,99 @@ class _ProductsPageState extends State<ProductsPage> {
                                             ),
                                           ),
                                         ],
+                                      ),
+                                    ],
+                                    if (_monthlyTargetByStockist
+                                        .containsKey(code)) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (_monthlyTargetByStockist[code]
+                                                    ?.containsKey(
+                                                        'primaryTargetAmount') ??
+                                                false) ...[
+                                              Text(
+                                                'Monthly Target (PRIMARY)',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.blue.shade900,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Target: ₹${_amountToString(_monthlyTargetByStockist[code]?['primaryTargetAmount'])}',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                              if (((_monthlyTargetByStockist[
+                                                                  code]?[
+                                                              'primaryTargetDesc'] ??
+                                                          '')
+                                                      .toString()
+                                                      .trim())
+                                                  .isNotEmpty)
+                                                Text(
+                                                  'Desc: ${_monthlyTargetByStockist[code]?['primaryTargetDesc']}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                            ],
+                                            if (_monthlyTargetByStockist[code]
+                                                    ?.containsKey(
+                                                        'pobAmount') ??
+                                                false) ...[
+                                              if (_monthlyTargetByStockist[code]
+                                                      ?.containsKey(
+                                                          'primaryTargetAmount') ??
+                                                  false)
+                                                const SizedBox(height: 6),
+                                              Text(
+                                                'Monthly Target (POB)',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.blue.shade900,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'POB: ₹${_amountToString(_monthlyTargetByStockist[code]?['pobAmount'])}',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                              if (((_monthlyTargetByStockist[
+                                                                  code]?[
+                                                              'pobTargetDesc'] ??
+                                                          '')
+                                                      .toString()
+                                                      .trim())
+                                                  .isNotEmpty)
+                                                Text(
+                                                  'Desc: ${_monthlyTargetByStockist[code]?['pobTargetDesc']}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ],

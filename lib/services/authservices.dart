@@ -62,6 +62,7 @@ class AuthServices {
     Map bod = {
       "userName": email,
       "password": password,
+      "type": "app",
     };
 
     print(bod);
@@ -425,7 +426,7 @@ class AuthServices {
 
     try {
       //if (await Network.isConnected()) {
-      Map<String, dynamic> param = {'mobileNo': mobileNumber};
+      Map<String, dynamic> param = {'mobileNo': mobileNumber, 'type': "app"};
 
       final http.Response response = await http.post(
         Uri.parse(AppConfig.loginWithMobileURL),
@@ -467,7 +468,11 @@ class AuthServices {
 
     try {
       //if (await Network.isConnected()) {
-      Map<String, dynamic> param = {'mobileNo': mobileNumber, 'otp': otp};
+      Map<String, dynamic> param = {
+        'mobileNo': mobileNumber,
+        'otp': otp,
+        'type': "app",
+      };
 
       final http.Response response = await http.post(
         Uri.parse(AppConfig.loginWithMobileVerifyOTPURL),
