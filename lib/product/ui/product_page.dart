@@ -1310,18 +1310,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      name,
+                                      "$name ($code)",
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Code: $code',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
                                       ),
                                     ),
                                     const SizedBox(height: 6),
@@ -1361,31 +1353,30 @@ class _ProductsPageState extends State<ProductsPage> {
                                         ],
                                       ),
                                     ],
-                                    if (stockist.lat != null &&
-                                        stockist.long != null) ...[
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.location_on_outlined,
-                                              size: 14, color: Colors.green),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '${stockist.lat}, ${stockist.long}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                    // if (stockist.lat != null &&
+                                    //     stockist.long != null) ...[
+                                    //   const SizedBox(height: 4),
+                                    //   Row(
+                                    //     children: [
+                                    //       const Icon(Icons.location_on_outlined,
+                                    //           size: 14, color: Colors.green),
+                                    //       const SizedBox(width: 4),
+                                    //       Text(
+                                    //         '${stockist.lat}, ${stockist.long}',
+                                    //         style: TextStyle(
+                                    //           fontSize: 11,
+                                    //           color: Colors.grey.shade700,
+                                    //         ),
+                                    //       ),
+                                    //     ],
+                                    //   ),
+                                    // ],
                                     if (_monthlyTargetByStockist
                                         .containsKey(code)) ...[
                                       const SizedBox(height: 8),
                                       Container(
-                                        padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue.shade50,
+                                          color: Colors.transparent,
                                           borderRadius:
                                               BorderRadius.circular(4),
                                         ),
@@ -1398,35 +1389,27 @@ class _ProductsPageState extends State<ProductsPage> {
                                                         'primaryTargetAmount') ??
                                                 false) ...[
                                               Text(
-                                                'Monthly Target (PRIMARY)',
+                                                'PRIMARY: ₹ ${_amountToString(_monthlyTargetByStockist[code]?['primaryTargetAmount'])}',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
                                                   color: Colors.blue.shade900,
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Target: ₹${_amountToString(_monthlyTargetByStockist[code]?['primaryTargetAmount'])}',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade700,
-                                                ),
-                                              ),
-                                              if (((_monthlyTargetByStockist[
-                                                                  code]?[
-                                                              'primaryTargetDesc'] ??
-                                                          '')
-                                                      .toString()
-                                                      .trim())
-                                                  .isNotEmpty)
-                                                Text(
-                                                  'Desc: ${_monthlyTargetByStockist[code]?['primaryTargetDesc']}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey.shade700,
-                                                  ),
-                                                ),
+                                              // if (((_monthlyTargetByStockist[
+                                              //                     code]?[
+                                              //                 'primaryTargetDesc'] ??
+                                              //             '')
+                                              //         .toString()
+                                              //         .trim())
+                                              //     .isNotEmpty)
+                                              //   Text(
+                                              //     'Desc: ${_monthlyTargetByStockist[code]?['primaryTargetDesc']}',
+                                              //     style: TextStyle(
+                                              //       fontSize: 11,
+                                              //       color: Colors.grey.shade700,
+                                              //     ),
+                                              //   ),
                                             ],
                                             if (_monthlyTargetByStockist[code]
                                                     ?.containsKey(
@@ -1437,36 +1420,37 @@ class _ProductsPageState extends State<ProductsPage> {
                                                           'primaryTargetAmount') ??
                                                   false)
                                                 const SizedBox(height: 6),
+                                              // Text(
+                                              //   'POB',
+                                              //   style: TextStyle(
+                                              //     fontSize: 12,
+                                              //     fontWeight: FontWeight.w600,
+                                              //     color: Colors.blue.shade900,
+                                              //   ),
+                                              // ),
+                                              // const SizedBox(height: 4),
                                               Text(
-                                                'Monthly Target (POB)',
+                                                'POB: ₹ ${_amountToString(_monthlyTargetByStockist[code]?['pobAmount'])}',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
                                                   color: Colors.blue.shade900,
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'POB: ₹${_amountToString(_monthlyTargetByStockist[code]?['pobAmount'])}',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade700,
-                                                ),
-                                              ),
-                                              if (((_monthlyTargetByStockist[
-                                                                  code]?[
-                                                              'pobTargetDesc'] ??
-                                                          '')
-                                                      .toString()
-                                                      .trim())
-                                                  .isNotEmpty)
-                                                Text(
-                                                  'Desc: ${_monthlyTargetByStockist[code]?['pobTargetDesc']}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey.shade700,
-                                                  ),
-                                                ),
+                                              // if (((_monthlyTargetByStockist[
+                                              //                     code]?[
+                                              //                 'pobTargetDesc'] ??
+                                              //             '')
+                                              //         .toString()
+                                              //         .trim())
+                                              //     .isNotEmpty)
+                                              //   Text(
+                                              //     'Desc: ${_monthlyTargetByStockist[code]?['pobTargetDesc']}',
+                                              //     style: TextStyle(
+                                              //       fontSize: 11,
+                                              //       color: Colors.grey.shade700,
+                                              //     ),
+                                              //   ),
                                             ],
                                           ],
                                         ),
