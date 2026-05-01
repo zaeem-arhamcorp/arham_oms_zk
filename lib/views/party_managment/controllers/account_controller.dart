@@ -815,6 +815,7 @@ class AccountController extends GetxController {
         city: AccountFormFields.cityController.text.trim(),
         state: AccountFormFields.stateController.text.trim(),
         pincode: AccountFormFields.pincodeController.text.trim(),
+        beatCd: AccountFormFields.beatCdController.text.trim(),
         latitude:
             double.tryParse(AccountFormFields.latitudeController.text) ?? 0.0,
         longitude:

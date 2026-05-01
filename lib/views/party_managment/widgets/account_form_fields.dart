@@ -12,6 +12,7 @@ class AccountFormFields {
   static final pincodeController = TextEditingController();
   static final latitudeController = TextEditingController();
   static final longitudeController = TextEditingController();
+  static final beatCdController = TextEditingController();
 
   //  License Info
   static final gstNoController = TextEditingController();
@@ -31,6 +32,7 @@ class AccountFormFields {
     pincodeController.clear();
     latitudeController.clear();
     longitudeController.clear();
+    beatCdController.clear();
 
     // License Info
     gstNoController.clear();

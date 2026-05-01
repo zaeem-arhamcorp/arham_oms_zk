@@ -677,6 +677,10 @@ class _ProductsPageState extends State<ProductsPage> {
           if (type.toUpperCase() == 'PRIMARY') {
             entry['primaryTargetAmount'] = item['PRIMARY_TARGET_AMOUNT'] ?? 0;
             entry['primaryTargetDesc'] = (item['TARGET_DESC'] ?? '').toString();
+            entry['updatedAt'] = item['UPDATED_AT'] != null
+                ? DateFormat('yyyy-MM-dd')
+                    .format(DateTime.parse(item['UPDATED_AT']))
+                : '';
           } else if (type.toUpperCase() == 'POB') {
             entry['pobAmount'] = item['POB_AMOUNT'] ?? 0;
             entry['pobTargetDesc'] = (item['TARGET_DESC'] ?? '').toString();
@@ -1224,10 +1228,20 @@ class _ProductsPageState extends State<ProductsPage> {
     });
   }
 
-  void showStockistMenu() {
+  Future<void> showStockistMenu() async {
     final profile = Provider.of<ProfileProvider>(context, listen: false);
     if (!_isStockistUserLinkEnabled(profile)) {
       return;
+    }
+
+    // Ensure monthly target data is available before opening the sheet
+    if (_monthlyTargetByStockist.isEmpty) {
+      try {
+        await _fetchMonthlyTargetData();
+      } catch (e) {
+        print(
+            '[Product] Error fetching monthly target before showing sheet: $e');
+      }
     }
 
     showModalBottomSheet(
@@ -1388,13 +1402,40 @@ class _ProductsPageState extends State<ProductsPage> {
                                                     ?.containsKey(
                                                         'primaryTargetAmount') ??
                                                 false) ...[
-                                              Text(
-                                                'PRIMARY: ₹ ${_amountToString(_monthlyTargetByStockist[code]?['primaryTargetAmount'])}',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.blue.shade900,
-                                                ),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.file_copy,
+                                                      size: 14,
+                                                      color: Colors.blue),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Primary: ',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '₹ ${_amountToString(_monthlyTargetByStockist[code]?['primaryTargetAmount'])}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                  Spacer(),
+                                                  Text(
+                                                    'Updated At: ${_monthlyTargetByStockist[code]?['updatedAt']}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                               // if (((_monthlyTargetByStockist[
                                               //                     code]?[
@@ -1429,13 +1470,27 @@ class _ProductsPageState extends State<ProductsPage> {
                                               //   ),
                                               // ),
                                               // const SizedBox(height: 4),
-                                              Text(
-                                                'POB: ₹ ${_amountToString(_monthlyTargetByStockist[code]?['pobAmount'])}',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.blue.shade900,
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    'POB: ',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '₹ ${_amountToString(_monthlyTargetByStockist[code]?['pobAmount'])}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                               // if (((_monthlyTargetByStockist[
                                               //                     code]?[

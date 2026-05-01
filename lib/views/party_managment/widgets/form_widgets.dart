@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../controllers/account_controller.dart';
 import '../core/form_validation.dart';
 import 'account_form_fields.dart';
+import '../../../route_schedule_plan/controllers/beat_controller.dart';
 
 class FormWidgets {
   // Generic Text Field
@@ -118,6 +119,54 @@ class FormWidgets {
           maxLength: 10,
           isNumber: true,
         ),
+        // Beat dropdown (loaded from API)
+        Builder(builder: (context) {
+          // Lazily register BeatController when form is used in a widget tree
+          final beatCtrl = Get.isRegistered<BeatController>()
+              ? Get.find<BeatController>()
+              : Get.put(BeatController());
+
+          return Obx(() {
+            if (beatCtrl.isLoading) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: const [
+                    SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                    Text('Loading beats...'),
+                  ],
+                ),
+              );
+            }
+
+            final items = beatCtrl.beats;
+            return DropdownButtonFormField<String>(
+              value: AccountFormFields.beatCdController.text.isEmpty
+                  ? null
+                  : AccountFormFields.beatCdController.text,
+              decoration: InputDecoration(
+                labelText: 'Beat',
+                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+              items: items
+                  .map((b) => DropdownMenuItem<String>(
+                        value: b.beatCd,
+                        child:
+                            Text(b.beatName.isNotEmpty ? b.beatName : b.beatCd),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                AccountFormFields.beatCdController.text = v ?? '';
+              },
+            );
+          });
+        }),
         const SizedBox(height: 8),
         _locationSection(controller),
       ],

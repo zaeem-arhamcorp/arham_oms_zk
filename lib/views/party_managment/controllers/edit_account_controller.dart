@@ -52,6 +52,10 @@ class EditAccountController extends AccountController {
     AccountFormFields.stateController.text = data['STATE'] ?? '';
     AccountFormFields.pincodeController.text = data['PINCODE'] ?? '';
 
+    // Beat code (may come as BEAT_CD or beatCd)
+    AccountFormFields.beatCdController.text =
+        (data['BEAT_CD'] ?? data['beatCd'] ?? '').toString();
+
     /// 🔒 LOCK LAT/LONG FROM API
     fixedLatitude =
         double.tryParse((data['LATITUDE'] ?? '0').toString()) ?? 0.0;
@@ -93,6 +97,7 @@ class EditAccountController extends AccountController {
         city: AccountFormFields.cityController.text.trim(),
         state: AccountFormFields.stateController.text.trim(),
         pincode: AccountFormFields.pincodeController.text.trim(),
+        beatCd: AccountFormFields.beatCdController.text.trim(),
 
         /// 🔒 STRICTLY FIXED
         latitude: fixedLatitude,

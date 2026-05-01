@@ -11,6 +11,7 @@ import 'package:arham_corporation/views/narration/narration_view.dart';
 import 'package:arham_corporation/views/party_managment/screens/account_list_screen.dart';
 import 'package:arham_corporation/views/referral/views/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
+import 'package:arham_corporation/views/route_schedule_plan/views/beat_list_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:flutter/cupertino.dart';
@@ -520,6 +521,21 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
             ),
             onTap: () {
               Get.to(() => SecondaryTargetView());
+            },
+          ),
+          ListTile(
+            leading: Icon(
+              Icons.route_outlined,
+              size: 30,
+            ),
+            title: Text(
+              'Beat Schedule',
+              style: TextStyle(
+                fontSize: 20,
+              ),
+            ),
+            onTap: () {
+              Get.to(() => BeatListView());
             },
           ),
           Selector<ProfileProvider, bool>(
