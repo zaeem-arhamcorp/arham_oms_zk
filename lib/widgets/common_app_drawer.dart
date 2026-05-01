@@ -507,37 +507,43 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 Get.to(() => SettingScreen());
               },
             ),
+          if (p.data != null &&
+              p.data!.modulesList!.any((module) =>
+                  module.mODULENO == "235" && module.rEADRIGHT == true))
+            ListTile(
+              leading: Icon(
+                CupertinoIcons.scope,
+                size: 30,
+              ),
+              title: Text(
+                'Secondary Sales',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => SecondaryTargetView());
+              },
+            ),
+          if (p.data != null &&
+              p.data!.modulesList!.any((module) =>
+                  module.mODULENO == "233" && module.rEADRIGHT == true))
+            ListTile(
+              leading: Icon(
+                Icons.route_outlined,
+                size: 30,
+              ),
+              title: Text(
+                'Beat Schedule',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => BeatListView());
+              },
+            ),
           // ✅ Show Go Offline button only if offline mode is enabled
-          ListTile(
-            leading: Icon(
-              CupertinoIcons.scope,
-              size: 30,
-            ),
-            title: Text(
-              'Secondary Target',
-              style: TextStyle(
-                fontSize: 20,
-              ),
-            ),
-            onTap: () {
-              Get.to(() => SecondaryTargetView());
-            },
-          ),
-          ListTile(
-            leading: Icon(
-              Icons.route_outlined,
-              size: 30,
-            ),
-            title: Text(
-              'Beat Schedule',
-              style: TextStyle(
-                fontSize: 20,
-              ),
-            ),
-            onTap: () {
-              Get.to(() => BeatListView());
-            },
-          ),
           Selector<ProfileProvider, bool>(
             selector: (context, profileProvider) =>
                 profileProvider.isOfflineModeEnabled(),
