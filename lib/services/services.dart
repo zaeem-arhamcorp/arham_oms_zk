@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 import '../constants/constants.dart';
@@ -547,6 +548,16 @@ class Services {
         try {
           final licenseInfo = decoded['licenseInfo'];
           if (licenseInfo != null) {
+            final currentOrderCount = licenseInfo['orderCount'] as int? ?? 0;
+
+            // Persist a one-time milestone marker for HomePage.
+            // Home will consume this flag and show congratulations after redirect.
+            if (currentOrderCount == 5000) {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('show_5000_orders_congrats', true);
+              print('[ORDER] 🎉 Milestone reached: 5000 orders');
+            }
+
             // Get syncId from profile or UserProvider (profile.data might be null)
             int syncId = 0;
             final profileSyncId = pb.data?.syncId;

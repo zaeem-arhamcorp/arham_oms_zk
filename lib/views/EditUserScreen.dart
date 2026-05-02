@@ -46,6 +46,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   TextEditingController userNameClt = TextEditingController();
   TextEditingController mobileNumberClt = TextEditingController();
   TextEditingController emailClt = TextEditingController();
+  TextEditingController moduleSearchClt = TextEditingController();
 
   final ImagePicker _userImagePicker = ImagePicker();
   XFile? _selectedUserImage;
@@ -91,8 +92,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
           filterModules = modules.where((m) {
             if (m.aPPTYPE.toString().trim().toUpperCase() == "OMS") {
               // Only allow OMSReport modules with matching role
-              return m.moduleType == "OMSReport" &&
-                  m.role.contains(selectRole!.id);
+              return m.moduleType == "OMSReport" ||
+                  m.moduleType == "Transaction" &&
+                      m.role.contains(selectRole!.id);
             } else {
               // For Master & Transaction â†’ always include
               return (m.moduleType == "Master" ||
@@ -625,8 +627,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
                               if (m.aPPTYPE.toString().trim().toUpperCase() ==
                                   "OMS") {
                                 // Only allow OMSReport modules with matching role
-                                return m.moduleType == "OMSReport" &&
-                                    m.role.contains(selectRole!.id);
+                                return m.moduleType == "OMSReport" ||
+                                    m.moduleType == "Transaction" &&
+                                        m.role.contains(selectRole!.id);
                               } else {
                                 // For Master & Transaction â†’ always include
                                 return (m.moduleType == "Master" ||
@@ -718,261 +721,93 @@ class _EditUserScreenState extends State<EditUserScreen> {
                           padding: const EdgeInsets.only(top: 10.0),
                           child: Text("Please Select the role"),
                         )
-                      else
+                      else if (modules.length != 0 && selectRole != null)
                         Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(
-                              height: 10,
+                            SizedBox(height: 10),
+                            // Search bar
+                            TextField(
+                              controller: moduleSearchClt,
+                              onChanged: (value) {
+                                setState(() {});
+                              },
+                              decoration: InputDecoration(
+                                hintText: "Search modules...",
+                                prefixIcon: Icon(Icons.search),
+                                suffixIcon: moduleSearchClt.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(Icons.clear),
+                                        onPressed: () {
+                                          setState(() {
+                                            moduleSearchClt.clear();
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
                             ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    "Module Name",
-                                    style: TextStyle(fontSize: 14.0),
+                            SizedBox(height: 12),
+                            // DefaultTabController wrapping TabBar and TabBarView
+                            DefaultTabController(
+                              length: 3,
+                              child: Column(
+                                children: [
+                                  // TabBar
+                                  TabBar(
+                                    tabs: [
+                                      Tab(
+                                        child: Text(
+                                          "Master (${_getFilteredModulesByType("Master").length})",
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      Tab(
+                                        child: Text(
+                                          "Transaction (${_getFilteredModulesByType("Transaction").length})",
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      Tab(
+                                        child: Text(
+                                          "Report (${_getFilteredModulesByType("OMSReport").length})",
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      "All",
-                                      style: TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      "View",
-                                      style: TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      "Add",
-                                      style: TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      "Edit",
-                                      style: TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      "Delete",
-                                      style: TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      "Print",
-                                      style: TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Divider(),
-                            ListView.builder(
-                              itemCount: filterModules.length,
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemBuilder: (context, i) {
-                                // bool isReportModule = filterModules[i]
-                                //     .moduleName
-                                //     .contains('Report');
-
-                                bool isReportModule =
-                                    filterModules[i].moduleType == 'OMSReport';
-                                //.contains('OMSReport');
-
-                                return Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
+                                  SizedBox(height: 10),
+                                  // TabBarView
+                                  SizedBox(
+                                    height: 500,
+                                    child: TabBarView(
+                                      physics: NeverScrollableScrollPhysics(),
                                       children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            "${filterModules[i].moduleName}",
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 14.0,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 6,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            children: [
-                                              // Show "All" checkbox if module name doesn't contain 'Report', else hide with Visibility
-                                              Expanded(
-                                                flex: 1,
-                                                child: Visibility(
-                                                  visible: !isReportModule,
-                                                  // Show when not a Report module
-                                                  child: _buildRightCheckbox(
-                                                    filterModules[i].moduleNo,
-                                                    "All",
-                                                    "readRight",
-                                                    "writeRight",
-                                                    "updateRight",
-                                                    "deleteRight",
-                                                    "printRight",
-                                                  ),
-                                                ),
-                                              ),
-
-                                              // "View" checkbox is always shown
-                                              Expanded(
-                                                flex: 1,
-                                                child: _buildRightCheckbox(
-                                                  filterModules[i].moduleNo,
-                                                  "View",
-                                                  "readRight",
-                                                ),
-                                              ),
-
-                                              // Show "Add" checkbox if module name doesn't contain 'Report', else hide with Visibility
-                                              Expanded(
-                                                flex: 1,
-                                                child: Visibility(
-                                                  visible: !isReportModule,
-                                                  child: _buildRightCheckbox(
-                                                    filterModules[i].moduleNo,
-                                                    "Add",
-                                                    "writeRight",
-                                                  ),
-                                                ),
-                                              ),
-
-                                              // Show "Edit" checkbox if module name doesn't contain 'Report', else hide with Visibility
-                                              Expanded(
-                                                flex: 1,
-                                                child: Visibility(
-                                                  visible: !isReportModule,
-                                                  child: _buildRightCheckbox(
-                                                    filterModules[i].moduleNo,
-                                                    "Edit",
-                                                    "updateRight",
-                                                  ),
-                                                ),
-                                              ),
-
-                                              // Show "Delete" checkbox if module name doesn't contain 'Report', else hide with Visibility
-                                              Expanded(
-                                                flex: 1,
-                                                child: Visibility(
-                                                  visible: !isReportModule,
-                                                  child: _buildRightCheckbox(
-                                                    filterModules[i].moduleNo,
-                                                    "Delete",
-                                                    "deleteRight",
-                                                  ),
-                                                ),
-                                              ),
-
-                                              // "Print" checkbox is always shown
-                                              Expanded(
-                                                flex: 1,
-                                                child: _buildRightCheckbox(
-                                                  filterModules[i].moduleNo,
-                                                  "Print",
-                                                  "printRight",
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                        // Master Tab
+                                        _buildModuleListContent(
+                                            _getFilteredModulesByType(
+                                                "Master")),
+                                        // Transaction Tab
+                                        _buildModuleListContent(
+                                            _getFilteredModulesByType(
+                                                "Transaction")),
+                                        // Report Tab
+                                        _buildModuleListContent(
+                                            _getFilteredModulesByType(
+                                                "OMSReport")),
                                       ],
                                     ),
-                                    Divider(),
-                                  ],
-                                );
-                              },
-                            )
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      // SizedBox(
-                      //   height: 10.h,
-                      // ),
-                      // ListView.builder(
-                      //   itemCount: filterModules.length,
-                      //   shrinkWrap: true,
-                      //   physics: NeverScrollableScrollPhysics(),
-                      //   itemBuilder: (context, i) {
-                      //     return Column(
-                      //       crossAxisAlignment: CrossAxisAlignment.start,
-                      //       children: [
-                      //         Text(
-                      //           "${filterModules[i].moduleName}", // Module Name
-                      //           style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
-                      //         ),
-                      //         SingleChildScrollView(
-                      //           scrollDirection: Axis.horizontal,
-                      //           child: Row(
-                      //             mainAxisAlignment: MainAxisAlignment.start,
-                      //             children: [
-                      //               // All checkbox
-                      //               _buildRightCheckbox(
-                      //                   filterModules[i].moduleNo,
-                      //                   "All",
-                      //                   "readRight",
-                      //                   "writeRight",
-                      //                   "updateRight",
-                      //                   "deleteRight",
-                      //                   "printRight"),
-                      //               // View checkbox
-                      //               _buildRightCheckbox(
-                      //                   filterModules[i].moduleNo,
-                      //                   "View",
-                      //                   "readRight"),
-                      //               // Add checkbox
-                      //               _buildRightCheckbox(
-                      //                   filterModules[i].moduleNo,
-                      //                   "Add",
-                      //                   "writeRight"),
-                      //               // Edit checkbox
-                      //               _buildRightCheckbox(
-                      //                   filterModules[i].moduleNo,
-                      //                   "Edit",
-                      //                   "updateRight"),
-                      //               // Delete checkbox
-                      //               _buildRightCheckbox(
-                      //                   filterModules[i].moduleNo,
-                      //                   "Delete",
-                      //                   "deleteRight"),
-                      //               // Print checkbox
-                      //               _buildRightCheckbox(
-                      //                   filterModules[i].moduleNo,
-                      //                   "Print",
-                      //                   "printRight"),
-                      //             ],
-                      //           ),
-                      //         ),
-                      //       ],
-                      //     );
-                      //   },
-                      // ),
                     ],
                   ),
                   SizedBox(
@@ -1246,6 +1081,199 @@ class _EditUserScreenState extends State<EditUserScreen> {
         selectModules.removeWhere((element) => element['moduleNo'] == moduleNo);
       }
     }
+  }
+
+  // Helper method to get modules filtered by type and search term
+  List<DatumModules> _getFilteredModulesByType(String moduleType) {
+    final searchTerm = moduleSearchClt.text.trim().toLowerCase();
+    return filterModules.where((module) {
+      final typeMatch = module.moduleType == moduleType;
+      final searchMatch = searchTerm.isEmpty ||
+          module.moduleName.toLowerCase().contains(searchTerm);
+      return typeMatch && searchMatch;
+    }).toList();
+  }
+
+  // Widget builder for module list content
+  Widget _buildModuleListContent(List<DatumModules> modulesList) {
+    if (modulesList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text("No modules found"),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  "Module Name",
+                  style: TextStyle(fontSize: 14.0),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    "All",
+                    style: TextStyle(fontSize: 14.0),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    "View",
+                    style: TextStyle(fontSize: 14.0),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    "Add",
+                    style: TextStyle(fontSize: 14.0),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    "Edit",
+                    style: TextStyle(fontSize: 14.0),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    "Delete",
+                    style: TextStyle(fontSize: 14.0),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    "Print",
+                    style: TextStyle(fontSize: 14.0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Divider(),
+          ListView.builder(
+            itemCount: modulesList.length,
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            itemBuilder: (context, i) {
+              bool isReportModule = modulesList[i].moduleType == 'OMSReport';
+
+              return Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          "${modulesList[i].moduleName}",
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14.0,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 6,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: Visibility(
+                                visible: !isReportModule,
+                                child: _buildRightCheckbox(
+                                  modulesList[i].moduleNo,
+                                  "All",
+                                  "readRight",
+                                  "writeRight",
+                                  "updateRight",
+                                  "deleteRight",
+                                  "printRight",
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: _buildRightCheckbox(
+                                modulesList[i].moduleNo,
+                                "View",
+                                "readRight",
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Visibility(
+                                visible: !isReportModule,
+                                child: _buildRightCheckbox(
+                                  modulesList[i].moduleNo,
+                                  "Add",
+                                  "writeRight",
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Visibility(
+                                visible: !isReportModule,
+                                child: _buildRightCheckbox(
+                                  modulesList[i].moduleNo,
+                                  "Edit",
+                                  "updateRight",
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Visibility(
+                                visible: !isReportModule,
+                                child: _buildRightCheckbox(
+                                  modulesList[i].moduleNo,
+                                  "Delete",
+                                  "deleteRight",
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: _buildRightCheckbox(
+                                modulesList[i].moduleNo,
+                                "Print",
+                                "printRight",
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Divider(),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> firmAPI() async {
@@ -1718,18 +1746,27 @@ class UserTextField extends StatefulWidget {
 
 class _UserTextFieldState extends State<UserTextField> {
   int currentLength = 0;
+  late final VoidCallback _textListener;
 
   @override
   void initState() {
     super.initState();
 
     currentLength = widget.clt.text.length;
-
-    widget.clt.addListener(() {
+    _textListener = () {
+      if (!mounted) return;
       setState(() {
         currentLength = widget.clt.text.length;
       });
-    });
+    };
+
+    widget.clt.addListener(_textListener);
+  }
+
+  @override
+  void dispose() {
+    widget.clt.removeListener(_textListener);
+    super.dispose();
   }
 
   @override

@@ -478,9 +478,17 @@ class Helper {
       return party;
     }
 
+    String beatCd = '';
+    try {
+      beatCd = (party.beatCd ?? '').toString();
+    } catch (_) {
+      beatCd = '';
+    }
+
     return {
       'ACC_CD': party.accCd ?? '',
       'ACC_NAME': party.accName ?? '',
+      'BEAT_CD': beatCd,
       'PERSON_NM': party.person_nm ?? '',
       'MOBILE1': party.mobile ?? '',
       'ADD1': party.add1 ?? '',

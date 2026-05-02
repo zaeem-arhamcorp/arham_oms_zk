@@ -8,7 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../controllers/account_controller.dart';
 import '../core/form_validation.dart';
 import 'account_form_fields.dart';
-import '../../../route_schedule_plan/controllers/beat_controller.dart';
+import '../../route_schedule_plan/controllers/beat_controller.dart';
 
 class FormWidgets {
   // Generic Text Field
@@ -119,7 +119,7 @@ class FormWidgets {
           maxLength: 10,
           isNumber: true,
         ),
-        // Beat dropdown (loaded from API)
+        // Beat dropdown (loaded from API) - autofills with existing account beat
         Builder(builder: (context) {
           // Lazily register BeatController when form is used in a widget tree
           final beatCtrl = Get.isRegistered<BeatController>()
@@ -144,10 +144,28 @@ class FormWidgets {
             }
 
             final items = beatCtrl.beats;
+            final rawBeatValue = AccountFormFields.beatCdController.text;
+            final normalizedRaw = rawBeatValue.trim().toLowerCase();
+
+            // Resolve prefill safely even when payload has whitespace/case differences
+            // or sends beat name instead of beat code.
+            final matchedBeat = items.cast<dynamic>().firstWhere(
+                  (b) =>
+                      b.beatCd.toString().trim().toLowerCase() ==
+                          normalizedRaw ||
+                      b.beatName.toString().trim().toLowerCase() ==
+                          normalizedRaw,
+                  orElse: () => null,
+                );
+            final selectedValue = matchedBeat?.beatCd as String?;
+
+            if (matchedBeat != null &&
+                AccountFormFields.beatCdController.text != selectedValue) {
+              AccountFormFields.beatCdController.text = selectedValue ?? '';
+            }
+
             return DropdownButtonFormField<String>(
-              value: AccountFormFields.beatCdController.text.isEmpty
-                  ? null
-                  : AccountFormFields.beatCdController.text,
+              value: selectedValue,
               decoration: InputDecoration(
                 labelText: 'Beat',
                 border: const OutlineInputBorder(),

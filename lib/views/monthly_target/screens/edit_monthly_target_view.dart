@@ -229,6 +229,10 @@ class _EditMonthlyTargetViewState extends State<EditMonthlyTargetView> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.blue,
+                ),
                 child: _isSubmitting
                     ? const SizedBox(
                         height: 20,

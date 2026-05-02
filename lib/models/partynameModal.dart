@@ -37,6 +37,7 @@ class DatumPartyname {
       required this.accAddress,
       required this.mobile,
       required this.accCartItem,
+      this.beatCd,
       this.city,
       this.add1,
       this.add2,
@@ -64,6 +65,7 @@ class DatumPartyname {
 
   String accCd;
   String accName;
+  String? beatCd;
   String accAddress;
   String? add1;
   String? add2;
@@ -95,6 +97,7 @@ class DatumPartyname {
   factory DatumPartyname.fromJson(Map<String, dynamic> json) => DatumPartyname(
       accCd: json["ACC_CD"] ?? "",
       accName: json["ACC_NAME"] ?? "",
+      beatCd: json["BEAT_CD"] ?? "",
       add1: json["ADD1"] ?? "",
       add2: json["ADD2"] ?? "",
       add3: json["ADD3"] ?? "",
@@ -126,6 +129,7 @@ class DatumPartyname {
   Map<String, dynamic> toJson() => {
         "ACC_CD": accCd,
         "ACC_NAME": accName,
+        "BEAT_CD": beatCd,
         "ACC_ADD": accAddress,
         "Mobile1": mobile,
         "ACC_CART_ITEM": accCartItem,

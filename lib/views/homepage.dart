@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? _queuedSecondaryShareFilePath;
   String _queuedSecondaryShareLabel = 'stockist';
   bool _isHandlingQueuedSecondaryShare = false;
+  bool _isMilestoneDialogVisible = false;
   late ProfileProvider
       _profileProvider; // Store provider reference to avoid accessing during dispose
 
@@ -281,6 +282,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // Show post-order WhatsApp share popup on homepage (if pending payload exists)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkAndShowPendingOrderSharePopup();
+    });
+
+    // Show 5000th-order milestone popup on homepage (if set by order API flow).
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkAndShowOrderMilestonePopup();
     });
 
     // Auto-cache data on first login or firm switch (checked via SharedPreferences)
@@ -560,6 +566,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       _profileProvider.clearPendingWarning();
     }
+  }
+
+  Future<void> _checkAndShowOrderMilestonePopup() async {
+    if (!mounted || _isMilestoneDialogVisible) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final shouldShow = prefs.getBool('show_5000_orders_congrats') ?? false;
+    if (!shouldShow) return;
+
+    _isMilestoneDialogVisible = true;
+
+    if (!mounted) {
+      _isMilestoneDialogVisible = false;
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Congratulations!'),
+        content: const Text(
+          'Amazing milestone! You have successfully completed 5000 orders.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    await prefs.remove('show_5000_orders_congrats');
+    _isMilestoneDialogVisible = false;
   }
 
   Future<String?> _downloadOrderReportPdfForShare(String reportUrl) async {
@@ -1843,57 +1884,58 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                   ),
 
-                  if (data?.data.labelData.targetAchievement != null) ...[
-                    Builder(
-                      builder: (context) {
-                        final targetAchievement =
-                            data!.data.labelData.targetAchievement!;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            top: 20,
-                            right: 20,
-                            left: 20,
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    "Target: ₹${data!.data.labelData.targetAchievement!.target.toStringAsFixed(2)}",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xff006705),
-                                    ),
+                  Builder(
+                    builder: (context) {
+                      final ta = data?.data.labelData.targetAchievement;
+                      final double target = ta?.target ?? 0.0;
+                      final double achieved = ta?.achieved ?? 0.0;
+                      final percent =
+                          _calculateProgressPercent(achieved, target);
+                      final targetText =
+                          'Target: ₹${target.toStringAsFixed(2)}';
+
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          top: 20,
+                          right: 20,
+                          left: 20,
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  targetText,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xff006705),
                                   ),
-                                  Spacer(),
-                                  Text(
-                                    "Progress: ",
-                                    style: TextStyle(fontSize: 13),
+                                ),
+                                Spacer(),
+                                Text(
+                                  "Progress: ",
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                                Text(
+                                  "${percent.toStringAsFixed(2)}%",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: percent > 100
+                                        ? Color(0xFFDFA906)
+                                        : percent > 0
+                                            ? Colors.green.shade700
+                                            : Colors.grey.shade700,
                                   ),
-                                  Text(
-                                    "${targetAchievement.percent.toStringAsFixed(2)}%",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: targetAchievement.percent > 0
-                                          ? Colors.green.shade700
-                                          : Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              LinearProgressIndicator(
-                                value: targetAchievement.percent / 100,
-                                minHeight: 8,
-                                borderRadius: BorderRadius.circular(50),
-                                color: Color(0XFF2c9ed9),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                                ),
+                              ],
+                            ),
+                            _buildOverflowProgressBar(percent),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
 
                   // Define a common size for the boxes
 
@@ -2019,12 +2061,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             FutureBuilder<MonthlyTargetItemModel?>(
                               future: _monthlyTargetFuture,
                               builder: (context, snapshot) {
-                                if (!snapshot.hasData ||
-                                    snapshot.data == null) {
-                                  return SizedBox();
-                                }
-
-                                final pobItem = snapshot.data!;
                                 final currentMonthlySale = double.tryParse(
                                       (data?.data.labelData.month ?? '0')
                                           .toString()
@@ -2032,14 +2068,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ) ??
                                     0.0;
 
-                                final double target =
-                                    (pobItem.primaryTargetAmount > 0)
+                                final pobItem = snapshot.data;
+                                final double target = pobItem == null
+                                    ? 0.0
+                                    : ((pobItem.primaryTargetAmount > 0)
                                         ? pobItem.primaryTargetAmount
-                                        : pobItem.salesmanTargetAmount;
-                                final double progress = (target > 0)
-                                    ? (currentMonthlySale / target)
-                                        .clamp(0.0, 1.0)
-                                    : 0.0;
+                                        : pobItem.salesmanTargetAmount);
+                                final double progressPercent =
+                                    _calculateProgressPercent(
+                                        currentMonthlySale, target);
 
                                 return Padding(
                                   padding: EdgeInsets.only(
@@ -2057,32 +2094,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           ),
                                           Spacer(),
                                           Text(
-                                            "${(progress * 100).toStringAsFixed(2)}%",
+                                            "${progressPercent.toStringAsFixed(2)}%",
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
-                                              color: progress > 0
-                                                  ? Colors.green.shade700
-                                                  : Colors.grey.shade700,
+                                              color: progressPercent > 100
+                                                  ? Color(0xFFDFA906)
+                                                  : progressPercent > 0
+                                                      ? Colors.green.shade700
+                                                      : Colors.grey.shade700,
+                                              // color: progressPercent > 0
+                                              //     ? Colors.green.shade700
+                                              //     : Colors.grey.shade700,
                                             ),
                                           ),
                                         ],
                                       ),
                                       SizedBox(height: 6),
-                                      LinearProgressIndicator(
-                                        value: progress,
-                                        minHeight: 8,
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Color(0XFF2c9ed9),
+                                      _buildOverflowProgressBar(
+                                        progressPercent,
+                                        baseColor: Color(0XFF2c9ed9),
                                       ),
                                     ],
                                   ),
                                 );
                               },
                             ),
-                            Divider(
-                              thickness: 0.8,
-                            ),
+                            // Divider(
+                            //   thickness: 0.8,
+                            // ),
                             SizedBox(
                               height: 10,
                             ),
@@ -3596,6 +3636,61 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  double _calculateProgressPercent(double current, double target) {
+    if (target <= 0) return 0.0;
+    return (current / target) * 100;
+  }
+
+  Widget _buildOverflowProgressBar(
+    double percent, {
+    Color baseColor = const Color(0XFF2c9ed9),
+    Color overflowColor = const Color(0xFFFFC107),
+    double height = 8,
+  }) {
+    final double baseProgress = (percent / 100).clamp(0.0, 1.0);
+    final bool hasOverflow = percent > 100;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(50),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double overflowWidth =
+              hasOverflow ? (constraints.maxWidth * 0.08).clamp(10.0, 30.0) : 0;
+
+          return SizedBox(
+            height: height,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(color: Colors.grey.shade300),
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: baseProgress,
+                  child: Container(color: baseColor),
+                ),
+                if (hasOverflow)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: overflowWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: overflowColor,
+                        borderRadius: BorderRadius.horizontal(
+                          right: Radius.circular(50),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

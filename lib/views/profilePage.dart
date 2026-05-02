@@ -11,8 +11,8 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/loginpage.dart';
-import 'package:arham_corporation/views/monthly_target/screens/monthly_target_view.dart';
 import 'package:arham_corporation/views/monthly_target/screens/edit_monthly_target_view.dart';
+import 'package:arham_corporation/views/monthly_target/screens/monthly_target_view.dart';
 import 'package:arham_corporation/views/monthly_target/services/api_services.dart';
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -780,7 +780,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          Text("Build date: $buildTime"),
+          Text(
+            "Build date: $buildTime",
+            style: TextStyle(color: Colors.white),
+          ),
         ],
       ),
       drawer: CommonAppDrawer(
@@ -875,48 +878,53 @@ class _ProfilePageState extends State<ProfilePage> {
                 controller: _emailController,
                 label: "Email",
               ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 8.0, horizontal: 8.0), // Consistent padding
-                child: Container(
-                  child: TextFormField(
-                    controller: _monthlyTargetController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      label: Text("Monthly Target"),
-                      focusedBorder: const OutlineInputBorder(), // Use const
-                      enabledBorder: const OutlineInputBorder(), // Use const
-                      isDense: true,
-                      suffixIcon: IconButton(
-                        onPressed: () async {
-                          final text = _monthlyTargetController.text.trim();
-                          final isEmpty = text.isEmpty ||
-                              text.toLowerCase() == 'no monthly target';
-                          if (isEmpty) {
-                            await Get.to(() => const MonthlyTargetView());
-                          } else {
-                            await Get.to(() => const EditMonthlyTargetView());
-                          }
+              if (p.data != null &&
+                  p.data!.modulesList!.any((module) =>
+                      module.mODULENO == "235" &&
+                      module.rEADRIGHT == true)) ...[
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 8.0, horizontal: 8.0), // Consistent padding
+                  child: Container(
+                    child: TextFormField(
+                      controller: _monthlyTargetController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        label: Text("Monthly Target"),
+                        focusedBorder: const OutlineInputBorder(), // Use const
+                        enabledBorder: const OutlineInputBorder(), // Use const
+                        isDense: true,
+                        suffixIcon: IconButton(
+                          onPressed: () async {
+                            final text = _monthlyTargetController.text.trim();
+                            final isEmpty = text.isEmpty ||
+                                text.toLowerCase() == 'no monthly target';
+                            if (isEmpty) {
+                              await Get.to(() => const MonthlyTargetView());
+                            } else {
+                              await Get.to(() => const EditMonthlyTargetView());
+                            }
 
-                          if (mounted) {
-                            await _loadMonthlyTargetAmount();
-                          }
-                        },
-                        icon: Icon(
-                          (_monthlyTargetController.text.trim().isEmpty ||
-                                  _monthlyTargetController.text
-                                          .trim()
-                                          .toLowerCase() ==
-                                      'no monthly target')
-                              ? Icons.add
-                              : Icons.edit,
+                            if (mounted) {
+                              await _loadMonthlyTargetAmount();
+                            }
+                          },
+                          icon: Icon(
+                            (_monthlyTargetController.text.trim().isEmpty ||
+                                    _monthlyTargetController.text
+                                            .trim()
+                                            .toLowerCase() ==
+                                        'no monthly target')
+                                ? Icons.add
+                                : Icons.edit,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
               Padding(
                 padding: const EdgeInsets.only(
                   top: 30.0,

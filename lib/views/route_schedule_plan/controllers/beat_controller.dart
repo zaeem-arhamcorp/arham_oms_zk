@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/beat_model.dart';
 import '../services/beat_service.dart';
-import '../../providers/user_provider.dart';
+import '../../../providers/user_provider.dart';
 
 class BeatController extends GetxController {
   final _beats = <Beat>[].obs;

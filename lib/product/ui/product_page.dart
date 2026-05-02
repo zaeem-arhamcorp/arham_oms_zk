@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
@@ -13,7 +13,6 @@ import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/party_managment/services/api_service.dart';
-import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -44,6 +43,24 @@ import '../widget/chip_widget.dart';
 final Rx<File?> selfieFile = Rx<File?>(null);
 final RxBool isSelfieUploading = false.obs;
 final ImagePicker selfiePicker = ImagePicker();
+
+final List<String> _selfieTaglines = [
+  'Flash a winner smile—we\'re excited to start something great!',
+  'Show us your best smile—let\'s make today amazing!',
+  'Smile big—your success story starts now!',
+  'Ready to shine? Let\'s capture the moment!',
+  'Your smile is our fuel—let\'s go places!',
+  'Grin and win—let\'s make it happen!',
+  'Smile like you mean it—greatness awaits!',
+  'Beam with confidence—today\'s your day!',
+  'Show that radiant smile—let\'s get started!',
+  'Spark joy and success—smile now!',
+];
+
+String _getRandomSelfieTagline() {
+  final random = math.Random();
+  return _selfieTaglines[random.nextInt(_selfieTaglines.length)];
+}
 
 Future<bool> _checkSelfieUploadedToday() async {
   final prefs = await SharedPreferences.getInstance();
@@ -195,73 +212,252 @@ Future<bool> _showSelfieDialogAndUpload(
   selfieFile.value = null;
   bool uploadSuccess = false;
   await Get.dialog(
-    CommonUploadInputDialog(
-      title: 'Upload Selfie',
-      message: 'Please take a selfie before starting your first order today.',
-      controllerValue: TextEditingController(),
-      isLoading: isSelfieUploading,
-      fileRx: selfieFile,
-      webFileRx: Rxn<Uint8List>(),
-      onUploadTap: () async {
-        print('[SELFIE-DIALOG] onUploadTap called - picking from camera');
-        final file = await _pickSelfieFromCamera();
-        if (file != null) {
-          print('[SELFIE-DIALOG] File selected: ${file.path}');
-          print('[SELFIE-DIALOG] File exists: ${await file.exists()}');
-          selfieFile.value = file;
-          print('[SELFIE-DIALOG] selfieFile.value set');
-        } else {
-          print('[SELFIE-DIALOG] File pick returned null');
-        }
-      },
-      onDeleteTap: () {
-        print('[SELFIE-DIALOG] Deleting selected file');
-        selfieFile.value = null;
-      },
-      onSubmit: () async {
-        print('[SELFIE-DIALOG] onSubmit called');
-        if (selfieFile.value == null) {
-          print('[SELFIE-DIALOG] No file selected');
-          AppSnackBar.showGetXCustomSnackBar(
-              message: 'Please capture a selfie');
-          return;
-        }
-        print('[SELFIE-DIALOG] File: ${selfieFile.value!.path}');
-        print(
-            '[SELFIE-DIALOG] File exists before upload: ${await selfieFile.value!.exists()}');
-        if (isSelfieUploading.value) {
-          print('[SELFIE-DIALOG] Already uploading, ignoring submit');
-          return;
-        }
-        final userCd = profile.userCode ?? '';
-        if (userCd.isEmpty) {
-          print('[SELFIE-DIALOG] User code missing');
-          AppSnackBar.showGetXCustomSnackBar(message: 'User code missing');
-          return;
-        }
-        // Verify trip is active before uploading
-        final prefs = await SharedPreferences.getInstance();
-        final tripId = prefs.getInt('active_trip_id') ?? 0;
-        if (tripId <= 0) {
-          print('[SELFIE-DIALOG] No active trip');
-          AppSnackBar.showGetXCustomSnackBar(
-              message: 'No active trip. Please punch in first.');
-          return;
-        }
-        print('[SELFIE-DIALOG] Calling _uploadSelfie...');
-        final ok = await _uploadSelfie(selfieFile.value!, userCd);
-        if (ok) {
-          print('[SELFIE-DIALOG] Upload successful');
-          await _setSelfieUploadedToday();
-          uploadSuccess = true;
-          Get.back();
-        }
-      },
-      onCancel: () {
-        print('[SELFIE-DIALOG] onCancel called');
-        Get.back();
-      }, // Block cancel
-    ),
+    Obx(() => AlertDialog(
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titlePadding: EdgeInsets.zero,
+          contentPadding: EdgeInsets.zero,
+          title: Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1E88E5), Color(0xFF64B5F6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // Container(
+                    //   width: 40,
+                    //   height: 40,
+                    //   decoration: BoxDecoration(
+                    //     color: Colors.white.withOpacity(0.18),
+                    //     borderRadius: BorderRadius.circular(12),
+                    //   ),
+                    //   child: const Icon(
+                    //     Icons.camera_alt_outlined,
+                    //     color: Colors.white,
+                    //     size: 20,
+                    //   ),
+                    // ),
+                    // const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Ready for your first order ?',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 10,
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    borderRadius: BorderRadiusGeometry.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          // "Ready for your first order?",
+                          _getRandomSelfieTagline(),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.yellow,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
+          ),
+          content: Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+
+                  // Image upload area
+                  GestureDetector(
+                    onTap: () async {
+                      print(
+                          '[SELFIE-DIALOG] onUploadTap called - picking from camera');
+                      final file = await _pickSelfieFromCamera();
+                      if (file != null) {
+                        print('[SELFIE-DIALOG] File selected: ${file.path}');
+                        print(
+                            '[SELFIE-DIALOG] File exists: ${await file.exists()}');
+                        selfieFile.value = file;
+                        print('[SELFIE-DIALOG] selfieFile.value set');
+                      } else {
+                        print('[SELFIE-DIALOG] File pick returned null');
+                      }
+                    },
+                    child: Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: selfieFile.value != null
+                                ? Image.file(selfieFile.value!,
+                                    fit: BoxFit.cover)
+                                : Center(
+                                    child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.camera_alt_outlined,
+                                        color: Colors.black,
+                                        size: 20,
+                                      ),
+                                      SizedBox(
+                                        width: 5,
+                                      ),
+                                      const Text(
+                                        'Take selfie',
+                                        style: TextStyle(fontSize: 18),
+                                      ),
+                                    ],
+                                  )),
+                          ),
+                          if (selfieFile.value != null)
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: IconButton(
+                                icon:
+                                    const Icon(Icons.cancel, color: Colors.red),
+                                onPressed: () {
+                                  print(
+                                      '[SELFIE-DIALOG] Deleting selected file');
+                                  selfieFile.value = null;
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // No remarks field (intentionally omitted)
+
+                  const SizedBox(height: 8),
+
+                  // Loader or buttons
+                  isSelfieUploading.value
+                      ? const Center(child: CircularProgressIndicator())
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  print('[SELFIE-DIALOG] onSubmit called');
+                                  if (selfieFile.value == null) {
+                                    print('[SELFIE-DIALOG] No file selected');
+                                    AppSnackBar.showGetXCustomSnackBar(
+                                        message: 'Please capture a selfie');
+                                    return;
+                                  }
+                                  print(
+                                      '[SELFIE-DIALOG] File: ${selfieFile.value!.path}');
+                                  print(
+                                      '[SELFIE-DIALOG] File exists before upload: ${await selfieFile.value!.exists()}');
+                                  if (isSelfieUploading.value) {
+                                    print(
+                                        '[SELFIE-DIALOG] Already uploading, ignoring submit');
+                                    return;
+                                  }
+                                  final userCd = profile.userCode ?? '';
+                                  if (userCd.isEmpty) {
+                                    print('[SELFIE-DIALOG] User code missing');
+                                    AppSnackBar.showGetXCustomSnackBar(
+                                        message: 'User code missing');
+                                    return;
+                                  }
+                                  // Verify trip is active before uploading
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  final tripId =
+                                      prefs.getInt('active_trip_id') ?? 0;
+                                  if (tripId <= 0) {
+                                    print('[SELFIE-DIALOG] No active trip');
+                                    AppSnackBar.showGetXCustomSnackBar(
+                                        message:
+                                            'No active trip. Please punch in first.');
+                                    return;
+                                  }
+                                  print(
+                                      '[SELFIE-DIALOG] Calling _uploadSelfie...');
+                                  final ok = await _uploadSelfie(
+                                      selfieFile.value!, userCd);
+                                  if (ok) {
+                                    print('[SELFIE-DIALOG] Upload successful');
+                                    await _setSelfieUploadedToday();
+                                    uploadSuccess = true;
+                                    Get.back();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Submit'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  print('[SELFIE-DIALOG] onCancel called');
+                                  Get.back();
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.red),
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                          ],
+                        ),
+                ],
+              ),
+            ),
+          ),
+        )),
     barrierDismissible: false,
   );
   return uploadSuccess;

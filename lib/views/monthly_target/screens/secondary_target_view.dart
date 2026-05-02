@@ -206,6 +206,24 @@ class _SecondaryTargetViewState extends State<SecondaryTargetView> {
 
               SizedBox(height: 12),
 
+              // Secondary Amount
+              TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Secondary Amount',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Enter amount';
+                  final num? parsed = num.tryParse(v.replaceAll(',', ''));
+                  if (parsed == null) return 'Enter valid number';
+                  return null;
+                },
+              ),
+
+              SizedBox(height: 12),
+
               // Stockist (editable + clearable + picker)
               TextFormField(
                 controller: _stockistController,
@@ -257,24 +275,6 @@ class _SecondaryTargetViewState extends State<SecondaryTargetView> {
                 ),
               ),
 
-              SizedBox(height: 12),
-
-              // Secondary Amount
-              TextFormField(
-                controller: _amountController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Secondary Amount',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Enter amount';
-                  final num? parsed = num.tryParse(v.replaceAll(',', ''));
-                  if (parsed == null) return 'Enter valid number';
-                  return null;
-                },
-              ),
-
               SizedBox(height: 16),
 
               // Submit
@@ -316,6 +316,10 @@ class _SecondaryTargetViewState extends State<SecondaryTargetView> {
                           backgroundColor: Colors.red);
                     }
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
                   child: Text('Submit'),
                 ),
               ),

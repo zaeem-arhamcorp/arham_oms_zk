@@ -6,8 +6,8 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/profile_provider.dart';
-import '../../../route_schedule_plan/controllers/beat_controller.dart';
-import '../../../route_schedule_plan/models/beat_model.dart';
+import '../controllers/beat_controller.dart';
+import '../models/beat_model.dart';
 
 class BeatListView extends StatefulWidget {
   const BeatListView({super.key});
