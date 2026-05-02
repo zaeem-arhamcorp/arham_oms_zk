@@ -2063,6 +2063,17 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         AppSnackBar.showGetXCustomSnackBar(
             message: orderResponse, backgroundColor: Colors.green);
 
+        // Trigger homepage congratulations popup for high-value orders.
+        final orderAmount =
+            double.tryParse(netAmount.toString().replaceAll(',', '')) ?? 0.0;
+        if (orderAmount >= 5000) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('show_5000_orders_congrats', true);
+          await prefs.setDouble('milestone_order_amount', orderAmount);
+          print(
+              '[ORDER_PLACEMENT] 🎉 Milestone reached: order amount >= 5000 (amount=$orderAmount)');
+        }
+
         try {
           final userProvider =
               Provider.of<UserProvider>(context, listen: false);

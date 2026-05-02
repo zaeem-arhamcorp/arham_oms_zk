@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
@@ -26,6 +25,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/partynameModal.dart';
 import '../../models/productModal.dart';
+import '../model/selfie_dialog_taglines.dart';
 import '../../providers/cart_list_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../services/database_helper.dart';
@@ -43,24 +43,6 @@ import '../widget/chip_widget.dart';
 final Rx<File?> selfieFile = Rx<File?>(null);
 final RxBool isSelfieUploading = false.obs;
 final ImagePicker selfiePicker = ImagePicker();
-
-final List<String> _selfieTaglines = [
-  'Flash a winner smile—we\'re excited to start something great!',
-  'Show us your best smile—let\'s make today amazing!',
-  'Smile big—your success story starts now!',
-  'Ready to shine? Let\'s capture the moment!',
-  'Your smile is our fuel—let\'s go places!',
-  'Grin and win—let\'s make it happen!',
-  'Smile like you mean it—greatness awaits!',
-  'Beam with confidence—today\'s your day!',
-  'Show that radiant smile—let\'s get started!',
-  'Spark joy and success—smile now!',
-];
-
-String _getRandomSelfieTagline() {
-  final random = math.Random();
-  return _selfieTaglines[random.nextInt(_selfieTaglines.length)];
-}
 
 Future<bool> _checkSelfieUploadedToday() async {
   final prefs = await SharedPreferences.getInstance();
@@ -277,7 +259,7 @@ Future<bool> _showSelfieDialogAndUpload(
                       Expanded(
                         child: Text(
                           // "Ready for your first order?",
-                          _getRandomSelfieTagline(),
+                          getRandomSelfieDialogTagline(),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.yellow,

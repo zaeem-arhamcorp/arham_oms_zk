@@ -284,7 +284,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _checkAndShowPendingOrderSharePopup();
     });
 
-    // Show 5000th-order milestone popup on homepage (if set by order API flow).
+    // Show order-value milestone popup on homepage (if set after order success).
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkAndShowOrderMilestonePopup();
     });
@@ -573,6 +573,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final prefs = await SharedPreferences.getInstance();
     final shouldShow = prefs.getBool('show_5000_orders_congrats') ?? false;
+    final orderAmount = prefs.getDouble('milestone_order_amount') ?? 5000;
     if (!shouldShow) return;
 
     _isMilestoneDialogVisible = true;
@@ -586,9 +587,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Congratulations!'),
-        content: const Text(
-          'Amazing milestone! You have successfully completed 5000 orders.',
+        title: const Text(
+          'Congratulations!',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.green,
+        content: Text(
+          'Amazing milestone! You have placed an order of amount ${orderAmount.toStringAsFixed(2)}.',
+          style: TextStyle(
+            color: Colors.white,
+          ),
         ),
         actions: [
           TextButton(
@@ -600,6 +611,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
 
     await prefs.remove('show_5000_orders_congrats');
+    await prefs.remove('milestone_order_amount');
     _isMilestoneDialogVisible = false;
   }
 
