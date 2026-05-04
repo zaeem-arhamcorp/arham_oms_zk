@@ -58,7 +58,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? _queuedSecondaryShareFilePath;
   String _queuedSecondaryShareLabel = 'stockist';
   bool _isHandlingQueuedSecondaryShare = false;
-  bool _isMilestoneDialogVisible = false;
   late ProfileProvider
       _profileProvider; // Store provider reference to avoid accessing during dispose
 
@@ -282,11 +281,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // Show post-order WhatsApp share popup on homepage (if pending payload exists)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkAndShowPendingOrderSharePopup();
-    });
-
-    // Show order-value milestone popup on homepage (if set after order success).
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _checkAndShowOrderMilestonePopup();
     });
 
     // Auto-cache data on first login or firm switch (checked via SharedPreferences)
@@ -568,53 +562,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _checkAndShowOrderMilestonePopup() async {
-    if (!mounted || _isMilestoneDialogVisible) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    final shouldShow = prefs.getBool('show_5000_orders_congrats') ?? false;
-    final orderAmount = prefs.getDouble('milestone_order_amount') ?? 5000;
-    if (!shouldShow) return;
-
-    _isMilestoneDialogVisible = true;
-
-    if (!mounted) {
-      _isMilestoneDialogVisible = false;
-      return;
-    }
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text(
-          'Congratulations!',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.green,
-        content: Text(
-          'Amazing milestone! You have placed an order of amount ${orderAmount.toStringAsFixed(2)}.',
-          style: TextStyle(
-            color: Colors.white,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-
-    await prefs.remove('show_5000_orders_congrats');
-    await prefs.remove('milestone_order_amount');
-    _isMilestoneDialogVisible = false;
-  }
-
   Future<String?> _downloadOrderReportPdfForShare(String reportUrl) async {
     final reportName =
         'Order_Report_${DateFormat('dd-MM-yyyy_HH-mm-ss').format(DateTime.now())}';
@@ -658,6 +605,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted || _isOrderShareDialogVisible) return;
 
     final prefs = await SharedPreferences.getInstance();
+    final shouldShowMilestone =
+        prefs.getBool('show_5000_orders_congrats') ?? false;
+    final milestoneOrderAmount =
+        prefs.getDouble('milestone_order_amount') ?? 5000;
     final payloadString = prefs.getString('pending_order_share_payload');
     if (payloadString == null || payloadString.trim().isEmpty) return;
 
@@ -720,6 +671,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (shouldShowMilestone)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Text(
+                          'Congratulations! You placed an order of amount ${milestoneOrderAmount.toStringAsFixed(2)}.',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     const Text(
                       'Share PDF on WhatsApp to:',
                       style: TextStyle(
@@ -908,6 +877,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         },
       );
     } finally {
+      if (shouldShowMilestone) {
+        await prefs.remove('show_5000_orders_congrats');
+        await prefs.remove('milestone_order_amount');
+      }
       _isOrderShareDialogVisible = false;
     }
   }

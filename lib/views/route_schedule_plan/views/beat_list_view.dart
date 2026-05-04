@@ -29,6 +29,23 @@ class _BeatListViewState extends State<BeatListView> {
         ? Get.find<BeatController>()
         : Get.put(BeatController());
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text("Attention"),
+          content: Text(
+              "Remember to save your beats before closing the page or else your selected beat data will be lost."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("OK"),
+            ),
+          ],
+        ),
+      );
+    });
+
     // Fetch user's beat schedule
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {

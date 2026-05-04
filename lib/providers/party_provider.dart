@@ -573,6 +573,47 @@ class PartyProvider extends DisposableProvider {
     return null;
   }
 
+  /// Fetch all parties using report/party?groupCd=85 (used by AccountListScreen)
+  Future<PartynameModal?> getPartyNameReportGroup85(context) async {
+    _data.clear();
+    nolistParty = false; // Reset before fetching
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    print(ub.token);
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(AppConfig.baseURL + "report/party?groupCd=85"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+
+      print(AppConfig.baseURL + "report/party?groupCd=85");
+      print("Bearer ${ub.token}");
+      print(response.body);
+      if (response.statusCode == 200) {
+        final parsed = partynameModalFromJson(response.body).data;
+        _data.addAll(parsed);
+        if (_data.isEmpty) {
+          nolistParty = true;
+        } else {
+          nolistParty = false;
+        }
+      } else {
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
+      print(
+          "Error in PartyProvider getPartyNameReportGroup85 data ${e.toString()}");
+    }
+    notifyListeners();
+    return null;
+  }
+
   clearOrderParty() {
     _orderParty = "";
     _orderPartyId = "";

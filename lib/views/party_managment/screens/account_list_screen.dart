@@ -38,7 +38,8 @@ class _AccountListScreenState extends State<AccountListScreen> {
 
   Future<void> _loadParties() async {
     final partyProvider = context.read<PartyProvider>();
-    await partyProvider.getPartyNameProductPage(context);
+    // Load all parties across beats using report/party?groupCd=85
+    await partyProvider.getPartyNameReportGroup85(context);
     if (!mounted) {
       return;
     }

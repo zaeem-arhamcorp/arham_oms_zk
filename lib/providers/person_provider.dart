@@ -241,7 +241,6 @@ class PersonProvider extends DisposableProvider {
       "emailID": email,
       "isLock": active,
       "parentUser": "null",
-      "userTarget": 0,
       "modules": modules,
       "firms": firmIds
     };
