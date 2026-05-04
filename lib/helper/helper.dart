@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:arham_corporation/helper/notification_services.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/views/party_managment/bindings/account_bindings.dart';
 import 'package:arham_corporation/views/party_managment/screens/edit_account_screen.dart';
+import 'package:arham_corporation/views/route_schedule_plan/controllers/beat_controller.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +19,28 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 class Helper {
+  static bool canAddParty(ProfileProvider? profileProvider) {
+    final profile = profileProvider?.data;
+    if (profile == null || profile.modulesList == null) {
+      return false;
+    }
+
+    return profile.modulesList!.any(
+      (module) => module.mODULENO == '102' && module.wRITERIGHT == true,
+    );
+  }
+
+  static bool canEditParty(ProfileProvider? profileProvider) {
+    final profile = profileProvider?.data;
+    if (profile == null || profile.modulesList == null) {
+      return false;
+    }
+
+    return profile.modulesList!.any(
+      (module) => module.mODULENO == '102' && module.uPDATERIGHT == true,
+    );
+  }
+
   static String maskMobileNumber(String mobile) {
     if (mobile.length < 6) return mobile; // safety check
 
@@ -413,6 +437,25 @@ class Helper {
       }
     }
 
+    // Get beat information if party has beatCd
+    String beatName = '';
+    final beatCd = listOfParty[index].beatCd;
+    if (beatCd != null && beatCd.toString().trim().isNotEmpty) {
+      try {
+        final beatController = Get.find<BeatController>();
+        final beatList = beatController.beats;
+        final beat = beatList.firstWhereOrNull(
+          (b) => b.beatCd.toLowerCase() == beatCd.toString().toLowerCase(),
+        );
+        if (beat != null) {
+          beatName = beat.beatName;
+        }
+      } catch (e) {
+        // BeatController not found, skip beat display
+        print('[Helper] Beat info not available: $e');
+      }
+    }
+
     return ListTile(
       leading: Text("${index + 1}"),
       trailing: showEditButton
@@ -458,6 +501,14 @@ class Helper {
               TextSpan(
                 text: " || ${listOfParty[index].accCartItem}",
                 style: TextStyle(color: Colors.amber),
+              ),
+            if (beatName.isNotEmpty)
+              TextSpan(
+                text: "Beat: $beatName",
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             TextSpan(
               text: "\n$lastOrderText",

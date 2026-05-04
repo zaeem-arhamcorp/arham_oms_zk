@@ -25,7 +25,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/partynameModal.dart';
 import '../../models/productModal.dart';
-import '../model/selfie_dialog_taglines.dart';
 import '../../providers/cart_list_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../services/database_helper.dart';
@@ -35,6 +34,7 @@ import '../../views/party_managment/screens/add_account_screen.dart';
 import '../../widgets/pdfViewerScreen.dart';
 import '../controller/cart_controller.dart';
 import '../controller/product_controller.dart';
+import '../model/selfie_dialog_taglines.dart';
 import '../widget/app_bar.dart';
 import '../widget/chip_widget.dart';
 
@@ -42,7 +42,50 @@ import '../widget/chip_widget.dart';
 
 final Rx<File?> selfieFile = Rx<File?>(null);
 final RxBool isSelfieUploading = false.obs;
+final RxString selfieDialogQuote = ''.obs;
 final ImagePicker selfiePicker = ImagePicker();
+
+Future<void> _fetchSelfieDialogQuote() async {
+  try {
+    String? token;
+    try {
+      final context = Get.context;
+      if (context != null) {
+        token = Provider.of<UserProvider>(context, listen: false).token;
+      }
+    } catch (_) {
+      token = null;
+    }
+
+    final quoteUrl = Uri.parse('${AppConfig.baseURL}trip/quoteForSelfie');
+    final response = await http.get(
+      quoteUrl,
+      headers: {
+        'x-app-type': 'oms',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 8));
+
+    print(quoteUrl);
+    print(response);
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final quote = (decoded['data'] ?? '').toString().trim();
+        if (quote.isNotEmpty) {
+          selfieDialogQuote.value = quote;
+          return;
+        }
+      }
+    }
+
+    selfieDialogQuote.value = '';
+  } catch (e) {
+    selfieDialogQuote.value = '';
+    print('[SELFIE-DIALOG] quoteForSelfie fetch failed: $e');
+  }
+}
 
 Future<bool> _checkSelfieUploadedToday() async {
   final prefs = await SharedPreferences.getInstance();
@@ -192,6 +235,8 @@ Future<bool> _uploadSelfie(File selfie, String userCd) async {
 Future<bool> _showSelfieDialogAndUpload(
     ProfileProvider profile, PartyProvider party) async {
   selfieFile.value = null;
+  selfieDialogQuote.value = '';
+  unawaited(_fetchSelfieDialogQuote());
   bool uploadSuccess = false;
   await Get.dialog(
     Obx(() => AlertDialog(
@@ -258,8 +303,9 @@ Future<bool> _showSelfieDialogAndUpload(
                     children: [
                       Expanded(
                         child: Text(
-                          // "Ready for your first order?",
-                          getRandomSelfieDialogTagline(),
+                          selfieDialogQuote.value.isNotEmpty
+                              ? selfieDialogQuote.value
+                              : getRandomSelfieDialogTagline(),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.yellow,
@@ -484,6 +530,14 @@ class _ProductsPageState extends State<ProductsPage> {
 
   // Monthly target data map: stockist code -> target info for PRIMARY/POB.
   Map<String, Map<String, dynamic>> _monthlyTargetByStockist = {};
+
+  bool get _canEditParty => Helper.canEditParty(
+        Provider.of<ProfileProvider>(context, listen: false),
+      );
+
+  bool get _canAddParty => Helper.canAddParty(
+        Provider.of<ProfileProvider>(context, listen: false),
+      );
 
   /// Get fresh location via Geolocator for on-demand tracking
   bool _isContinuousLocationTrackingEnabled(ProfileProvider profile) {
@@ -1812,8 +1866,6 @@ class _ProductsPageState extends State<ProductsPage> {
 
   void showMenu1() {
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
-    final ProfileProvider p =
-        Provider.of<ProfileProvider>(context, listen: false);
 
     // ⚡ IMPORTANT: Show menu INSTANTLY without waiting for sort!
     print('[PARTY_MENU] ⚡ START_ORDER: Showing cached party list instantly...');
@@ -1861,7 +1913,11 @@ class _ProductsPageState extends State<ProductsPage> {
                           ),
                         ),
                       _buildSearchField(setState, party),
-                      _buildPartyList(setState, p, party),
+                      _buildPartyList(
+                        setState,
+                        Provider.of<ProfileProvider>(context, listen: false),
+                        party,
+                      ),
                     ],
                   ),
                 ),
@@ -2223,10 +2279,14 @@ class _ProductsPageState extends State<ProductsPage> {
                                           child: (_tempParty.isNotEmpty)
                                               ? Helper
                                                   .showPartyBottomSheetWithSearch(
-                                                      index, _tempParty)
+                                                      index, _tempParty,
+                                                      showEditButton:
+                                                          _canEditParty)
                                               : Helper
                                                   .showPartyBottomSheetWithSearch(
-                                                      index, party.data),
+                                                      index, party.data,
+                                                      showEditButton:
+                                                          _canEditParty),
                                         );
                                       }),
                         )
@@ -2445,6 +2505,7 @@ class _ProductsPageState extends State<ProductsPage> {
       child: Helper.showPartyBottomSheetWithSearch(
         index,
         _tempParty.isNotEmpty ? _tempParty : partiesOnly,
+        showEditButton: _canEditParty,
       ),
     );
   }

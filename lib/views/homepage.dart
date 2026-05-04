@@ -20,9 +20,11 @@ import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/location_permission_service.dart';
 import 'package:arham_corporation/views/monthly_target/models/monthly_target_item_model.dart';
 import 'package:arham_corporation/views/orderReportScreen.dart';
+import 'package:arham_corporation/views/route_schedule_plan/controllers/beat_controller.dart';
 import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/location_permission_dialog.dart';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -61,7 +63,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late ProfileProvider
       _profileProvider; // Store provider reference to avoid accessing during dispose
 
-  getDashboarddata() async {
+  Future<void> getDashboarddata() async {
     if (!mounted) return;
 
     setState(() {
@@ -269,6 +271,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     _profileProvider = Provider.of<ProfileProvider>(context, listen: false);
     _monthlyTargetFuture = _fetchCurrentMonthPobTarget();
+
+    // Load today's beat schedule for current user (if available)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final beatCtrl = Get.isRegistered<BeatController>()
+            ? Get.find<BeatController>()
+            : Get.put(BeatController());
+
+        String? userCd = _profileProvider.data?.userCd?.toString();
+        if (userCd == null || userCd.isEmpty) {
+          final sp = await SharedPreferences.getInstance();
+          userCd = sp.getString('UserCode') ?? '';
+        }
+
+        if (userCd != null && userCd.isNotEmpty) {
+          await beatCtrl.fetchUserBeatSchedule(userCd);
+          if (mounted) setState(() {});
+        }
+      } catch (e) {
+        print('[HomePage] Failed to load beat schedule: $e');
+      }
+    });
 
     // Add listener to show warning snackbar whenever it's set by the API
     _profileProvider.addListener(_handlePendingWarning);
@@ -651,225 +675,280 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       if (!mounted) return;
+
       await showDialog(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
           return StatefulBuilder(
             builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Row(
-                  children: [
-                    Image.asset(
-                      "assets/whatsapp_icon.png",
-                      height: 30,
-                    ),
-                    const Text('Share Order Report'),
-                  ],
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (shouldShowMilestone)
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade200),
-                        ),
-                        child: Text(
-                          'Congratulations! You placed an order of amount ${milestoneOrderAmount.toStringAsFixed(2)}.',
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    const Text(
-                      'Share PDF on WhatsApp to:',
-                      style: TextStyle(
-                        color: Colors.green,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      value: shareParty,
-                      onChanged: hasParty
-                          ? (val) {
-                              setDialogState(() {
-                                shareParty = val ?? false;
-                                validationError = '';
-                              });
-                            }
-                          : null,
-                      title: Text('Party: $partyName'),
-                      subtitle: Text(
-                        hasParty
-                            ? 'Number: $partyDisplayNumber'
-                            : 'No WhatsApp/Phone number available',
-                      ),
-                    ),
-                    CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      value: shareStockist,
-                      onChanged: hasStockist
-                          ? (val) {
-                              setDialogState(() {
-                                shareStockist = val ?? false;
-                                validationError = '';
-                              });
-                            }
-                          : null,
-                      title: Text(
-                          'Stockist: ${stockistName.isEmpty ? 'N/A' : stockistName}'),
-                      subtitle: Text(
-                        hasStockist
-                            ? 'Number: $stockistDisplayNumber'
-                            : 'No WhatsApp/Phone number available',
-                      ),
-                    ),
-                    if (validationError.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          validationError,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (!shareParty && !shareStockist) {
-                        setDialogState(() {
-                          validationError =
-                              'Please select at least one recipient';
-                        });
-                        return;
-                      }
+              // Create confetti controllers for celebration effect (created fresh for each dialog)
+              final _leftConfettiController =
+                  ConfettiController(duration: const Duration(seconds: 3));
+              final _rightConfettiController =
+                  ConfettiController(duration: const Duration(seconds: 3));
 
-                      Navigator.of(dialogContext).pop();
+              // Trigger confetti after a small delay for better UX
+              if (shouldShowMilestone) {
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted) {
+                    _leftConfettiController.play();
+                    _rightConfettiController.play();
+                  }
+                });
+              }
 
-                      final filePath =
-                          await _downloadOrderReportPdfForShare(reportUrl);
-                      if (filePath == null || filePath.trim().isEmpty) {
-                        AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Unable to download PDF for sharing',
-                        );
-                        return;
-                      }
-
-                      int openedCount = 0;
-                      int failedCount = 0;
-
-                      final shareBothSelected = shareParty &&
-                          hasParty &&
-                          shareStockist &&
-                          hasStockist;
-
-                      if (shareBothSelected) {
-                        final partyShared = await _sharePdfToRecipient(
-                          phone: partyNumber,
-                          filePath: filePath,
-                        );
-
-                        if (partyShared) {
-                          openedCount++;
-                          _queueSecondaryShare(
-                            phone: stockistNumber,
-                            filePath: filePath,
-                            label: stockistName.isEmpty
-                                ? 'stockist'
-                                : stockistName,
-                          );
-                          AppSnackBar.showGetXCustomSnackBar(
-                            message:
-                                'Party share opened. Return to app to open stockist share.',
-                            backgroundColor: Colors.orange,
-                          );
-                        } else {
-                          failedCount++;
-                          final stockistShared = await _sharePdfToRecipient(
-                            phone: stockistNumber,
-                            filePath: filePath,
-                          );
-                          if (stockistShared) {
-                            openedCount++;
-                          } else {
-                            failedCount++;
-                          }
-                        }
-                      } else {
-                        if (shareParty && hasParty) {
-                          final shared = await _sharePdfToRecipient(
-                            phone: partyNumber,
-                            filePath: filePath,
-                          );
-                          if (shared) {
-                            openedCount++;
-                          } else {
-                            failedCount++;
-                          }
-                        }
-
-                        if (shareStockist && hasStockist) {
-                          final shared = await _sharePdfToRecipient(
-                            phone: stockistNumber,
-                            filePath: filePath,
-                          );
-                          if (shared) {
-                            openedCount++;
-                          } else {
-                            failedCount++;
-                          }
-                        }
-                      }
-
-                      if (openedCount > 0) {
-                        AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Opening WhatsApp share...',
-                          backgroundColor: Colors.green,
-                        );
-                      }
-                      if (failedCount > 0) {
-                        AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Could not open some WhatsApp links',
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+              return Stack(
+                children: [
+                  AlertDialog(
+                    title: Row(
                       children: [
                         Image.asset(
                           "assets/whatsapp_icon.png",
-                          height: 20,
+                          height: 30,
                         ),
-                        SizedBox(
-                          width: 5,
-                        ),
-                        Text('Share'),
+                        const Text('Share Order Report'),
                       ],
                     ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (shouldShowMilestone)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Text(
+                              'Congratulations! You placed an order of amount ${milestoneOrderAmount.toStringAsFixed(2)}.',
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        const Text(
+                          'Share PDF on WhatsApp to:',
+                          style: TextStyle(
+                            color: Colors.green,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: shareParty,
+                          onChanged: hasParty
+                              ? (val) {
+                                  setDialogState(() {
+                                    shareParty = val ?? false;
+                                    validationError = '';
+                                  });
+                                }
+                              : null,
+                          title: Text('Party: $partyName'),
+                          subtitle: Text(
+                            hasParty
+                                ? 'Number: $partyDisplayNumber'
+                                : 'No WhatsApp/Phone number available',
+                          ),
+                        ),
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: shareStockist,
+                          onChanged: hasStockist
+                              ? (val) {
+                                  setDialogState(() {
+                                    shareStockist = val ?? false;
+                                    validationError = '';
+                                  });
+                                }
+                              : null,
+                          title: Text(
+                              'Stockist: ${stockistName.isEmpty ? 'N/A' : stockistName}'),
+                          subtitle: Text(
+                            hasStockist
+                                ? 'Number: $stockistDisplayNumber'
+                                : 'No WhatsApp/Phone number available',
+                          ),
+                        ),
+                        if (validationError.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              validationError,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text(
+                          'Skip',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (!shareParty && !shareStockist) {
+                            setDialogState(() {
+                              validationError =
+                                  'Please select at least one recipient';
+                            });
+                            return;
+                          }
+
+                          Navigator.of(dialogContext).pop();
+
+                          final filePath =
+                              await _downloadOrderReportPdfForShare(reportUrl);
+                          if (filePath == null || filePath.trim().isEmpty) {
+                            AppSnackBar.showGetXCustomSnackBar(
+                              message: 'Unable to download PDF for sharing',
+                            );
+                            return;
+                          }
+
+                          int openedCount = 0;
+                          int failedCount = 0;
+
+                          final shareBothSelected = shareParty &&
+                              hasParty &&
+                              shareStockist &&
+                              hasStockist;
+
+                          if (shareBothSelected) {
+                            final partyShared = await _sharePdfToRecipient(
+                              phone: partyNumber,
+                              filePath: filePath,
+                            );
+
+                            if (partyShared) {
+                              openedCount++;
+                              _queueSecondaryShare(
+                                phone: stockistNumber,
+                                filePath: filePath,
+                                label: stockistName.isEmpty
+                                    ? 'stockist'
+                                    : stockistName,
+                              );
+                              AppSnackBar.showGetXCustomSnackBar(
+                                message:
+                                    'Party share opened. Return to app to open stockist share.',
+                                backgroundColor: Colors.orange,
+                              );
+                            } else {
+                              failedCount++;
+                              final stockistShared = await _sharePdfToRecipient(
+                                phone: stockistNumber,
+                                filePath: filePath,
+                              );
+                              if (stockistShared) {
+                                openedCount++;
+                              } else {
+                                failedCount++;
+                              }
+                            }
+                          } else {
+                            if (shareParty && hasParty) {
+                              final shared = await _sharePdfToRecipient(
+                                phone: partyNumber,
+                                filePath: filePath,
+                              );
+                              if (shared) {
+                                openedCount++;
+                              } else {
+                                failedCount++;
+                              }
+                            }
+
+                            if (shareStockist && hasStockist) {
+                              final shared = await _sharePdfToRecipient(
+                                phone: stockistNumber,
+                                filePath: filePath,
+                              );
+                              if (shared) {
+                                openedCount++;
+                              } else {
+                                failedCount++;
+                              }
+                            }
+                          }
+
+                          if (openedCount > 0) {
+                            AppSnackBar.showGetXCustomSnackBar(
+                              message: 'Opening WhatsApp share...',
+                              backgroundColor: Colors.green,
+                            );
+                          }
+                          if (failedCount > 0) {
+                            AppSnackBar.showGetXCustomSnackBar(
+                              message: 'Could not open some WhatsApp links',
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              "assets/whatsapp_icon.png",
+                              height: 20,
+                            ),
+                            SizedBox(
+                              width: 5,
+                            ),
+                            Text('Share'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
+                  // Left confetti - fires upward-right at 45 degrees from middle of left edge
+                  if (shouldShowMilestone)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConfettiWidget(
+                        confettiController: _leftConfettiController,
+                        blastDirection:
+                            -0.7854, // π/4 radians = 45 degrees upward-right
+                        maxBlastForce: 30,
+                        minBlastForce: 20,
+                        emissionFrequency: 0.05,
+                        numberOfParticles: 20,
+                        gravity: 0.1,
+                        shouldLoop: false,
+                        displayTarget: false,
+                      ),
+                    ),
+                  // Right confetti - fires upward-left at 45 degrees from middle of right edge
+                  if (shouldShowMilestone)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ConfettiWidget(
+                        confettiController: _rightConfettiController,
+                        blastDirection:
+                            -2.356, // 3π/4 radians = 135 degrees upward-left
+                        maxBlastForce: 30,
+                        minBlastForce: 20,
+                        emissionFrequency: 0.05,
+                        numberOfParticles: 20,
+                        gravity: 0.1,
+                        shouldLoop: false,
+                        displayTarget: false,
+                      ),
+                    ),
                 ],
               );
             },
@@ -885,7 +964,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void notification() async {
+  Future<void> notification() async {
     await NotificationService().requestNotificationPermission();
   }
 
@@ -1747,7 +1826,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         Text(
                           _getGreetingMessage(),
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             // color: Color(0XFF2c9ed9),
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
@@ -1764,7 +1843,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           p.userName.toString(), // User Name + User Code
                           style: TextStyle(
                               color: Colors.black,
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1),
                         ),
@@ -1801,14 +1880,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     padding: const EdgeInsets.only(left: 20, right: 20),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'TOTAL ORDERS',
-                          style: TextStyle(
-                              fontSize: 13,
-                              // color: Color(0XFF2c9ed9),
-                              color: Colors.grey.shade700,
-                              fontWeight: FontWeight.bold),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TOTAL ORDERS',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  // color: Color(0XFF2c9ed9),
+                                  color: Colors.grey.shade700,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              "₹ ${data != null ? Helper.parseNumericValue(data!.data.labelData.totalSales.toString()) : 0}",
+                              style: TextStyle(
+                                color: Color(0XFF2c9ed9),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 17.sp,
+                              ),
+                            ),
+                          ],
                         ),
                         Flexible(
                           child: Container(
@@ -1819,32 +1912,71 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Color(0xFFE2EEFD)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 14,
-                                  color: Colors.grey.shade700,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      size: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
+                                    Text(
+                                      DateFormat('d MMM yyyy')
+                                          .format(DateTime.now()),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(
-                                  width: 5,
-                                ),
-                                Text(
-                                  DateFormat('d MMM yyyy')
-                                      .format(DateTime.now()),
-                                  style: TextStyle(
-                                    // fontSize:
-                                    //     MediaQuery.of(context)
-                                    //             .size
-                                    //             .width *
-                                    //         0.045,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
+                                SizedBox(height: 2),
+                                Builder(builder: (ctx) {
+                                  try {
+                                    final beatCtrl =
+                                        Get.isRegistered<BeatController>()
+                                            ? Get.find<BeatController>()
+                                            : Get.put(BeatController());
+                                    final beats = beatCtrl
+                                        .getBeatsForDate(DateTime.now());
+                                    final beatName = beats.isNotEmpty
+                                        ? beats.first.beatName
+                                        : '';
+                                    if (beatName.isEmpty)
+                                      return SizedBox.shrink();
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.route_outlined,
+                                          size: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                        SizedBox(
+                                          width: 5,
+                                        ),
+                                        Text(
+                                          beatName,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey.shade700,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  } catch (e) {
+                                    return SizedBox.shrink();
+                                  }
+                                }),
                               ],
                             ),
                           ),
@@ -1852,22 +1984,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Text(
-                          "₹ ${data != null ? Helper.parseNumericValue(data!.data.labelData.totalSales.toString()) : 0}",
-                          style: TextStyle(
-                            color: Color(0XFF2c9ed9),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 17.sp,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Padding(
+                  //   padding: const EdgeInsets.only(left: 20),
+                  //   child: Row(
+                  //     mainAxisAlignment: MainAxisAlignment.start,
+                  //     children: [
+                  //       Text(
+                  //         "₹ ${data != null ? Helper.parseNumericValue(data!.data.labelData.totalSales.toString()) : 0}",
+                  //         style: TextStyle(
+                  //           color: Color(0XFF2c9ed9),
+                  //           fontWeight: FontWeight.w600,
+                  //           fontSize: 17.sp,
+                  //         ),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
 
                   Builder(
                     builder: (context) {
@@ -1881,7 +2013,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                       return Padding(
                         padding: EdgeInsets.only(
-                          top: 20,
+                          top: 5,
                           right: 20,
                           left: 20,
                         ),
@@ -1936,7 +2068,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15)),
                       child: Container(
-                        padding: EdgeInsets.all(10),
+                        padding: EdgeInsets.only(
+                          top: 10,
+                          right: 10,
+                          left: 10,
+                        ),
                         // Add padding for better spacing
                         child: Column(
                           children: [
@@ -1988,11 +2124,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             ),
                                           ],
                                         ),
-                                        SizedBox(
-                                            height: MediaQuery.of(context)
-                                                    .size
-                                                    .height *
-                                                0.01),
+                                        SizedBox(height: 2),
                                         Row(
                                           children: [
                                             Text(
@@ -2042,7 +2174,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 8),
+                            SizedBox(height: 5),
                             FutureBuilder<MonthlyTargetItemModel?>(
                               future: _monthlyTargetFuture,
                               builder: (context, snapshot) {
@@ -2199,7 +2331,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     width: MediaQuery.of(context).size.width *
                                         0.02), // Horizontal spacing
 
-                                // "This Month" Card
+                                // "Today's Order" Card
                                 Flexible(
                                   child: Card(
                                     color: Colors.transparent,
@@ -3634,7 +3766,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     double percent, {
     Color baseColor = const Color(0XFF2c9ed9),
     Color overflowColor = const Color(0xFFFFC107),
-    double height = 8,
+    double height = 6,
   }) {
     final double baseProgress = (percent / 100).clamp(0.0, 1.0);
     final bool hasOverflow = percent > 100;

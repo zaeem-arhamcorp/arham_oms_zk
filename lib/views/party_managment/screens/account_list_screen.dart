@@ -1,5 +1,6 @@
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/providers/party_provider.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/views/party_managment/bindings/account_bindings.dart';
 import 'package:arham_corporation/views/party_managment/screens/add_account_screen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -66,18 +67,22 @@ class _AccountListScreenState extends State<AccountListScreen> {
   @override
   Widget build(BuildContext context) {
     final partyProvider = context.watch<PartyProvider>();
+    final profileProvider = context.watch<ProfileProvider>();
+    final canEditParty = Helper.canEditParty(profileProvider);
+    final canAddParty = Helper.canAddParty(profileProvider);
     final filteredData = _filteredData;
 
     return Scaffold(
       appBar: CustomAppBar(
         title: "Accounts",
         actions: [
-          IconButton(
-            onPressed: () {
-              Get.to(() => AddAccountScreen(), binding: AccountBindings());
-            },
-            icon: Icon(Icons.add),
-          ),
+          if (canAddParty)
+            IconButton(
+              onPressed: () {
+                Get.to(() => AddAccountScreen(), binding: AccountBindings());
+              },
+              icon: Icon(Icons.add),
+            ),
         ],
       ),
       body: _isLoading
@@ -132,7 +137,7 @@ class _AccountListScreenState extends State<AccountListScreen> {
                               return Helper.showPartyBottomSheetWithSearch(
                                 index,
                                 filteredData,
-                                showEditButton: true,
+                                showEditButton: canEditParty,
                               );
                             },
                           ),

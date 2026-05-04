@@ -482,7 +482,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               size: 30,
             ),
             title: Text(
-              'Account Management',
+              'Party Management',
               style: TextStyle(
                 fontSize: 20,
               ),
