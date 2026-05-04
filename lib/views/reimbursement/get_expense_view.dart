@@ -1,8 +1,10 @@
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/views/reimbursement/create_expense_request.dart';
 import 'package:arham_corporation/views/reimbursement/my_reimbursements_view.dart';
 import 'package:arham_corporation/views/reimbursement/reimbursement_approvals_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
 class GetExpenseView extends StatefulWidget {
   const GetExpenseView({super.key});
@@ -12,10 +14,13 @@ class GetExpenseView extends StatefulWidget {
 }
 
 class _GetExpenseViewState extends State<GetExpenseView> {
+  late ProfileProvider p;
+
   @override
   void initState() {
     super.initState();
     debugPrint('[Reimbursement][GetExpense] Screen initialized');
+    p = Provider.of<ProfileProvider>(context, listen: false);
   }
 
   @override
@@ -28,14 +33,16 @@ class _GetExpenseViewState extends State<GetExpenseView> {
           title: const Text('Reimbursement'),
           foregroundColor: Colors.white,
           actions: [
-            IconButton(
-              onPressed: () {
-                Get.to(() => CreateExpenseRequest());
-              },
-              icon: Icon(
-                Icons.add,
+            if (p.data!.modulesList!.any((module) =>
+                module.mODULENO == "231" && module.wRITERIGHT == true))
+              IconButton(
+                onPressed: () {
+                  Get.to(() => CreateExpenseRequest());
+                },
+                icon: Icon(
+                  Icons.add,
+                ),
               ),
-            ),
           ],
           bottom: const TabBar(
             labelColor: Colors.white,

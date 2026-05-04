@@ -509,7 +509,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
             ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "235" && module.rEADRIGHT == true))
+                  module.mODULENO == "235" && module.wRITERIGHT == true))
             ListTile(
               leading: Icon(
                 CupertinoIcons.scope,
@@ -640,7 +640,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
           if (_profileProvider.data?.modulesList != null &&
               _profileProvider.data!.modulesList!.any((module) =>
                   module.mODULENO == "231" &&
-                  (module.rEADRIGHT == true || module.pRINTRIGHT == true)))
+                  (module.rEADRIGHT == true || module.wRITERIGHT == true)))
             ListTile(
               leading: Icon(
                 Icons.attach_money,
