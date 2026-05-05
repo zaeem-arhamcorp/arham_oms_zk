@@ -589,7 +589,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
           ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "232" && module.rEADRIGHT == true)) ...[
+                  module.mODULENO == "232" && module.wRITERIGHT == true))
             ListTile(
               leading: Icon(
                 Icons.add_task,
@@ -605,6 +605,9 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 Get.to(() => AssignTaskView());
               },
             ),
+          if (p.data != null &&
+              p.data!.modulesList!.any((module) =>
+                  module.mODULENO == "232" && module.rEADRIGHT == true))
             ListTile(
               leading: Icon(
                 Icons.task,
@@ -620,7 +623,6 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 Get.to(() => TaskListView());
               },
             ),
-          ],
           ListTile(
             leading: Icon(
               Icons.group_add,

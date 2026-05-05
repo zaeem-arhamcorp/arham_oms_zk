@@ -14,6 +14,8 @@ import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/person_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/views/item_wise_sale/providers/item_list_provider.dart'
+    as item_wise_sale_provider;
 import 'package:arham_corporation/views/splashScreen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -160,6 +162,8 @@ class MyApp extends StatelessWidget {
             create: (context) => OrderFetchProvider()),
         ChangeNotifierProvider<ItemListProvider>(
             create: (context) => ItemListProvider()),
+        ChangeNotifierProvider<item_wise_sale_provider.ItemListProvider>(
+            create: (context) => item_wise_sale_provider.ItemListProvider()),
         ChangeNotifierProvider<PersonProvider>(
             create: (context) => PersonProvider()),
         ChangeNotifierProvider<ProfileProvider>(

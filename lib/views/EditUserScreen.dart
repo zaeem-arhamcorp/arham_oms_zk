@@ -93,8 +93,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
             if (m.aPPTYPE.toString().trim().toUpperCase() == "OMS") {
               // Only allow OMSReport modules with matching role
               return m.moduleType == "OMSReport" ||
-                  m.moduleType == "Transaction" &&
-                      m.role.contains(selectRole!.id);
+                  m.moduleType == "Transaction" ||
+                  m.moduleType == "Master" && m.role.contains(selectRole!.id);
             } else {
               // For Master & Transaction â†’ always include
               return (m.moduleType == "Master" ||

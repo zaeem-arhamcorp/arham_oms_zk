@@ -1,5 +1,7 @@
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/views/ItemWisePartyWisePurchaseReportScreen.dart';
+import 'package:arham_corporation/views/item_wise_sale/views/item_wise_order_report_view.dart';
+import 'package:arham_corporation/views/party_wise_item_wise_order/views/item_wise_party_wise_sale_report_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/route%20timeline/route_map_view.dart';
 import 'package:arham_corporation/views/route_report_screen.dart';
@@ -196,7 +198,7 @@ class _NewMenuState extends State<NewMenu> {
                       p.data!.modulesList!.any((module) =>
                           module.mODULENO == "312" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.shopping_bag_outlined,
-                        "Party wise item wise Order", () {
+                        "Party wise item wise Sale", () {
                       Get.to(() => ItemWisePartyWiseSaleReportScreen());
                     }),
 
@@ -212,6 +214,13 @@ class _NewMenuState extends State<NewMenu> {
                           module.mODULENO == "231" && module.rEADRIGHT == true))
                     _buildIconTextBox(Icons.attach_money, "Reimbursement", () {
                       Get.to(() => GetExpenseView());
+                    }),
+                  if (p.data != null &&
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "324" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.shopping_bag_outlined,
+                        "Party wise item wise Order", () {
+                      Get.to(() => ItemWisePartyWiseSaleReportView());
                     }),
                 ]),
                 _buildSection("Ledgers", [
@@ -333,6 +342,13 @@ class _NewMenuState extends State<NewMenu> {
                     _buildIconTextBox(Icons.account_balance, "Map Route", () {
                       Get.to(() => const RouteMapView());
                     }, iconUrl: "assets/icons/route_report.png"),
+                  if (p.data != null &&
+                      p.data!.modulesList!.any((module) =>
+                          module.mODULENO == "325" && module.rEADRIGHT == true))
+                    _buildIconTextBox(Icons.account_balance, "Item Wise Order",
+                        () {
+                      Get.to(() => ItemWiseOrderReportView());
+                    }, iconUrl: "assets/icons/item-wise-sale.png"),
                 ]),
               ],
             ),

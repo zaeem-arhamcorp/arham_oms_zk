@@ -2294,6 +2294,7 @@ class Services {
     }
 
     print(ub.token);
+    print("${AppConfig.baseURLReport}items-wise-report?$queryString");
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURLReport}items-wise-report?$queryString"),
@@ -2377,6 +2378,7 @@ class Services {
     }
 
     print(ub.token);
+    print("${AppConfig.baseURLReport}items-wise-report?$queryString");
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURLReport}items-wise-report?$queryString"),
@@ -2400,6 +2402,99 @@ class Services {
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
       //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getItemWiseReport data ${e.toString()}");
+    }
+    return null;
+  }
+
+  Future<ItemWiseReportModal?> getItemWiseOrderReport(
+      context, fromDate, toDate, itemCd, deptCd,
+      {bool typeFull = false}) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    var queryString = "fromDate=$fromDate&toDate=$toDate";
+
+    if (itemCd != null) {
+      queryString = "$queryString&itemCd=$itemCd";
+    }
+
+    if (deptCd != null) {
+      queryString = "$queryString&deptCd=$deptCd";
+    }
+
+    if (typeFull) {
+      queryString = "$queryString&type=full";
+    }
+
+    print(ub.token);
+    print("${AppConfig.baseURLReport}items-wise-order-report?$queryString");
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURLReport}items-wise-order-report?$queryString"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print(response.body);
+      if (response.statusCode == 200) {
+        return itemWiseReportModalFromJson(response.body);
+      } else {
+        print('print 50_order');
+
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      print("Error in Services getItemWiseOrderReport data ${e.toString()}");
+    }
+    return null;
+  }
+
+  Future<ItemWiseDetailReportModal?> getItemWiseOrderDetailReport(
+      context, fromDate, toDate, itemCd,
+      {bool typeFull = true}) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    var queryString = "fromDate=$fromDate&toDate=$toDate";
+
+    if (itemCd != null) {
+      queryString = "$queryString&itemCd=$itemCd";
+    }
+
+    if (typeFull) {
+      queryString = "$queryString&type=full";
+    }
+
+    print(ub.token);
+    print("${AppConfig.baseURLReport}items-wise-order-report?$queryString");
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURLReport}items-wise-order-report?$queryString"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print(response.body);
+      if (response.statusCode == 200) {
+        return itemWiseDetailReportModalFromJson(response.body);
+      } else {
+        print('print 52_order');
+
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      print(
+          "Error in Services getItemWiseOrderDetailReport data ${e.toString()}");
     }
     return null;
   }
@@ -2554,6 +2649,41 @@ class Services {
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
           "Error in Services getPartyWiseItemSaleReport data ${e.toString()}");
+    }
+    return null;
+  }
+
+  Future<PartyWiseItemWiseSaleReportModal?> getPartyWiseItemOrder(
+      context, fromdate, toDate, partyCd, deptCd) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    var queryString = "partyCd=$partyCd&fromDate=$fromdate&toDate=$toDate";
+
+    if (deptCd != null) {
+      queryString = "$queryString&deptCd=$deptCd";
+    }
+
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-order?$queryString"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print("${AppConfig.baseURLReport}party-wise-item-order?$queryString");
+      print(response.body);
+      if (response.statusCode == 200) {
+        return partyWiseItemWiseSaleReportModalFromJson(response.body);
+      } else {
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      print("Error in Services getPartyWiseItemOrder data ${e.toString()}");
     }
     return null;
   }
@@ -2720,6 +2850,48 @@ class Services {
       //Fluttertoast.showToast(msg: "Something went wrong");
       print(
           "Error in Services getPartyWiseItemSaleDetailReport data ${e.toString()}");
+    }
+    return null;
+  }
+
+  Future<PartyWiseItemWiseSaleDetailReportModal?>
+      getPartyWiseItemOrderDetailReport(
+          context, fromdate, toDate, partyCd, deptCd, itemCd) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    var queryString =
+        "fromDate=$fromdate&toDate=$toDate&partyCd=$partyCd&itemCd=$itemCd&type=full";
+
+    if (deptCd != null) {
+      queryString = "$queryString&deptCd=$deptCd";
+    }
+
+    print(ub.token);
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-order?$queryString"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print("${AppConfig.baseURLReport}party-wise-item-order?$queryString");
+      print(response.body);
+      if (response.statusCode == 200) {
+        return partyWiseItemWiseSaleDetailReportModalFromJson(response.body);
+      } else {
+        print('print 58');
+
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      //Fluttertoast.showToast(msg: "Something went wrong");
+      print(
+          "Error in Services getPartyWiseItemOrderDetailReport data ${e.toString()}");
     }
     return null;
   }
