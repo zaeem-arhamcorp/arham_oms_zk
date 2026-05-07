@@ -462,7 +462,20 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
 
   @override
   Widget build(BuildContext context) {
-    final ItemListProvider it = context.watch<ItemListProvider>();
+    late ItemListProvider it;
+    try {
+      it = context.watch<ItemListProvider>();
+    } catch (e) {
+      // Provider not found, return error state
+      print('[ItemWiseOrderReportView] Provider error: $e');
+      return Scaffold(
+        appBar: CustomAppBar(title: "Item Wise Sale Report"),
+        body: Center(
+          child: Text('Unable to load data. Please try again.'),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(

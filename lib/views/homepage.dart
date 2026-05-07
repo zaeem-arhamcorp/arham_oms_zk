@@ -77,7 +77,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // ✅ Guard: Check if widget is still mounted before calling API
     if (!mounted) return;
-    final BuildContext currentContext = context;
+
+    BuildContext currentContext;
+    try {
+      currentContext = context;
+    } catch (e) {
+      // State may already be detached; silently skip refresh.
+      return;
+    }
 
     Services().getDashboarddata(currentContext).then((value) async {
       // ✅ Guard: Check mounted again after async operation
@@ -254,6 +261,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void initState() {
+    super.initState();
     WidgetsBinding.instance.addObserver(this);
     CrashlyticsService.setScreenName('HomePage');
     CrashlyticsService.logAction('home_screen_opened');
@@ -431,8 +439,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } else {
       print("Module with mODULENO '109' not found.");
     }
-
-    super.initState();
   }
 
   void _queueSecondaryShare({
@@ -672,6 +678,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     bool shareStockist = hasStockist;
     String validationError = '';
     _isOrderShareDialogVisible = true;
+    final leftConfettiController =
+        ConfettiController(duration: const Duration(seconds: 3));
+    final rightConfettiController =
+        ConfettiController(duration: const Duration(seconds: 3));
+    bool dialogOpen = true;
 
     try {
       if (!mounted) return;
@@ -682,18 +693,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         builder: (dialogContext) {
           return StatefulBuilder(
             builder: (context, setDialogState) {
-              // Create confetti controllers for celebration effect (created fresh for each dialog)
-              final _leftConfettiController =
-                  ConfettiController(duration: const Duration(seconds: 3));
-              final _rightConfettiController =
-                  ConfettiController(duration: const Duration(seconds: 3));
-
               // Trigger confetti after a small delay for better UX
               if (shouldShowMilestone) {
                 Future.delayed(const Duration(milliseconds: 300), () {
-                  if (mounted) {
-                    _leftConfettiController.play();
-                    _rightConfettiController.play();
+                  if (mounted && dialogOpen) {
+                    leftConfettiController.play();
+                    rightConfettiController.play();
                   }
                 });
               }
@@ -920,7 +925,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ConfettiWidget(
-                        confettiController: _leftConfettiController,
+                        confettiController: leftConfettiController,
                         blastDirection:
                             -0.7854, // π/4 radians = 45 degrees upward-right
                         maxBlastForce: 30,
@@ -937,7 +942,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Align(
                       alignment: Alignment.centerRight,
                       child: ConfettiWidget(
-                        confettiController: _rightConfettiController,
+                        confettiController: rightConfettiController,
                         blastDirection:
                             -2.356, // 3π/4 radians = 135 degrees upward-left
                         maxBlastForce: 30,
@@ -956,6 +961,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         },
       );
     } finally {
+      dialogOpen = false;
+      leftConfettiController.dispose();
+      rightConfettiController.dispose();
       if (shouldShowMilestone) {
         await prefs.remove('show_5000_orders_congrats');
         await prefs.remove('milestone_order_amount');
@@ -2786,6 +2794,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                   CircularProgressIndicator(),
                                             )
                                           : ListView.separated(
+                                              shrinkWrap: true,
+                                              primary: false,
                                               itemCount: data!.data.labelData
                                                   .transaction.length,
                                               itemBuilder: (context, index) {

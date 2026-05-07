@@ -30,24 +30,27 @@ class _BeatListViewState extends State<BeatListView> {
         : Get.put(BeatController());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text("Attention"),
-          content: Text(
-              "Remember to save your beats before closing the page or else your selected beat data will be lost."),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text("OK"),
-            ),
-          ],
-        ),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text("Attention"),
+            content: Text(
+                "Remember to save your beats before closing the page or else your selected beat data will be lost."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text("OK"),
+              ),
+            ],
+          ),
+        );
+      }
     });
 
     // Fetch user's beat schedule
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       try {
         final profileProvider =
             Provider.of<ProfileProvider>(context, listen: false);
@@ -59,6 +62,12 @@ class _BeatListViewState extends State<BeatListView> {
         print('[BeatListView] Error fetching beat schedule: $e');
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // Clean up resources
+    super.dispose();
   }
 
   bool _isCurrentMonth(DateTime date) {
@@ -413,6 +422,7 @@ class _BeatListViewState extends State<BeatListView> {
     );
 
     if (confirm != true) return;
+    if (!mounted) return;
 
     try {
       // show loading using root navigator
@@ -430,7 +440,11 @@ class _BeatListViewState extends State<BeatListView> {
       final ok = await beatController.saveBeatSchedule(userCd);
 
       // close loading
-      Navigator.of(context, rootNavigator: true).pop();
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (!mounted) return;
 
       if (ok) {
         setState(() {
@@ -448,12 +462,16 @@ class _BeatListViewState extends State<BeatListView> {
       }
     } catch (e) {
       try {
-        Navigator.of(context, rootNavigator: true).pop();
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
       } catch (_) {}
-      AppSnackBar.showGetXCustomSnackBar(
-        message: 'Error saving beats: $e',
-        backgroundColor: Colors.green,
-      );
+      if (mounted) {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Error saving beats: $e',
+          backgroundColor: Colors.green,
+        );
+      }
     }
   }
 

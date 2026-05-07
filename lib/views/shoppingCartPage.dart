@@ -1301,10 +1301,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
                                                       TextEditingController
                                                           qtyController =
-                                                          qty[itemCd]!;
+                                                          qty[itemCd] ??
+                                                              TextEditingController();
                                                       TextEditingController
                                                           freeQtyController =
-                                                          freeQty[itemCd]!;
+                                                          freeQty[itemCd] ??
+                                                              TextEditingController();
                                                       TextEditingController?
                                                           rateController =
                                                           rate[itemCd];

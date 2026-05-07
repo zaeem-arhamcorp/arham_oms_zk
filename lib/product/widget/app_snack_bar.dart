@@ -19,7 +19,13 @@ class AppSnackBar {
         return;
       }
 
-      Get.closeAllSnackbars();
+      // Safely close all snackbars
+      try {
+        Get.closeAllSnackbars();
+      } catch (e) {
+        print('[AppSnackBar] Error closing snackbars: $e');
+      }
+
       Get.showSnackbar(
         GetSnackBar(
           message: message,
