@@ -196,7 +196,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         final pageFromResponse =
             int.tryParse((pagination?['page'] ?? page).toString()) ?? page;
         final lastPageFromResponse = int.tryParse(
-                (pagination?['last_page'] ?? pageFromResponse).toString()) ??
+              (pagination?['last_page'] ?? pageFromResponse).toString(),
+            ) ??
             pageFromResponse;
         final totalFromResponse =
             int.tryParse((pagination?['total'] ?? 0).toString()) ?? 0;
@@ -246,10 +247,12 @@ class _RouteMapViewState extends State<RouteMapView> {
                   hasPaginationMeta ? totalFromResponse : _users.length;
             }
             print(
-                '[RouteMapView] ===== Users list after update: totalUsers=${_users.length}');
+              '[RouteMapView] ===== Users list after update: totalUsers=${_users.length}',
+            );
             for (int i = 0; i < _users.length; i++) {
               print(
-                  '[RouteMapView] [INDEX $i] ${_users[i]['userName']} | Code: ${_users[i]['userCode']} | PunchIn: "${_users[i]['punchInTime']}"');
+                '[RouteMapView] [INDEX $i] ${_users[i]['userName']} | Code: ${_users[i]['userCode']} | PunchIn: "${_users[i]['punchInTime']}"',
+              );
             }
           });
         }
@@ -259,7 +262,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         final ub2 = Provider.of<UserProvider>(context, listen: false);
         final token2 = ub2.token;
         print(
-            '[RouteMapView] ===== Fetching trips for ${usersWithData.length} new users');
+          '[RouteMapView] ===== Fetching trips for ${usersWithData.length} new users',
+        );
         for (final user in usersWithData) {
           final userCode = _normalizeCode(user['userCode']);
           if (userCode.isEmpty) {
@@ -278,7 +282,8 @@ class _RouteMapViewState extends State<RouteMapView> {
               (user['punchOutTime'] ?? '').toString().trim();
 
           print(
-              '[RouteMapView] [TRIP FETCH] User: ${user['userName']} (${user['userCode']}) | tripStatus=$tripStatus | tripId=$tripId');
+            '[RouteMapView] [TRIP FETCH] User: ${user['userName']} (${user['userCode']}) | tripStatus=$tripStatus | tripId=$tripId',
+          );
 
           _fetchLatestTripForUser(
             userCode,
@@ -365,7 +370,8 @@ class _RouteMapViewState extends State<RouteMapView> {
       // Debug: Log first user's fields for punch-in extraction
       if (userIndex == 0) {
         print(
-            '[RouteMapView] [DEBUG] First user raw payload keys: ${user.keys.toList()}');
+          '[RouteMapView] [DEBUG] First user raw payload keys: ${user.keys.toList()}',
+        );
         print('[RouteMapView] [DEBUG] Full first user payload: $user');
       }
 
@@ -393,7 +399,8 @@ class _RouteMapViewState extends State<RouteMapView> {
       // Debug: Log punch extraction for first user
       if (userIndex == 0) {
         print(
-            '[RouteMapView] [DEBUG] Extracted for first user: punchStatus="$knownPunchStatus" punchInTime="$knownPunchInTime" punchOutTime="$knownPunchOutTime"');
+          '[RouteMapView] [DEBUG] Extracted for first user: punchStatus="$knownPunchStatus" punchInTime="$knownPunchInTime" punchOutTime="$knownPunchOutTime"',
+        );
       }
 
       final punchInTime = _resolveTodayReferenceTime(
@@ -479,7 +486,8 @@ class _RouteMapViewState extends State<RouteMapView> {
       final today = DateTime.now();
 
       print(
-          '[RouteMapView] [$source] Start full users preload | items_per_page=$_usersPerPage');
+        '[RouteMapView] [$source] Start full users preload | items_per_page=$_usersPerPage',
+      );
 
       while (currentPage <= maxPagesToFetch) {
         final uri = Uri.parse('${AppConfig.baseURL}users/children').replace(
@@ -505,7 +513,8 @@ class _RouteMapViewState extends State<RouteMapView> {
             return;
           }
           print(
-              '[RouteMapView] [$source] Stop preload: HTTP ${response.statusCode} on page=$currentPage');
+            '[RouteMapView] [$source] Stop preload: HTTP ${response.statusCode} on page=$currentPage',
+          );
           setState(() {
             _isLoadingAllUsersForSearch = false;
             if (syncPrimaryUsers) {
@@ -518,7 +527,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final usersList = (data['data'] is List) ? data['data'] : <dynamic>[];
         print(
-            '[RouteMapView] [$source] Page=$currentPage received=${usersList.length} users');
+          '[RouteMapView] [$source] Page=$currentPage received=${usersList.length} users',
+        );
         if (usersList.isEmpty) {
           print('[RouteMapView] [$source] Stop preload: empty page');
           break;
@@ -531,7 +541,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         if (pageSignature.isNotEmpty &&
             !seenPageSignatures.add(pageSignature)) {
           print(
-              '[RouteMapView] [$source] Stop preload: repeated page signature at page=$currentPage');
+            '[RouteMapView] [$source] Stop preload: repeated page signature at page=$currentPage',
+          );
           break;
         }
 
@@ -546,11 +557,13 @@ class _RouteMapViewState extends State<RouteMapView> {
               int.tryParse((pagination?['page'] ?? currentPage).toString()) ??
                   currentPage;
           final lastPage = int.tryParse(
-                  (pagination?['last_page'] ?? pageFromResponse).toString()) ??
+                (pagination?['last_page'] ?? pageFromResponse).toString(),
+              ) ??
               pageFromResponse;
           if (pageFromResponse >= lastPage) {
             print(
-                '[RouteMapView] [$source] Stop preload: reached last_page=$lastPage');
+              '[RouteMapView] [$source] Stop preload: reached last_page=$lastPage',
+            );
             break;
           }
           currentPage = pageFromResponse + 1;
@@ -559,15 +572,18 @@ class _RouteMapViewState extends State<RouteMapView> {
 
         if (usersList.length < _usersPerPage) {
           print(
-              '[RouteMapView] [$source] Stop preload: received < items_per_page on page=$currentPage');
+            '[RouteMapView] [$source] Stop preload: received < items_per_page on page=$currentPage',
+          );
           break;
         }
 
         currentPage += 1;
       }
 
-      final mappedUsers =
-          _mapUsersFromChildrenPayload(allRawUsers, today: DateTime.now());
+      final mappedUsers = _mapUsersFromChildrenPayload(
+        allRawUsers,
+        today: DateTime.now(),
+      );
 
       if (!mounted) {
         return;
@@ -589,7 +605,8 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       final loadedPages = currentPage > 0 ? currentPage : 1;
       print(
-          '[RouteMapView] [$source] Full preload complete across $loadedPages pages: totalUsers=${mappedUsers.length}');
+        '[RouteMapView] [$source] Full preload complete across $loadedPages pages: totalUsers=${mappedUsers.length}',
+      );
 
       _applyInitialSelectionIfNeeded();
     } catch (e) {
@@ -641,11 +658,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     _markers.clear();
     _markers.addAll(_userLocationMarkers);
 
-    _fetchTimelineForUser(
-      user,
-      initialDate,
-      preferredTripId: initialTripId,
-    );
+    _fetchTimelineForUser(user, initialDate, preferredTripId: initialTripId);
   }
 
   String _normalizeCode(dynamic value) => value?.toString().trim() ?? '';
@@ -927,7 +940,9 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Map<String, dynamic>? _pickLatestTripForUser(
-      List<dynamic> trips, String userCode) {
+    List<dynamic> trips,
+    String userCode,
+  ) {
     final targetCode = _normalizeCode(userCode);
     if (targetCode.isEmpty || trips.isEmpty) {
       return null;
@@ -1102,14 +1117,16 @@ class _RouteMapViewState extends State<RouteMapView> {
       final Map<String, dynamic> timingMap = Map<String, dynamic>.from(timing);
       final dynamic coverage = timingMap['coverage'];
       if (coverage is Map) {
-        final Map<String, dynamic> coverageMap =
-            Map<String, dynamic>.from(coverage);
+        final Map<String, dynamic> coverageMap = Map<String, dynamic>.from(
+          coverage,
+        );
         normalized.addAll(coverageMap);
       }
       final dynamic distanceBreakdown = timingMap['distance_breakdown'];
       if (distanceBreakdown is Map) {
-        normalized['distance_breakdown'] =
-            Map<String, dynamic>.from(distanceBreakdown);
+        normalized['distance_breakdown'] = Map<String, dynamic>.from(
+          distanceBreakdown,
+        );
       }
       final dynamic tripWindow = timingMap['trip_window'];
       if (tripWindow is Map) {
@@ -1196,8 +1213,11 @@ class _RouteMapViewState extends State<RouteMapView> {
     return null;
   }
 
-  String _readSummaryText(Map<String, dynamic> summary, List<String> keys,
-      {String fallback = ''}) {
+  String _readSummaryText(
+    Map<String, dynamic> summary,
+    List<String> keys, {
+    String fallback = '',
+  }) {
     for (final String key in keys) {
       final dynamic value = summary[key];
       if (value != null) {
@@ -1247,10 +1267,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     return value.isNotEmpty && value.toLowerCase() != 'null';
   }
 
-  bool _isTripPunchedOut(
-    Map<String, dynamic> trip, {
-    String? fallbackStatus,
-  }) {
+  bool _isTripPunchedOut(Map<String, dynamic> trip, {String? fallbackStatus}) {
     final endTime = _extractTripEndTime(trip);
     if (_hasTimestampValue(endTime)) {
       return true;
@@ -1276,7 +1293,8 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     setState(() {
       final userIndex = _users.indexWhere(
-          (u) => _normalizeCode(u['userCode']) == normalizedUserCode);
+        (u) => _normalizeCode(u['userCode']) == normalizedUserCode,
+      );
       if (userIndex >= 0) {
         final normalizedStatus = punchStatus.trim().toLowerCase();
         final today = DateTime.now();
@@ -1311,10 +1329,12 @@ class _RouteMapViewState extends State<RouteMapView> {
         }
 
         print(
-            '[RouteMapView] Updated punch status for $normalizedUserCode (${_users[userIndex]['userName']}) => $normalizedStatus | in=$sanitizedPunchInTime | out=$sanitizedPunchOutTime${reason != null && reason.isNotEmpty ? ' | reason=$reason' : ''}');
+          '[RouteMapView] Updated punch status for $normalizedUserCode (${_users[userIndex]['userName']}) => $normalizedStatus | in=$sanitizedPunchInTime | out=$sanitizedPunchOutTime${reason != null && reason.isNotEmpty ? ' | reason=$reason' : ''}',
+        );
       } else {
         print(
-            '[RouteMapView] Could not update punch status - user not found for userCode=$normalizedUserCode');
+          '[RouteMapView] Could not update punch status - user not found for userCode=$normalizedUserCode',
+        );
       }
     });
   }
@@ -1344,18 +1364,21 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     if (matchingTrips.isNotEmpty) {
       print(
-          '[RouteMapView] [FILTER] Returning ${matchingTrips.length} matched trips');
+        '[RouteMapView] [FILTER] Returning ${matchingTrips.length} matched trips',
+      );
       return matchingTrips;
     }
 
     if (!anyTripHasUserCode) {
       print(
-          '[RouteMapView] [FILTER] No trips have user codes - returning all ${trips.length} trips as fallback (server-filtered)');
+        '[RouteMapView] [FILTER] No trips have user codes - returning all ${trips.length} trips as fallback (server-filtered)',
+      );
       return trips;
     }
 
     print(
-        '[RouteMapView] [FILTER] No matching trips found for $normalizedUserCode');
+      '[RouteMapView] [FILTER] No matching trips found for $normalizedUserCode',
+    );
     return [];
   }
 
@@ -1393,10 +1416,12 @@ class _RouteMapViewState extends State<RouteMapView> {
       // If trips found, fetch timeline for each trip
       if (_tripsForSelectedDate.isNotEmpty) {
         print(
-            '[RouteMapView] Trips found: ${_tripsForSelectedDate.length} trips ready');
+          '[RouteMapView] Trips found: ${_tripsForSelectedDate.length} trips ready',
+        );
         Map<int, List<Map<String, dynamic>>> timelineByTrip = {};
-        final tripsSnapshot =
-            List<Map<String, dynamic>>.from(_tripsForSelectedDate);
+        final tripsSnapshot = List<Map<String, dynamic>>.from(
+          _tripsForSelectedDate,
+        );
         final selectedTripIndex = preferredTripId != null && preferredTripId > 0
             ? tripsSnapshot.indexWhere((trip) {
                 final tripId = trip['id'] ??
@@ -1427,10 +1452,12 @@ class _RouteMapViewState extends State<RouteMapView> {
         // Load first trip immediately so UI can render quickly.
         if (firstTripId > 0) {
           print(
-              '[RouteMapView] Fetching timeline for firstTripId=$firstTripId');
+            '[RouteMapView] Fetching timeline for firstTripId=$firstTripId',
+          );
           final firstTimeline = await _fetchTripTimeline(firstTripId);
           print(
-              '[RouteMapView] Timeline returned ${firstTimeline.length} events');
+            '[RouteMapView] Timeline returned ${firstTimeline.length} events',
+          );
 
           if (!mounted || requestId != _timelineRequestId) {
             return;
@@ -1462,8 +1489,9 @@ class _RouteMapViewState extends State<RouteMapView> {
           }
 
           setState(() {
-            _timelineByTrip =
-                Map<int, List<Map<String, dynamic>>>.from(timelineByTrip);
+            _timelineByTrip = Map<int, List<Map<String, dynamic>>>.from(
+              timelineByTrip,
+            );
             _timelineData = firstTimeline;
             _loadingTimeline = false;
             _loadedTripsCount = 1;
@@ -1494,7 +1522,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         }
       } else {
         print(
-            '[RouteMapView] No trips found for selected date - _tripsForSelectedDate is empty');
+          '[RouteMapView] No trips found for selected date - _tripsForSelectedDate is empty',
+        );
         setState(() {
           _timelineByTrip = {};
           _timelineData = [];
@@ -1596,10 +1625,7 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       final response = await http.get(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
       );
 
       if (response.statusCode == 200) {
@@ -1611,19 +1637,22 @@ class _RouteMapViewState extends State<RouteMapView> {
             : <Map<String, dynamic>>[];
 
         print(
-            '[RouteMapView] [DEBUG] Trip list raw response: ${trips.length} trips returned from API for user=$normalizedUserCode');
+          '[RouteMapView] [DEBUG] Trip list raw response: ${trips.length} trips returned from API for user=$normalizedUserCode',
+        );
 
         final filteredTrips = _filterTripsForUser(trips, normalizedUserCode);
 
         print(
-            '[RouteMapView] [DEBUG] After filtering: ${filteredTrips.length} trips remain for user=$normalizedUserCode');
+          '[RouteMapView] [DEBUG] After filtering: ${filteredTrips.length} trips remain for user=$normalizedUserCode',
+        );
 
         setState(() {
           _tripsForSelectedDate = filteredTrips;
         });
 
         print(
-            '[RouteMapView] [DEBUG] _tripsForSelectedDate updated: ${_tripsForSelectedDate.length} trips ready for timeline fetch');
+          '[RouteMapView] [DEBUG] _tripsForSelectedDate updated: ${_tripsForSelectedDate.length} trips ready for timeline fetch',
+        );
       } else {
         setState(() {
           _tripsForSelectedDate = [];
@@ -1642,6 +1671,24 @@ class _RouteMapViewState extends State<RouteMapView> {
         .split('_')
         .map((word) => word[0].toUpperCase() + word.substring(1))
         .join(' ');
+  }
+
+  bool _shouldShowPartyNameForTimelineItem(String title, String eventType) {
+    final normalizedTitle = title.toLowerCase().trim();
+    final normalizedEventType = eventType.toLowerCase().trim();
+
+    return normalizedTitle == 'start order' ||
+        normalizedTitle == 'order start' ||
+        normalizedTitle == 'order placed' ||
+        normalizedTitle == 'end order' ||
+        normalizedTitle == 'order end' ||
+        normalizedEventType == 'start_order' ||
+        normalizedEventType == 'order_start' ||
+        normalizedEventType == 'order_placed' ||
+        normalizedEventType == 'end_order' ||
+        normalizedEventType == 'order_end' ||
+        normalizedEventType == 'order_started' ||
+        normalizedEventType == 'order_completed';
   }
 
   String _formatEventDescription(Map<String, dynamic> event) {
@@ -1705,26 +1752,42 @@ class _RouteMapViewState extends State<RouteMapView> {
     Map<String, dynamic> item,
   ) {
     final dynamic partyRaw = item['party'] ?? item['PARTY'];
+    final dynamic orderRaw = item['order'] ?? item['ORDER'];
     final Map<String, dynamic> partyMap = partyRaw is Map
         ? Map<String, dynamic>.from(partyRaw as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> orderMap = orderRaw is Map
+        ? Map<String, dynamic>.from(orderRaw as Map)
         : <String, dynamic>{};
 
     final partyName = (item['party_name'] ??
             item['PARTY_NAME'] ??
             partyMap['PARTY_NAME'] ??
             partyMap['party_name'] ??
+            orderMap['PARTY_NAME'] ??
+            orderMap['party_name'] ??
+            orderMap['PARTY']?['PARTY_NAME'] ??
+            orderMap['PARTY']?['party_name'] ??
             '')
         .toString();
     final partyCode = (item['party_code'] ??
             item['PARTY_CODE'] ??
             partyMap['PARTY_CODE'] ??
             partyMap['party_code'] ??
+            orderMap['PARTY_CODE'] ??
+            orderMap['party_code'] ??
+            orderMap['PARTY']?['PARTY_CODE'] ??
+            orderMap['PARTY']?['party_code'] ??
             '')
         .toString();
     final partyAddress = (item['party_address'] ??
             item['PARTY_ADDRESS'] ??
             partyMap['PARTY_ADDRESS'] ??
             partyMap['party_address'] ??
+            orderMap['PARTY_ADDRESS'] ??
+            orderMap['party_address'] ??
+            orderMap['PARTY']?['PARTY_ADDRESS'] ??
+            orderMap['PARTY']?['party_address'] ??
             '')
         .toString();
 
@@ -1744,17 +1807,15 @@ class _RouteMapViewState extends State<RouteMapView> {
     }
 
     try {
-      final uri =
-          Uri.parse('${AppConfig.baseURL}location/trip/$tripId/timeline');
+      final uri = Uri.parse(
+        '${AppConfig.baseURL}location/trip/$tripId/timeline',
+      );
 
       print('[RouteMapView] Fetching timeline for trip $tripId: $uri');
 
       final response = await http.get(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
       );
 
       print('[RouteMapView] Timeline API response: ${response.body}');
@@ -1771,14 +1832,13 @@ class _RouteMapViewState extends State<RouteMapView> {
           final orderTrackingSummary = data['orderTrackingSummary'];
 
           if (orderTrackingTiming is Map) {
-            final timingMap =
-                Map<String, dynamic>.from(orderTrackingTiming as Map);
+            final timingMap = Map<String, dynamic>.from(
+              orderTrackingTiming as Map,
+            );
             final coverage = timingMap['coverage'];
             if (coverage is Map) {
               mergedSummary.addAll(
-                _normalizeTripSummary(
-                  Map<String, dynamic>.from(coverage),
-                ),
+                _normalizeTripSummary(Map<String, dynamic>.from(coverage)),
               );
             }
             mergedSummary['orderTrackingTiming'] = timingMap;
@@ -1869,7 +1929,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         return [];
       } else {
         print(
-            '[RouteMapView] Failed to fetch timeline: ${response.statusCode}');
+          '[RouteMapView] Failed to fetch timeline: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -1891,10 +1952,7 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       final response = await http.get(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
       );
 
       if (response.statusCode == 200) {
@@ -1983,9 +2041,7 @@ class _RouteMapViewState extends State<RouteMapView> {
         markerId: const MarkerId('start'),
         position: startPoint,
         infoWindow: const InfoWindow(title: 'Start'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueGreen,
-        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       ),
     );
 
@@ -1994,9 +2050,7 @@ class _RouteMapViewState extends State<RouteMapView> {
         markerId: const MarkerId('end'),
         position: endPoint,
         infoWindow: const InfoWindow(title: 'End'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueRed,
-        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       ),
     );
 
@@ -2037,9 +2091,7 @@ class _RouteMapViewState extends State<RouteMapView> {
       northeast: LatLng(maxLat, maxLng),
     );
 
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 100),
-    );
+    _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
   }
 
   void _selectUser(Map<String, dynamic> user) {
@@ -2106,16 +2158,16 @@ class _RouteMapViewState extends State<RouteMapView> {
     try {
       final launched = await launchUrl(uri);
       if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch call')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not launch call')));
       }
     } catch (e) {
       print('[RouteMapView] Error launching call: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch call')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not launch call')));
       }
     }
   }
@@ -2136,8 +2188,10 @@ class _RouteMapViewState extends State<RouteMapView> {
             const SizedBox(height: 8),
             Text(
               '$partyName ($partyCode)',
-              style:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
             ),
           ],
         ),
@@ -2267,15 +2321,13 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     final response = await http.get(
       uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'x-app-type': 'oms',
-      },
+      headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
     );
 
     if (response.statusCode != 200) {
       throw Exception(
-          'Failed to load productive history: ${response.statusCode}');
+        'Failed to load productive history: ${response.statusCode}',
+      );
     }
 
     final decoded = json.decode(response.body) as Map<String, dynamic>;
@@ -2307,15 +2359,13 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     final response = await http.get(
       uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'x-app-type': 'oms',
-      },
+      headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
     );
 
     if (response.statusCode != 200) {
       throw Exception(
-          'Failed to load non-productive history: ${response.statusCode}');
+        'Failed to load non-productive history: ${response.statusCode}',
+      );
     }
 
     final decoded = json.decode(response.body) as Map<String, dynamic>;
@@ -2429,7 +2479,9 @@ class _RouteMapViewState extends State<RouteMapView> {
                             labelText: 'Filter Type',
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                           ),
                           items: const [
                             DropdownMenuItem(
@@ -2475,8 +2527,11 @@ class _RouteMapViewState extends State<RouteMapView> {
                               onConfirm: (date) {
                                 if (!dialogContext.mounted) return;
                                 setDialogState(() {
-                                  fromDate =
-                                      DateTime(date.year, date.month, date.day);
+                                  fromDate = DateTime(
+                                    date.year,
+                                    date.month,
+                                    date.day,
+                                  );
                                 });
                               },
                             );
@@ -2486,10 +2541,13 @@ class _RouteMapViewState extends State<RouteMapView> {
                               labelText: 'From Date',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                             ),
-                            child:
-                                Text(DateFormat('yyyy-MM-dd').format(fromDate)),
+                            child: Text(
+                              DateFormat('yyyy-MM-dd').format(fromDate),
+                            ),
                           ),
                         ),
                       ),
@@ -2507,8 +2565,11 @@ class _RouteMapViewState extends State<RouteMapView> {
                               onConfirm: (date) {
                                 if (!dialogContext.mounted) return;
                                 setDialogState(() {
-                                  toDate =
-                                      DateTime(date.year, date.month, date.day);
+                                  toDate = DateTime(
+                                    date.year,
+                                    date.month,
+                                    date.day,
+                                  );
                                 });
                               },
                             );
@@ -2518,10 +2579,13 @@ class _RouteMapViewState extends State<RouteMapView> {
                               labelText: 'To Date',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                             ),
-                            child:
-                                Text(DateFormat('yyyy-MM-dd').format(toDate)),
+                            child: Text(
+                              DateFormat('yyyy-MM-dd').format(toDate),
+                            ),
                           ),
                         ),
                       ),
@@ -2632,8 +2696,9 @@ class _RouteMapViewState extends State<RouteMapView> {
                                                         padding:
                                                             const EdgeInsets
                                                                 .symmetric(
-                                                                horizontal: 8,
-                                                                vertical: 2),
+                                                          horizontal: 8,
+                                                          vertical: 2,
+                                                        ),
                                                         decoration:
                                                             BoxDecoration(
                                                           color: indicator ==
@@ -2763,17 +2828,16 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       // Prefer children API tripId as source-of-truth per user and fetch direct trip details.
       if (activeTripId > 0) {
-        final uri =
-            Uri.parse('${AppConfig.baseURL}location/trip/$activeTripId');
+        final uri = Uri.parse(
+          '${AppConfig.baseURL}location/trip/$activeTripId',
+        );
         print(
-            '[RouteMapView] Fetching trip details by tripId for userCode: $normalizedUserCode, URI: $uri');
+          '[RouteMapView] Fetching trip details by tripId for userCode: $normalizedUserCode, URI: $uri',
+        );
 
         final response = await http.get(
           uri,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'x-app-type': 'oms',
-          },
+          headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
         );
 
         if (response.statusCode == 200) {
@@ -2787,7 +2851,8 @@ class _RouteMapViewState extends State<RouteMapView> {
           final tripUserCode = _extractUserCodeFromTripPayload(tripMap);
           if (tripUserCode.isNotEmpty && tripUserCode != normalizedUserCode) {
             print(
-                '[RouteMapView] Trip user mismatch for tripId=$activeTripId. requested=$normalizedUserCode, response=$tripUserCode');
+              '[RouteMapView] Trip user mismatch for tripId=$activeTripId. requested=$normalizedUserCode, response=$tripUserCode',
+            );
             if (_applyChildrenPunchFallback(
               normalizedUserCode,
               today: today,
@@ -2806,8 +2871,10 @@ class _RouteMapViewState extends State<RouteMapView> {
           }
 
           final summary = data?['summary'] as Map<String, dynamic>?;
-          final startTime =
-              _extractTripStartTimeFromTripAndSummary(tripMap, summary);
+          final startTime = _extractTripStartTimeFromTripAndSummary(
+            tripMap,
+            summary,
+          );
 
           final activeReferenceTime = _resolveTodayReferenceTime(
             primaryTime: startTime,
@@ -2845,9 +2912,10 @@ class _RouteMapViewState extends State<RouteMapView> {
                 final lng = lastPoint['lng'] as num?;
                 if (lat != null && lng != null) {
                   _addUserMarkerToMap(
-                      activeTripId,
-                      LatLng(lat.toDouble(), lng.toDouble()),
-                      normalizedUserCode);
+                    activeTripId,
+                    LatLng(lat.toDouble(), lng.toDouble()),
+                    normalizedUserCode,
+                  );
                 }
               }
             }
@@ -2869,8 +2937,10 @@ class _RouteMapViewState extends State<RouteMapView> {
             )) {
               return;
             }
-            _markUserAbsent(normalizedUserCode,
-                reason: 'empty-start-time-from-tripId');
+            _markUserAbsent(
+              normalizedUserCode,
+              reason: 'empty-start-time-from-tripId',
+            );
             return;
           }
 
@@ -2888,8 +2958,10 @@ class _RouteMapViewState extends State<RouteMapView> {
             )) {
               return;
             }
-            _markUserAbsent(normalizedUserCode,
-                reason: 'tripId-start-not-today');
+            _markUserAbsent(
+              normalizedUserCode,
+              reason: 'tripId-start-not-today',
+            );
             return;
           }
 
@@ -2926,8 +2998,11 @@ class _RouteMapViewState extends State<RouteMapView> {
               final lat = lastPoint['lat'] as num?;
               final lng = lastPoint['lng'] as num?;
               if (lat != null && lng != null) {
-                _addUserMarkerToMap(activeTripId,
-                    LatLng(lat.toDouble(), lng.toDouble()), normalizedUserCode);
+                _addUserMarkerToMap(
+                  activeTripId,
+                  LatLng(lat.toDouble(), lng.toDouble()),
+                  normalizedUserCode,
+                );
               }
             }
           }
@@ -2936,7 +3011,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         }
 
         print(
-            '[RouteMapView] Failed trip details by tripId for $normalizedUserCode: HTTP ${response.statusCode}');
+          '[RouteMapView] Failed trip details by tripId for $normalizedUserCode: HTTP ${response.statusCode}',
+        );
         if (knownOpenTrip) {
           final activeReferenceTime = _resolveTodayReferenceTime(
             secondaryTime: knownLastGpsAt,
@@ -2977,21 +3053,17 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       // If no reliable tripId is available from children API, fetch latest trip list
       // for this user and decide punch state based on whether latest trip is today.
-      final uri = Uri.parse('${AppConfig.baseURL}location/trip').replace(
-        queryParameters: {
-          'user_cd': normalizedUserCode,
-        },
-      );
+      final uri = Uri.parse(
+        '${AppConfig.baseURL}location/trip',
+      ).replace(queryParameters: {'user_cd': normalizedUserCode});
 
       print(
-          '[RouteMapView] Fetching trip for userCode: $normalizedUserCode, URI: $uri');
+        '[RouteMapView] Fetching trip for userCode: $normalizedUserCode, URI: $uri',
+      );
 
       final response = await http.get(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
       );
 
       if (response.statusCode == 200) {
@@ -3027,8 +3099,10 @@ class _RouteMapViewState extends State<RouteMapView> {
             )) {
               return;
             }
-            _markUserAbsent(normalizedUserCode,
-                reason: 'list-api-start-not-today');
+            _markUserAbsent(
+              normalizedUserCode,
+              reason: 'list-api-start-not-today',
+            );
             return;
           }
 
@@ -3044,7 +3118,8 @@ class _RouteMapViewState extends State<RouteMapView> {
           );
 
           print(
-              '[RouteMapView] Trip found for $normalizedUserCode - tripId: $tripId, startTime: $startTime');
+            '[RouteMapView] Trip found for $normalizedUserCode - tripId: $tripId, startTime: $startTime',
+          );
 
           _updateUserPunchStatus(
             normalizedUserCode,
@@ -3062,10 +3137,12 @@ class _RouteMapViewState extends State<RouteMapView> {
           }
 
           print(
-              '[RouteMapView] Fetched today\'s trip for $normalizedUserCode: startTime="$startTime"');
+            '[RouteMapView] Fetched today\'s trip for $normalizedUserCode: startTime="$startTime"',
+          );
         } else {
           print(
-              '[RouteMapView] No matching trips today for $normalizedUserCode');
+            '[RouteMapView] No matching trips today for $normalizedUserCode',
+          );
           if (_applyChildrenPunchFallback(
             normalizedUserCode,
             today: today,
@@ -3078,8 +3155,10 @@ class _RouteMapViewState extends State<RouteMapView> {
           )) {
             return;
           }
-          _markUserAbsent(normalizedUserCode,
-              reason: 'no-matching-trip-in-list-api');
+          _markUserAbsent(
+            normalizedUserCode,
+            reason: 'no-matching-trip-in-list-api',
+          );
         }
       } else {
         if (_applyChildrenPunchFallback(
@@ -3094,12 +3173,15 @@ class _RouteMapViewState extends State<RouteMapView> {
         )) {
           return;
         }
-        _markUserAbsent(normalizedUserCode,
-            reason: 'list-api-http-${response.statusCode}');
+        _markUserAbsent(
+          normalizedUserCode,
+          reason: 'list-api-http-${response.statusCode}',
+        );
       }
     } catch (e) {
       print(
-          '[RouteMapView] Error fetching today\'s trip for $normalizedUserCode: $e');
+        '[RouteMapView] Error fetching today\'s trip for $normalizedUserCode: $e',
+      );
       if (_applyChildrenPunchFallback(
         normalizedUserCode,
         today: DateTime.now(),
@@ -3117,7 +3199,10 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Future<void> _fetchTripDetailsForMap(
-      int tripId, String token, String userCode) async {
+    int tripId,
+    String token,
+    String userCode,
+  ) async {
     if (tripId <= 0 || token.isEmpty || userCode.isEmpty) {
       return;
     }
@@ -3126,10 +3211,7 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       final response = await http.get(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
       );
 
       if (response.statusCode == 200) {
@@ -3151,7 +3233,10 @@ class _RouteMapViewState extends State<RouteMapView> {
               final lng = lastPoint['lng'] as num?;
               if (lat != null && lng != null) {
                 _addUserMarkerToMap(
-                    tripId, LatLng(lat.toDouble(), lng.toDouble()), userCode);
+                  tripId,
+                  LatLng(lat.toDouble(), lng.toDouble()),
+                  userCode,
+                );
               }
             }
           }
@@ -3175,7 +3260,8 @@ class _RouteMapViewState extends State<RouteMapView> {
     final userName = (userObject['userName'] ?? 'U').toString().trim();
 
     print(
-        '[RouteMapView] Creating marker - userCode: $userCode, userName: $userName, photoUrl: $photoUrl');
+      '[RouteMapView] Creating marker - userCode: $userCode, userName: $userName, photoUrl: $photoUrl',
+    );
 
     _createCustomMarker(photoUrl, userName).then((customIcon) {
       setState(() {
@@ -3203,7 +3289,9 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Future<BitmapDescriptor> _createCustomMarker(
-      String photoUrl, String userName) async {
+    String photoUrl,
+    String userName,
+  ) async {
     try {
       // Create initial letter
       final initial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
@@ -3213,8 +3301,10 @@ class _RouteMapViewState extends State<RouteMapView> {
         try {
           final response = await http.get(Uri.parse(photoUrl));
           if (response.statusCode == 200) {
-            final markerBytes =
-                await _createCircleMarkerBytes(response.bodyBytes, initial);
+            final markerBytes = await _createCircleMarkerBytes(
+              response.bodyBytes,
+              initial,
+            );
             return BitmapDescriptor.fromBytes(markerBytes);
           }
         } catch (_) {
@@ -3232,7 +3322,9 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Future<Uint8List> _createCircleMarkerBytes(
-      List<int> imageBytes, String initial) async {
+    List<int> imageBytes,
+    String initial,
+  ) async {
     const size = 120.0;
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
@@ -3256,7 +3348,11 @@ class _RouteMapViewState extends State<RouteMapView> {
       canvas.drawImageRect(
         scaledImage,
         Rect.fromLTWH(
-            0, 0, scaledImage.width.toDouble(), scaledImage.height.toDouble()),
+          0,
+          0,
+          scaledImage.width.toDouble(),
+          scaledImage.height.toDouble(),
+        ),
         rect,
         ui.Paint(),
       );
@@ -3289,8 +3385,12 @@ class _RouteMapViewState extends State<RouteMapView> {
     final canvas = ui.Canvas(recorder);
     canvas.drawImageRect(
       image,
-      Rect.fromLTWH(offsetX.toDouble(), offsetY.toDouble(),
-          minDimension.toDouble(), minDimension.toDouble()),
+      Rect.fromLTWH(
+        offsetX.toDouble(),
+        offsetY.toDouble(),
+        minDimension.toDouble(),
+        minDimension.toDouble(),
+      ),
       Rect.fromLTWH(0, 0, minDimension.toDouble(), minDimension.toDouble()),
       ui.Paint(),
     );
@@ -3340,10 +3440,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(
-        (size - textPainter.width) / 2,
-        (size - textPainter.height) / 2,
-      ),
+      Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2),
     );
   }
 
@@ -3360,10 +3457,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     return picture.toImage(size, size);
   }
 
-  Future<void> _fetchAndStoreTripSummary(
-    int tripId, {
-    int? requestId,
-  }) async {
+  Future<void> _fetchAndStoreTripSummary(int tripId, {int? requestId}) async {
     final ub = Provider.of<UserProvider>(context, listen: false);
     final token = ub.token;
 
@@ -3376,10 +3470,7 @@ class _RouteMapViewState extends State<RouteMapView> {
 
       final response = await http.get(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-app-type': 'oms'},
       );
 
       if (response.statusCode == 200) {
@@ -3513,9 +3604,11 @@ class _RouteMapViewState extends State<RouteMapView> {
       return usersSource;
     }
     return usersSource
-        .where((user) =>
-            user['userName'].toLowerCase().contains(_searchQuery) ||
-            user['phone'].toLowerCase().contains(_searchQuery))
+        .where(
+          (user) =>
+              user['userName'].toLowerCase().contains(_searchQuery) ||
+              user['phone'].toLowerCase().contains(_searchQuery),
+        )
         .toList();
   }
 
@@ -3591,9 +3684,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                         curve: Curves.easeOut,
                       );
                     },
-                    child: Container(
-                      color: Colors.black.withOpacity(0.2),
-                    ),
+                    child: Container(color: Colors.black.withOpacity(0.2)),
                   ),
                 ),
 
@@ -3687,8 +3778,10 @@ class _RouteMapViewState extends State<RouteMapView> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_usersError!,
-                          style: const TextStyle(color: Colors.red)),
+                      Text(
+                        _usersError!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _fetchUsers,
@@ -3722,8 +3815,9 @@ class _RouteMapViewState extends State<RouteMapView> {
             else if (filteredUsers.isEmpty && _searchQuery.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(32.0),
-                child:
-                    Center(child: Text('No users found for "$_searchQuery"')),
+                child: Center(
+                  child: Text('No users found for "$_searchQuery"'),
+                ),
               )
             else
               ListView.builder(
@@ -3738,15 +3832,14 @@ class _RouteMapViewState extends State<RouteMapView> {
             // Pagination info and Load More button
             if (filteredUsers.isEmpty == false && _searchQuery.isEmpty)
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Center(
                   child: Text(
                     'Showing ${_users.length} of $_totalUsersCount users (Page $_currentUsersPage of $_totalUsersPages)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ),
               ),
@@ -3758,9 +3851,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                   child: SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
               ),
@@ -3884,7 +3975,9 @@ class _RouteMapViewState extends State<RouteMapView> {
     return GestureDetector(
       onTap: () {
         _showUserPhotoPreview(
-            photoUrl: normalizedPhotoUrl, userName: displayName);
+          photoUrl: normalizedPhotoUrl,
+          userName: displayName,
+        );
       },
       child: avatar,
     );
@@ -3933,10 +4026,7 @@ class _RouteMapViewState extends State<RouteMapView> {
             Text(user['phone']),
             Text(
               statusText,
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: statusWeight,
-              ),
+              style: TextStyle(color: statusColor, fontWeight: statusWeight),
             ),
           ],
         ),
@@ -3970,9 +4060,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                     onPressed: _clearSelectedUser,
                     tooltip: 'Back to Users',
                   ),
-                  SizedBox(
-                    width: 3,
-                  ),
+                  SizedBox(width: 3),
                   _buildTappableUserAvatar(
                     photoUrl: _selectedUser?['photoUrl']?.toString() ?? '',
                     userName: _selectedUser?['userName']?.toString() ?? '',
@@ -4017,19 +4105,25 @@ class _RouteMapViewState extends State<RouteMapView> {
                     onTap: _selectDate,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.blue),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today,
-                              size: 16, color: Colors.blue),
+                          const Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.blue,
+                          ),
                           const SizedBox(width: 8),
                           Text(
-                            DateFormat('dd MMM yyyy')
-                                .format(_selectedTimelineDate),
+                            DateFormat(
+                              'dd MMM yyyy',
+                            ).format(_selectedTimelineDate),
                             style: const TextStyle(color: Colors.blue),
                           ),
                         ],
@@ -4045,85 +4139,81 @@ class _RouteMapViewState extends State<RouteMapView> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: List.generate(
-                    _tripsForSelectedDate.length,
-                    (index) {
-                      final trip = _tripsForSelectedDate[index];
-                      final tripId = trip['id'] ??
-                          trip['ID'] ??
-                          trip['trip_id'] ??
-                          trip['TRIP_ID'] ??
-                          0;
+                  children: List.generate(_tripsForSelectedDate.length, (
+                    index,
+                  ) {
+                    final trip = _tripsForSelectedDate[index];
+                    final tripId = trip['id'] ??
+                        trip['ID'] ??
+                        trip['trip_id'] ??
+                        trip['TRIP_ID'] ??
+                        0;
 
-                      String tripDisplay = 'Trip: $tripId';
+                    String tripDisplay = 'Trip: $tripId';
 
-                      final isSelected = _selectedTripIndex == index;
+                    final isSelected = _selectedTripIndex == index;
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedTripIndex = index;
-                              _selectedTrip = trip;
-                              _timelineData =
-                                  _timelineByTrip[_getTripIdAtIndex(index)] ??
-                                      [];
-                            });
-                            // Fetch and display route for this trip
-                            final tripId = _getTripIdAtIndex(index);
-                            if (tripId > 0) {
-                              _fetchAndDisplayTripRoute(tripId);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTripIndex = index;
+                            _selectedTrip = trip;
+                            _timelineData =
+                                _timelineByTrip[_getTripIdAtIndex(index)] ?? [];
+                          });
+                          // Fetch and display route for this trip
+                          final tripId = _getTripIdAtIndex(index);
+                          if (tripId > 0) {
+                            _fetchAndDisplayTripRoute(tripId);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
                               color: isSelected
                                   ? Colors.blue
-                                  : Colors.grey.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isSelected
-                                    ? Colors.blue
-                                    : Colors.grey.withOpacity(0.5),
-                              ),
+                                  : Colors.grey.withOpacity(0.5),
                             ),
-                            child: Text(
-                              tripDisplay,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey[700],
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
+                          ),
+                          child: Text(
+                            tripDisplay,
+                            style: TextStyle(
+                              color:
+                                  isSelected ? Colors.white : Colors.grey[700],
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  }),
                 ),
               ),
             const Divider(),
             if (_isLoadingRemainingTrips)
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 child: Text(
                   'Loading remaining trips: $_loadedTripsCount/$_totalTripsToLoad',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                 ),
               ),
             // Trip Summary
@@ -4181,6 +4271,13 @@ class _RouteMapViewState extends State<RouteMapView> {
                   final partyName = partyInfo['partyName'] ?? '';
                   final partyCode = partyInfo['partyCode'] ?? '';
                   final partyAddress = partyInfo['partyAddress'] ?? '';
+                  final displayTitle = partyName.isNotEmpty &&
+                          _shouldShowPartyNameForTimelineItem(
+                            title.toString(),
+                            eventType,
+                          )
+                      ? '$title - $partyName'
+                      : title.toString();
 
                   if (isOrderPlaced && orderItems.isEmpty) {
                     final dynamic rawOrder = item['ORDER'] ?? item['order'];
@@ -4193,7 +4290,8 @@ class _RouteMapViewState extends State<RouteMapView> {
                   }
 
                   print(
-                      '[RouteMapView] Timeline Event - Type: "$eventType", isOrderPlaced: $isOrderPlaced, itemsCount: ${orderItems.length}, partyName: "$partyName"');
+                    '[RouteMapView] Timeline Event - Type: "$eventType", isOrderPlaced: $isOrderPlaced, itemsCount: ${orderItems.length}, partyName: "$partyName"',
+                  );
 
                   // Build action buttons for order_placed events
                   Widget? actionButtons;
@@ -4203,7 +4301,11 @@ class _RouteMapViewState extends State<RouteMapView> {
                         GestureDetector(
                           onTap: () {
                             _showOrderItemsDialog(
-                                orderItems, partyName, partyCode, partyAddress);
+                              orderItems,
+                              partyName,
+                              partyCode,
+                              partyAddress,
+                            );
                           },
                           child: Row(
                             children: [
@@ -4212,9 +4314,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                                 size: 15,
                                 color: Colors.blue,
                               ),
-                              SizedBox(
-                                width: 3,
-                              ),
+                              SizedBox(width: 3),
                               Text(
                                 'View Items',
                                 style: TextStyle(
@@ -4237,14 +4337,8 @@ class _RouteMapViewState extends State<RouteMapView> {
                           },
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.history,
-                                size: 15,
-                                color: Colors.blue,
-                              ),
-                              SizedBox(
-                                width: 3,
-                              ),
+                              Icon(Icons.history, size: 15, color: Colors.blue),
+                              SizedBox(width: 3),
                               Text(
                                 'View History',
                                 style: TextStyle(
@@ -4272,7 +4366,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                     child: CommonTimelineTile(
                       date: dateStr,
                       time: timeStr,
-                      title: title.toString(),
+                      title: displayTitle,
                       subtitle: subtitle.toString(),
                       isFirst: isFirst,
                       isLast: isLast,
@@ -4294,15 +4388,18 @@ class _RouteMapViewState extends State<RouteMapView> {
     final summary = _normalizeTripSummary(_tripSummaryData[tripId] ?? {});
 
     // Extract summary data
-    final totalDistance = _readSummaryNum(
-                summary, <String>['total_distance', 'total_distance_km'])
-            ?.toDouble() ??
+    final totalDistance = _readSummaryNum(summary, <String>[
+          'total_distance',
+          'total_distance_km',
+        ])?.toDouble() ??
         0.0;
     final totalDurationFormatted = _readSummaryText(
-      summary,
-      <String>['total_duration_formatted', 'total_duration'],
-      fallback: '0h 0m 0s',
-    );
+        summary,
+        <String>[
+          'total_duration_formatted',
+          'total_duration',
+        ],
+        fallback: '0h 0m 0s');
 
     // Extract call and sales data from summary
     final totalCallsCount =
@@ -4310,10 +4407,9 @@ class _RouteMapViewState extends State<RouteMapView> {
     final productiveCallsCount =
         _readSummaryNum(summary, <String>['productive_calls_count'])?.toInt() ??
             0;
-    final nonProductiveCallsCount = _readSummaryNum(
-          summary,
-          <String>['non_productive_calls_count'],
-        )?.toInt() ??
+    final nonProductiveCallsCount = _readSummaryNum(summary, <String>[
+          'non_productive_calls_count',
+        ])?.toInt() ??
         0;
     final totalSaleAmount =
         _readSummaryNum(summary, <String>['total_sale_amount'])?.toDouble() ??
