@@ -170,6 +170,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List<Map<String, dynamic>> firmList = [];
   int? selectedSyncId; // Stores the selected sync ID
   String? selectedFirmName; // Stores the selected firm name
+  String? selectedFirmLogo; // Stores selected firm's logo URL
   bool isLoading = true;
 
   String narrationModuleNo = '';
@@ -1911,84 +1912,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ],
                         ),
-                        Flexible(
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: 3,
-                              horizontal: 10,
-                            ),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                color: Color(0xFFE2EEFD)),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.calendar_today,
-                                      size: 14,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                    SizedBox(
-                                      width: 5,
-                                    ),
-                                    Text(
-                                      DateFormat('d MMM yyyy')
-                                          .format(DateTime.now()),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                  ],
+                        (selectedFirmLogo != null &&
+                                selectedFirmLogo!.isNotEmpty)
+                            ? Container(
+                                width: 160,
+                                height: 40,
+                                alignment: Alignment.centerRight,
+                                child: Image.network(
+                                  selectedFirmLogo!,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Icon(
+                                    Icons.store,
+                                    size: 36,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
-                                SizedBox(height: 2),
-                                Builder(builder: (ctx) {
-                                  try {
-                                    final beatCtrl =
-                                        Get.isRegistered<BeatController>()
-                                            ? Get.find<BeatController>()
-                                            : Get.put(BeatController());
-                                    final beats = beatCtrl
-                                        .getBeatsForDate(DateTime.now());
-                                    final beatName = beats.isNotEmpty
-                                        ? beats.first.beatName
-                                        : '';
-                                    if (beatName.isEmpty)
-                                      return SizedBox.shrink();
-                                    return Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.route_outlined,
-                                          size: 14,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                        SizedBox(
-                                          width: 5,
-                                        ),
-                                        Text(
-                                          beatName,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey.shade700,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  } catch (e) {
-                                    return SizedBox.shrink();
-                                  }
-                                }),
-                              ],
-                            ),
-                          ),
-                        ),
+                              )
+                            : SizedBox.shrink(),
                       ],
                     ),
                   ),
@@ -2009,64 +1950,71 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   //   ),
                   // ),
 
-                  Builder(
-                    builder: (context) {
-                      final ta = data?.data.labelData.targetAchievement;
-                      final double target = ta?.target ?? 0.0;
-                      final double achieved = ta?.achieved ?? 0.0;
-                      final percent =
-                          _calculateProgressPercent(achieved, target);
-                      final targetText =
-                          'Target: ₹${target.toStringAsFixed(2)}';
+                  if (data?.data.labelData.targetAchievement?.target != 0) ...[
+                    Builder(
+                      builder: (context) {
+                        final ta = data?.data.labelData.targetAchievement;
+                        final double target = ta?.target ?? 0.0;
+                        final double achieved = ta?.achieved ?? 0.0;
+                        final percent =
+                            _calculateProgressPercent(achieved, target);
+                        final targetText =
+                            'Target: ₹${target.toStringAsFixed(2)}';
 
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          top: 5,
-                          right: 20,
-                          left: 20,
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  targetText,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xff006705),
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: 5,
+                            right: 20,
+                            left: 20,
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    targetText,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xff006705),
+                                    ),
                                   ),
-                                ),
-                                Spacer(),
-                                Text(
-                                  "Progress: ",
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                                Text(
-                                  "${percent.toStringAsFixed(2)}%",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: percent > 100
-                                        ? Color(0xFFDFA906)
-                                        : percent > 0
-                                            ? Colors.green.shade700
-                                            : Colors.grey.shade700,
+                                  Spacer(),
+                                  Text(
+                                    "${percent.toStringAsFixed(2)}%",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: percent > 100
+                                          ? Color(0xFFDFA906)
+                                          : percent > 0
+                                              ? Colors.green.shade700
+                                              : Colors.grey.shade700,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            _buildOverflowProgressBar(percent),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                                ],
+                              ),
+                              _buildOverflowProgressBar(percent),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(
+                      height: 10,
+                    ),
+                  ] else ...[
+                    Divider(
+                      thickness: 0.8,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+                  ],
 
                   // Define a common size for the boxes
 
                   Padding(
                     padding: const EdgeInsets.only(
-                      top: 8,
+                      // top: 8,
                       left: 8,
                       right: 8,
                     ),
@@ -2077,7 +2025,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           borderRadius: BorderRadius.circular(15)),
                       child: Container(
                         padding: EdgeInsets.only(
-                          top: 10,
+                          // top: 10,
                           right: 10,
                           left: 10,
                         ),
@@ -2098,84 +2046,236 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           mainAxisAlignment:
                                               MainAxisAlignment.spaceBetween,
                                           children: [
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    "THIS MONTH",
+                                                    style: TextStyle(
+                                                      // fontSize: MediaQuery.of(context)
+                                                      //         .size
+                                                      //         .width *
+                                                      //     0.04,
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                  // child: Text(
+                                                  //   "TODAY'S ORDER",
+                                                  //   style: TextStyle(
+                                                  //     // fontSize:
+                                                  //     //     MediaQuery.of(context)
+                                                  //     //             .size
+                                                  //     //             .width *
+                                                  //     //         0.045,
+                                                  //     fontSize: 13,
+                                                  //     fontWeight: FontWeight.bold,
+                                                  //     color: Colors.grey.shade700,
+                                                  //   ),
+                                                  //   overflow: TextOverflow.ellipsis,
+                                                  // ),
+                                                ),
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      "₹ ",
+                                                      style: TextStyle(
+                                                        color: Colors.black,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: MediaQuery.of(
+                                                                    context)
+                                                                .size
+                                                                .width *
+                                                            0.035,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      "${data != null ? Helper.parseNumericValue(data!.data.labelData.month.toString()) : 0}",
+                                                      style: TextStyle(
+                                                        color: Colors.black,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: MediaQuery.of(
+                                                                    context)
+                                                                .size
+                                                                .width *
+                                                            0.04,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
                                             Flexible(
-                                              flex: 2,
-                                              child: Text(
-                                                "THIS MONTH",
-                                                style: TextStyle(
-                                                  // fontSize: MediaQuery.of(context)
-                                                  //         .size
-                                                  //         .width *
-                                                  //     0.04,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.grey.shade700,
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  vertical: 3,
+                                                  horizontal: 10,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    color: Color(0xFFE2EEFD)),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.calendar_today,
+                                                          size: 14,
+                                                          color: Colors
+                                                              .grey.shade700,
+                                                        ),
+                                                        SizedBox(
+                                                          width: 5,
+                                                        ),
+                                                        Text(
+                                                          DateFormat(
+                                                                  'd MMM yyyy')
+                                                              .format(DateTime
+                                                                  .now()),
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: Colors
+                                                                .grey.shade700,
+                                                          ),
+                                                          textAlign:
+                                                              TextAlign.right,
+                                                        ),
+                                                        Builder(builder: (ctx) {
+                                                          try {
+                                                            final beatCtrl = Get
+                                                                    .isRegistered<
+                                                                        BeatController>()
+                                                                ? Get.find<
+                                                                    BeatController>()
+                                                                : Get.put(
+                                                                    BeatController());
+                                                            final beats = beatCtrl
+                                                                .getBeatsForDate(
+                                                                    DateTime
+                                                                        .now());
+                                                            final beatName =
+                                                                beats.isNotEmpty
+                                                                    ? beats
+                                                                        .first
+                                                                        .beatName
+                                                                    : '';
+                                                            if (beatName
+                                                                .isEmpty)
+                                                              return SizedBox
+                                                                  .shrink();
+                                                            return Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                Text(
+                                                                  ", $beatName",
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontSize:
+                                                                        14,
+                                                                    color: Colors
+                                                                        .grey
+                                                                        .shade700,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            );
+                                                          } catch (e) {
+                                                            return SizedBox
+                                                                .shrink();
+                                                          }
+                                                        }),
+                                                      ],
+                                                    ),
+                                                    // SizedBox(height: 2),
+                                                    // Builder(builder: (ctx) {
+                                                    //   try {
+                                                    //     final beatCtrl = Get
+                                                    //             .isRegistered<
+                                                    //                 BeatController>()
+                                                    //         ? Get.find<
+                                                    //             BeatController>()
+                                                    //         : Get.put(
+                                                    //             BeatController());
+                                                    //     final beats = beatCtrl
+                                                    //         .getBeatsForDate(
+                                                    //             DateTime.now());
+                                                    //     final beatName =
+                                                    //         beats.isNotEmpty
+                                                    //             ? beats.first
+                                                    //                 .beatName
+                                                    //             : '';
+                                                    //     if (beatName.isEmpty)
+                                                    //       return SizedBox
+                                                    //           .shrink();
+                                                    //     return Row(
+                                                    //       mainAxisSize:
+                                                    //           MainAxisSize.min,
+                                                    //       children: [
+                                                    //         Icon(
+                                                    //           Icons
+                                                    //               .route_outlined,
+                                                    //           size: 14,
+                                                    //           color: Colors.grey
+                                                    //               .shade700,
+                                                    //         ),
+                                                    //         SizedBox(
+                                                    //           width: 5,
+                                                    //         ),
+                                                    //         Text(
+                                                    //           beatName,
+                                                    //           style: TextStyle(
+                                                    //             fontSize: 14,
+                                                    //             color: Colors
+                                                    //                 .grey
+                                                    //                 .shade700,
+                                                    //             fontWeight:
+                                                    //                 FontWeight
+                                                    //                     .bold,
+                                                    //           ),
+                                                    //         ),
+                                                    //       ],
+                                                    //     );
+                                                    //   } catch (e) {
+                                                    //     return SizedBox
+                                                    //         .shrink();
+                                                    //   }
+                                                    // }),
+                                                  ],
                                                 ),
                                               ),
-                                              // child: Text(
-                                              //   "TODAY'S ORDER",
-                                              //   style: TextStyle(
-                                              //     // fontSize:
-                                              //     //     MediaQuery.of(context)
-                                              //     //             .size
-                                              //     //             .width *
-                                              //     //         0.045,
-                                              //     fontSize: 13,
-                                              //     fontWeight: FontWeight.bold,
-                                              //     color: Colors.grey.shade700,
-                                              //   ),
-                                              //   overflow: TextOverflow.ellipsis,
-                                              // ),
                                             ),
                                           ],
                                         ),
                                         SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              "₹ ",
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.035,
-                                              ),
-                                            ),
-                                            Expanded(
-                                              // child: Text(
-                                              //   "${data != null ? Helper.parseNumericValue(data!.data.labelData.today.toString()) : 0}",
-                                              //   style: TextStyle(
-                                              //     fontSize:
-                                              //         MediaQuery.of(context)
-                                              //                 .size
-                                              //                 .width *
-                                              //             0.05,
-                                              //     fontWeight: FontWeight.w600,
-                                              //     color: Colors.black,
-                                              //   ),
-                                              //   overflow: TextOverflow.ellipsis,
-                                              // ),
-                                              child: Text(
-                                                "${data != null ? Helper.parseNumericValue(data!.data.labelData.month.toString()) : 0}",
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize:
-                                                      MediaQuery.of(context)
-                                                              .size
-                                                              .width *
-                                                          0.04,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
                                       ],
                                     ),
                                   ),
@@ -2183,74 +2283,83 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ],
                             ),
                             SizedBox(height: 5),
-                            FutureBuilder<MonthlyTargetItemModel?>(
-                              future: _monthlyTargetFuture,
-                              builder: (context, snapshot) {
-                                final currentMonthlySale = double.tryParse(
-                                      (data?.data.labelData.month ?? '0')
-                                          .toString()
-                                          .replaceAll(',', ''),
-                                    ) ??
-                                    0.0;
+                            if (p.data != null &&
+                                p.data!.modulesList!.any((module) =>
+                                    module.mODULENO == "236" &&
+                                    module.rEADRIGHT == true)) ...[
+                              FutureBuilder<MonthlyTargetItemModel?>(
+                                future: _monthlyTargetFuture,
+                                builder: (context, snapshot) {
+                                  final currentMonthlySale = double.tryParse(
+                                        (data?.data.labelData.month ?? '0')
+                                            .toString()
+                                            .replaceAll(',', ''),
+                                      ) ??
+                                      0.0;
 
-                                final pobItem = snapshot.data;
-                                final double target = pobItem == null
-                                    ? 0.0
-                                    : ((pobItem.primaryTargetAmount > 0)
-                                        ? pobItem.primaryTargetAmount
-                                        : pobItem.salesmanTargetAmount);
-                                final double progressPercent =
-                                    _calculateProgressPercent(
-                                        currentMonthlySale, target);
+                                  final pobItem = snapshot.data;
+                                  final double target = pobItem == null
+                                      ? 0.0
+                                      : ((pobItem.primaryTargetAmount > 0)
+                                          ? pobItem.primaryTargetAmount
+                                          : pobItem.salesmanTargetAmount);
+                                  final double progressPercent =
+                                      _calculateProgressPercent(
+                                          currentMonthlySale, target);
 
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                      right: 0, left: 0, bottom: 4),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            "Target: ₹${target.toStringAsFixed(2)}",
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xff006705),
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                        right: 0, left: 0, bottom: 4),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "Target: ₹${target.toStringAsFixed(2)}",
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xff006705),
+                                              ),
                                             ),
-                                          ),
-                                          Spacer(),
-                                          Text(
-                                            "${progressPercent.toStringAsFixed(2)}%",
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: progressPercent > 100
-                                                  ? Color(0xFFDFA906)
-                                                  : progressPercent > 0
-                                                      ? Colors.green.shade700
-                                                      : Colors.grey.shade700,
-                                              // color: progressPercent > 0
-                                              //     ? Colors.green.shade700
-                                              //     : Colors.grey.shade700,
+                                            Spacer(),
+                                            Text(
+                                              "${progressPercent.toStringAsFixed(2)}%",
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: progressPercent > 100
+                                                    ? Color(0xFFDFA906)
+                                                    : progressPercent > 0
+                                                        ? Colors.green.shade700
+                                                        : Colors.grey.shade700,
+                                                // color: progressPercent > 0
+                                                //     ? Colors.green.shade700
+                                                //     : Colors.grey.shade700,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 6),
-                                      _buildOverflowProgressBar(
-                                        progressPercent,
-                                        baseColor: Color(0XFF2c9ed9),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 6),
+                                        _buildOverflowProgressBar(
+                                          progressPercent,
+                                          baseColor: Color(0XFF2c9ed9),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              SizedBox(
+                                height: 10,
+                              ),
+                            ] else ...[
+                              Divider(
+                                thickness: 0.8,
+                              ),
+                            ],
                             // Divider(
                             //   thickness: 0.8,
                             // ),
-                            SizedBox(
-                              height: 10,
-                            ),
                             // SizedBox(
                             //     height: MediaQuery.of(context).size.height *
                             //         0.02), // Spacing between sections
@@ -2362,7 +2471,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment.end,
                                         children: [
                                           // Text(
                                           //   "THIS MONTH",
@@ -2392,6 +2501,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           ),
                                           SizedBox(height: 5),
                                           Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
                                             children: [
                                               Text(
                                                 "₹ ",
@@ -2405,7 +2516,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                           0.04,
                                                 ),
                                               ),
-                                              Expanded(
+                                              Flexible(
                                                 // child: Text(
                                                 //   "${data != null ? Helper.parseNumericValue(data!.data.labelData.month.toString()) : 0}",
                                                 //   style: TextStyle(
@@ -2601,187 +2712,229 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         )
                                       : Container(),
                                 ),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.only(bottom: 14.0),
-                                      child: Text(
-                                          "${data != null ? "${data!.data.label}:" : ""}",
-                                          style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.8)),
-                                    ),
-                                    // if (p.data?.profileSettings
-                                    //             .firstWhere((element) =>
-                                    //                 element.variable ==
-                                    //                 'punchInOut')
-                                    //             .value ==
-                                    //         'Y' &&
-                                    //     location.isLoading == false)
-
-                                    if ((p.data?.profileSettings.any((e) =>
-                                                e.variable == 'punchInOut' &&
-                                                e.value == 'Y') ??
-                                            false) &&
-                                        location.isLoading == false)
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          if (p.data?.isPunchIn == true) {
-                                            final hasActiveOrder =
-                                                p.ACC_NAME.trim().isNotEmpty &&
-                                                    p.ACC_CD.trim().isNotEmpty;
-
-                                            if (hasActiveOrder) {
-                                              await party.startEndOrder(
-                                                p.ACC_NAME,
-                                                p.ACC_CD,
-                                                context,
-                                                "3",
-                                                id: 1,
-                                              );
-
-                                              final isOrderStillActive = p
-                                                      .ACC_NAME
-                                                      .trim()
-                                                      .isNotEmpty &&
-                                                  p.ACC_CD.trim().isNotEmpty;
-                                              if (isOrderStillActive) {
-                                                AppSnackBar
-                                                    .showGetXCustomSnackBar(
-                                                  message:
-                                                      'Unable to end active order. Please try again.',
-                                                );
-                                                return;
-                                              }
-                                            }
-
-                                            // Show confirmation dialog before punch out
-                                            final confirmed =
-                                                await showDialog<bool>(
-                                                      context: context,
-                                                      barrierDismissible: false,
-                                                      builder: (BuildContext
-                                                              dialogContext) =>
-                                                          AlertDialog(
-                                                        title: const Text(
-                                                          'Confirm Punch Out',
-                                                          style: TextStyle(
-                                                            fontSize: 18,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                        content: const Text(
-                                                          'Thank you for your outstanding service today!\n\nAre you sure you want to punch out?',
-                                                          style: TextStyle(
-                                                              fontSize: 16),
-                                                        ),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () {
-                                                              Navigator.of(
-                                                                      dialogContext)
-                                                                  .pop(false);
-                                                            },
-                                                            child: const Text(
-                                                                'Cancel'),
-                                                          ),
-                                                          ElevatedButton(
-                                                            onPressed: () {
-                                                              Navigator.of(
-                                                                      dialogContext)
-                                                                  .pop(true);
-                                                            },
-                                                            style:
-                                                                ElevatedButton
-                                                                    .styleFrom(
-                                                              backgroundColor:
-                                                                  Colors.red,
-                                                            ),
-                                                            child: const Text(
-                                                              'Confirm Punch Out',
-                                                              style: TextStyle(
-                                                                  color: Colors
-                                                                      .white),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ) ??
-                                                    false;
-
-                                            if (!confirmed) {
-                                              return; // User cancelled
-                                            }
-
-                                            // PUNCH OUT confirmed - execute punch out logic
-                                            location.setRemarks("PUNCH OUT");
-                                            // Clear stockist selection on punch out
-                                            final productController = Get
-                                                    .isRegistered<
-                                                        ProductController>()
-                                                ? Get.find<ProductController>()
-                                                : Get.put(ProductController());
-                                            productController
-                                                .clearStockistSelection();
-                                          } else {
-                                            location.setRemarks("PUNCH IN");
-                                          }
-
-                                          final userProvider =
-                                              Provider.of<UserProvider>(context,
-                                                  listen: false);
-                                          final profileProvider =
-                                              Provider.of<ProfileProvider>(
-                                                  context,
-                                                  listen: false);
-                                          await location.sendLocation(
-                                              userProvider,
-                                              profile: profileProvider);
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(180)),
-                                          backgroundColor:
-                                              p.data?.isPunchIn == true
-                                                  ? Colors.red
-                                                  : Colors.green,
-                                        ),
-                                        child: Text(
-                                          p.data?.isPunchIn == true
-                                              ? "Punch Out"
-                                              : "Punch IN",
-                                          style: TextStyle(color: Colors.white),
-                                        ),
+                                Container(
+                                  padding: EdgeInsets.only(
+                                    top: 2,
+                                    bottom: 2,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Padding(
+                                            padding:
+                                                EdgeInsets.only(bottom: 14.0),
+                                            child: Text(
+                                                "${data != null ? "${data!.data.label}:" : ""}",
+                                                style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.8)),
+                                          ),
+                                        ],
                                       ),
-                                    // if (p.data?.profileSettings
-                                    //             .firstWhere((element) =>
-                                    //                 element.variable ==
-                                    //                 'punchInOut')
-                                    //             .value ==
-                                    //         'Y' &&
-                                    //     location.isLoading == true)
+                                      // if (p.data?.profileSettings
+                                      //             .firstWhere((element) =>
+                                      //                 element.variable ==
+                                      //                 'punchInOut')
+                                      //             .value ==
+                                      //         'Y' &&
+                                      //     location.isLoading == false)
 
-                                    if ((p.data?.profileSettings.any((e) =>
-                                                e.variable == 'punchInOut' &&
-                                                e.value == 'Y') ??
-                                            false) &&
-                                        location.isLoading == true)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(right: 15.0),
-                                        child: SizedBox(
-                                            height: 20.0,
-                                            width: 20.0,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 3.0,
-                                            )),
-                                      )
-                                  ],
+                                      if ((p.data?.profileSettings.any((e) =>
+                                                  e.variable == 'punchInOut' &&
+                                                  e.value == 'Y') ??
+                                              false) &&
+                                          location.isLoading == false)
+                                        Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            ElevatedButton(
+                                              onPressed: () async {
+                                                if (p.data?.isPunchIn == true) {
+                                                  final hasActiveOrder = p
+                                                          .ACC_NAME
+                                                          .trim()
+                                                          .isNotEmpty &&
+                                                      p.ACC_CD
+                                                          .trim()
+                                                          .isNotEmpty;
+
+                                                  if (hasActiveOrder) {
+                                                    await party.startEndOrder(
+                                                      p.ACC_NAME,
+                                                      p.ACC_CD,
+                                                      context,
+                                                      "3",
+                                                      id: 1,
+                                                    );
+
+                                                    final isOrderStillActive = p
+                                                            .ACC_NAME
+                                                            .trim()
+                                                            .isNotEmpty &&
+                                                        p.ACC_CD
+                                                            .trim()
+                                                            .isNotEmpty;
+                                                    if (isOrderStillActive) {
+                                                      AppSnackBar
+                                                          .showGetXCustomSnackBar(
+                                                        message:
+                                                            'Unable to end active order. Please try again.',
+                                                      );
+                                                      return;
+                                                    }
+                                                  }
+
+                                                  // Show confirmation dialog before punch out
+                                                  final confirmed =
+                                                      await showDialog<bool>(
+                                                            context: context,
+                                                            barrierDismissible:
+                                                                false,
+                                                            builder: (BuildContext
+                                                                    dialogContext) =>
+                                                                AlertDialog(
+                                                              title: const Text(
+                                                                'Confirm Punch Out',
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 18,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                              ),
+                                                              content:
+                                                                  const Text(
+                                                                'Thank you for your outstanding service today!\n\nAre you sure you want to punch out?',
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        16),
+                                                              ),
+                                                              actions: [
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () {
+                                                                    Navigator.of(
+                                                                            dialogContext)
+                                                                        .pop(
+                                                                            false);
+                                                                  },
+                                                                  child: const Text(
+                                                                      'Cancel'),
+                                                                ),
+                                                                ElevatedButton(
+                                                                  onPressed:
+                                                                      () {
+                                                                    Navigator.of(
+                                                                            dialogContext)
+                                                                        .pop(
+                                                                            true);
+                                                                  },
+                                                                  style: ElevatedButton
+                                                                      .styleFrom(
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .red,
+                                                                  ),
+                                                                  child:
+                                                                      const Text(
+                                                                    'Confirm Punch Out',
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .white),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ) ??
+                                                          false;
+
+                                                  if (!confirmed) {
+                                                    return; // User cancelled
+                                                  }
+
+                                                  // PUNCH OUT confirmed - execute punch out logic
+                                                  location
+                                                      .setRemarks("PUNCH OUT");
+                                                  // Clear stockist selection on punch out
+                                                  final productController = Get
+                                                          .isRegistered<
+                                                              ProductController>()
+                                                      ? Get.find<
+                                                          ProductController>()
+                                                      : Get.put(
+                                                          ProductController());
+                                                  productController
+                                                      .clearStockistSelection();
+                                                } else {
+                                                  location
+                                                      .setRemarks("PUNCH IN");
+                                                }
+
+                                                final userProvider =
+                                                    Provider.of<UserProvider>(
+                                                        context,
+                                                        listen: false);
+                                                final profileProvider = Provider
+                                                    .of<ProfileProvider>(
+                                                        context,
+                                                        listen: false);
+                                                await location.sendLocation(
+                                                    userProvider,
+                                                    profile: profileProvider);
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            180)),
+                                                backgroundColor:
+                                                    p.data?.isPunchIn == true
+                                                        ? Colors.red
+                                                        : Colors.green,
+                                              ),
+                                              child: Text(
+                                                p.data?.isPunchIn == true
+                                                    ? "Punch Out"
+                                                    : "Punch IN",
+                                                style: TextStyle(
+                                                    color: Colors.white),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      // if (p.data?.profileSettings
+                                      //             .firstWhere((element) =>
+                                      //                 element.variable ==
+                                      //                 'punchInOut')
+                                      //             .value ==
+                                      //         'Y' &&
+                                      //     location.isLoading == true)
+
+                                      if ((p.data?.profileSettings.any((e) =>
+                                                  e.variable == 'punchInOut' &&
+                                                  e.value == 'Y') ??
+                                              false) &&
+                                          location.isLoading == true)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              right: 15.0),
+                                          child: SizedBox(
+                                              height: 20.0,
+                                              width: 20.0,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 3.0,
+                                              )),
+                                        )
+                                    ],
+                                  ),
                                 ),
                                 Expanded(
                                   child: nolist == true
@@ -2844,128 +2997,136 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                     }
                                                   },
                                                   child: Card(
-                                                    color: Colors.transparent,
-                                                    elevation: 0,
+                                                    color: Colors.white,
+                                                    elevation: 1,
                                                     shape:
                                                         RoundedRectangleBorder(
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               6),
                                                     ),
-                                                    child: Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        /// INDEX CIRCLE (CENTER LEFT)
-                                                        Container(
-                                                          width: 24,
-                                                          height: 24,
-                                                          alignment:
-                                                              Alignment.center,
-                                                          decoration:
-                                                              const BoxDecoration(
-                                                            shape:
-                                                                BoxShape.circle,
-                                                            color: Color(
-                                                                0XFF2c9ed9),
-                                                          ),
-                                                          child: Text(
-                                                            "${index + 1}",
-                                                            style:
-                                                                const TextStyle(
-                                                              color:
-                                                                  Colors.white,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
+                                                    child: Container(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 5,
+                                                      ),
+                                                      child: Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          /// INDEX CIRCLE (CENTER LEFT)
+                                                          Container(
+                                                            width: 24,
+                                                            height: 24,
+                                                            alignment: Alignment
+                                                                .center,
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              color: Color(
+                                                                  0XFF2c9ed9),
+                                                            ),
+                                                            child: Text(
+                                                              "${index + 1}",
+                                                              style:
+                                                                  const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
                                                             ),
                                                           ),
-                                                        ),
 
-                                                        const SizedBox(
-                                                            width: 16),
+                                                          const SizedBox(
+                                                              width: 16),
 
-                                                        /// NAME + MOBILE
-                                                        Expanded(
-                                                          child: Column(
+                                                          /// NAME + MOBILE
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                Text(
+                                                                  item.name
+                                                                      .toTitleCase(),
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        14,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
+                                                                  ),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                                const SizedBox(
+                                                                    height: 4),
+                                                                Text(
+                                                                  item.mobile,
+                                                                  style: const TextStyle(
+                                                                      fontSize:
+                                                                          12),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+
+                                                          const SizedBox(
+                                                              width: 10),
+
+                                                          /// AMOUNT + DATE
+                                                          Column(
                                                             crossAxisAlignment:
                                                                 CrossAxisAlignment
-                                                                    .start,
+                                                                    .end,
                                                             mainAxisSize:
                                                                 MainAxisSize
                                                                     .min,
                                                             children: [
                                                               Text(
-                                                                item.name
-                                                                    .toTitleCase(),
+                                                                "₹ ${Helper.parseNumericValue(item.amount.toString())}",
                                                                 style:
                                                                     const TextStyle(
-                                                                  fontSize: 14,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .bold,
+                                                                  fontSize: 14,
+                                                                  color: Colors
+                                                                      .green,
                                                                 ),
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
                                                               ),
                                                               const SizedBox(
                                                                   height: 4),
                                                               Text(
-                                                                item.mobile,
+                                                                Helper
+                                                                    .convertToFormat(
+                                                                  item.orderDate
+                                                                      .toString(),
+                                                                  'dd-MM-yyyy',
+                                                                ),
                                                                 style:
                                                                     const TextStyle(
                                                                         fontSize:
                                                                             12),
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
                                                               ),
                                                             ],
                                                           ),
-                                                        ),
-
-                                                        const SizedBox(
-                                                            width: 10),
-
-                                                        /// AMOUNT + DATE
-                                                        Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .end,
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            Text(
-                                                              "₹ ${Helper.parseNumericValue(item.amount.toString())}",
-                                                              style:
-                                                                  const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                fontSize: 14,
-                                                                color: Colors
-                                                                    .green,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                                height: 4),
-                                                            Text(
-                                                              Helper
-                                                                  .convertToFormat(
-                                                                item.orderDate
-                                                                    .toString(),
-                                                                'dd-MM-yyyy',
-                                                              ),
-                                                              style:
-                                                                  const TextStyle(
-                                                                      fontSize:
-                                                                          12),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 );
@@ -2973,7 +3134,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               separatorBuilder:
                                                   (BuildContext context,
                                                       int index) {
-                                                return Divider();
+                                                return SizedBox(
+                                                  height: 5,
+                                                );
                                               },
                                             )
 
@@ -3228,8 +3391,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> fetchData() async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
 
-    final url =
-        Uri.parse(AppConfig.baseURL + 'firm'); // Replace with your API URL
+    final url = Uri.parse(AppConfig.baseURL + 'firm');
 
     try {
       final response = await http.get(
@@ -3286,6 +3448,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               "syncId": item['SYNC_ID'],
             };
           }).toList();
+          // Save selected firm's logo URL for homepage display
+          selectedFirmLogo = selectedFirm?['FIRM_LOGO']?.toString() ?? '';
+          selectedFirmName = selectedFirm?['FIRM_NAME']?.toString() ?? '';
           isLoading = false;
         });
       } else {

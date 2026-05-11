@@ -880,7 +880,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               if (p.data != null &&
                   p.data!.modulesList!.any((module) =>
-                      module.mODULENO == "235" &&
+                      module.mODULENO == "236" &&
                       module.rEADRIGHT == true)) ...[
                 const SizedBox(height: 20),
                 Padding(

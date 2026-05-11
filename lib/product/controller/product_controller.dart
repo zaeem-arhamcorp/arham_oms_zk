@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:dio/dio.dart';
@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import '../../models/narrationModal.dart';
 import '../../models/partynameModal.dart';
+import '../../providers/profile_provider.dart';
 import '../../views/loginpage.dart';
 import '../model/product_model.dart';
 
@@ -729,8 +730,8 @@ class ProductController extends GetxController {
   Future<void> fetchPartyNames() async {
     isPartyLoading.value = true;
     try {
-      //final response = await _getRequest(endpoint: '/products/party');
-      final response = await _getRequest(endpoint: 'products/party?groupCd=85');
+      final response = await _getRequest(endpoint: '/products/party');
+      // final response = await _getRequest(endpoint: 'products/party?groupCd=85');
 
       if (response != null) {
         final partyData = PartynameModal.fromJson(response);
@@ -749,6 +750,21 @@ class ProductController extends GetxController {
   /// and stockist=1 to fetch user-specific stockists.
   /// Also caches stockist data for offline use.
   Future<void> fetchStockists({required String groupCd}) async {
+    final profile = Provider.of<ProfileProvider>(Get.context!, listen: false);
+    final settings = profile.data?.profileSettings;
+    final isStockistUserLinkEnabled = settings?.any((e) =>
+            (e.variable?.toString().trim() ?? '') == 'showStockistUserLink' &&
+            (e.value?.toString().trim().toUpperCase() ?? '') == 'Y') ??
+        false;
+
+    if (!isStockistUserLinkEnabled) {
+      print(
+          '[Stockist] Skipping fetchStockists because showStockistUserLink != Y');
+      stockists.clear();
+      hasStockistAccess.value = false;
+      return;
+    }
+
     isStockistLoading.value = true;
     try {
       final uri = Uri.parse('${AppConfig.baseURL}products/party')
@@ -786,8 +802,13 @@ class ProductController extends GetxController {
           print('[Stockist] ⚠️ Error caching stockists: $e');
         }
 
-        // Calculate distances and sort stockists by proximity
-        await _sortStockistsByDistance();
+        // Calculate distances and sort stockists by proximity only when enabled.
+        if (_isContinuousLocationTrackingEnabled()) {
+          await _sortStockistsByDistance();
+        } else {
+          print(
+              '[Stockist] ⏭️ Skipped stockist distance sort because continuousLocationTracking != Y');
+        }
       } else {
         print('[Stockist] Failed with status: ${response.statusCode}');
         // Try to load from cache on API failure
@@ -874,6 +895,21 @@ class ProductController extends GetxController {
     } catch (e) {
       print('[Stockist] Error calculating distances: $e');
       // Continue with original order if distance calculation fails
+    }
+  }
+
+  bool _isContinuousLocationTrackingEnabled() {
+    try {
+      final context = Get.context;
+      if (context == null) return false;
+
+      final profile = Provider.of<ProfileProvider>(context, listen: false);
+      final setting = profile.data?.profileSettings.firstWhere(
+        (e) => e.variable == 'continuousLocationTracking',
+      );
+      return (setting?.value ?? 'N') == 'Y';
+    } catch (e) {
+      return false;
     }
   }
 
@@ -1128,6 +1164,23 @@ class ProductController extends GetxController {
       print('[ProductController] 🗑️ Cleared persisted party selection');
     } catch (e) {
       print('[ProductController] ⚠️ Error clearing persisted party: $e');
+    }
+  }
+
+  /// Public restore method for party selection to mirror stockist restore
+  Future<void> restorePartySelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString('ACTIVE_ORDER_PARTY_NAME') ?? '';
+      final id = prefs.getString('ACTIVE_ORDER_PARTY_ID') ?? '';
+
+      if (name.isNotEmpty && id.isNotEmpty) {
+        selectedPartyName.value = name;
+        selectedPartyId.value = id;
+        print('[Party] Restored selection: $name ($id)');
+      }
+    } catch (e) {
+      print('[Party] Error restoring selection: $e');
     }
   }
 

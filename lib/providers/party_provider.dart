@@ -137,11 +137,11 @@ class PartyProvider extends DisposableProvider {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
 
-    // ⚡⚡⚡ OPTIMISTIC LOADING: Try API immediately without internet check!
+    // OPTIMISTIC LOADING: Try API immediately without internet check!
     // This saves ~2 seconds that was spent on connectivity check
     try {
       final http.Response response = await http.get(
-        Uri.parse(AppConfig.baseURL + "products/party?groupCd=85"),
+        Uri.parse(AppConfig.baseURL + "products/party"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
@@ -151,7 +151,7 @@ class PartyProvider extends DisposableProvider {
       );
       print("Here the product page is calling :-  " +
           AppConfig.baseURL +
-          "products/party?groupCd=85");
+          "products/party");
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {

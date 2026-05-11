@@ -24,7 +24,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 import '../constants/constants.dart';
@@ -965,9 +964,13 @@ class Services {
         return accountLEadgerDetailReportModalFromJson(response.body);
       } else {
         print('print 17');
-        ub.userSignout(context).then((value) {
-          Get.offAll(() => LoginPage());
-        });
+        // ub.userSignout(context).then((value) {
+        //   Get.offAll(() => LoginPage());
+        // });
+        AppSnackBar.showGetXCustomSnackBar(
+          message: "Invalid Data Found",
+          backgroundColor: Colors.red,
+        );
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);

@@ -238,6 +238,7 @@ Future<bool> _showSelfieDialogAndUpload(
   selfieDialogQuote.value = '';
   unawaited(_fetchSelfieDialogQuote());
   bool uploadSuccess = false;
+
   await Get.dialog(
     Obx(() => AlertDialog(
           clipBehavior: Clip.antiAlias,
@@ -545,10 +546,10 @@ class _ProductsPageState extends State<ProductsPage> {
       final setting = profile.data?.profileSettings.firstWhere(
         (e) => e.variable == 'continuousLocationTracking',
       );
-      return (setting?.value ?? 'Y') == 'Y';
+      return (setting?.value ?? 'N') == 'Y';
     } catch (e) {
-      // Setting not found, default to continuous tracking (Y)
-      return true;
+      // Setting not found, default to disabled so sorting stays off.
+      return false;
     }
   }
 
@@ -713,14 +714,20 @@ class _ProductsPageState extends State<ProductsPage> {
         controller.hasStockistAccess.value = false;
       }
 
+      // Mirror stockist restore: restore persisted party selection as well
+      await controller.restorePartySelection();
+
       if ((widget.initialStockistCd ?? '').trim().isNotEmpty) {
         await _applyInitialStockistSelection(widget.initialStockistCd!.trim());
       }
 
-      controller.selectedPartyName.value = Helper.trimValue(
-          profile.YN == 'Y' ? party.punchInOutParty : party.party, 25);
-      controller.selectedPartyId.value = Helper.trimValue(
-          profile.YN == 'Y' ? party.punchInOutPartyId : party.partyid, 25);
+      // Only set default party values when there is no persisted/selected party
+      if (controller.selectedPartyId.value.isEmpty) {
+        controller.selectedPartyName.value = Helper.trimValue(
+            profile.YN == 'Y' ? party.punchInOutParty : party.party, 25);
+        controller.selectedPartyId.value = Helper.trimValue(
+            profile.YN == 'Y' ? party.punchInOutPartyId : party.partyid, 25);
+      }
 
       if (controller.selectedPartyId.value.isNotEmpty) {
         cartController.productAddedStates.clear(); // Clear previous state
@@ -798,24 +805,20 @@ class _ProductsPageState extends State<ProductsPage> {
   bool _isStockistUserLinkEnabled(ProfileProvider profile) {
     final settings = profile.data?.profileSettings;
     if (settings == null || settings.isEmpty) {
-      return true;
+      return false;
     }
 
     final stockistSetting = settings.firstWhereOrNull(
-      (e) =>
-          (e.variable?.toString().trim().toLowerCase() ?? '') ==
-          'showstockistuserlink',
+      (e) => (e.variable?.toString().trim() ?? '') == 'showStockistUserLink',
     );
 
     if (stockistSetting == null) {
-      return true;
+      return false;
     }
 
     final normalizedValue =
         stockistSetting.value?.toString().trim().toUpperCase() ?? '';
-    return normalizedValue != 'N' &&
-        normalizedValue != '0' &&
-        normalizedValue != 'FALSE';
+    return normalizedValue == 'Y';
   }
 
   bool _requiresStockistSelection(ProfileProvider profile) {
@@ -1131,17 +1134,6 @@ class _ProductsPageState extends State<ProductsPage> {
           //         : party.partyid,
           //     25);
 
-          final isPunchEnabled = profile.data?.profileSettings
-                  .firstWhereOrNull((e) => e.variable == 'punchInOut')
-                  ?.value ==
-              'Y';
-
-          controller.selectedPartyName.value = Helper.trimValue(
-              isPunchEnabled ? party.punchInOutParty : party.party, 25);
-
-          controller.selectedPartyId.value = Helper.trimValue(
-              isPunchEnabled ? party.punchInOutPartyId : party.partyid, 25);
-
           return Expanded(
             child: Text(
               Helper.trimValue(partyName, 35),
@@ -1175,19 +1167,31 @@ class _ProductsPageState extends State<ProductsPage> {
                             return;
                           }
 
-                          // All validations passed - check selfie
-                          final selfieOk = await _checkSelfieUploadedToday();
-                          if (selfieOk) {
+                          // Check if module 120 is available with READ_RIGHT
+                          final hasModule120 = profile.data != null &&
+                              profile.data!.modulesList != null &&
+                              profile.data!.modulesList!.any((module) =>
+                                  module.mODULENO == "120" &&
+                                  module.rEADRIGHT == true);
+
+                          // If module 120 is not available, skip selfie and show menu
+                          if (!hasModule120) {
                             showMenu();
                           } else {
-                            final profile = Provider.of<ProfileProvider>(
-                                context,
-                                listen: false);
-                            final party = Provider.of<PartyProvider>(context,
-                                listen: false);
-                            final uploaded = await _showSelfieDialogAndUpload(
-                                profile, party);
-                            if (uploaded) showMenu();
+                            // All validations passed - check selfie
+                            final selfieOk = await _checkSelfieUploadedToday();
+                            if (selfieOk) {
+                              showMenu();
+                            } else {
+                              final profile = Provider.of<ProfileProvider>(
+                                  context,
+                                  listen: false);
+                              final party = Provider.of<PartyProvider>(context,
+                                  listen: false);
+                              final uploaded = await _showSelfieDialogAndUpload(
+                                  profile, party);
+                              if (uploaded) showMenu();
+                            }
                           }
                         },
                   child: _isOrderProcessing
@@ -1931,8 +1935,14 @@ class _ProductsPageState extends State<ProductsPage> {
     // 📍 Sort parties by distance in background (non-blocking)
     Future.microtask(() async {
       try {
-        await pp.sortPartiesByDistance();
-        print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        final profile = Provider.of<ProfileProvider>(context, listen: false);
+        if (_isContinuousLocationTrackingEnabled(profile)) {
+          await pp.sortPartiesByDistance();
+          print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        } else {
+          print(
+              '[PARTY_MENU] ⏭️ Skipped party distance sort because continuousLocationTracking != Y');
+        }
         if (mounted) {
           this.setState(() {
             _isSorting = false;
@@ -1995,7 +2005,14 @@ class _ProductsPageState extends State<ProductsPage> {
                     // 🛡️ Mounted guard: Prevent null context if widget disposed
                     if (!mounted || !context.mounted) return;
                     await pp.getPartyNameProductPage(context);
-                    await pp.sortPartiesByDistance();
+                    final profile =
+                        Provider.of<ProfileProvider>(context, listen: false);
+                    if (_isContinuousLocationTrackingEnabled(profile)) {
+                      await pp.sortPartiesByDistance();
+                    } else {
+                      print(
+                          '[PARTY_MENU] ⏭️ Skipped menu party sort because continuousLocationTracking != Y');
+                    }
                     if (!mounted || !context.mounted)
                       return; // Guard before setState
                     setStatee(() {});
@@ -2144,6 +2161,12 @@ class _ProductsPageState extends State<ProductsPage> {
                                                     controller.selectedPartyId
                                                             .value =
                                                         selectedParty.accCd;
+
+                                                    await controller
+                                                        .persistPartySelection(
+                                                            selectedParty.accCd,
+                                                            selectedParty
+                                                                .accName);
 
                                                     print(
                                                         '[START_ORDER] 📝 Party selected: ${selectedParty.accName} (${selectedParty.accCd})');
@@ -2302,8 +2325,14 @@ class _ProductsPageState extends State<ProductsPage> {
     // 📍 Sort parties by distance in background (non-blocking)
     Future.microtask(() async {
       try {
-        await pp.sortPartiesByDistance();
-        print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        final profile = Provider.of<ProfileProvider>(context, listen: false);
+        if (_isContinuousLocationTrackingEnabled(profile)) {
+          await pp.sortPartiesByDistance();
+          print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        } else {
+          print(
+              '[PARTY_MENU] ⏭️ Skipped party distance sort because continuousLocationTracking != Y');
+        }
         if (mounted) {
           this.setState(() {
             _isSorting = false;
@@ -2395,7 +2424,7 @@ class _ProductsPageState extends State<ProductsPage> {
           controller.selectedPartyId.value = selectedParty.accCd;
 
           // 🔥 Persist party selection (survives app restart)
-          controller.persistPartySelection(
+          await controller.persistPartySelection(
               selectedParty.accCd, selectedParty.accName);
 
           log("Selected Party Name: ${controller.selectedPartyName.value}");
