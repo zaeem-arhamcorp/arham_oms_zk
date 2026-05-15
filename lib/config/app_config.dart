@@ -27,12 +27,14 @@ class AppConfig {
   //9033546913 Mahesh Patadiya - Password: 101
   //7383169201 Mehul Dholariya
 
-  // TODO: Update today's date before building apk
-  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  // flutter build apk --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
   // TODO: Update today's date before building apk
-  // static const String baseURL =
-  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+
+  // TODO: Update today's date before building apk
+  static const String baseURL =
+      "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // static const String baseURL =
   //     "https://api.arhamcorp.in/api/"; //TODO: Production

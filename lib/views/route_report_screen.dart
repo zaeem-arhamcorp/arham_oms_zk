@@ -47,6 +47,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       <int, Map<String, String>>{};
   final Map<int, Map<String, String>> _distanceBreakdownByTripId =
       <int, Map<String, String>>{};
+  final Map<int, String> _durationByTripId = <int, String>{};
   final Set<int> _gapLoadingIds = <int>{};
 
   // User dropdown state
@@ -850,13 +851,44 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   }
 
   String _durationFromMap(Map<String, dynamic> map) {
+    final orderTiming = _firstMapValue(map, [
+      'orderTrackingTiming',
+      'order_tracking_timing',
+    ]);
+    final nestedCoverage = orderTiming == null
+        ? null
+        : _firstMapValue(orderTiming, ['coverage', 'COVERAGE']);
+    final nestedCoverageFormatted = nestedCoverage == null
+        ? null
+        : _firstValue(nestedCoverage, [
+            'TOTAL_DURATION_FORMATTED',
+            'total_duration_formatted',
+          ]);
+    if (nestedCoverageFormatted != null &&
+        nestedCoverageFormatted.toString().trim().isNotEmpty) {
+      return nestedCoverageFormatted.toString();
+    }
+
+    final coverage = _firstMapValue(map, ['coverage', 'COVERAGE']);
+    final coverageFormatted = coverage == null
+        ? null
+        : _firstValue(coverage, [
+            'TOTAL_DURATION_FORMATTED',
+            'total_duration_formatted',
+          ]);
+    if (coverageFormatted != null &&
+        coverageFormatted.toString().trim().isNotEmpty) {
+      return coverageFormatted.toString();
+    }
+
     final formatted = _firstValue(map, [
-      'duration_formatted',
-      'total_duration_formatted',
+      // 'duration_formatted',
+      // 'total_duration_formatted',
+      'TOTAL_DURATION_FORMATTED',
       // 'total_duration',
-      'moving_time_formatted',
-      'movingTimeFormatted',
-      'durationFormatted',
+      // 'moving_time_formatted',
+      // 'movingTimeFormatted',
+      // 'durationFormatted',
     ]);
     if (formatted != null && formatted.toString().trim().isNotEmpty) {
       return formatted.toString();
@@ -961,6 +993,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         'distance_breakdown',
         'distanceBreakdown',
       ]);
+      final coverage = _firstMapValue(orderTiming, [
+        'coverage',
+        'COVERAGE',
+      ]);
 
       String _readFormatted(Map<String, dynamic>? value) {
         if (value == null) return '-';
@@ -989,6 +1025,17 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
               'transitKm',
             ]));
 
+      final coverageDurationFormatted = coverage == null
+          ? null
+          : _firstValue(coverage, [
+              'TOTAL_DURATION_FORMATTED',
+              'total_duration_formatted',
+            ]);
+      final coverageDurationText =
+          coverageDurationFormatted?.toString().trim().isNotEmpty == true
+              ? coverageDurationFormatted.toString().trim()
+              : null;
+
       if (!mounted) return;
       setState(() {
         _gapInfoByTripId[tripId] = {
@@ -1000,6 +1047,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           'BUSINESS_KM': businessKm,
           'transitKm': transitKm,
         };
+
+        if (coverageDurationText != null) {
+          _durationByTripId[tripId] = coverageDurationText;
+        }
       });
     } catch (e, stack) {
       await CrashlyticsService.recordNonFatal(
@@ -1414,6 +1465,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final businessKmText = distanceBreakdown == null
         ? '-'
         : '${distanceBreakdown['BUSINESS_KM'] ?? '-'}';
+    final durationText = _durationByTripId[tripId] ?? _durationFromMap(trip);
     final hasSelfie = _tripHasSelfie(trip);
 
     return GestureDetector(
@@ -1563,7 +1615,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                 _metricTile(
                   icon: Icons.schedule,
                   label: 'DURATION',
-                  value: _durationFromMap(trip),
+                  value: durationText,
                 ),
                 const SizedBox(width: 10),
                 _metricTile(
