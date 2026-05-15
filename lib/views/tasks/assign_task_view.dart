@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import '../../product/widget/app_snack_bar.dart';
 
 class AssignTaskView extends StatefulWidget {
   const AssignTaskView({super.key});
@@ -122,9 +123,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
         _isLoadingStockists = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading stockists: $e')),
-        );
+        AppSnackBar.snackBarErrorMsg(context, 'Error loading stockists');
       }
     }
   }
@@ -165,9 +164,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
         _isLoadingDepartments = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading departments: $e')),
-        );
+        AppSnackBar.snackBarErrorMsg(context, 'Error loading departments');
       }
     }
   }
@@ -177,44 +174,33 @@ class _AssignTaskViewState extends State<AssignTaskView> {
     final String description = _descriptionController.text.trim();
 
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter issue title')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(message: 'Please enter issue title');
       return;
     }
 
     if (description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter issue description')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(
+          message: 'Please enter issue description');
       return;
     }
 
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select category')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(message: 'Please select category');
       return;
     }
 
     if (_selectedDueDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select due date')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(message: 'Please select due date');
       return;
     }
 
     if (_selectedStockist == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a dealer')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(message: 'Please select a dealer');
       return;
     }
 
     if (_selectedDepartmentCode == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select department')),
-      );
+      AppSnackBar.showGetXCustomSnackBar(message: 'Please select department');
       return;
     }
 
@@ -258,12 +244,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
 
       // Response was successfully parsed from HTTP 200/201, so show success
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task assigned successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackBar.snackBarSuccessMsg(context, 'Task assigned successfully!');
       }
 
       // Clear form
@@ -282,12 +263,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
       _logDebug('_submitAssignIssue error: $e');
       print('Error submitting issue: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackBar.snackBarErrorMsg(context, 'Failed to assign task');
       }
     } finally {
       setState(() {

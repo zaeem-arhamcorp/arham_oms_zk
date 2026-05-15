@@ -98,7 +98,7 @@ class _AboutPageState extends State<AboutPage> {
                 Icons.search,
                 'Visit On',
                 'https://arhamcorp.in',
-                'arhamcorp.in.in',
+                'arhamcorp.in',
               ),
               SizedBox(
                 height: 45,

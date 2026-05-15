@@ -124,7 +124,7 @@ class DatumPartyname {
       creditDay: json['CREDIT_DAY'],
       crLimit: json['CR_LIMIT'],
       distanceInMeters: null,
-      lastOrderDays: json['LAST_ORDER_DAYS_AGO'] ?? 0);
+      lastOrderDays: json['LAST_ORDER_DAYS_AGO'] ?? null);
 
   Map<String, dynamic> toJson() => {
         "ACC_CD": accCd,

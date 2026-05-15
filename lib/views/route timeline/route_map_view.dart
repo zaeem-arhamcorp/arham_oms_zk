@@ -73,6 +73,7 @@ class _RouteMapViewState extends State<RouteMapView> {
   final Set<Marker> _markers = {};
   final Set<Marker> _userLocationMarkers =
       {}; // Persistent user location markers
+  bool _hideUserLocationMarkers = false;
 
   // Bottom sheet state
   double _currentSheetSize = 0.35;
@@ -270,6 +271,26 @@ class _RouteMapViewState extends State<RouteMapView> {
             continue;
           }
 
+          // If users payload contains last known coords, show marker immediately
+          try {
+            final lastLat = user['lastLat'];
+            final lastLng = user['lastLng'];
+            if (lastLat != null && lastLng != null) {
+              final latD = (lastLat is num)
+                  ? lastLat.toDouble()
+                  : double.tryParse(lastLat.toString());
+              final lngD = (lastLng is num)
+                  ? lastLng.toDouble()
+                  : double.tryParse(lastLng.toString());
+              if (latD != null && lngD != null) {
+                _addUserMarkerToMap(
+                    (user['tripId'] ?? 0) as int, LatLng(latD, lngD), userCode);
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+
           final tripId = user['tripId'] is num
               ? (user['tripId'] as num).toInt()
               : (int.tryParse(user['tripId']?.toString() ?? '') ?? 0);
@@ -421,6 +442,9 @@ class _RouteMapViewState extends State<RouteMapView> {
               .toString()
               .trim();
 
+      // Try to extract last known coordinates from user payload
+      final lastCoords = _extractLatLngFromUserPayload(user);
+
       usersWithData.add({
         'userCode': userCode,
         'userName': userName,
@@ -433,6 +457,8 @@ class _RouteMapViewState extends State<RouteMapView> {
         'knownPunchInTime': knownPunchInTime,
         'knownPunchOutTime': knownPunchOutTime,
         'lastGpsAt': lastGpsAt,
+        'lastLat': lastCoords?.latitude,
+        'lastLng': lastCoords?.longitude,
         'punchInTime': punchInTime,
         'punchOutTime': punchOutTime,
         'punchStatus': derivedPunchStatus,
@@ -603,6 +629,28 @@ class _RouteMapViewState extends State<RouteMapView> {
         _isLoadingAllUsersForSearch = false;
       });
 
+      // Add markers for any users that contain last known coords
+      try {
+        for (final user in mappedUsers) {
+          final userCode = _normalizeCode(user['userCode']);
+          if (userCode.isEmpty) continue;
+          final lastLat = user['lastLat'];
+          final lastLng = user['lastLng'];
+          if (lastLat != null && lastLng != null) {
+            final latD = (lastLat is num)
+                ? lastLat.toDouble()
+                : double.tryParse(lastLat.toString());
+            final lngD = (lastLng is num)
+                ? lastLng.toDouble()
+                : double.tryParse(lastLng.toString());
+            if (latD != null && lngD != null) {
+              _addUserMarkerToMap(
+                  (user['tripId'] ?? 0) as int, LatLng(latD, lngD), userCode);
+            }
+          }
+        }
+      } catch (_) {}
+
       final loadedPages = currentPage > 0 ? currentPage : 1;
       print(
         '[RouteMapView] [$source] Full preload complete across $loadedPages pages: totalUsers=${mappedUsers.length}',
@@ -656,7 +704,9 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     _polylines.clear();
     _markers.clear();
-    _markers.addAll(_userLocationMarkers);
+    if (!_hideUserLocationMarkers) {
+      _markers.addAll(_userLocationMarkers);
+    }
 
     _fetchTimelineForUser(user, initialDate, preferredTripId: initialTripId);
   }
@@ -1002,6 +1052,83 @@ class _RouteMapViewState extends State<RouteMapView> {
     } catch (_) {
       return null;
     }
+  }
+
+  LatLng? _extractLatLngFromUserPayload(Map<String, dynamic> user) {
+    // Look for common coordinate representations in user payload
+    dynamic lastPoint =
+        user['last_point'] ?? user['LAST_POINT'] ?? user['lastPoint'];
+    if (lastPoint is Map) {
+      final lat = lastPoint['lat'] ??
+          lastPoint['latitude'] ??
+          lastPoint['LAT'] ??
+          lastPoint['LATITUDE'];
+      final lng = lastPoint['lng'] ??
+          lastPoint['longitude'] ??
+          lastPoint['LNG'] ??
+          lastPoint['LONGITUDE'] ??
+          lastPoint['lon'] ??
+          lastPoint['long'];
+      final latD = (lat is num)
+          ? lat.toDouble()
+          : double.tryParse(lat?.toString() ?? '');
+      final lngD = (lng is num)
+          ? lng.toDouble()
+          : double.tryParse(lng?.toString() ?? '');
+      if (latD != null && lngD != null) return LatLng(latD, lngD);
+    }
+
+    // Direct fields
+    final latCandidates = [
+      user['lat'],
+      user['LAT'],
+      user['latitude'],
+      user['LATITUDE'],
+      user['last_lat'],
+      user['LAST_LAT'],
+    ];
+    final lngCandidates = [
+      user['lng'],
+      user['LNG'],
+      user['longitude'],
+      user['LONGITUDE'],
+      user['last_lng'],
+      user['LAST_LNG'],
+      user['long'],
+      user['LONG'],
+    ];
+
+    double? latD;
+    double? lngD;
+    for (final c in latCandidates) {
+      if (c == null) continue;
+      latD = (c is num) ? c.toDouble() : double.tryParse(c.toString());
+      if (latD != null) break;
+    }
+    for (final c in lngCandidates) {
+      if (c == null) continue;
+      lngD = (c is num) ? c.toDouble() : double.tryParse(c.toString());
+      if (lngD != null) break;
+    }
+    if (latD != null && lngD != null) return LatLng(latD, lngD);
+
+    // Some payloads store 'lat,long' in a single string
+    final combined = user['latlng'] ??
+        user['lat_long'] ??
+        user['lat,lng'] ??
+        user['location'] ??
+        user['LOC'] ??
+        user['LOCATION'];
+    if (combined is String && combined.contains(',')) {
+      final parts = combined.split(',');
+      if (parts.length >= 2) {
+        final a = double.tryParse(parts[0].trim());
+        final b = double.tryParse(parts[1].trim());
+        if (a != null && b != null) return LatLng(a, b);
+      }
+    }
+
+    return null;
   }
 
   bool _isSameCalendarDate(DateTime a, DateTime b) {
@@ -1402,8 +1529,10 @@ class _RouteMapViewState extends State<RouteMapView> {
     });
     _polylines.clear();
     _markers.clear();
-    // Re-add user location markers
-    _markers.addAll(_userLocationMarkers);
+    // Re-add user location markers only when not explicitly hidden
+    if (!_hideUserLocationMarkers) {
+      _markers.addAll(_userLocationMarkers);
+    }
 
     try {
       // First, fetch trips for the selected date
@@ -2024,8 +2153,8 @@ class _RouteMapViewState extends State<RouteMapView> {
     setState(() {
       _polylines.clear();
       _markers.clear();
-      // Preserve user location markers
-      _markers.addAll(_userLocationMarkers);
+      // When showing a route, hide user location markers
+      _hideUserLocationMarkers = true;
     });
 
     if (routePoints.isEmpty) {
@@ -2094,6 +2223,36 @@ class _RouteMapViewState extends State<RouteMapView> {
     _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
   }
 
+  void _onUserMarkerTap(String normalizedUserCode) {
+    // Find the user and open their trip in the bottom sheet, hiding other markers
+    final userIndex = _users
+        .indexWhere((u) => _normalizeCode(u['userCode']) == normalizedUserCode);
+    if (userIndex < 0) {
+      print(
+          '[RouteMapView] Tapped marker but user not found: $normalizedUserCode');
+      return;
+    }
+
+    final user = _users[userIndex];
+
+    setState(() {
+      _hideUserLocationMarkers = true;
+      _polylines.clear();
+      _markers.clear();
+      _selectedUser = user;
+      _selectedTimelineDate = DateTime.now();
+      _selectedTrip = null;
+    });
+
+    // Expand bottom sheet slightly and fetch timeline
+    try {
+      _sheetController.animateTo(0.5,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    } catch (_) {}
+
+    _fetchTimelineForUser(user, DateTime.now());
+  }
+
   void _selectUser(Map<String, dynamic> user) {
     setState(() {
       _selectedUser = user;
@@ -2102,8 +2261,10 @@ class _RouteMapViewState extends State<RouteMapView> {
     });
     _polylines.clear();
     _markers.clear();
-    // Re-add user location markers
-    _markers.addAll(_userLocationMarkers);
+    // Re-add user location markers only when not hidden
+    if (!_hideUserLocationMarkers) {
+      _markers.addAll(_userLocationMarkers);
+    }
     _fetchTimelineForUser(user, DateTime.now());
   }
 
@@ -2122,7 +2283,8 @@ class _RouteMapViewState extends State<RouteMapView> {
     });
     _polylines.clear();
     _markers.clear();
-    // Re-add user location markers
+    // Restore user location markers when leaving a route view
+    _hideUserLocationMarkers = false;
     _markers.addAll(_userLocationMarkers);
   }
 
@@ -3249,7 +3411,9 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   void _addUserMarkerToMap(int tripId, LatLng point, String userCode) {
     // Look up the user from the _users list using userCode to get correct name and photo
-    final userIndex = _users.indexWhere((u) => u['userCode'] == userCode);
+    final normalizedUserCode = _normalizeCode(userCode);
+    final userIndex = _users
+        .indexWhere((u) => _normalizeCode(u['userCode']) == normalizedUserCode);
     if (userIndex < 0) {
       print('[RouteMapView] User not found for userCode: $userCode');
       return;
@@ -3265,23 +3429,22 @@ class _RouteMapViewState extends State<RouteMapView> {
 
     _createCustomMarker(photoUrl, userName).then((customIcon) {
       setState(() {
-        _userLocationMarkers.add(
-          Marker(
-            markerId: MarkerId('user_$tripId'),
-            position: point,
-            infoWindow: InfoWindow(title: userName),
-            icon: customIcon,
-          ),
+        final markerId = MarkerId('user_${normalizedUserCode}');
+        final marker = Marker(
+          markerId: markerId,
+          position: point,
+          infoWindow: InfoWindow(title: userName),
+          icon: customIcon,
+          onTap: () => _onUserMarkerTap(normalizedUserCode),
         );
-        // Also add to _markers so they're visible immediately
-        _markers.add(
-          Marker(
-            markerId: MarkerId('user_$tripId'),
-            position: point,
-            infoWindow: InfoWindow(title: userName),
-            icon: customIcon,
-          ),
-        );
+
+        _userLocationMarkers.removeWhere((m) => m.markerId == markerId);
+        _userLocationMarkers.add(marker);
+
+        if (!_hideUserLocationMarkers) {
+          _markers.removeWhere((m) => m.markerId == markerId);
+          _markers.add(marker);
+        }
       });
     }).catchError((e) {
       print('[RouteMapView] Error creating marker: $e');
@@ -3638,7 +3801,9 @@ class _RouteMapViewState extends State<RouteMapView> {
                 ),
                 myLocationEnabled: true,
                 polylines: _polylines,
-                markers: _markers,
+                markers: _hideUserLocationMarkers
+                    ? _markers
+                    : {..._markers, ..._userLocationMarkers},
               ),
 
               // Back Button (with smart behavior)

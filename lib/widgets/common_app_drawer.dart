@@ -476,21 +476,24 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
           //     Get.to(() => ProfilePage());
           //   },
           // ),
-          ListTile(
-            leading: Icon(
-              Icons.store,
-              size: 30,
-            ),
-            title: Text(
-              'Party Management',
-              style: TextStyle(
-                fontSize: 20,
+          if (p.data != null &&
+              p.data!.modulesList!.any((module) =>
+                  module.mODULENO == "102" && module.rEADRIGHT == true))
+            ListTile(
+              leading: Icon(
+                Icons.store,
+                size: 30,
               ),
+              title: Text(
+                'Party Management',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => AccountListScreen());
+              },
             ),
-            onTap: () {
-              Get.to(() => AccountListScreen());
-            },
-          ),
           if (ub.role == AppConfig.masteruser)
             ListTile(
               leading: Icon(

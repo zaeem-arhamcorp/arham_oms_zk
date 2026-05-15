@@ -32,7 +32,7 @@ class AppConfig {
 
   // TODO: Update today's date before building apk
   // static const String baseURL =
-  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // static const String baseURL =
   //     "https://api.arhamcorp.in/api/"; //TODO: Production

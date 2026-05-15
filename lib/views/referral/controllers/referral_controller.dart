@@ -80,6 +80,7 @@ class ReferralController extends GetxController {
           // The API returns { status: true, data: { code: "REF_...", play_store_link: "...", ... } }
           if (data['data'] is Map && data['data']['code'] != null) {
             referralCode.value = data['data']['code'].toString();
+            print(response.body);
             // Also store the play_store_link from API
             if (data['data']['play_store_link'] != null) {
               playStoreLink.value = data['data']['play_store_link'].toString();
@@ -88,6 +89,7 @@ class ReferralController extends GetxController {
             AppSnackBar.showGetXCustomSnackBar(
               message: 'Failed to generate referral code',
             );
+            print(data);
           }
         } else {
           // try to decode message for clearer feedback

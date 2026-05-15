@@ -418,23 +418,20 @@ class Helper {
       );
     }
 
-    // Format last order days into readable text
-    final lastOrderDaysValue = listOfParty[index].lastOrderDays;
-    String lastOrderText = '';
-    if (lastOrderDaysValue != null) {
-      final daysAgo = lastOrderDaysValue;
-      if (daysAgo == null) {
-        lastOrderText = 'No previous order';
-      }
-      if (daysAgo == 0) {
-        lastOrderText = 'Last order: Today';
-      } else if (daysAgo == 1) {
-        lastOrderText = 'Last order: Yesterday';
-      } else if (daysAgo > 1) {
-        lastOrderText = 'Last order: $daysAgo days ago';
-      } else {
-        lastOrderText = 'No previous order';
-      }
+    // Format last-order age into a readable and non-empty label.
+    final int? daysAgo = listOfParty[index].lastOrderDays;
+    late final String lastOrderText;
+    if (daysAgo == null) {
+      lastOrderText = 'No previous order';
+    } else if (daysAgo == 0) {
+      lastOrderText = 'Last order: Today';
+    } else if (daysAgo == 1) {
+      lastOrderText = 'Last order: Yesterday';
+    } else if (daysAgo > 1) {
+      lastOrderText = 'Last order: $daysAgo days ago';
+    } else {
+      // Defensive fallback for unexpected negative values.
+      lastOrderText = 'No previous order';
     }
 
     // Get beat information if party has beatCd

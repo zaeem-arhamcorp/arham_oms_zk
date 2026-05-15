@@ -38,8 +38,6 @@ import '../model/selfie_dialog_taglines.dart';
 import '../widget/app_bar.dart';
 import '../widget/chip_widget.dart';
 
-// ...existing code...
-
 final Rx<File?> selfieFile = Rx<File?>(null);
 final RxBool isSelfieUploading = false.obs;
 final RxString selfieDialogQuote = ''.obs;
@@ -714,9 +712,6 @@ class _ProductsPageState extends State<ProductsPage> {
         controller.hasStockistAccess.value = false;
       }
 
-      // Mirror stockist restore: restore persisted party selection as well
-      await controller.restorePartySelection();
-
       if ((widget.initialStockistCd ?? '').trim().isNotEmpty) {
         await _applyInitialStockistSelection(widget.initialStockistCd!.trim());
       }
@@ -1242,9 +1237,6 @@ class _ProductsPageState extends State<ProductsPage> {
                             // Clear the selected party name
                             controller.selectedPartyName.value = '';
                             controller.selectedPartyId.value = '';
-
-                            // 🔥 Clear persisted party selection
-                            controller.clearPersistedPartySelection();
 
                             // Reset state
                             setState(() {
@@ -2162,12 +2154,6 @@ class _ProductsPageState extends State<ProductsPage> {
                                                             .value =
                                                         selectedParty.accCd;
 
-                                                    await controller
-                                                        .persistPartySelection(
-                                                            selectedParty.accCd,
-                                                            selectedParty
-                                                                .accName);
-
                                                     print(
                                                         '[START_ORDER] 📝 Party selected: ${selectedParty.accName} (${selectedParty.accCd})');
 
@@ -2422,10 +2408,6 @@ class _ProductsPageState extends State<ProductsPage> {
 
           controller.selectedPartyName.value = selectedParty.accName;
           controller.selectedPartyId.value = selectedParty.accCd;
-
-          // 🔥 Persist party selection (survives app restart)
-          await controller.persistPartySelection(
-              selectedParty.accCd, selectedParty.accName);
 
           log("Selected Party Name: ${controller.selectedPartyName.value}");
           log("Selected Party ID: ${controller.selectedPartyId.value}");
