@@ -77,13 +77,13 @@ class ReferralController extends GetxController {
         if (response.statusCode == 200 || response.statusCode == 201) {
           final data = jsonDecode(response.body);
 
-          // The API returns { status: true, data: { code: "REF_...", play_store_link: "...", ... } }
-          if (data['data'] is Map && data['data']['code'] != null) {
-            referralCode.value = data['data']['code'].toString();
+          // The API returns { message: "...", data: { CODE: "REF_...", PLAY_STORE_LINK: "...", ... } }
+          if (data['data'] is Map && data['data']['CODE'] != null) {
+            referralCode.value = data['data']['CODE'].toString();
             print(response.body);
             // Also store the play_store_link from API
-            if (data['data']['play_store_link'] != null) {
-              playStoreLink.value = data['data']['play_store_link'].toString();
+            if (data['data']['PLAY_STORE_LINK'] != null) {
+              playStoreLink.value = data['data']['PLAY_STORE_LINK'].toString();
             }
           } else {
             AppSnackBar.showGetXCustomSnackBar(

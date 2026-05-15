@@ -17,6 +17,8 @@ class AppConfig {
   //8140263919
   //3919
 
+  //9913889916 - Dipak bhai
+
   //9033881931 Rizwan Ansari  - 1    Master
   //9227451051 Mubassira      - 1    Master
   //9723760786 Zaeem Kadri    - 1    Master
@@ -30,11 +32,11 @@ class AppConfig {
   // flutter build apk --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
   // TODO: Update today's date before building apk
-  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
   // TODO: Update today's date before building apk
-  static const String baseURL =
-      "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  // static const String baseURL =
+  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // static const String baseURL =
   //     "https://api.arhamcorp.in/api/"; //TODO: Production

@@ -653,9 +653,10 @@ class _ProductCardState extends State<ProductCard> {
                       child: TextFormField(
                         controller: quantityController,
                         decoration: const InputDecoration(
-                            hintText: 'Qty', labelText: 'Qty'),
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                          hintText: 'Qty',
+                          labelText: 'Qty',
+                        ),
+                        keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                           SingleDecimalFormatter(),

@@ -43,13 +43,13 @@ class ReferralEarningsData {
 
   factory ReferralEarningsData.fromJson(Map<String, dynamic> json) {
     return ReferralEarningsData(
-      userCd: (json['user_cd'] ?? '').toString(),
-      mobileNo: (json['mobile_no'] ?? '').toString(),
-      totalReferrals: _toInt(json['total_referrals']),
-      successfulReferrals: _toInt(json['successful_referrals']),
-      totalEarnings: _toInt(json['total_earnings']),
-      pendingEarnings: _toInt(json['pending_earnings']),
-      paidEarnings: _toInt(json['paid_earnings']),
+      userCd: (json['USER_CD'] ?? '').toString(),
+      mobileNo: (json['MOBILE_NO'] ?? '').toString(),
+      totalReferrals: _toInt(json['TOTAL_REFERRALS']),
+      successfulReferrals: _toInt(json['SUCCESSFUL_REFERRALS']),
+      totalEarnings: _toInt(json['TOTAL_EARNINGS']),
+      pendingEarnings: _toInt(json['PENDING_EARNINGS']),
+      paidEarnings: _toInt(json['PAID_EARNINGS']),
       referralsList: json['referrals_list'] is List
           ? List<dynamic>.from(json['referrals_list'] as List)
           : const <dynamic>[],

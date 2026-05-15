@@ -16,7 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import '../../models/narrationModal.dart';
 import '../../models/partynameModal.dart';
-import '../../providers/profile_provider.dart';
 import '../../views/loginpage.dart';
 import '../model/product_model.dart';
 
@@ -730,7 +729,7 @@ class ProductController extends GetxController {
   Future<void> fetchPartyNames() async {
     isPartyLoading.value = true;
     try {
-      final response = await _getRequest(endpoint: '/products/party');
+      final response = await _getRequest(endpoint: 'products/party');
       // final response = await _getRequest(endpoint: 'products/party?groupCd=85');
 
       if (response != null) {

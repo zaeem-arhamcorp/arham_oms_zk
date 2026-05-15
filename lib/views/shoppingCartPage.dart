@@ -2008,9 +2008,16 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       'createdAt': DateTime.now().toIso8601String(),
     };
 
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final syncId = (userProvider.syncId ?? '').trim();
+    final payloadKey = syncId.isNotEmpty
+        ? 'whatsapp_share_dialog_payload_$syncId'
+        : 'whatsapp_share_dialog_payload';
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pending_order_share_payload', jsonEncode(payload));
-    print('[Order Share] Pending share payload saved for homepage');
+    await prefs.setString(payloadKey, jsonEncode(payload));
+    print(
+        '[Order Share] Pending share payload saved for homepage: key=$payloadKey');
   }
 
   _handelAddOrder(items) async {

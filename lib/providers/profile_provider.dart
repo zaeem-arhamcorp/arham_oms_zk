@@ -639,6 +639,38 @@ class ProfileProvider extends DisposableProvider {
     }
   }
 
+  bool isWhatsAppShareOnOrderEnabled() {
+    if (_data == null) {
+      print(
+          '[PROFILE] ⚠️ Profile data is NULL - WhatsApp share on order disabled by default');
+      return false;
+    }
+
+    if (_data?.profileSettings == null || _data!.profileSettings.isEmpty) {
+      print(
+          '[PROFILE] ⚠️ Profile settings is NULL/EMPTY - WhatsApp share on order disabled by default');
+      return false;
+    }
+
+    try {
+      for (var setting in _data!.profileSettings) {
+        if (setting.variable == 'askWhatsAppShareOnOrder') {
+          final isEnabled = setting.value?.toString().toUpperCase() == 'Y';
+          print(
+              '[PROFILE] 🔍 Found askWhatsAppShareOnOrder: value=${setting.value} → $isEnabled');
+          return isEnabled;
+        }
+      }
+
+      print(
+          '[PROFILE] ⚠️ askWhatsAppShareOnOrder setting NOT found - defaulting to disabled');
+      return false;
+    } catch (e) {
+      print('[PROFILE] ❌ Error checking askWhatsAppShareOnOrder setting: $e');
+      return false;
+    }
+  }
+
   Future<void> _applyFirmModuleFilter(int syncId) async {
     _ensureLegacyModuleNosFromModulesList();
 

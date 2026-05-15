@@ -90,7 +90,7 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xff2c4ea5),
+                  color: Color(0xfffafafa),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: const [
                     BoxShadow(
@@ -107,7 +107,7 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
                     const Text(
                       'Total Earnings',
                       style: TextStyle(
-                        color: Colors.white70,
+                        // color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -116,7 +116,7 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
                     Text(
                       data != null ? '₹${data.totalEarnings}' : '--',
                       style: const TextStyle(
-                        color: Colors.white,
+                        // color: Colors.white,
                         fontSize: 30,
                         fontWeight: FontWeight.w800,
                       ),
@@ -127,7 +127,7 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
                           ? 'Paid: ₹${data.paidEarnings} | Pending: ₹${data.pendingEarnings}'
                           : 'No earnings yet',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        // color: Colors.white70,
                         fontSize: 12,
                       ),
                     ),
@@ -137,7 +137,7 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
                           ? 'Total referrals: ${data.totalReferrals} | Successful: ${data.successfulReferrals}'
                           : '',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        // color: Colors.white70,
                         fontSize: 12,
                       ),
                     ),

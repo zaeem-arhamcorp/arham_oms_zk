@@ -635,12 +635,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _checkAndShowPendingOrderSharePopup() async {
     if (!mounted || _isOrderShareDialogVisible) return;
 
+    if (!_profileProvider.isWhatsAppShareOnOrderEnabled()) {
+      print('[HomePage] WhatsApp share on order disabled - skipping popup');
+      return;
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final syncId = (userProvider.syncId ?? '').trim();
+    final payloadKey = syncId.isNotEmpty
+        ? 'whatsapp_share_dialog_payload_$syncId'
+        : 'whatsapp_share_dialog_payload';
+    final legacyFirmPayloadKey = syncId.isNotEmpty
+        ? 'pending_order_share_payload_$syncId'
+        : 'pending_order_share_payload';
+    const legacyGlobalPayloadKey = 'pending_order_share_payload';
+
     final prefs = await SharedPreferences.getInstance();
     final shouldShowMilestone =
         prefs.getBool('show_5000_orders_congrats') ?? false;
     final milestoneOrderAmount =
         prefs.getDouble('milestone_order_amount') ?? 5000;
-    final payloadString = prefs.getString('pending_order_share_payload');
+    String? payloadString = prefs.getString(payloadKey);
+    if (payloadString == null || payloadString.trim().isEmpty) {
+      payloadString = prefs.getString(legacyFirmPayloadKey);
+    }
+    if (payloadString == null || payloadString.trim().isEmpty) {
+      payloadString = prefs.getString(legacyGlobalPayloadKey);
+    }
     if (payloadString == null || payloadString.trim().isEmpty) return;
 
     Map<String, dynamic> payload;
@@ -648,7 +669,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       payload = jsonDecode(payloadString) as Map<String, dynamic>;
     } catch (e) {
       print('[HomePage] Invalid pending share payload: $e');
-      await prefs.remove('pending_order_share_payload');
+      await prefs.remove(payloadKey);
+      await prefs.remove(legacyFirmPayloadKey);
+      await prefs.remove(legacyGlobalPayloadKey);
       return;
     }
 
@@ -658,8 +681,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final partyDisplayNumber =
         (payload['partyDisplayNumber'] ?? '').toString().trim();
 
-    final stockistName =
-        (payload['stockistName'] ?? 'Stockist').toString().trim();
+    final stockistName = (payload['stockistName'] ?? null).toString().trim();
     final stockistNumber = (payload['stockistNumber'] ?? '').toString().trim();
     final stockistDisplayNumber =
         (payload['stockistDisplayNumber'] ?? '').toString().trim();
@@ -668,7 +690,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final hasStockist = stockistNumber.isNotEmpty;
 
     // Consume payload once so popup appears only once after success redirect
-    await prefs.remove('pending_order_share_payload');
+    await prefs.remove(payloadKey);
+    await prefs.remove(legacyFirmPayloadKey);
+    await prefs.remove(legacyGlobalPayloadKey);
 
     if (reportUrl.isEmpty || (!hasParty && !hasStockist)) {
       print('[HomePage] Pending share payload has no valid report/recipient');
@@ -764,26 +788,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 : 'No WhatsApp/Phone number available',
                           ),
                         ),
-                        CheckboxListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          value: shareStockist,
-                          onChanged: hasStockist
-                              ? (val) {
-                                  setDialogState(() {
-                                    shareStockist = val ?? false;
-                                    validationError = '';
-                                  });
-                                }
-                              : null,
-                          title: Text(
-                              'Stockist: ${stockistName.isEmpty ? 'N/A' : stockistName}'),
-                          subtitle: Text(
-                            hasStockist
-                                ? 'Number: $stockistDisplayNumber'
-                                : 'No WhatsApp/Phone number available',
+                        if (hasStockist)
+                          CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            value: shareStockist,
+                            onChanged: hasStockist
+                                ? (val) {
+                                    setDialogState(() {
+                                      shareStockist = val ?? false;
+                                      validationError = '';
+                                    });
+                                  }
+                                : null,
+                            title: Text(
+                                'Stockist: ${stockistName.isEmpty ? 'N/A' : stockistName}'),
+                            subtitle: Text(
+                              hasStockist
+                                  ? 'Number: $stockistDisplayNumber'
+                                  : 'No WhatsApp/Phone number available',
+                            ),
                           ),
-                        ),
                         if (validationError.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
