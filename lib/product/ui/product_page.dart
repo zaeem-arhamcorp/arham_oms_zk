@@ -1862,10 +1862,15 @@ class _ProductsPageState extends State<ProductsPage> {
 
   void showMenu1() {
     final PartyProvider pp = Provider.of<PartyProvider>(context, listen: false);
+    final ProfileProvider profile =
+        Provider.of<ProfileProvider>(context, listen: false);
 
     // ⚡ IMPORTANT: Show menu INSTANTLY without waiting for sort!
     print('[PARTY_MENU] ⚡ START_ORDER: Showing cached party list instantly...');
-    _isSorting = true; // Mark sorting as in progress
+
+    // Only mark sorting as in progress if it will actually happen
+    final bool willSort = _isContinuousLocationTrackingEnabled(profile);
+    _isSorting = willSort;
 
     // Show the menu immediately
     showModalBottomSheet(
@@ -1924,31 +1929,26 @@ class _ProductsPageState extends State<ProductsPage> {
       },
     );
 
-    // 📍 Sort parties by distance in background (non-blocking)
-    Future.microtask(() async {
-      try {
-        final profile = Provider.of<ProfileProvider>(context, listen: false);
-        if (_isContinuousLocationTrackingEnabled(profile)) {
+    // 📍 Sort parties by distance in background (non-blocking) - only if enabled
+    if (willSort) {
+      Future.microtask(() async {
+        try {
           await pp.sortPartiesByDistance();
           print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
-        } else {
-          print(
-              '[PARTY_MENU] ⏭️ Skipped party distance sort because continuousLocationTracking != Y');
+        } catch (e) {
+          print('[PARTY_MENU] ⚠️ Background: Sort failed: $e');
+        } finally {
+          if (mounted) {
+            this.setState(() {
+              _isSorting = false;
+            });
+          }
         }
-        if (mounted) {
-          this.setState(() {
-            _isSorting = false;
-          });
-        }
-      } catch (e) {
-        print('[PARTY_MENU] ⚠️ Background: Sort failed: $e');
-        if (mounted) {
-          this.setState(() {
-            _isSorting = false;
-          });
-        }
-      }
-    });
+      });
+    } else {
+      print(
+          '[PARTY_MENU] ⏭️ Skipped party distance sort because continuousLocationTracking != Y');
+    }
   }
 
   Future<void> showMenu() async {
@@ -1969,11 +1969,40 @@ class _ProductsPageState extends State<ProductsPage> {
     // ⚡ IMPORTANT: Show menu INSTANTLY without waiting for sort!
     print(
         '[PARTY_MENU] ⚡ Using cached party list (no API call, showing instantly)...');
-    _isSorting = true; // Mark sorting as in progress
-
-    // Capture page-level context BEFORE the bottom sheet opens
+    _tempParty = [];
+    searchPartyClt.clear();
     final BuildContext pageContext = context;
-    bool _hasLoadedPartyDataInThisSheet = false; // Guard against infinite loop
+
+    Future.microtask(() async {
+      try {
+        await pp.getPartyNameProductPage(pageContext);
+        final profile =
+            Provider.of<ProfileProvider>(pageContext, listen: false);
+        final bool willSort = _isContinuousLocationTrackingEnabled(profile);
+
+        if (willSort) {
+          // Only show sorting loader if it will actually happen
+          if (mounted) {
+            this.setState(() {
+              _isSorting = true;
+            });
+          }
+          await pp.sortPartiesByDistance();
+          print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
+        } else {
+          print(
+              '[PARTY_MENU] ⏭️ Skipped menu party sort because continuousLocationTracking != Y');
+        }
+      } catch (e) {
+        print('[PARTY_MENU] ⚠️ Party load failed: $e');
+      } finally {
+        if (mounted) {
+          this.setState(() {
+            _isSorting = false;
+          });
+        }
+      }
+    });
 
     // Show bottom sheet immediately
     showModalBottomSheet(
@@ -1990,27 +2019,6 @@ class _ProductsPageState extends State<ProductsPage> {
           return Consumer<PartyProvider>(
             builder: (context, party, child) {
               return StatefulBuilder(builder: (context, StateSetter setStatee) {
-                // ⚡ ALWAYS refresh party list when menu opens (only once per sheet)
-                if (!_hasLoadedPartyDataInThisSheet) {
-                  _hasLoadedPartyDataInThisSheet = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    // 🛡️ Mounted guard: Prevent null context if widget disposed
-                    if (!mounted || !context.mounted) return;
-                    await pp.getPartyNameProductPage(context);
-                    final profile =
-                        Provider.of<ProfileProvider>(context, listen: false);
-                    if (_isContinuousLocationTrackingEnabled(profile)) {
-                      await pp.sortPartiesByDistance();
-                    } else {
-                      print(
-                          '[PARTY_MENU] ⏭️ Skipped menu party sort because continuousLocationTracking != Y');
-                    }
-                    if (!mounted || !context.mounted)
-                      return; // Guard before setState
-                    setStatee(() {});
-                  });
-                }
-
                 return Padding(
                   padding: MediaQuery.of(context).viewInsets,
                   child: SizedBox(
@@ -2110,13 +2118,14 @@ class _ProductsPageState extends State<ProductsPage> {
                           ],
                         ),
                         Expanded(
-                          child: party.nolistParty == true
-                              ? Center(
-                                  child: Text("No List"),
+                          child: party.loading ||
+                                  (party.data.isEmpty && !party.nolistParty)
+                              ? const Center(
+                                  child: CircularProgressIndicator(),
                                 )
-                              : party.data.isEmpty
-                                  ? Center(
-                                      child: CircularProgressIndicator(),
+                              : party.nolistParty == true
+                                  ? const Center(
+                                      child: Text("No List"),
                                     )
                                   : ListView.builder(
                                       itemCount: (_tempParty.isNotEmpty)
@@ -2307,32 +2316,6 @@ class _ProductsPageState extends State<ProductsPage> {
             },
           );
         });
-
-    // 📍 Sort parties by distance in background (non-blocking)
-    Future.microtask(() async {
-      try {
-        final profile = Provider.of<ProfileProvider>(context, listen: false);
-        if (_isContinuousLocationTrackingEnabled(profile)) {
-          await pp.sortPartiesByDistance();
-          print('[PARTY_MENU] ✅ Background: Party list sorted by distance');
-        } else {
-          print(
-              '[PARTY_MENU] ⏭️ Skipped party distance sort because continuousLocationTracking != Y');
-        }
-        if (mounted) {
-          this.setState(() {
-            _isSorting = false;
-          });
-        }
-      } catch (e) {
-        print('[PARTY_MENU] ⚠️ Background: Sort failed: $e');
-        if (mounted) {
-          this.setState(() {
-            _isSorting = false;
-          });
-        }
-      }
-    });
   }
 
 // Build Search Field

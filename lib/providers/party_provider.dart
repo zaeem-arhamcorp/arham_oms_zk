@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/cart_list_provider.dart';
 //import 'package:fluttertoast/fluttertoast.dart';
@@ -44,6 +43,15 @@ class PartyProvider extends DisposableProvider {
 
   String punchInOutParty = "";
   String punchInOutPartyId = "";
+
+  bool loading = false;
+
+  void preparePartyLoad() {
+    _data.clear();
+    nolistParty = false;
+    loading = true;
+    notifyListeners();
+  }
 
   Future<void> changePunchInOutParty(partyname, partyID, context,
       {isProductPage, type, id}) async {
@@ -133,7 +141,7 @@ class PartyProvider extends DisposableProvider {
   }
 
   Future<PartynameModal?> getPartyNameProductPage(context) async {
-    _data.clear();
+    preparePartyLoad();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
 
@@ -146,9 +154,7 @@ class PartyProvider extends DisposableProvider {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
-      ).timeout(
-        const Duration(seconds: 10),
-      );
+      ).timeout(const Duration(seconds: 10));
       print("Here the product page is calling :-  " +
           AppConfig.baseURL +
           "products/party");
@@ -162,45 +168,52 @@ class PartyProvider extends DisposableProvider {
             .toList();
         data.addAll(filteredData);
 
-        // ⚡ REFRESH CART COUNTS FROM LOCAL DB FOR EACH PARTY
-        final cartCounts = await DatabaseHelper().getAllPartyCartCounts();
-        for (var party in data) {
-          int cartCount = cartCounts[party.accCd] ?? 0;
-          if (cartCount > 0) {
-            party.accCartItem =
-                "$cartCount Cart Item${cartCount > 1 ? 's' : ''}";
-          }
-        }
-
         if (data.isEmpty) {
           nolistParty = true;
         } else {
           nolistParty = false;
         }
 
-        // Cache to DB for offline use (ONLY filtered parties, not stockists)
-        try {
-          List<Map<String, dynamic>> toCache = filteredData.map((p) {
-            int? sid;
-            try {
-              sid = int.tryParse(p.accCd);
-            } catch (_) {
-              sid = null;
+        loading = false;
+        notifyListeners();
+
+        // Refresh cart counts and cache in the background so the UI can paint immediately.
+        Future.microtask(() async {
+          try {
+            final cartCounts = await DatabaseHelper().getAllPartyCartCounts();
+            for (var party in data) {
+              final int cartCount = cartCounts[party.accCd] ?? 0;
+              party.accCartItem = cartCount > 0
+                  ? "$cartCount Cart Item${cartCount > 1 ? 's' : ''}"
+                  : "";
             }
-            return {
-              'server_id': sid,
-              'acc_cd': p.accCd,
-              'name': p.accName,
-              'address': p.accAddress,
-              'phone': p.mobile,
-              'last_updated': DateTime.now().millisecondsSinceEpoch,
-            };
-          }).toList();
-          await DatabaseHelper().cachePartiesJson(toCache);
-          print('Cached ${toCache.length} parties');
-        } catch (cacheErr) {
-          print('Failed to cache parties: $cacheErr');
-        }
+
+            final List<Map<String, dynamic>> toCache = filteredData.map((p) {
+              int? sid;
+              try {
+                sid = int.tryParse(p.accCd);
+              } catch (_) {
+                sid = null;
+              }
+              return {
+                'server_id': sid,
+                'acc_cd': p.accCd,
+                'name': p.accName,
+                'address': p.accAddress,
+                'phone': p.mobile,
+                'last_updated': DateTime.now().millisecondsSinceEpoch,
+              };
+            }).toList();
+            await DatabaseHelper().cachePartiesJson(toCache);
+            print('Cached ${toCache.length} parties');
+
+            if (_data.isNotEmpty) {
+              notifyListeners();
+            }
+          } catch (cacheErr) {
+            print('Failed to cache parties: $cacheErr');
+          }
+        });
       } else if (response.statusCode == 401) {
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());
@@ -234,6 +247,7 @@ class PartyProvider extends DisposableProvider {
         nolistParty = true;
       }
     }
+    loading = false;
     notifyListeners();
     return null;
   }
@@ -271,36 +285,15 @@ class PartyProvider extends DisposableProvider {
       AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
       print("Error in PartyProvider getpartyname data ${e.toString()}");
     }
+    loading = false;
     notifyListeners();
     return null;
   }
 
   Future<PartynameModal?> getpartyname(context) async {
-    _data.clear();
-    nolistParty = false; // Reset before fetching
+    preparePartyLoad();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
-
-    final bool online = await NetworkHelper.hasInternet();
-    if (!online) {
-      try {
-        final cached = await DatabaseHelper().getCachedParties();
-        for (var row in cached) {
-          _data.add(DatumPartyname(
-            accCd: row['acc_cd']?.toString() ?? '',
-            accName: row['name'] ?? '',
-            accAddress: row['address'] ?? '',
-            mobile: row['phone'] ?? '',
-            accCartItem: '',
-          ));
-        }
-        nolistParty = _data.isEmpty;
-        notifyListeners();
-        return null;
-      } catch (e) {
-        print('Failed to load parties from cache: $e');
-      }
-    }
 
     try {
       final http.Response response = await http.get(
@@ -309,7 +302,7 @@ class PartyProvider extends DisposableProvider {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
       print(AppConfig.baseURL + "report/party");
       print("Bearer ${ub.token}");
@@ -354,10 +347,25 @@ class PartyProvider extends DisposableProvider {
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
-      //Fluttertoast.showToast(msg: "Something went wrong");
-      AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
+      try {
+        final cached = await DatabaseHelper().getCachedParties();
+        for (var row in cached) {
+          _data.add(DatumPartyname(
+            accCd: row['acc_cd']?.toString() ?? '',
+            accName: row['name'] ?? '',
+            accAddress: row['address'] ?? '',
+            mobile: row['phone'] ?? '',
+            accCartItem: '',
+          ));
+        }
+        nolistParty = _data.isEmpty;
+      } catch (cacheError) {
+        print('Failed to load parties from cache: $cacheError');
+        AppSnackBar.showGetXCustomSnackBar(message: 'Something went wrong');
+      }
       print("Error in PartyProvider getpartyname data ${e.toString()}");
     }
+    loading = false;
     notifyListeners();
     return null;
   }
@@ -620,8 +628,6 @@ class PartyProvider extends DisposableProvider {
     notifyListeners();
   }
 
-  bool loading = false;
-
   /// Sort parties by distance from user (nearest first)
   Future<void> sortPartiesByDistance() async {
     try {
@@ -709,8 +715,8 @@ class PartyProvider extends DisposableProvider {
         print(
             '[ORDER_START_END] ⚠️ No location in database, using fallback cached location');
         // Fallback to cached location if database is empty
-        lat = lp.lat ?? 0.0;
-        lng = lp.lag ?? 0.0;
+        lat = lp.lat;
+        lng = lp.lag;
       }
 
       print('[ORDER_START_END] 🚀 Using location immediately');

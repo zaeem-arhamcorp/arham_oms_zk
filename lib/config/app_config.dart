@@ -29,6 +29,7 @@ class AppConfig {
   //9033546913 Mahesh Patadiya - Password: 101
   //7383169201 Mehul Dholariya
 
+  // TODO: Command to build with today's build date
   // flutter build apk --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
   // TODO: Update today's date before building apk
