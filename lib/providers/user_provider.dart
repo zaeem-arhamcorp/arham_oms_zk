@@ -1,11 +1,16 @@
 import 'dart:convert';
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/product/controller/product_controller.dart';
+import 'package:arham_corporation/providers/party_provider.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -177,12 +182,36 @@ class UserProvider extends ChangeNotifier {
       print('[UserProvider] ⚠️ Error stopping tracking: $e');
     }
 
-    // Step 2: Clear SharedPreferences
+    // Step 2: Clear session-scoped profile and party state
+    try {
+      print('[UserProvider] 🧹 Clearing session state...');
+      if (context.mounted) {
+        Provider.of<ProfileProvider>(context, listen: false).disposeValues();
+        Provider.of<PartyProvider>(context, listen: false).disposeValues();
+      }
+      print('[UserProvider] ✅ Profile and party state cleared');
+    } catch (e) {
+      print('[UserProvider] ⚠️ Error clearing profile/party state: $e');
+    }
+
+    // Step 3: Clear selected party and stockist selection from ProductController
+    try {
+      print('[UserProvider] 🧹 Clearing controller selection...');
+      if (Get.isRegistered<ProductController>()) {
+        final productController = Get.find<ProductController>();
+        await productController.clearStockistSelection();
+      }
+      print('[UserProvider] ✅ Controller selection cleared');
+    } catch (e) {
+      print('[UserProvider] ⚠️ Error clearing controller selection: $e');
+    }
+
+    // Step 4: Clear SharedPreferences
     final SharedPreferences sp = await SharedPreferences.getInstance();
     print('[UserProvider] 🗑️ Clearing SharedPreferences');
     sp.clear();
 
-    // Step 3: Call server logout using captured token (no context/provider lookup)
+    // Step 5: Call server logout using captured token (no context/provider lookup)
     try {
       print('[UserProvider] 📡 Calling server logout API...');
       await Services().logoutWithToken(logoutToken);
@@ -191,13 +220,13 @@ class UserProvider extends ChangeNotifier {
       print('[UserProvider] ⚠️ Error in server logout: $e');
     }
 
-    // Step 4: Dispose all providers
+    // Step 6: Dispose all providers
     // Note: Skip context-based disposal since widget tree is deactivated
     // Each provider should auto-cleanup when replaced or removed from widget tree
     print(
         '[UserProvider] 🧹 Skipping context-based provider disposal (widget tree deactivated)');
 
-    // Step 5: Clear local user state
+    // Step 7: Clear local user state
     _isSignedIn = false;
     _role = null;
     _token = null;

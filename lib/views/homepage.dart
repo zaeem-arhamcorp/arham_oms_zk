@@ -2782,40 +2782,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             ElevatedButton(
                                               onPressed: () async {
                                                 if (p.data?.isPunchIn == true) {
-                                                  final hasActiveOrder = p
-                                                          .ACC_NAME
-                                                          .trim()
-                                                          .isNotEmpty &&
-                                                      p.ACC_CD
-                                                          .trim()
-                                                          .isNotEmpty;
-
-                                                  if (hasActiveOrder) {
-                                                    await party.startEndOrder(
-                                                      p.ACC_NAME,
-                                                      p.ACC_CD,
-                                                      context,
-                                                      "3",
-                                                      id: 1,
-                                                    );
-
-                                                    final isOrderStillActive = p
-                                                            .ACC_NAME
-                                                            .trim()
-                                                            .isNotEmpty &&
-                                                        p.ACC_CD
-                                                            .trim()
-                                                            .isNotEmpty;
-                                                    if (isOrderStillActive) {
-                                                      AppSnackBar
-                                                          .showGetXCustomSnackBar(
-                                                        message:
-                                                            'Unable to end active order. Please try again.',
-                                                      );
-                                                      return;
-                                                    }
-                                                  }
-
                                                   // Show confirmation dialog before punch out
                                                   final confirmed =
                                                       await showDialog<bool>(
@@ -2883,6 +2849,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                                                   if (!confirmed) {
                                                     return; // User cancelled
+                                                  }
+
+                                                  // PUNCH OUT confirmed - execute end order API first
+                                                  final hasActiveOrder = p
+                                                          .ACC_NAME
+                                                          .trim()
+                                                          .isNotEmpty &&
+                                                      p.ACC_CD
+                                                          .trim()
+                                                          .isNotEmpty;
+
+                                                  if (hasActiveOrder) {
+                                                    await party.startEndOrder(
+                                                      p.ACC_NAME,
+                                                      p.ACC_CD,
+                                                      context,
+                                                      "3",
+                                                      id: 1,
+                                                    );
+
+                                                    final isOrderStillActive = p
+                                                            .ACC_NAME
+                                                            .trim()
+                                                            .isNotEmpty &&
+                                                        p.ACC_CD
+                                                            .trim()
+                                                            .isNotEmpty;
+                                                    if (isOrderStillActive) {
+                                                      AppSnackBar
+                                                          .showGetXCustomSnackBar(
+                                                        message:
+                                                            'Unable to end active order. Please try again.',
+                                                      );
+                                                      return;
+                                                    }
                                                   }
 
                                                   // PUNCH OUT confirmed - execute punch out logic

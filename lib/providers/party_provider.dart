@@ -835,6 +835,9 @@ class PartyProvider extends DisposableProvider {
     _partyId = "";
     _orderParty = "";
     _orderPartyId = "";
+    punchInOutParty = "";
+    punchInOutPartyId = "";
+    loading = false;
     notifyListeners();
   }
 }

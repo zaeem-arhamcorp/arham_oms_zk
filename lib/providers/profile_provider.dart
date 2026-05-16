@@ -116,6 +116,17 @@ class ProfileProvider extends DisposableProvider {
     notifyListeners();
   }
 
+  void _resetTransientOrderState() {
+    ACC_NAME = "";
+    ACC_CD = "";
+    _pendingWarning = null;
+    _lastResumedTripId = null;
+    _lastResumedTripAt = null;
+    if (_data != null) {
+      _data!.isPunchIn = false;
+    }
+  }
+
   Future getProfile({id}) async {
     // NOTE: Do NOT clear _data, YN, ACC_NAME, ACC_CD or call notifyListeners()
     // before the network response. Doing so causes the UI to lose all state
@@ -145,6 +156,7 @@ class ProfileProvider extends DisposableProvider {
           _data = profileModalFromJson(cached).data;
           _isProfileLoaded = true; // ✅ Mark profile as loaded from cache
           _ensureLegacyModuleNosFromModulesList();
+          _resetTransientOrderState();
           // populate simple fields
           YN = (data?.profileSettings.any(
                       (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
@@ -250,6 +262,7 @@ class ProfileProvider extends DisposableProvider {
       if (response.statusCode == 200) {
         _data = profileModalFromJson(response.body).data;
         _isProfileLoaded = true; // ✅ Mark profile as loaded
+        _resetTransientOrderState();
 
         // Keep module access firm-specific after firm switch.
         await _applyFirmModuleFilter(syncId);
@@ -880,6 +893,15 @@ class ProfileProvider extends DisposableProvider {
   @override
   disposeValues() {
     _data = null;
+    _isProfileLoaded = false;
+    YN = "";
+    ACC_NAME = "";
+    ACC_CD = "";
+    _pendingWarning = null;
+    _userCode = null;
+    _userName = null;
+    _lastResumedTripId = null;
+    _lastResumedTripAt = null;
     notifyListeners();
   }
 }

@@ -716,14 +716,6 @@ class _ProductsPageState extends State<ProductsPage> {
         await _applyInitialStockistSelection(widget.initialStockistCd!.trim());
       }
 
-      // Only set default party values when there is no persisted/selected party
-      if (controller.selectedPartyId.value.isEmpty) {
-        controller.selectedPartyName.value = Helper.trimValue(
-            profile.YN == 'Y' ? party.punchInOutParty : party.party, 25);
-        controller.selectedPartyId.value = Helper.trimValue(
-            profile.YN == 'Y' ? party.punchInOutPartyId : party.partyid, 25);
-      }
-
       if (controller.selectedPartyId.value.isNotEmpty) {
         cartController.productAddedStates.clear(); // Clear previous state
 
@@ -1079,55 +1071,7 @@ class _ProductsPageState extends State<ProductsPage> {
         const SizedBox(width: 8),
         // Party name with reactive updates
         Obx(() {
-          final punchValue = profile.data?.profileSettings
-                  .firstWhereOrNull((e) => e.variable == 'punchInOut')
-                  ?.value ??
-              'N';
-
-          String partyName = controller.selectedPartyName.value.isNotEmpty
-              ? controller.selectedPartyName.value
-              : punchValue == 'Y'
-                  ? party.punchInOutParty
-                  : party.party;
-
-          // String partyName = controller.selectedPartyName.value.isNotEmpty
-          //     ? controller.selectedPartyName.value
-          //     : profile.data?.profileSettings
-          //                 .firstWhere(
-          //                     (element) => element.variable == 'punchInOut')
-          //                 .value ==
-          //             'Y'
-          //         ? party.punchInOutParty
-          //         : party.party;
-
-          // String a = Helper.trimValue(
-          //     profile.data?.profileSettings
-          //                 .firstWhere(
-          //                     (element) => element.variable == 'punchInOut')
-          //                 .value ==
-          //             'Y'
-          //         ? party.punchInOutParty
-          //         : party.party,
-          //     25);
-
-          // controller.selectedPartyName.value = Helper.trimValue(
-          //     profile.data?.profileSettings
-          //                 .firstWhere(
-          //                     (element) => element.variable == 'punchInOut')
-          //                 .value ==
-          //             'Y'
-          //         ? party.punchInOutParty
-          //         : party.party,
-          //     25);
-          // controller.selectedPartyId.value = Helper.trimValue(
-          //     profile.data?.profileSettings
-          //                 .firstWhere(
-          //                     (element) => element.variable == 'punchInOut')
-          //                 .value ==
-          //             'Y'
-          //         ? party.punchInOutPartyId
-          //         : party.partyid,
-          //     25);
+          final partyName = controller.selectedPartyName.value;
 
           return Expanded(
             child: Text(

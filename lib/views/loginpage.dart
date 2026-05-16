@@ -32,6 +32,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/item_list_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/party_provider.dart';
+import '../product/controller/product_controller.dart';
 import '../providers/user_provider.dart';
 
 class LoginPage extends StatefulWidget {
@@ -960,6 +961,12 @@ class _LoginPageState extends State<LoginPage> {
               final userProvider =
                   Provider.of<UserProvider>(context, listen: false);
 
+              if (Get.isRegistered<ProductController>()) {
+                final productController = Get.find<ProductController>();
+                productController.selectedPartyName.value = '';
+                productController.selectedPartyId.value = '';
+              }
+
               locationProvider.start(userProvider);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);
@@ -967,6 +974,14 @@ class _LoginPageState extends State<LoginPage> {
                 context.read<ProfileProvider>().loadSettings(context);
                 global.loadinglogin(false);
                 global.loadingfetchlogin(false);
+                // Ensure product page does not display party name on relogin.
+                // Keep ProfileProvider.ACC_NAME/ACC_CD restored so the End Order
+                // button appears, but clear controller display values.
+                if (Get.isRegistered<ProductController>()) {
+                  final productController = Get.find<ProductController>();
+                  productController.selectedPartyName.value = '';
+                  productController.selectedPartyId.value = '';
+                }
                 Get.offAll(() => BottomnavigationBarScreen());
                 AppSnackBar.showGetXCustomSnackBar(
                   message: 'Login Success',

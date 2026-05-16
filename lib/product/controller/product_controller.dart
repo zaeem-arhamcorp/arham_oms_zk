@@ -991,6 +991,11 @@ class ProductController extends GetxController {
       selectedStockistMobile.value = '';
       selectedStockistPersonName.value = '';
       selectedStockistPincode.value = '';
+      
+      // Clear party selection on logout
+      selectedPartyName.value = '';
+      selectedPartyId.value = '';
+      
       print('[Stockist] Cleared selection');
     } catch (e) {
       print('[Stockist] Error clearing selection: $e');
