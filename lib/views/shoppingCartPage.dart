@@ -80,14 +80,80 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   bool loading = false;
 
   deleteCartItem(cartid, itemCd) async {
+    // Check if offline mode is enabled before allowing cart item deletion
+    final ProfileProvider profile =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final isOnlineDeleteCartItem = await NetworkHelper.hasInternet();
+    final offlineModeEnabledDeleteCartItem = profile.isOfflineModeEnabled();
+
+    if (!isOnlineDeleteCartItem && !offlineModeEnabledDeleteCartItem) {
+      AppSnackBar.showGetXCustomSnackBar(
+        message: "You are offline. Please check your internet connection.",
+        enforceNetworkMessage: false,
+      );
+      return;
+    }
+
     if (mounted) {
       setState(() {
         loading = true;
       });
     }
 
-    // 📡 Optimistic loading: Try API immediately (no pre-flight check)
-    // If offline, delete locally and sync when internet returns
+    // ⚡ When offline with enableOfflineMode='Y', delete directly from offline DB without API attempt
+    if (!isOnlineDeleteCartItem && offlineModeEnabledDeleteCartItem) {
+      print('[CART] 📵 Offline mode enabled - deleting directly from offline DB');
+      try {
+        final PartyProvider party =
+            Provider.of<PartyProvider>(context, listen: false);
+        final CartListProvider cartProvider =
+            Provider.of<CartListProvider>(context, listen: false);
+        String partyId = (profile.data?.profileSettings.any(
+                    (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+                false)
+            ? party.punchInOutPartyId
+            : party.partyid;
+        
+        // Delete from offline DB
+        await DatabaseHelper()
+            .deleteCartItemByItemCd(itemCd.toString(), partyId);
+        print('[CART] ✅ Item deleted from offline DB: $itemCd');
+
+        // ⚡ Also remove from CartListProvider cache
+        cartProvider.data.removeWhere((item) => item.itemCd == itemCd);
+        print('[CART] ✅ Item removed from CartListProvider cache');
+
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Item removed (offline)",
+            backgroundColor: Colors.orange);
+
+        // ⚡ Update local state
+        if (mounted) {
+          setState(() {
+            datacart.removeWhere((item) => item.itemCd == itemCd);
+            qty.remove(itemCd);
+            freeQty.remove(itemCd);
+            rate.remove(itemCd);
+            remarks.remove(itemCd);
+            calculateNetAmount();
+          });
+        }
+        CartController controller = Get.put(CartController());
+        controller.removeProductLocally(itemCd);
+      } catch (e) {
+        print('[CART] ❌ Error deleting from offline DB: $e');
+        AppSnackBar.showGetXCustomSnackBar(message: "Failed to remove item");
+      } finally {
+        if (mounted) {
+          setState(() {
+            loading = false;
+          });
+        }
+      }
+      return;
+    }
+
+    // 📡 Online path: Try API first, then delete locally
     try {
       final value =
           await Services().deleteItemtoCart(cartid.toString(), context);
@@ -100,8 +166,6 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         try {
           final PartyProvider party =
               Provider.of<PartyProvider>(context, listen: false);
-          final ProfileProvider profile =
-              Provider.of<ProfileProvider>(context, listen: false);
           String partyId = (profile.data?.profileSettings.any(
                       (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
                   false)
@@ -132,14 +196,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         throw Exception('API returned null');
       }
     } catch (e) {
-      // ⚠️ API FAILED or OFFLINE - Delete locally and sync when online
+      // ⚠️ API FAILED - Delete locally and sync when online
       print('[CART] 📵 API failed, deleting offline: $e');
 
       try {
         final PartyProvider party =
             Provider.of<PartyProvider>(context, listen: false);
-        final ProfileProvider profile =
-            Provider.of<ProfileProvider>(context, listen: false);
         String partyId = (profile.data?.profileSettings
                     .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
                 false)
@@ -2071,8 +2133,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         loading = false;
       });
       AppSnackBar.showGetXCustomSnackBar(
-        message:
-            "Offline mode is not enabled for your firm. Please go online to place orders.",
+        message: "You are offline. Please check your internet connection.",
         enforceNetworkMessage: false,
       );
       return;

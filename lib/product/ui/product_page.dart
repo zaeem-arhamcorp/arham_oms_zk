@@ -1132,28 +1132,27 @@ class _ProductsPageState extends State<ProductsPage> {
 
     return Row(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Obx(() => Text(
-                    controller.selectedPartyName.value.isNotEmpty
-                        ? controller.selectedPartyName.value
-                        : (party.punchInOutParty.isNotEmpty
-                            ? party.punchInOutParty
-                            : 'Select Party'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  )),
-              const SizedBox(height: 4),
-              Text(
-                party.partyid ?? '',
-                style: const TextStyle(color: Colors.black54),
-              ),
-            ],
+        Padding(
+          padding: EdgeInsets.only(left: 5.0),
+          child: Text(
+            "Party :",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
+        ),
+        SizedBox(
+          width: 8,
+        ),
+        Expanded(
+          child: Obx(() => Text(
+                controller.selectedPartyName.value.isNotEmpty
+                    ? controller.selectedPartyName.value
+                    : (party.punchInOutParty.isNotEmpty
+                        ? party.punchInOutParty
+                        : 'Select Party'),
+                style: const TextStyle(
+                  fontSize: 14,
+                ),
+              )),
         ),
 
         // Dynamic action button based on state
@@ -1258,7 +1257,7 @@ class _ProductsPageState extends State<ProductsPage> {
                                 '[END_ORDER] ❌ BLOCKED: Offline but offline mode not enabled');
                             AppSnackBar.showGetXCustomSnackBar(
                               message:
-                                  "Offline mode is not enabled for your firm. Please go online to end orders.",
+                                  "You are offline. Please check your internet connection.",
                               enforceNetworkMessage: false,
                             );
                             setState(() {
@@ -2014,8 +2013,7 @@ class _ProductsPageState extends State<ProductsPage> {
       print(
           '[START_ORDER_MENU] ❌ BLOCKED: Offline but offline mode not enabled');
       AppSnackBar.showGetXCustomSnackBar(
-        message:
-            "Offline mode is not enabled for your firm. Please go online to start orders.",
+        message: "You are offline. Please check your internet connection.",
         enforceNetworkMessage: false,
       );
       return;
