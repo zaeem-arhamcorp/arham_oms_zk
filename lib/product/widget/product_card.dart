@@ -490,7 +490,8 @@ class _ProductCardState extends State<ProductCard> {
               if (controller.selectedPartyId.value.isEmpty) {
                 //showToast("Please Select Party");
                 AppSnackBar.showGetXCustomSnackBar(
-                    message: "Please Select Party");
+                    message: "Please Select Party",
+                    enforceNetworkMessage: false);
                 return;
               }
 
@@ -554,7 +555,8 @@ class _ProductCardState extends State<ProductCard> {
               } catch (e) {
                 //showToast("Error adding product: $e");
                 AppSnackBar.showGetXCustomSnackBar(
-                    message: "Error adding product: $e");
+                    message: "Error adding product: $e",
+                    enforceNetworkMessage: false);
               } finally {
                 // Set loading state to false
                 cartController.productLoadingStates[widget.product.itemCd] =
@@ -769,7 +771,8 @@ class _ProductCardState extends State<ProductCard> {
                       onTap: () async {
                         if (controller.selectedPartyId.value.isEmpty) {
                           AppSnackBar.showGetXCustomSnackBar(
-                              message: "Please Select Party");
+                              message: "Please Select Party",
+                              enforceNetworkMessage: false);
                           return;
                         }
 
@@ -806,7 +809,8 @@ class _ProductCardState extends State<ProductCard> {
                         if (!settingOn) {
                           if (qtyText.isEmpty && freeText.isEmpty) {
                             AppSnackBar.showGetXCustomSnackBar(
-                                message: "Please Enter Quantity");
+                                message: "Please Enter Quantity",
+                                enforceNetworkMessage: false);
                             return;
                           }
                         }
@@ -882,7 +886,8 @@ class _ProductCardState extends State<ProductCard> {
                           // Cart will be refreshed when user navigates to cart page
                         } catch (e) {
                           AppSnackBar.showGetXCustomSnackBar(
-                              message: "Error adding product: $e");
+                              message: "Error adding product: $e",
+                              enforceNetworkMessage: false);
                         } finally {
                           cartController
                                   .productLoadingStates[widget.product.itemCd] =

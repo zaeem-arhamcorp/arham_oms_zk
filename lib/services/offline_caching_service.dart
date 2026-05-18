@@ -1,10 +1,14 @@
 import 'dart:convert';
+
+import 'package:arham_corporation/config/app_config.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/product_response.dart';
-import '../providers/profile_provider.dart';
-import '../providers/party_provider.dart';
 import '../providers/item_list_provider.dart';
+import '../providers/party_provider.dart';
+import '../providers/profile_provider.dart';
 import '../providers/user_provider.dart';
 import 'crashlytics_service.dart';
 import 'database_helper.dart';
@@ -268,6 +272,45 @@ class OfflineCachingService {
         _reportProgress(cacheItems[3], onProgress,
             success: false, error: e.toString());
         return false; // Stop here
+      }
+
+      // ========== STOCKISTS SECTION (silent caching) ==========
+      try {
+        print('[OFFLINE CACHE] Caching stockists...');
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+        final uri = Uri.parse('${AppConfig.baseURL}products/party')
+            .replace(queryParameters: {'groupCd': '136', 'stockist': '1'});
+
+        print('[OFFLINE CACHE][STOCKIST_API] 🌐 GET $uri');
+
+        final dio = Dio();
+        final response = await dio.get(
+          uri.toString(),
+          options: Options(
+            headers: {
+              "Authorization": "Bearer ${userProvider.token}",
+              'x-app-type': 'oms',
+            },
+          ),
+        );
+
+        print(
+            '[OFFLINE CACHE][STOCKIST_API] ✅ Response status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          await DatabaseHelper().cacheHomeData(
+            'stockists_136',
+            jsonEncode(response.data),
+          );
+          print('[OFFLINE CACHE] ✓ Stockists cached');
+        } else {
+          print(
+              '[OFFLINE CACHE] ⚠️ Stockists fetch returned ${response.statusCode}');
+        }
+      } catch (e) {
+        print('[OFFLINE CACHE] ⚠️ Warning: Could not cache stockists: $e');
+        // Don't stop caching - this is non-critical
       }
 
       // ========== CART & ITEMS SECTION ==========

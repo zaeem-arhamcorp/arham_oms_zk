@@ -190,22 +190,24 @@ class LocationService {
     }
   }
 
-  /// Get all punch records for a user on a specific date
+  /// Get all punch records for a user on a specific date in a specific firm
   Future<List<Map<String, dynamic>>> getPunchesForUserDate(
     String userCd,
     String vouchDt,
+    int syncId,
   ) async {
-    return await db.getLocationsByUserAndDate(userCd, vouchDt);
+    return await db.getLocationsByUserAndDate(userCd, vouchDt, syncId);
   }
 
   /// Get today's punches for current user
-  Future<List<Map<String, dynamic>>> getTodaysPunches(String userCd) async {
+  Future<List<Map<String, dynamic>>> getTodaysPunches(
+      String userCd, int syncId) async {
     final today = DateTime.now();
     final vouchDt =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final punches = await db.getLocationsByUserAndDate(userCd, vouchDt);
+    final punches = await db.getLocationsByUserAndDate(userCd, vouchDt, syncId);
     print(
-        '[LocationService.getTodaysPunches] Query: USER_CD="$userCd", VOUCH_DT="$vouchDt" → ${punches.length} results');
+        '[LocationService.getTodaysPunches] Query: USER_CD="$userCd", VOUCH_DT="$vouchDt", SYNC_ID="$syncId" → ${punches.length} results');
     return punches;
   }
 
@@ -222,16 +224,16 @@ class LocationService {
     return await db.getPendingLocations();
   }
 
-  /// Check if user has punched in today
-  Future<bool> hasPunchedInToday(String userCd) async {
-    final punches = await getTodaysPunches(userCd);
+  /// Check if user has punched in today in a specific firm
+  Future<bool> hasPunchedInToday(String userCd, int syncId) async {
+    final punches = await getTodaysPunches(userCd, syncId);
     // Check for 'IN' punch type in remarks or similar logic
     return punches.isNotEmpty;
   }
 
-  /// Check if user has punched out today
-  Future<bool> hasPunchedOutToday(String userCd) async {
-    final punches = await getTodaysPunches(userCd);
+  /// Check if user has punched out today in a specific firm
+  Future<bool> hasPunchedOutToday(String userCd, int syncId) async {
+    final punches = await getTodaysPunches(userCd, syncId);
     if (punches.isEmpty) return false;
     // Check for 'OUT' punch type in remarks or similar logic
     return punches.length >= 2; // Simple check: at least IN and OUT

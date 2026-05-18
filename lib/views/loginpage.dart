@@ -970,8 +970,15 @@ class _LoginPageState extends State<LoginPage> {
               locationProvider.start(userProvider);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);
-              context.read<ProfileProvider>().getProfile().then((value) {
+              context.read<ProfileProvider>().getProfile().then((value) async {
                 context.read<ProfileProvider>().loadSettings(context);
+
+                // Fetch and cache stockist data on login
+                if (Get.isRegistered<ProductController>()) {
+                  final productController = Get.find<ProductController>();
+                  await productController.fetchStockists(groupCd: '136');
+                }
+
                 global.loadinglogin(false);
                 global.loadingfetchlogin(false);
                 // Ensure product page does not display party name on relogin.

@@ -37,7 +37,7 @@ class AppConfig {
 
   // TODO: Update today's date in ProfilePage before building apk
   // static const String baseURL =
-  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // TODO: Remove today's date from ProfilePage before building apk
   // static const String baseURL =
@@ -87,7 +87,8 @@ class AppConfig {
   // static const String timelineURL = '${baseURL}timeline';
 
   // Task Management APIs
-  static const String getStockistsURL = '${baseURL}products/party?groupCd=136';
+  static const String getStockistsURL =
+      '${baseURL}products/party?972376groupCd=136';
   static const String getMyDepartmentsURL = '${baseURL}my-departments';
   static const String assignIssueURL = '${baseURL}dealer-flow/issues';
   static const String hierarchyUsersURL =

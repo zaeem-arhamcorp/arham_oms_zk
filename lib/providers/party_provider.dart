@@ -766,7 +766,10 @@ class PartyProvider extends DisposableProvider {
         }
 
         AppSnackBar.showGetXCustomSnackBar(
-            message: message, backgroundColor: bg);
+          message: message,
+          backgroundColor: bg,
+          enforceNetworkMessage: false,
+        );
 
         // Update local state based on START or END
         if (id != null) {
@@ -814,14 +817,19 @@ class PartyProvider extends DisposableProvider {
         // Failed to process order
         print('[PartyProvider] 🔴 RESULT: FAILED | Error: ${result['error']}');
         AppSnackBar.showGetXCustomSnackBar(
-            message: result['error'] ?? 'Failed to process order');
+          message: result['error'] ?? 'Failed to process order',
+          enforceNetworkMessage: false,
+        );
         loading = false;
         notifyListeners();
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
       print('[ORDER_START_END] ❌ Error: $e');
-      AppSnackBar.showGetXCustomSnackBar(message: 'Error: $e');
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Error: $e',
+        enforceNetworkMessage: false,
+      );
 
       loading = false;
       notifyListeners();

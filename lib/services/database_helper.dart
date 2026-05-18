@@ -1678,24 +1678,25 @@ class DatabaseHelper {
 
   /// Get locations for a specific user and date
   Future<List<Map<String, dynamic>>> getLocationsByUserAndDate(
-      String userCd, String vouchDt) async {
+      String userCd, String vouchDt, int syncId) async {
     final db = await database;
     return await db.query(
       'locations',
-      where: 'USER_CD = ? AND VOUCH_DT = ?',
-      whereArgs: [userCd, vouchDt],
+      where: 'USER_CD = ? AND VOUCH_DT = ? AND SYNC_ID = ?',
+      whereArgs: [userCd, vouchDt, syncId],
       orderBy: 'VOUCH_TIME',
     );
   }
 
-  /// Get latest punch record (PUNCH IN / PUNCH OUT) for a user.
+  /// Get latest punch record (PUNCH IN / PUNCH OUT) for a user in a specific firm.
   /// Returns null when no punch record exists.
-  Future<Map<String, dynamic>?> getLatestPunchForUser(String userCd) async {
+  Future<Map<String, dynamic>?> getLatestPunchForUser(
+      String userCd, int syncId) async {
     final db = await database;
     final rows = await db.query(
       'locations',
-      where: 'USER_CD = ? AND REMARK IN (?, ?)',
-      whereArgs: [userCd, 'PUNCH IN', 'PUNCH OUT'],
+      where: 'USER_CD = ? AND SYNC_ID = ? AND REMARK IN (?, ?)',
+      whereArgs: [userCd, syncId, 'PUNCH IN', 'PUNCH OUT'],
       orderBy: 'VOUCH_DT DESC, VOUCH_TIME DESC, locId DESC',
       limit: 1,
     );
@@ -1798,8 +1799,7 @@ class DatabaseHelper {
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     return await db.query(
       'order_tracking',
-      where:
-          'SYNC_ID = ? AND VOUCH_DT = ? AND tracking_type IN (\'1\', \'3\')',
+      where: 'SYNC_ID = ? AND VOUCH_DT = ? AND tracking_type IN (\'1\', \'3\')',
       whereArgs: [syncId, vouchDt],
       orderBy: 'VOUCH_TIME ASC',
     );

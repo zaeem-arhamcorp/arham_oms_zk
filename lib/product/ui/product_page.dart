@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/product/widget/product_card.dart';
@@ -12,6 +13,7 @@ import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/party_managment/services/api_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -185,7 +187,9 @@ Future<bool> _uploadSelfie(File selfie, String userCd) async {
       print('[SELFIE-UPLOAD] ❌ File does not exist at ${selfie.path}');
       isSelfieUploading.value = false;
       AppSnackBar.showGetXCustomSnackBar(
-          message: 'Image file was not saved. Please capture again.');
+        message: 'Image file was not saved. Please capture again.',
+        enforceNetworkMessage: false,
+      );
       return false;
     }
 
@@ -219,13 +223,18 @@ Future<bool> _uploadSelfie(File selfie, String userCd) async {
     print(
         '[SELFIE-UPLOAD] ❌ Upload failed: ${resp['json']?['message'] ?? resp['body']}');
     AppSnackBar.showGetXCustomSnackBar(
-        message:
-            'Selfie upload failed: ${resp['json']?['message'] ?? resp['body']}');
+      message:
+          'Selfie upload failed: ${resp['json']?['message'] ?? resp['body']}',
+      enforceNetworkMessage: false,
+    );
     return false;
   } catch (e) {
     isSelfieUploading.value = false;
     print('[SELFIE-UPLOAD] ❌ Exception: $e');
-    AppSnackBar.showGetXCustomSnackBar(message: 'Selfie upload error: $e');
+    AppSnackBar.showGetXCustomSnackBar(
+      message: 'Selfie upload error: $e',
+      enforceNetworkMessage: false,
+    );
     return false;
   }
 }
@@ -237,93 +246,120 @@ Future<bool> _showSelfieDialogAndUpload(
   unawaited(_fetchSelfieDialogQuote());
   bool uploadSuccess = false;
 
-  await Get.dialog(
-    Obx(() => AlertDialog(
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+  // Build the dialog widget
+  final selfieDialog = Obx(() {
+    return AlertDialog(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      titlePadding: EdgeInsets.zero,
+      contentPadding: EdgeInsets.zero,
+      title: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1E88E5), Color(0xFF64B5F6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          titlePadding: EdgeInsets.zero,
-          contentPadding: EdgeInsets.zero,
-          title: Container(
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1E88E5), Color(0xFF64B5F6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Column(
+          children: [
+            Row(
+              children: const [
+                Expanded(
+                  child: Text(
+                    'Ready for your first order ?',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      selfieDialogQuote.value.isNotEmpty
+                          ? selfieDialogQuote.value
+                          : getRandomSelfieDialogTagline(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.yellow,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-            child: Column(
-              children: [
-                Row(
+          ],
+        ),
+      ),
+      content: Container(
+        width: double.infinity,
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        child: StreamBuilder<bool>(
+          stream: (() async* {
+            yield await NetworkHelper.hasInternet();
+            yield* Connectivity()
+                .onConnectivityChanged
+                .asyncMap((_) => NetworkHelper.hasInternet());
+          })(),
+          builder: (context, networkSnapshot) {
+            final hasInternet = networkSnapshot.data ?? false;
+
+            if (!hasInternet) {
+              return Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Container(
-                    //   width: 40,
-                    //   height: 40,
-                    //   decoration: BoxDecoration(
-                    //     color: Colors.white.withOpacity(0.18),
-                    //     borderRadius: BorderRadius.circular(12),
-                    //   ),
-                    //   child: const Icon(
-                    //     Icons.camera_alt_outlined,
-                    //     color: Colors.white,
-                    //     size: 20,
-                    //   ),
-                    // ),
-                    // const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Ready for your first order ?',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                    Icon(Icons.wifi_off_rounded,
+                        color: Colors.orange, size: 32),
+                    SizedBox(height: 10),
+                    Text(
+                      'You are offline',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Turn on internet to upload selfie.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black87),
                     ),
                   ],
                 ),
-                SizedBox(
-                  height: 10,
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    borderRadius: BorderRadiusGeometry.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          selfieDialogQuote.value.isNotEmpty
-                              ? selfieDialogQuote.value
-                              : getRandomSelfieDialogTagline(),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.yellow,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          ),
-          content: Container(
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            child: SingleChildScrollView(
+              );
+            }
+
+            return SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,9 +404,7 @@ Future<bool> _showSelfieDialogAndUpload(
                                         color: Colors.black,
                                         size: 20,
                                       ),
-                                      SizedBox(
-                                        width: 5,
-                                      ),
+                                      const SizedBox(width: 5),
                                       const Text(
                                         'Take selfie',
                                         style: TextStyle(fontSize: 18),
@@ -399,12 +433,10 @@ Future<bool> _showSelfieDialogAndUpload(
 
                   const SizedBox(height: 20),
 
-                  // No remarks field (intentionally omitted)
-
                   const SizedBox(height: 8),
 
                   // Loader or buttons
-                  isSelfieUploading.value
+                  Obx(() => isSelfieUploading.value
                       ? const Center(child: CircularProgressIndicator())
                       : Row(
                           children: [
@@ -412,10 +444,24 @@ Future<bool> _showSelfieDialogAndUpload(
                               child: ElevatedButton(
                                 onPressed: () async {
                                   print('[SELFIE-DIALOG] onSubmit called');
+
+                                  final hasInternet =
+                                      await NetworkHelper.hasInternet();
+                                  if (!hasInternet) {
+                                    AppSnackBar.showGetXCustomSnackBar(
+                                      message:
+                                          'You are offline. Turn on internet to upload selfie.',
+                                      enforceNetworkMessage: false,
+                                    );
+                                    return;
+                                  }
+
                                   if (selfieFile.value == null) {
                                     print('[SELFIE-DIALOG] No file selected');
                                     AppSnackBar.showGetXCustomSnackBar(
-                                        message: 'Please capture a selfie');
+                                      message: 'Please capture a selfie',
+                                      enforceNetworkMessage: false,
+                                    );
                                     return;
                                   }
                                   print(
@@ -431,10 +477,11 @@ Future<bool> _showSelfieDialogAndUpload(
                                   if (userCd.isEmpty) {
                                     print('[SELFIE-DIALOG] User code missing');
                                     AppSnackBar.showGetXCustomSnackBar(
-                                        message: 'User code missing');
+                                      message: 'User code missing',
+                                      enforceNetworkMessage: false,
+                                    );
                                     return;
                                   }
-                                  // Verify trip is active before uploading
                                   final prefs =
                                       await SharedPreferences.getInstance();
                                   final tripId =
@@ -442,8 +489,10 @@ Future<bool> _showSelfieDialogAndUpload(
                                   if (tripId <= 0) {
                                     print('[SELFIE-DIALOG] No active trip');
                                     AppSnackBar.showGetXCustomSnackBar(
-                                        message:
-                                            'No active trip. Please punch in first.');
+                                      message:
+                                          'No active trip. Please punch in first.',
+                                      enforceNetworkMessage: false,
+                                    );
                                     return;
                                   }
                                   print(
@@ -479,14 +528,17 @@ Future<bool> _showSelfieDialogAndUpload(
                               ),
                             ),
                           ],
-                        ),
+                        )),
                 ],
               ),
-            ),
-          ),
-        )),
-    barrierDismissible: false,
-  );
+            );
+          },
+        ),
+      ),
+    );
+  });
+
+  await Get.dialog(selfieDialog, barrierDismissible: true);
   return uploadSuccess;
 }
 
@@ -703,6 +755,9 @@ class _ProductsPageState extends State<ProductsPage> {
 
       final isStockistEnabled = _isStockistUserLinkEnabled(profile);
 
+      // Restore party selection first (persists across Get.offAll() navigation)
+      await controller.restorePartySelection();
+
       // Restore persisted stockist only when user setting allows stockist link.
       if (isStockistEnabled) {
         await controller.restoreStockistSelection();
@@ -714,6 +769,24 @@ class _ProductsPageState extends State<ProductsPage> {
 
       if ((widget.initialStockistCd ?? '').trim().isNotEmpty) {
         await _applyInitialStockistSelection(widget.initialStockistCd!.trim());
+      }
+
+      // If controller has no restored party but PartyProvider has one (punchInOut or normal),
+      // populate controller so Add To Cart checks pass.
+      if (controller.selectedPartyId.value.isEmpty) {
+        final savedPartyId =
+            (profile.YN == "Y") ? party.punchInOutPartyId : party.partyid;
+        final savedPartyName =
+            (profile.YN == "Y") ? party.punchInOutParty : party.party;
+
+        if (savedPartyId.trim().isNotEmpty) {
+          controller.selectedPartyId.value = savedPartyId.trim();
+          controller.selectedPartyName.value = savedPartyName ?? '';
+          // Persist so future reopens restore immediately
+          await controller.savePartySelection();
+          print(
+              '[PRODUCT_PAGE] Restored party from PartyProvider: $savedPartyName ($savedPartyId)');
+        }
       }
 
       if (controller.selectedPartyId.value.isNotEmpty) {
@@ -1058,29 +1131,30 @@ class _ProductsPageState extends State<ProductsPage> {
     final party = context.watch<PartyProvider>();
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        // Label for the party header
-        const Padding(
-          padding: EdgeInsets.only(left: 5.0),
-          child: Text(
-            'Party :',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Obx(() => Text(
+                    controller.selectedPartyName.value.isNotEmpty
+                        ? controller.selectedPartyName.value
+                        : (party.punchInOutParty.isNotEmpty
+                            ? party.punchInOutParty
+                            : 'Select Party'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )),
+              const SizedBox(height: 4),
+              Text(
+                party.partyid ?? '',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        // Party name with reactive updates
-        Obx(() {
-          final partyName = controller.selectedPartyName.value;
-
-          return Expanded(
-            child: Text(
-              Helper.trimValue(partyName, 35),
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14),
-            ),
-          );
-        }),
 
         // Dynamic action button based on state
         if (profile.YN == "Y")
@@ -1095,14 +1169,18 @@ class _ProductsPageState extends State<ProductsPage> {
                           // Validation 1: Check if punched in
                           if (profile.data?.isPunchIn != true) {
                             AppSnackBar.showGetXCustomSnackBar(
-                                message: 'Please Punch In');
+                              message: 'Please Punch In',
+                              enforceNetworkMessage: false,
+                            );
                             return;
                           }
 
                           // Validation 2: Check if stockist is required but not selected
                           if (_requiresStockistSelection(profile)) {
                             AppSnackBar.showGetXCustomSnackBar(
-                                message: 'Please Select Stockist');
+                              message: 'Please Select Stockist',
+                              enforceNetworkMessage: false,
+                            );
                             return;
                           }
 
@@ -1166,6 +1244,31 @@ class _ProductsPageState extends State<ProductsPage> {
 
                           print('[END_ORDER] ⚡ Immediate: End order clicked');
 
+                          // Check if offline mode is enabled before allowing order end
+                          final isOnlineEndOrder =
+                              await NetworkHelper.hasInternet();
+                          final offlineModeEnabledEndOrder =
+                              profile.isOfflineModeEnabled();
+                          print(
+                              '[END_ORDER] 🔍 Network Check: isOnline=$isOnlineEndOrder, offlineModeEnabled=$offlineModeEnabledEndOrder');
+
+                          if (!isOnlineEndOrder &&
+                              !offlineModeEnabledEndOrder) {
+                            print(
+                                '[END_ORDER] ❌ BLOCKED: Offline but offline mode not enabled');
+                            AppSnackBar.showGetXCustomSnackBar(
+                              message:
+                                  "Offline mode is not enabled for your firm. Please go online to end orders.",
+                              enforceNetworkMessage: false,
+                            );
+                            setState(() {
+                              _isOrderProcessing = false;
+                            });
+                            return;
+                          }
+                          print(
+                              '[END_ORDER] ✅ Check passed: Can proceed with end order');
+
                           try {
                             // ⚡⚡⚡ Call API immediately (uses cached location)
                             await party.startEndOrder(
@@ -1178,9 +1281,8 @@ class _ProductsPageState extends State<ProductsPage> {
 
                             print('[END_ORDER] ✅ Order ended successfully');
 
-                            // Clear the selected party name
-                            controller.selectedPartyName.value = '';
-                            controller.selectedPartyId.value = '';
+                            // Clear the selected party (removes from both memory and SharedPreferences)
+                            await controller.clearPartySelection();
 
                             // Reset state
                             setState(() {
@@ -1238,7 +1340,9 @@ class _ProductsPageState extends State<ProductsPage> {
                           } catch (e) {
                             print('[END_ORDER] ❌ Error: $e');
                             AppSnackBar.showGetXCustomSnackBar(
-                                message: "Error: $e");
+                              message: "Error: $e",
+                              enforceNetworkMessage: false,
+                            );
                           } finally {
                             setState(() {
                               _isOrderProcessing = false;
@@ -1270,7 +1374,9 @@ class _ProductsPageState extends State<ProductsPage> {
             onPressed: () {
               if (_requiresStockistSelection(profile)) {
                 AppSnackBar.showGetXCustomSnackBar(
-                    message: 'Please Select Stockist');
+                  message: 'Please Select Stockist',
+                  enforceNetworkMessage: false,
+                );
                 return;
               }
               showMenu();
@@ -1896,6 +2002,26 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Future<void> showMenu() async {
+    // ⚡ Check if offline mode is enabled BEFORE showing party selection menu
+    final isOnline = await NetworkHelper.hasInternet();
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final offlineModeEnabled = profileProvider.isOfflineModeEnabled();
+    print(
+        '[START_ORDER_MENU] 🔍 Network Check: isOnline=$isOnline, offlineModeEnabled=$offlineModeEnabled');
+
+    if (!isOnline && !offlineModeEnabled) {
+      print(
+          '[START_ORDER_MENU] ❌ BLOCKED: Offline but offline mode not enabled');
+      AppSnackBar.showGetXCustomSnackBar(
+        message:
+            "Offline mode is not enabled for your firm. Please go online to start orders.",
+        enforceNetworkMessage: false,
+      );
+      return;
+    }
+    print('[START_ORDER_MENU] ✅ Check passed: Showing party selection menu');
+
     // 🛡️ Mounted guard: Prevent null context crash if user navigates away
     if (!mounted) return;
 
@@ -2144,8 +2270,11 @@ class _ProductsPageState extends State<ProductsPage> {
                                                       } else {
                                                         AppSnackBar
                                                             .showGetXCustomSnackBar(
-                                                                message:
-                                                                    "Please Enable Location Permission");
+                                                          message:
+                                                              "Please Enable Location Permission",
+                                                          enforceNetworkMessage:
+                                                              false,
+                                                        );
                                                         return;
                                                       }
                                                     } else {
@@ -2229,8 +2358,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                                         '[START_ORDER] ❌ Error: $e');
                                                     AppSnackBar
                                                         .showGetXCustomSnackBar(
-                                                            message:
-                                                                "Error: $e");
+                                                      message: "Error: $e",
+                                                      enforceNetworkMessage:
+                                                          false,
+                                                    );
                                                   } finally {
                                                     this.setState(() {
                                                       _isOrderProcessing =
@@ -2336,6 +2467,9 @@ class _ProductsPageState extends State<ProductsPage> {
           controller.selectedPartyName.value = selectedParty.accName;
           controller.selectedPartyId.value = selectedParty.accCd;
 
+          // Persist party selection so it survives Get.offAll() navigation
+          await controller.savePartySelection();
+
           log("Selected Party Name: ${controller.selectedPartyName.value}");
           log("Selected Party ID: ${controller.selectedPartyId.value}");
 
@@ -2367,7 +2501,9 @@ class _ProductsPageState extends State<ProductsPage> {
                 );
               } else {
                 AppSnackBar.showGetXCustomSnackBar(
-                    message: "Please Enable Location Permission");
+                  message: "Please Enable Location Permission",
+                  enforceNetworkMessage: false,
+                );
                 return;
               }
             } else {
@@ -2433,11 +2569,17 @@ class _ProductsPageState extends State<ProductsPage> {
             });
           } catch (e) {
             print('[START_ORDER] ❌ Error: $e');
-            AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
+            AppSnackBar.showGetXCustomSnackBar(
+              message: "Error: $e",
+              enforceNetworkMessage: false,
+            );
           }
         } catch (e) {
           log("Error selecting party: $e");
-          AppSnackBar.showGetXCustomSnackBar(message: "Error: $e");
+          AppSnackBar.showGetXCustomSnackBar(
+            message: "Error: $e",
+            enforceNetworkMessage: false,
+          );
         }
       },
       child: Helper.showPartyBottomSheetWithSearch(

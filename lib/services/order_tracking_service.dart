@@ -79,6 +79,7 @@ class OrderTrackingService {
         }
 
         print('[ORDER_TRACKING] 📤 POST ${AppConfig.baseURL}orders-tracking');
+        print('[ORDER_TRACKING] 📦 Request payload: ${jsonEncode(body)}');
 
         final http.Response response = await http.post(
           Uri.parse("${AppConfig.baseURL}orders-tracking"),

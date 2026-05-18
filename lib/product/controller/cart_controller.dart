@@ -51,11 +51,15 @@ class CartController extends GetxController {
       "partyCd": partyid,
       "itemCd": itemCd,
       "qty": qty,
-      "lrate": rate,
+      "lrate": lrate,
       if (otherDesc != null && otherDesc.trim().isNotEmpty)
         "otherDesc": otherDesc,
       if (remarks != null && remarks.trim().isNotEmpty) "fld5": remarks,
       if (rate != null && rate.trim().isNotEmpty) "rate": rate,
+      if ((rate == null || rate.trim().isEmpty) &&
+          nrate != null &&
+          nrate.trim().isNotEmpty)
+        "rate": nrate,
       if (stockist != null && stockist.trim().isNotEmpty) "stockist": stockist,
       "moduleNo": "205"
     };
@@ -92,7 +96,13 @@ class CartController extends GetxController {
       // 📱 NOW save to local DB in background (non-blocking)
       Future.microtask(() async {
         try {
-          double rateVal = double.tryParse(rate ?? '0') ?? 0;
+          double rateVal = double.tryParse((rate ?? '').trim()) ?? 0;
+          if (rateVal <= 0) {
+            rateVal = double.tryParse((lrate ?? '').trim()) ?? 0;
+          }
+          if (rateVal <= 0) {
+            rateVal = double.tryParse((nrate ?? '').trim()) ?? 0;
+          }
           double qtyVal = double.tryParse(qty) ?? 0;
           var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
           double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
@@ -154,7 +164,13 @@ class CartController extends GetxController {
 
         // Save to local DB instead
         try {
-          double rateVal = double.tryParse(rate ?? '0') ?? 0;
+          double rateVal = double.tryParse((rate ?? '').trim()) ?? 0;
+          if (rateVal <= 0) {
+            rateVal = double.tryParse((lrate ?? '').trim()) ?? 0;
+          }
+          if (rateVal <= 0) {
+            rateVal = double.tryParse((nrate ?? '').trim()) ?? 0;
+          }
           double qtyVal = double.tryParse(qty) ?? 0;
           var nrateVal = double.tryParse(nrate ?? rate ?? '0') ?? 0;
           double lrateVal = double.tryParse(lrate ?? '0') ?? 0;
@@ -185,6 +201,7 @@ class CartController extends GetxController {
           AppSnackBar.showGetXCustomSnackBar(
             message: "Item added (offline - will sync)",
             backgroundColor: Colors.orange,
+            enforceNetworkMessage: false,
           );
           log("Item $itemCd saved to local cart (offline fallback)");
         } catch (e) {
@@ -192,6 +209,7 @@ class CartController extends GetxController {
           log("Error saving to local cart: $e");
           AppSnackBar.showGetXCustomSnackBar(
             message: "Failed to add item to cart",
+            enforceNetworkMessage: false,
           );
         }
       } else {
@@ -199,6 +217,7 @@ class CartController extends GetxController {
         log("DIO Error in addItemToCart: $dioError");
         AppSnackBar.showGetXCustomSnackBar(
           message: "Failed to add item to cart: ${dioError.message}",
+          enforceNetworkMessage: false,
         );
       }
     } catch (e) {
@@ -206,6 +225,7 @@ class CartController extends GetxController {
       log("Error in addItemToCart: $e");
       AppSnackBar.showGetXCustomSnackBar(
         message: "Failed to add item to cart",
+        enforceNetworkMessage: false,
       );
     } finally {
       productLoadingStates[itemCd] = false;

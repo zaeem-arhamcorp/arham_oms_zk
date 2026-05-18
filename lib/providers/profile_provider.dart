@@ -362,9 +362,9 @@ class ProfileProvider extends DisposableProvider {
 
           if (effectiveUserCd.isNotEmpty) {
             final localTodayPunches =
-                await locService.getTodaysPunches(effectiveUserCd);
+                await locService.getTodaysPunches(effectiveUserCd, syncId);
             print(
-                '[PROFILE-ONLINE] 📊 Local today punches for USER_CD=$effectiveUserCd: ${localTodayPunches.length}');
+                '[PROFILE-ONLINE] 📊 Local today punches for USER_CD=$effectiveUserCd (SYNC_ID=$syncId): ${localTodayPunches.length}');
 
             if (localTodayPunches.isNotEmpty) {
               final lastLocal = localTodayPunches.last;
@@ -829,8 +829,10 @@ class ProfileProvider extends DisposableProvider {
       return;
     }
 
-    final punches = await locService.getTodaysPunches(actualUserCd);
-    print('$logTag 📊 Found ${punches.length} punches for today');
+    final punches =
+        await locService.getTodaysPunches(actualUserCd, syncIdValue);
+    print(
+        '$logTag 📊 Found ${punches.length} punches for today (SYNC_ID=$syncIdValue)');
 
     if (punches.isNotEmpty) {
       for (var p in punches) {
@@ -849,7 +851,7 @@ class ProfileProvider extends DisposableProvider {
         '$logTag ⚠️ No punches found for today, checking previous-day open state');
 
     final latestPunch =
-        await DatabaseHelper().getLatestPunchForUser(actualUserCd);
+        await DatabaseHelper().getLatestPunchForUser(actualUserCd, syncIdValue);
     final latestRemark = (latestPunch?['REMARK'] ?? '').toString();
     final latestDate = (latestPunch?['VOUCH_DT'] ?? '').toString();
 

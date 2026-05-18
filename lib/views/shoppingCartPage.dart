@@ -5,6 +5,7 @@ import 'dart:developer';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/generated/assets.dart';
 import 'package:arham_corporation/helper/helper.dart';
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/models/narrationModal.dart';
 import 'package:arham_corporation/product/controller/cart_controller.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
@@ -293,6 +294,33 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             _originalData = cart.data; // Store the original data
             datacart = List.from(
                 _originalData); // Set the displayed data to the original
+
+            // Backfill missing rate/amount from item rate so cart UI always shows values.
+            for (final element in datacart) {
+              final qtyVal =
+                  double.tryParse(element.quantity?.toString() ?? '0') ?? 0.0;
+
+              final currentRate =
+                  double.tryParse(element.rate?.toString() ?? '') ?? 0.0;
+              final fallbackRate = currentRate > 0
+                  ? currentRate
+                  : (double.tryParse(element.lrate?.toString() ?? '') ?? 0.0) >
+                          0
+                      ? (double.tryParse(element.lrate?.toString() ?? '') ??
+                          0.0)
+                      : (double.tryParse(
+                              element.item?.nrate?.toString() ?? '') ??
+                          0.0);
+
+              if (currentRate <= 0 && fallbackRate > 0) {
+                element.rate = fallbackRate;
+              }
+
+              final currentAmount = element.amount ?? 0.0;
+              if ((currentAmount <= 0) && qtyVal > 0 && fallbackRate > 0) {
+                element.amount = qtyVal * fallbackRate;
+              }
+            }
 
             print('[SHOPPING_CART_PAGE] 📊 DISPLAYING CART:');
             print('[SHOPPING_CART_PAGE]   Total items: ${datacart.length}');
@@ -2028,13 +2056,34 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     print('[ORDER_PLACEMENT] 📋 Order placement initiated');
     print('[ORDER_PLACEMENT] Items count: ${items?.length ?? 0}');
 
+    // Check if offline mode is enabled before allowing order placement
+    final ProfileProvider profile =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final isOnlinePlaceOrder = await NetworkHelper.hasInternet();
+    final offlineModeEnabledPlaceOrder = profile.isOfflineModeEnabled();
+    print(
+        '[ORDER_PLACEMENT] 🔍 Network Check: isOnline=$isOnlinePlaceOrder, offlineModeEnabled=$offlineModeEnabledPlaceOrder');
+
+    if (!isOnlinePlaceOrder && !offlineModeEnabledPlaceOrder) {
+      print(
+          '[ORDER_PLACEMENT] ❌ BLOCKED: Offline but offline mode not enabled');
+      setState(() {
+        loading = false;
+      });
+      AppSnackBar.showGetXCustomSnackBar(
+        message:
+            "Offline mode is not enabled for your firm. Please go online to place orders.",
+        enforceNetworkMessage: false,
+      );
+      return;
+    }
+    print('[ORDER_PLACEMENT] ✅ Check passed: Can proceed with place order');
+
     setState(() {
       loading = true;
     });
     final PartyProvider party =
         Provider.of<PartyProvider>(context, listen: false);
-    final ProfileProvider profile =
-        Provider.of<ProfileProvider>(context, listen: false);
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
 
     // Define lat/long outside try-catch so they're accessible in catch block
@@ -2070,7 +2119,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         print('[ORDER_PLACEMENT] Total Amount: $netAmount');
 
         AppSnackBar.showGetXCustomSnackBar(
-            message: orderResponse, backgroundColor: Colors.green);
+          message: orderResponse,
+          backgroundColor: Colors.green,
+          enforceNetworkMessage: false,
+        );
 
         // Trigger homepage congratulations popup for high-value orders.
         final orderAmount =
@@ -2271,6 +2323,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                 message:
                     'Order limit reached. Sync your data now to continue placing orders.',
                 backgroundColor: Colors.red,
+                enforceNetworkMessage: false,
               );
               setState(() {
                 loading = false;
@@ -2463,6 +2516,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         AppSnackBar.showGetXCustomSnackBar(
           message: "Order saved (offline - will sync)",
           backgroundColor: Colors.orange,
+          enforceNetworkMessage: false,
         );
 
         // Navigate to confirmation page with offline flag
@@ -2477,6 +2531,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         AppSnackBar.showGetXCustomSnackBar(
           message: 'Failed to save order. Please try again.',
           backgroundColor: Colors.red,
+          enforceNetworkMessage: false,
         );
 
         setState(() {
@@ -2489,6 +2544,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       AppSnackBar.showGetXCustomSnackBar(
         message: 'Failed to save order. Please try again.',
         backgroundColor: Colors.red,
+        enforceNetworkMessage: false,
       );
       setState(() {
         loading = false;

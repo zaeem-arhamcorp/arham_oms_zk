@@ -26,22 +26,27 @@ class AppSnackBar {
     showGetXCustomSnackBar(message: messageToShow, backgroundColor: Colors.red);
   }
 
-  static Future<void> showGetXCustomSnackBar(
-      {required String message, Color backgroundColor = Colors.red}) async {
+  static Future<void> showGetXCustomSnackBar({
+    required String message,
+    Color backgroundColor = Colors.red,
+    bool enforceNetworkMessage = true,
+  }) async {
     try {
-      try {
-        final hasNet = await NetworkHelper.hasInternet();
-        if (!hasNet) {
-          message = Constants.networkMsg;
-          backgroundColor = Colors.orange;
-        } else {
-          if (message.trim().isEmpty) {
-            message = 'Something went wrong';
-            backgroundColor = Colors.red;
+      if (enforceNetworkMessage) {
+        try {
+          final hasNet = await NetworkHelper.hasInternet();
+          if (!hasNet) {
+            message = Constants.networkMsg;
+            backgroundColor = Colors.orange;
           }
+        } catch (e) {
+          print('[AppSnackBar] Network check failed: $e');
         }
-      } catch (e) {
-        print('[AppSnackBar] Network check failed: $e');
+      }
+
+      if (message.trim().isEmpty) {
+        message = 'Something went wrong';
+        backgroundColor = Colors.red;
       }
 
       final overlayContext = Get.context ?? Get.overlayContext;

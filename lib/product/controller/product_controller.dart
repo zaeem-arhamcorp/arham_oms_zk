@@ -991,14 +991,54 @@ class ProductController extends GetxController {
       selectedStockistMobile.value = '';
       selectedStockistPersonName.value = '';
       selectedStockistPincode.value = '';
-      
-      // Clear party selection on logout
-      selectedPartyName.value = '';
-      selectedPartyId.value = '';
-      
+
       print('[Stockist] Cleared selection');
     } catch (e) {
       print('[Stockist] Error clearing selection: $e');
+    }
+  }
+
+  /// Save party selection to SharedPreferences (persists across app navigation)
+  Future<void> savePartySelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selectedPartyName', selectedPartyName.value);
+      await prefs.setString('selectedPartyId', selectedPartyId.value);
+      print(
+          '[Party] Saved selection: ${selectedPartyName.value} (${selectedPartyId.value})');
+    } catch (e) {
+      print('[Party] Error saving selection: $e');
+    }
+  }
+
+  /// Restore party selection from SharedPreferences (survives Get.offAll() navigation)
+  Future<void> restorePartySelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString('selectedPartyName') ?? '';
+      final id = prefs.getString('selectedPartyId') ?? '';
+
+      if (name.isNotEmpty && id.isNotEmpty) {
+        selectedPartyName.value = name;
+        selectedPartyId.value = id;
+        print('[Party] Restored selection: $name ($id)');
+      }
+    } catch (e) {
+      print('[Party] Error restoring selection: $e');
+    }
+  }
+
+  /// Clear party selection from SharedPreferences (called on explicit End Order)
+  Future<void> clearPartySelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('selectedPartyName');
+      await prefs.remove('selectedPartyId');
+      selectedPartyName.value = '';
+      selectedPartyId.value = '';
+      print('[Party] Cleared selection');
+    } catch (e) {
+      print('[Party] Error clearing selection: $e');
     }
   }
 
