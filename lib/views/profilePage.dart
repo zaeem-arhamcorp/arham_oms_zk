@@ -179,34 +179,63 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     try {
-      final uri = Uri.parse(AppConfig.childrenURL);
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
-      );
+      // Paginate through children API until no more data.
+      final List<dynamic> users = <dynamic>[];
+      int page = 1;
+      const int maxPages = 50; // safety cap to avoid runaway loops
 
-      print(AppConfig.childrenURL);
-      print('Bearer $token');
-      print(response.body);
+      while (page <= maxPages) {
+        final uri = Uri.parse(AppConfig.childrenURL)
+            .replace(queryParameters: {'page': page.toString()});
+        print('[PROFILE] users/children GET $uri');
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+          },
+        );
 
-      if (response.statusCode != 200) {
-        print(
-            '[PROFILE] users/children failed with status ${response.statusCode}');
-        return;
+        if (response.statusCode != 200) {
+          print(
+              '[PROFILE] users/children failed with status ${response.statusCode}');
+          break;
+        }
+
+        final Map<String, dynamic> decoded =
+            Map<String, dynamic>.from(json.decode(response.body));
+        final List<dynamic> pageData = decoded['data'] is List
+            ? List<dynamic>.from(decoded['data'])
+            : <dynamic>[];
+
+        users.addAll(pageData);
+
+        // If meta indicates last_page, stop when reached.
+        final meta = decoded['meta'];
+        if (meta is Map) {
+          final lastPage = meta['last_page'] is int
+              ? meta['last_page'] as int
+              : int.tryParse(meta['lastPage']?.toString() ?? '') ?? -1;
+          if (lastPage > 0 && page >= lastPage) {
+            break;
+          }
+          final perPage = meta['per_page'] is int
+              ? meta['per_page'] as int
+              : int.tryParse(meta['perPage']?.toString() ?? '') ?? null;
+          if (perPage != null && pageData.length < perPage) {
+            break; // last page reached
+          }
+        }
+
+        if (pageData.isEmpty) {
+          break; // no more data
+        }
+
+        page++;
       }
 
-      final Map<String, dynamic> decoded =
-          Map<String, dynamic>.from(json.decode(response.body));
-      final List<dynamic> users = decoded['data'] is List
-          ? List<dynamic>.from(decoded['data'])
-          : <dynamic>[];
-
-      final Map<String, dynamic> meta = decoded['meta'] is Map
-          ? Map<String, dynamic>.from(decoded['meta'])
-          : <String, dynamic>{};
+      // For backward compatibility keep meta variable usage below
+      final Map<String, dynamic> meta = <String, dynamic>{};
       final currentUserCd =
           (meta['currentUserCd'] ?? profileProvider.data?.userCd ?? '')
               .toString()
@@ -215,10 +244,7 @@ class _ProfilePageState extends State<ProfilePage> {
       Map<String, dynamic>? selectedUser;
 
       for (final item in users) {
-        if (item is! Map) {
-          continue;
-        }
-
+        if (item is! Map) continue;
         final user = Map<String, dynamic>.from(item);
         final isSelf = user['isSelf'] == true;
         final userCd = (user['USER_CD'] ?? '').toString().trim();
@@ -234,9 +260,7 @@ class _ProfilePageState extends State<ProfilePage> {
           users.isNotEmpty) {
         final profileUserCd = profileProvider.data!.userCd.toString().trim();
         for (final item in users) {
-          if (item is! Map) {
-            continue;
-          }
+          if (item is! Map) continue;
           final user = Map<String, dynamic>.from(item);
           if ((user['USER_CD'] ?? '').toString().trim() == profileUserCd) {
             selectedUser = user;

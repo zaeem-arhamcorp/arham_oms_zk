@@ -102,18 +102,19 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
     // ⚡ When offline with enableOfflineMode='Y', delete directly from offline DB without API attempt
     if (!isOnlineDeleteCartItem && offlineModeEnabledDeleteCartItem) {
-      print('[CART] 📵 Offline mode enabled - deleting directly from offline DB');
+      print(
+          '[CART] 📵 Offline mode enabled - deleting directly from offline DB');
       try {
         final PartyProvider party =
             Provider.of<PartyProvider>(context, listen: false);
         final CartListProvider cartProvider =
             Provider.of<CartListProvider>(context, listen: false);
-        String partyId = (profile.data?.profileSettings.any(
-                    (e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+        String partyId = (profile.data?.profileSettings
+                    .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
                 false)
             ? party.punchInOutPartyId
             : party.partyid;
-        
+
         // Delete from offline DB
         await DatabaseHelper()
             .deleteCartItemByItemCd(itemCd.toString(), partyId);
@@ -124,8 +125,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         print('[CART] ✅ Item removed from CartListProvider cache');
 
         AppSnackBar.showGetXCustomSnackBar(
-            message: "Item removed (offline)",
-            backgroundColor: Colors.orange);
+            message: "Item removed (offline)", backgroundColor: Colors.orange);
 
         // ⚡ Update local state
         if (mounted) {

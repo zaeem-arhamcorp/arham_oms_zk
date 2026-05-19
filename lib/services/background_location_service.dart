@@ -31,6 +31,7 @@ class BackgroundLocationService {
   final DatabaseHelper _db = DatabaseHelper();
   final FlutterBackgroundService _service = FlutterBackgroundService();
   static const Duration _captureInterval = Duration(seconds: 40);
+  static const double _maxAcceptedAccuracyMeters = 30.0;
   static const String _activeTripTokenKey = 'active_trip_token';
   static const String _pendingAutoPunchOutKey = 'pending_auto_punch_out';
   static const String _pendingAutoPunchOutTripIdKey =
@@ -93,6 +94,10 @@ class BackgroundLocationService {
 
   static String _autoPunchOutDoneKeyForDate(DateTime dt) {
     return 'auto_punch_out_done_${_formatLocalDate(dt)}';
+  }
+
+  static bool _shouldKeepLocationFix(double accuracy) {
+    return accuracy.isFinite && accuracy <= _maxAcceptedAccuracyMeters;
   }
 
   static Map<String, dynamic>? _decodeResponseBody(String body) {
@@ -1479,6 +1484,12 @@ class BackgroundLocationService {
           print(
               '[BackgroundLocationService] [Background]   Timestamp: $timestamp');
 
+          if (!_shouldKeepLocationFix(position.accuracy)) {
+            print(
+                '[BackgroundLocationService] [Background] ⚠️ Dropping low-quality fix before local storage (accuracy=${position.accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
+            continue;
+          }
+
           // Store location in SQLite first (always, regardless of internet)
           try {
             print(
@@ -1560,6 +1571,12 @@ class BackgroundLocationService {
                   '[BackgroundLocationService] [Background]   Activity: $resolvedActivityType');
               print(
                   '[BackgroundLocationService] [Background]   Timestamp: $timestamp');
+
+              if (!_shouldKeepLocationFix(lastKnownPosition.accuracy)) {
+                print(
+                    '[BackgroundLocationService] [Background] ⚠️ Dropping low-quality fallback fix before local storage (accuracy=${lastKnownPosition.accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
+                continue;
+              }
 
               try {
                 print(
@@ -1684,9 +1701,9 @@ class BackgroundLocationService {
     try {
       final syncStartTime = DateTime.now();
 
-      if (accuracy > 30) {
+      if (!_shouldKeepLocationFix(accuracy)) {
         print(
-            '[BackgroundLocationService] [Background] ⚠️ Skipping immediate sync for low-quality fix (accuracy=${accuracy.toStringAsFixed(1)}m > 30m). Keeping locally queued.');
+            '[BackgroundLocationService] [Background] ⚠️ Rejecting low-quality fix before sync (accuracy=${accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
         return;
       }
 

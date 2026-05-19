@@ -9,6 +9,7 @@ import 'database_helper.dart';
 /// Used both by the background service and foreground connectivity detection.
 class LocationSyncService {
   final DatabaseHelper _db = DatabaseHelper();
+  static const double _maxAcceptedAccuracyMeters = 30.0;
 
   /// Safely parse timestamp from both string (ISO8601) and int (epoch seconds) formats
   /// Handles migration from old string timestamps to new int format
@@ -49,6 +50,10 @@ class LocationSyncService {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value.toString());
+  }
+
+  bool _shouldKeepLocationFix(double accuracy) {
+    return accuracy.isFinite && accuracy <= _maxAcceptedAccuracyMeters;
   }
 
   List<int> _extractIdList(dynamic value) {
@@ -236,7 +241,6 @@ class LocationSyncService {
       for (var entry in locationsByTrip.entries) {
         final tripId = entry.key;
         final locations = entry.value;
-        final ids = idsByTrip[tripId]!;
         final firstLocation = locations.first;
         final userCd = (firstLocation['user_cd'] ?? '').toString();
         final syncId = (firstLocation['sync_id'] as num?)?.toInt() ?? 0;
@@ -246,9 +250,49 @@ class LocationSyncService {
         print(
             '[LocationSyncService]    Batch size: ${locations.length} locations');
 
+        late final List<int> batchIds;
+
         try {
+          final validLocations = <Map<dynamic, dynamic>>[];
+          final validIds = <int>[];
+          final rejectedIds = <int>[];
+
+          for (final location in locations) {
+            final localId = _parseInt(location['id']);
+            final accuracy = (location['accuracy'] as num?)?.toDouble() ?? 0.0;
+
+            if (!_shouldKeepLocationFix(accuracy)) {
+              if (localId != null) {
+                rejectedIds.add(localId);
+              }
+              continue;
+            }
+
+            validLocations.add(location);
+            if (localId != null) {
+              validIds.add(localId);
+            }
+          }
+
+          if (rejectedIds.isNotEmpty) {
+            for (final rejectedId in rejectedIds) {
+              await _db.deleteLocationTracking(rejectedId);
+            }
+            totalFailed += rejectedIds.length;
+            print(
+                '[LocationSyncService] ⚠️ Dropped ${rejectedIds.length} low-quality cached locations before bulk sync for trip_id=$tripId');
+          }
+
+          if (validLocations.isEmpty) {
+            print(
+                '[LocationSyncService] ⚠️ No valid locations left to sync for trip_id=$tripId after accuracy filtering');
+            continue;
+          }
+
+          batchIds = List<int>.from(validIds);
+
           // Build batch array
-          final points = locations.map((location) {
+          final points = validLocations.map((location) {
             final localId = _parseInt(location['id']);
             final latitude = (location['latitude'] as num?)?.toDouble() ?? 0.0;
             final longitude =
@@ -310,17 +354,28 @@ class LocationSyncService {
               if (retryResponse.statusCode == 200 ||
                   retryResponse.statusCode == 201) {
                 final retryData = _decodeJsonBody(retryResponse.body);
-                await _applyBatchOutcome(ids: ids, responseData: retryData);
+                await _applyBatchOutcome(
+                    ids: batchIds, responseData: retryData);
                 final acceptedCount = _parseInt(
                       retryData?['accepted_points_count'],
                     ) ??
-                    ids.length;
+                    batchIds.length;
                 final rejectedCount = _parseInt(
                       retryData?['rejected_points_count'],
                     ) ??
                     0;
-                totalSynced += acceptedCount.clamp(0, ids.length).toInt();
-                totalFailed += rejectedCount.clamp(0, ids.length).toInt();
+                final cappedAcceptedCount = acceptedCount < 0
+                    ? 0
+                    : (acceptedCount > batchIds.length
+                        ? batchIds.length
+                        : acceptedCount);
+                final cappedRejectedCount = rejectedCount < 0
+                    ? 0
+                    : (rejectedCount > batchIds.length
+                        ? batchIds.length
+                        : rejectedCount);
+                totalSynced += cappedAcceptedCount;
+                totalFailed += cappedRejectedCount;
                 print(
                     '[LocationSyncService] ✅ OFFLINE SYNC SUCCESS after refresh for trip_id=$refreshedTripId');
                 print(
@@ -337,34 +392,45 @@ class LocationSyncService {
                   '[LocationSyncService] ⚠️ Retry after 409 still failed: ${retryResponse.statusCode} ${retryResponse.body}');
             }
 
-            totalFailed += ids.length;
+            totalFailed += batchIds.length;
             print(
                 '[LocationSyncService] ⚠️ OFFLINE SYNC CONFLICT for trip_id=$tripId - keeping points pending');
             continue;
           }
 
           if (response.statusCode == 200 || response.statusCode == 201) {
-            await _applyBatchOutcome(ids: ids, responseData: responseData);
+            await _applyBatchOutcome(ids: batchIds, responseData: responseData);
             final acceptedCount = _parseInt(
                   responseData?['accepted_points_count'],
                 ) ??
-                ids.length;
+                batchIds.length;
             final rejectedCount = _parseInt(
                   responseData?['rejected_points_count'],
                 ) ??
                 0;
-            totalSynced += acceptedCount.clamp(0, ids.length).toInt();
-            totalFailed += rejectedCount.clamp(0, ids.length).toInt();
+            final cappedAcceptedCount = acceptedCount < 0
+                ? 0
+                : (acceptedCount > batchIds.length
+                    ? batchIds.length
+                    : acceptedCount);
+            final cappedRejectedCount = rejectedCount < 0
+                ? 0
+                : (rejectedCount > batchIds.length
+                    ? batchIds.length
+                    : rejectedCount);
+            totalSynced += cappedAcceptedCount;
+            totalFailed += cappedRejectedCount;
             print(
                 '[LocationSyncService] ✅ OFFLINE SYNC SUCCESS for trip_id=$tripId');
             print(
                 '[LocationSyncService]    Status Code: ${response.statusCode}');
             print('[LocationSyncService]    Accepted points: $acceptedCount');
             print('[LocationSyncService]    Rejected points: $rejectedCount');
-            print('[LocationSyncService]    Record IDs: ${ids.join(', ')}');
+            print(
+                '[LocationSyncService]    Record IDs: ${batchIds.join(', ')}');
             print('[LocationSyncService]    Server Response: ${response.body}');
           } else {
-            totalFailed += ids.length;
+            totalFailed += batchIds.length;
             print(
                 '[LocationSyncService] ⚠️ OFFLINE SYNC FAILED - Server error ${response.statusCode} for trip_id=$tripId');
             print('[LocationSyncService]    Response: ${response.body}');
@@ -372,7 +438,7 @@ class LocationSyncService {
                 '[LocationSyncService]    Action: Will retry on next sync attempt');
           }
         } catch (e) {
-          totalFailed += ids.length;
+          totalFailed += batchIds.length;
           print(
               '[LocationSyncService] ❌ OFFLINE SYNC EXCEPTION for trip_id=$tripId: $e');
           print(
