@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../route_schedule_plan/controllers/beat_controller.dart';
 import '../controllers/account_controller.dart';
 import '../core/form_validation.dart';
 import 'account_form_fields.dart';
-import '../../route_schedule_plan/controllers/beat_controller.dart';
 
 class FormWidgets {
   // Generic Text Field
@@ -164,24 +164,109 @@ class FormWidgets {
               AccountFormFields.beatCdController.text = selectedValue ?? '';
             }
 
-            return DropdownButtonFormField<String>(
-              value: selectedValue,
-              decoration: InputDecoration(
-                labelText: 'Beat',
-                border: const OutlineInputBorder(),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              items: items
-                  .map((b) => DropdownMenuItem<String>(
-                        value: b.beatCd,
-                        child:
-                            Text(b.beatName.isNotEmpty ? b.beatName : b.beatCd),
-                      ))
-                  .toList(),
-              onChanged: (v) {
-                AccountFormFields.beatCdController.text = v ?? '';
+            // Searchable beat picker: tapping opens a dialog with search.
+            final displayText = matchedBeat?.beatName.isNotEmpty == true
+                ? matchedBeat!.beatName
+                : (matchedBeat?.beatCd ?? '');
+
+            return GestureDetector(
+              onTap: () async {
+                final selected = await showDialog<dynamic>(
+                  context: context,
+                  builder: (dialogCtx) {
+                    final searchCtrl = TextEditingController();
+                    var filtered = List.from(items);
+
+                    return StatefulBuilder(builder: (c, setState) {
+                      return AlertDialog(
+                        title: const Text('Select Beat'),
+                        backgroundColor: Colors.white,
+                        content: SizedBox(
+                          width: double.maxFinite,
+                          height: 320,
+                          child: Column(
+                            children: [
+                              TextField(
+                                controller: searchCtrl,
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.search),
+                                  hintText: 'Search beats',
+                                ),
+                                onChanged: (s) {
+                                  final q = s.trim().toLowerCase();
+                                  setState(() {
+                                    if (q.isEmpty) {
+                                      filtered = List.from(items);
+                                    } else {
+                                      filtered = items
+                                          .where((b) =>
+                                              b.beatName
+                                                  .toString()
+                                                  .toLowerCase()
+                                                  .contains(q) ||
+                                              b.beatCd
+                                                  .toString()
+                                                  .toLowerCase()
+                                                  .contains(q))
+                                          .toList();
+                                    }
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: filtered.isEmpty
+                                    ? const Center(
+                                        child: Text('No beats found'))
+                                    : ListView.builder(
+                                        itemCount: filtered.length,
+                                        itemBuilder: (_, i) {
+                                          final b = filtered[i];
+                                          return ListTile(
+                                            title: Text(b.beatName.isNotEmpty
+                                                ? b.beatName
+                                                : b.beatCd),
+                                            subtitle: Text(b.beatCd),
+                                            onTap: () => Navigator.of(c)
+                                                .pop<dynamic>(filtered[i]),
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogCtx).pop(),
+                            child: const Text('Cancel'),
+                          )
+                        ],
+                      );
+                    });
+                  },
+                );
+
+                if (selected != null) {
+                  AccountFormFields.beatCdController.text = selected.beatCd;
+                  try {
+                    (context as Element).markNeedsBuild();
+                  } catch (_) {}
+                }
               },
+              child: AbsorbPointer(
+                child: TextFormField(
+                  readOnly: true,
+                  controller: TextEditingController(text: displayText),
+                  decoration: InputDecoration(
+                    labelText: 'Beat',
+                    border: const OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: const Icon(Icons.arrow_drop_down),
+                  ),
+                ),
+              ),
             );
           });
         }),
