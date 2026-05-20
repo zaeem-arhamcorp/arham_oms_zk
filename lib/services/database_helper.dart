@@ -2010,6 +2010,15 @@ class DatabaseHelper {
     );
   }
 
+  /// Get all location tracking records
+  Future<List<Map<String, dynamic>>> getAllLocationTracking() async {
+    final db = await database;
+    return await db.query(
+      'location_tracking',
+      orderBy: 'timestamp DESC',
+    );
+  }
+
   /// Get unsynced location tracking records for a specific user
   Future<List<Map<String, dynamic>>> getUnsyncedLocationTrackingsByUser(
       String userCd, int syncId) async {
@@ -2119,6 +2128,15 @@ class DatabaseHelper {
     return null;
   }
 
+  /// Get all on-demand location records
+  Future<List<Map<String, dynamic>>> getAllLocationOnDemand() async {
+    final db = await database;
+    return await db.query(
+      'location_on_demand',
+      orderBy: 'timestamp DESC',
+    );
+  }
+
   /// Mark multiple location tracking records as synced (batch operation)
   Future<void> markLocationTrackingsSynced(List<int> ids) async {
     if (ids.isEmpty) return;
@@ -2157,6 +2175,16 @@ class DatabaseHelper {
       'location_tracking',
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  /// Delete all location tracking records for a trip
+  Future<int> deleteLocationTrackingByTripId(int tripId) async {
+    final db = await database;
+    return await db.delete(
+      'location_tracking',
+      where: 'trip_id = ?',
+      whereArgs: [tripId],
     );
   }
 

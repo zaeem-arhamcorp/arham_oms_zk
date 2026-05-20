@@ -1,5 +1,7 @@
+import 'package:arham_corporation/views/location_db/location_db_viewer_page.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AboutPage extends StatefulWidget {
@@ -31,7 +33,13 @@ class _AboutPageState extends State<AboutPage> {
                 ' transform the way your business operates\n\nOur expertise in :-',
                 style: TextStyle(fontSize: screenWidth * 0.045),
               ),
-              _buildBulletPoint('Order Management Systems (OMS)', screenWidth),
+              GestureDetector(
+                onLongPress: () {
+                  Get.to(() => LocationDbViewerPage());
+                },
+                child: _buildBulletPoint(
+                    'Order Management Systems (OMS)', screenWidth),
+              ),
               _buildBulletPoint(
                   'Enterprise Resource Planning (ERP)', screenWidth),
               _buildBulletPoint(

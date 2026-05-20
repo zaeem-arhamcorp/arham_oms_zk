@@ -275,10 +275,7 @@ class LocationSyncService {
           }
 
           if (rejectedIds.isNotEmpty) {
-            for (final rejectedId in rejectedIds) {
-              await _db.deleteLocationTracking(rejectedId);
-            }
-            totalFailed += rejectedIds.length;
+            await _db.markLocationTrackingsRejected(rejectedIds);
             print(
                 '[LocationSyncService] ⚠️ Dropped ${rejectedIds.length} low-quality cached locations before bulk sync for trip_id=$tripId');
           }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class UserSearchDropdown extends StatefulWidget {
   final List<Map<String, dynamic>> users;
   final String? selectedUserCode;
+  final String? initialSearchText;
   final ValueChanged<String?> onChanged;
   final ValueChanged<String>? onSearchQueryChanged;
   final bool loading;
@@ -14,6 +15,7 @@ class UserSearchDropdown extends StatefulWidget {
     required this.users,
     required this.selectedUserCode,
     required this.onChanged,
+    this.initialSearchText,
     this.onSearchQueryChanged,
     this.loading = false,
     this.hint,
@@ -34,7 +36,8 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
   @override
   void initState() {
     super.initState();
-    _searchController = TextEditingController();
+    _searchController =
+        TextEditingController(text: widget.initialSearchText ?? '');
     _focusNode = FocusNode();
     _filteredUsers = widget.users;
 
@@ -69,6 +72,9 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
   @override
   void didUpdateWidget(covariant UserSearchDropdown oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSearchText != widget.initialSearchText) {
+      _searchController.text = widget.initialSearchText ?? '';
+    }
     if (oldWidget.users != widget.users) {
       final query = _searchController.text.toLowerCase().trim();
       setState(() {
@@ -151,7 +157,7 @@ class _UserSearchDropdownState extends State<UserSearchDropdown> {
                                       widget.onChanged('');
                                       _focusNode.unfocus();
                                     },
-                              child: Text('All Users',
+                              child: Text('Select User',
                                   style: TextStyle(
                                     fontWeight:
                                         widget.selectedUserCode?.isEmpty == true

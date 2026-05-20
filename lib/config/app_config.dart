@@ -37,7 +37,7 @@ class AppConfig {
 
   // TODO: Update today's date in ProfilePage before building apk
   // static const String baseURL =
-  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // TODO: Remove today's date from ProfilePage before building apk
   // static const String baseURL =

@@ -12,6 +12,7 @@ import 'package:arham_corporation/views/party_managment/screens/account_list_scr
 import 'package:arham_corporation/views/referral/views/referral_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/route_schedule_plan/views/beat_list_view.dart';
+import 'package:arham_corporation/views/route_schedule_plan/views/beat_master_view.dart';
 import 'package:arham_corporation/views/settingsScreen.dart';
 import 'package:arham_corporation/views/userScreen.dart';
 import 'package:flutter/cupertino.dart';
@@ -530,6 +531,24 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
             ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
+                  module.mODULENO == "120" && module.rEADRIGHT == true))
+            ListTile(
+              leading: Icon(
+                Icons.route_sharp,
+                size: 30,
+              ),
+              title: Text(
+                'Tour Master',
+                style: TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+              onTap: () {
+                Get.to(() => BeatMasterView());
+              },
+            ),
+          if (p.data != null &&
+              p.data!.modulesList!.any((module) =>
                   module.mODULENO == "233" && module.rEADRIGHT == true))
             ListTile(
               leading: Icon(
@@ -537,7 +556,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 size: 30,
               ),
               title: Text(
-                'Beat Schedule',
+                'Tour Planner',
                 style: TextStyle(
                   fontSize: 20,
                 ),
@@ -720,6 +739,21 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               );
             },
           ),
+          // ListTile(
+          //   leading: Icon(
+          //     Icons.storage,
+          //     size: 30,
+          //   ),
+          //   title: Text(
+          //     'Location DB',
+          //     style: TextStyle(
+          //       fontSize: 20,
+          //     ),
+          //   ),
+          //   onTap: () {
+          //     Get.to(() => LocationDbViewerPage());
+          //   },
+          // ),
         ],
       ),
     );

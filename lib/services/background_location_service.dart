@@ -1484,12 +1484,6 @@ class BackgroundLocationService {
           print(
               '[BackgroundLocationService] [Background]   Timestamp: $timestamp');
 
-          if (!_shouldKeepLocationFix(position.accuracy)) {
-            print(
-                '[BackgroundLocationService] [Background] ⚠️ Dropping low-quality fix before local storage (accuracy=${position.accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
-            continue;
-          }
-
           // Store location in SQLite first (always, regardless of internet)
           try {
             print(
@@ -1571,12 +1565,6 @@ class BackgroundLocationService {
                   '[BackgroundLocationService] [Background]   Activity: $resolvedActivityType');
               print(
                   '[BackgroundLocationService] [Background]   Timestamp: $timestamp');
-
-              if (!_shouldKeepLocationFix(lastKnownPosition.accuracy)) {
-                print(
-                    '[BackgroundLocationService] [Background] ⚠️ Dropping low-quality fallback fix before local storage (accuracy=${lastKnownPosition.accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
-                continue;
-              }
 
               try {
                 print(
@@ -1701,12 +1689,6 @@ class BackgroundLocationService {
     try {
       final syncStartTime = DateTime.now();
 
-      if (!_shouldKeepLocationFix(accuracy)) {
-        print(
-            '[BackgroundLocationService] [Background] ⚠️ Rejecting low-quality fix before sync (accuracy=${accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
-        return;
-      }
-
       // Check internet connection
       print(
           '[BackgroundLocationService] [Background]    🌐 Checking internet connection...');
@@ -1719,6 +1701,12 @@ class BackgroundLocationService {
         return;
       }
       print('[BackgroundLocationService] [Background]    ✅ Internet available');
+
+      if (!_shouldKeepLocationFix(accuracy)) {
+        print(
+            '[BackgroundLocationService] [Background] ⚠️ Rejecting low-quality fix before sync (accuracy=${accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m).');
+        return;
+      }
 
       final payload = {
         'trip_id': tripId,
@@ -1899,6 +1887,13 @@ class BackgroundLocationService {
           final accuracy = location['accuracy'] as double? ?? 0.0;
           final speed = location['speed'] as double? ?? 0.0;
           final altitude = location['altitude'] as double? ?? 0.0;
+
+          if (!_shouldKeepLocationFix(accuracy)) {
+            await db.markLocationTrackingRejected(id);
+            print(
+                '[BackgroundLocationService] [Background] ⚠️ Skipping low-quality retry sync for id=$id (accuracy=${accuracy.toStringAsFixed(1)}m > ${_maxAcceptedAccuracyMeters.toStringAsFixed(0)}m)');
+            continue;
+          }
 
           // Send to server via /api/location/update endpoint
           print(

@@ -624,6 +624,12 @@ class LocationService {
         'total_failed': 0,
       };
 
+      int? tripIdToClear = _backgroundService.currentTripId;
+      if (tripIdToClear == null) {
+        final prefs = await SharedPreferences.getInstance();
+        tripIdToClear = prefs.getInt('active_trip_id');
+      }
+
       // Step 2: Stop background location capture if continuous tracking was enabled
       if (continuousLocationTracking) {
         print('[LocationService] 🛑 Stopping background tracking service...');
@@ -641,6 +647,18 @@ class LocationService {
         final tripEnded = await _backgroundService.endActiveTripOnServer();
         print(
             '[LocationService] ${tripEnded ? '✅' : '⚠️'} Trip end after sync');
+
+        if (tripIdToClear != null && tripIdToClear > 0) {
+          try {
+            final deleted =
+                await db.deleteLocationTrackingByTripId(tripIdToClear);
+            print(
+                '[LocationService] 🧹 Cleared $deleted tracking points for trip_id=$tripIdToClear');
+          } catch (e) {
+            print(
+                '[LocationService] ⚠️ Failed to clear tracking points for trip_id=$tripIdToClear: $e');
+          }
+        }
       } else {
         print(
             '[LocationService] ℹ️ Continuous tracking disabled, skipping background service stop');
