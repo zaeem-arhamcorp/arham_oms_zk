@@ -534,7 +534,7 @@ class _BeatListViewState extends State<BeatListView> {
         AppSnackBar.showGetXCustomSnackBar(
           message:
               'Failed to save ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}',
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.red,
         );
       }
     } catch (e) {
@@ -547,7 +547,7 @@ class _BeatListViewState extends State<BeatListView> {
         AppSnackBar.showGetXCustomSnackBar(
           message:
               'Error saving ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}: $e',
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.red,
         );
       }
     }

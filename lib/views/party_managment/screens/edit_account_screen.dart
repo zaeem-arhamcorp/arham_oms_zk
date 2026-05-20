@@ -32,7 +32,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Account'),
+        title: const Text('Edit Party'),
         foregroundColor: Colors.white,
       ),
       body: GestureDetector(
@@ -65,17 +65,28 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
                 /// UPDATE BUTTON
                 Obx(
-                  () => ElevatedButton(
-                    onPressed: controller.isLoading.value
-                        ? null
-                        : () {
-                            if (controller.formKey.currentState!.validate()) {
-                              controller.updateAccount(context);
-                            }
-                          },
-                    child: controller.isLoading.value
-                        ? const CircularProgressIndicator()
-                        : const Text('Update Account'),
+                  () => Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: controller.isLoading.value
+                              ? null
+                              : () {
+                                  if (controller.formKey.currentState!
+                                      .validate()) {
+                                    controller.updateAccount(context);
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: controller.isLoading.value
+                              ? const CircularProgressIndicator()
+                              : const Text('Update Party'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -726,6 +726,10 @@ class FormWidgets {
                 children: [
                   ElevatedButton.icon(
                     onPressed: controller.showImageSourcePicker,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
                     icon: const Icon(Icons.upload),
                     label: Text(
                       image == null ? 'Upload Image' : 'Change',

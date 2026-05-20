@@ -3,7 +3,7 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 class RouteLabelHelper {
   static bool useBeatLabel(ProfileProvider profile) {
     return profile.data?.profileSettings.any((element) =>
-            element.variable == 'labelSettings' && element.value == 'Y') ??
+            element.variable == 'beatTourLabel' && element.value == 'N') ??
         false;
   }
 

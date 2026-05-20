@@ -55,6 +55,28 @@ class CartListProvider extends DisposableProvider {
   //     }
   //   }
   // }
+
+  double _effectiveRate(dynamic rate, dynamic lrate, dynamic nrate) {
+    double parseValue(dynamic value) =>
+        double.tryParse(value?.toString() ?? '') ?? 0.0;
+
+    final rateValue = parseValue(rate);
+    if (rateValue > 0) return rateValue;
+
+    final lrateValue = parseValue(lrate);
+    if (lrateValue > 0) return lrateValue;
+
+    return parseValue(nrate);
+  }
+
+  double _effectiveProductRate(Map<String, dynamic> product) {
+    return _effectiveRate(
+      product['nrate'],
+      product['srate1'],
+      product['prate'],
+    );
+  }
+
   Future getCartItem(BuildContext context, String? partyId) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
 
@@ -105,6 +127,14 @@ class CartListProvider extends DisposableProvider {
                 '[CART_PROVIDER-SYNC] 📥 RE-INSERTING ${serverItems.length} ITEMS:');
             for (var item in serverItems) {
               int qty = (item.quantity as num?)?.toInt() ?? 0;
+              final effectiveRate = _effectiveRate(
+                item.rate,
+                item.lrate,
+                item.item?.nrate,
+              );
+              final effectiveNRate =
+                  double.tryParse(item.item?.nrate?.toString() ?? '') ??
+                      effectiveRate;
               print(
                   '[CART_PROVIDER-SYNC]   - Inserting ItemCd: ${item.itemCd}, Qty: $qty');
               await CartService().addToCart(
@@ -112,10 +142,10 @@ class CartListProvider extends DisposableProvider {
                 itemCd: item.itemCd?.toString() ?? '',
                 quantity:
                     double.tryParse(item.quantity?.toString() ?? '0') ?? 0,
-                rate: double.tryParse(item.rate?.toString() ?? '0') ?? 0,
-                nrate:
-                    double.tryParse(item.item?.nrate?.toString() ?? '0') ?? 0,
-                lrate: double.tryParse(item.lrate?.toString() ?? '0') ?? 0,
+                rate: effectiveRate,
+                nrate: effectiveNRate,
+                lrate: double.tryParse(item.lrate?.toString() ?? '') ??
+                    effectiveRate,
                 amount: item.amount ?? 0,
                 otherDesc: item.otherDesc?.toString() ?? '',
                 fld5: item.fld5?.toString() ?? '',
@@ -143,9 +173,49 @@ class CartListProvider extends DisposableProvider {
         final localCart = await DatabaseHelper().getCartItems(partyId: partyId);
         if (localCart.isNotEmpty) {
           _data.clear();
+          final dbHelper = DatabaseHelper();
           for (var item in localCart) {
             try {
-              _data.add(DatumCartList.fromLocal(item));
+              final enriched = Map<String, dynamic>.from(item);
+              final cachedProduct = await dbHelper.getCachedProductByItemCd(
+                enriched['item_cd']?.toString() ?? '',
+                itemName: enriched['item_name']?.toString() ?? '',
+              );
+
+              if (cachedProduct != null) {
+                final fallbackRate = _effectiveRate(
+                  enriched['rate'],
+                  enriched['lrate'],
+                  enriched['nrate'],
+                );
+                final cachedRate = _effectiveProductRate(cachedProduct);
+                final effectiveRate =
+                    fallbackRate > 0 ? fallbackRate : cachedRate;
+
+                if (_effectiveRate(enriched['rate'], enriched['lrate'],
+                        enriched['nrate']) <=
+                    0) {
+                  enriched['rate'] = effectiveRate;
+                  enriched['lrate'] = effectiveRate;
+                  enriched['nrate'] = effectiveRate;
+                }
+
+                if (((enriched['amount'] as num?)?.toDouble() ?? 0.0) <= 0) {
+                  final qty = double.tryParse(
+                        enriched['quantity']?.toString() ?? '0',
+                      ) ??
+                      0.0;
+                  if (qty > 0 && effectiveRate > 0) {
+                    enriched['amount'] = qty * effectiveRate;
+                  }
+                }
+
+                if ((enriched['item_name']?.toString() ?? '').isEmpty) {
+                  enriched['item_name'] = cachedProduct['item_name'] ?? '';
+                }
+              }
+
+              _data.add(DatumCartList.fromLocal(enriched));
             } catch (_) {}
           }
           print("Loaded ${_data.length} items from local fallback");

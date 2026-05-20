@@ -815,9 +815,14 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     // Ensure all amounts are summed up correctly as doubles
     double total = datacart.fold(0.0,
         (sum, item) => sum + (item.amount ?? 0.0)); // Safely sum the amounts
+    final totalQuantity = datacart.fold<int>(0, (sum, item) {
+      final qtyValue = double.tryParse(item.quantity?.toString() ?? '0') ?? 0.0;
+      return sum + qtyValue.toInt();
+    });
     setState(() {
       netAmount =
           total.toStringAsFixed(2); // Convert total to String for display
+      totalQty = totalQuantity.toString();
     });
   }
 
@@ -1113,7 +1118,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                 rate: toDouble(element.rate),
                                 amt: toDouble(element.amount),
                                 otherDesc: element.otherDesc,
-                                nrate: toDouble(element.item?.nrate),
+                                nrate: _effectiveCartRate(element),
                               ));
                               orders = Ordermodal(
                                   partyCd: party.partyid,
@@ -1515,7 +1520,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                             },
                                                                             child:
                                                                                 Text(
-                                                                              "${datacart[index].itemCd} ( MRP : ${datacart[index].rate ?? datacart[index].item?.nrate ?? 0.0})",
+                                                                              "${datacart[index].itemCd} ( Rate : ${_effectiveCartRate(datacart[index]).toStringAsFixed(2)})",
                                                                               style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
                                                                             ),
                                                                           ),
@@ -1910,6 +1915,16 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   double toDouble(dynamic value) {
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  double _effectiveCartRate(DatumCartList item) {
+    final rate = toDouble(item.rate);
+    if (rate > 0) return rate;
+
+    final lrate = toDouble(item.lrate);
+    if (lrate > 0) return lrate;
+
+    return toDouble(item.item?.nrate);
   }
 
   final orderAddHive1 = Hive.box<Ordermodal>(Constants.addOrder);

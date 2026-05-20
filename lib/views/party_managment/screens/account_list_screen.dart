@@ -74,7 +74,7 @@ class _AccountListScreenState extends State<AccountListScreen> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: "Accounts",
+        title: "Parties",
         actions: [
           if (canAddParty)
             IconButton(

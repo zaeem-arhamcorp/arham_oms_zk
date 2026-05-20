@@ -19,7 +19,7 @@ class AddAccountScreen extends StatelessWidget {
       appBar: AppBar(
         foregroundColor: Colors.white,
         centerTitle: false,
-        title: const Text('Account Management',
+        title: const Text('Add Party',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       ),
       body: GestureDetector(

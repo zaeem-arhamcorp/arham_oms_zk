@@ -1273,6 +1273,54 @@ class DatabaseHelper {
     return await db.query('products_cache');
   }
 
+  /// Get a single cached product by item code, with name-based fallback.
+  Future<Map<String, dynamic>?> getCachedProductByItemCd(
+    String itemCd, {
+    String? itemName,
+  }) async {
+    final normalizedItemCd = itemCd.trim();
+    final normalizedItemName = itemName?.trim() ?? '';
+
+    if (normalizedItemCd.isEmpty && normalizedItemName.isEmpty) return null;
+
+    final db = await database;
+
+    Future<Map<String, dynamic>?> queryOne(
+      String where,
+      List<Object?> whereArgs,
+    ) async {
+      final rows = await db.query(
+        'products_cache',
+        where: where,
+        whereArgs: whereArgs,
+        limit: 1,
+      );
+      return rows.isEmpty ? null : rows.first;
+    }
+
+    final byCode = normalizedItemCd.isEmpty
+        ? null
+        : await queryOne(
+            'LOWER(TRIM(item_cd)) = LOWER(TRIM(?))', [normalizedItemCd]);
+    if (byCode != null) return byCode;
+
+    if (normalizedItemName.isNotEmpty) {
+      final byName = await queryOne(
+          'LOWER(TRIM(item_name)) = LOWER(TRIM(?))', [normalizedItemName]);
+      if (byName != null) return byName;
+
+      final likeRows = await db.query(
+        'products_cache',
+        where: 'LOWER(item_name) LIKE LOWER(?)',
+        whereArgs: ['%$normalizedItemName%'],
+        limit: 1,
+      );
+      if (likeRows.isNotEmpty) return likeRows.first;
+    }
+
+    return null;
+  }
+
   /// One-time helper to backfill missing item_cd in offline_order_items
   /// Attempts to match by `item_name` against `products_cache` and updates rows.
   /// Returns a summary map: {scanned, updated, ambiguous}
