@@ -1,12 +1,13 @@
+import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'database_helper.dart';
-import 'package:arham_corporation/helper/network_helper.dart';
+
 import '../config/app_config.dart';
-import 'background_location_service.dart';
-import 'location_sync_service.dart';
 import 'activity_recognition_service.dart';
+import 'background_location_service.dart';
+import 'database_helper.dart';
+import 'location_sync_service.dart';
 
 class LocationService {
   static const String _activeTripTokenKey = 'active_trip_token';
@@ -650,10 +651,9 @@ class LocationService {
 
         if (tripIdToClear != null && tripIdToClear > 0) {
           try {
-            final deleted =
-                await db.deleteLocationTrackingByTripId(tripIdToClear);
+            final deleted = await db.deleteLocationTrackingBySyncId(syncId);
             print(
-                '[LocationService] 🧹 Cleared $deleted tracking points for trip_id=$tripIdToClear');
+                '[LocationService] 🧹 Cleared $deleted tracking points for sync_id=$syncId');
           } catch (e) {
             print(
                 '[LocationService] ⚠️ Failed to clear tracking points for trip_id=$tripIdToClear: $e');
@@ -727,6 +727,12 @@ class LocationService {
         'error': e.toString(),
       };
     }
+  }
+
+  /// Delete all location tracking records for a specific sync id.
+  /// This keeps the trip-id delete path available for future use.
+  Future<int> deleteLocationTrackingBySyncId(int syncId) async {
+    return await db.deleteLocationTrackingBySyncId(syncId);
   }
 
   /// Force sync of pending location data (manual trigger)

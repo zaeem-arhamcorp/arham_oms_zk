@@ -2236,6 +2236,23 @@ class DatabaseHelper {
     );
   }
 
+  /// Delete all location tracking records for a sync id
+  Future<int> deleteLocationTrackingBySyncId(int syncId) async {
+    final db = await database;
+    return await db.delete(
+      'location_tracking',
+      where: 'sync_id = ?',
+      whereArgs: [syncId],
+    );
+  }
+
+  /// Delete all location tracking records for all trips
+  /// Returns the number of rows deleted.
+  Future<int> deleteAllLocationTracking() async {
+    final db = await database;
+    return await db.delete('location_tracking');
+  }
+
   /// Delete location tracking records older than specified days
   /// Used for cleanup of old tracking data
   Future<int> deleteOldLocationTracking(int daysOld) async {
