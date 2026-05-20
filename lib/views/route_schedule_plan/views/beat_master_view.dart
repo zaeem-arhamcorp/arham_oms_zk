@@ -1,4 +1,5 @@
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/helper/route_label_helper.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/route_schedule_plan/models/beat_master_model.dart';
@@ -189,7 +190,7 @@ class _BeatMasterViewState extends State<BeatMasterView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tour Master'),
+        title: Text(RouteLabelHelper.masterTitle(p)),
         actions: [
           IconButton(
             onPressed: _openAddBeatSheet,
@@ -218,7 +219,7 @@ class _BeatMasterViewState extends State<BeatMasterView> {
               : <String, String>{};
 
           if (beats.isEmpty) {
-            return const Center(child: Text('No tours found'));
+            return Center(child: Text(RouteLabelHelper.emptyState(p)));
           }
 
           return ListView.separated(

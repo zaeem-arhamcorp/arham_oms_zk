@@ -102,7 +102,7 @@ class BeatController extends GetxController {
     return [...existing, ...newOnes];
   }
 
-  /// Add a newly selected beat for a specific date
+  /// Add or replace the selected unsaved beat for a specific date
   void addBeatForDate(DateTime date, Beat beat, String userCd) {
     final dateStr =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -115,12 +115,20 @@ class BeatController extends GetxController {
       assignDate: dateStr,
     );
 
-    if (!_newBeatsByDate.containsKey(dateStr)) {
-      _newBeatsByDate[dateStr] = [];
-    }
-
-    _newBeatsByDate[dateStr]!.add(beatScheduler);
+    // Keep only one pending beat per date; selecting again replaces previous.
+    _newBeatsByDate[dateStr] = [beatScheduler];
     _newBeatsByDate.refresh(); // trigger UI update
+  }
+
+  /// Remove unsaved beat selection for a specific date
+  void removePendingBeatForDate(DateTime date) {
+    final dateStr =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+    if (_newBeatsByDate.containsKey(dateStr)) {
+      _newBeatsByDate.remove(dateStr);
+      _newBeatsByDate.refresh();
+    }
   }
 
   /// Save all newly added beats to the API

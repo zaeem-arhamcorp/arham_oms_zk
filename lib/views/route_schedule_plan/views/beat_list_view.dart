@@ -1,4 +1,7 @@
+import 'package:arham_corporation/helper/route_label_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/views/route_schedule_plan/services/beat_service.dart';
 import 'package:arham_corporation/views/route_schedule_plan/widgets/beat_selection_sheet.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +24,7 @@ class _BeatListViewState extends State<BeatListView> {
   DateTime? selectedDate;
   bool isSaved = false;
   late BeatController beatController;
+  Map<String, String> _userNameByCode = {};
 
   @override
   void initState() {
@@ -31,12 +35,14 @@ class _BeatListViewState extends State<BeatListView> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        final routeLabel =
+            RouteLabelHelper.singular(context.read<ProfileProvider>());
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
             title: Text("Attention"),
             content: Text(
-                "Remember to save your beats before closing the page or else your selected beat data will be lost."),
+                "Remember to save your $routeLabel data before closing the page or else your selected $routeLabel data will be lost."),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -58,6 +64,17 @@ class _BeatListViewState extends State<BeatListView> {
         if (userCd != null && userCd.isNotEmpty) {
           await beatController.fetchUserBeatSchedule(userCd);
         }
+
+        final token = Provider.of<UserProvider>(context, listen: false).token;
+        final users = await BeatService().fetchChildren(token: token?.trim());
+        if (!mounted) return;
+        setState(() {
+          _userNameByCode = {
+            for (final user in users)
+              (user['userCode'] ?? '').toString():
+                  (user['userName'] ?? '').toString(),
+          };
+        });
       } catch (e) {
         print('[BeatListView] Error fetching beat schedule: $e');
       }
@@ -84,11 +101,13 @@ class _BeatListViewState extends State<BeatListView> {
 
   @override
   Widget build(BuildContext context) {
+    final routeLabel =
+        RouteLabelHelper.singular(context.read<ProfileProvider>());
     final weeks = _buildMonthMatrix(currentMonth);
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: "Beat Schedule",
+        title: "$routeLabel Schedule",
         actions: [
           Obx(() {
             // show Save only when there are pending (new) beats
@@ -165,13 +184,16 @@ class _BeatListViewState extends State<BeatListView> {
     return Obx(() {
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      final savedBeats = beatController.beatsByDate[dateStr] ?? [];
-      final pendingBeats = beatController.newBeatsByDate[dateStr] ?? [];
+      final List<BeatScheduler> savedBeats =
+          beatController.beatsByDate[dateStr] ?? <BeatScheduler>[];
+      final List<BeatScheduler> pendingBeats =
+          beatController.newBeatsByDate[dateStr] ?? <BeatScheduler>[];
       final hasSaved = savedBeats.isNotEmpty;
       final hasPending = pendingBeats.isNotEmpty;
       final isPast = _isPastDate(date);
-      final displayBeats =
-          hasSaved ? savedBeats : (hasPending ? pendingBeats : []);
+      final List<BeatScheduler> displayBeats = hasSaved
+          ? savedBeats
+          : (hasPending ? pendingBeats : <BeatScheduler>[]);
 
       return GestureDetector(
         onTap: () {
@@ -195,7 +217,11 @@ class _BeatListViewState extends State<BeatListView> {
             selectedDate = date;
           });
 
-          _openBeatDialog(date);
+          _openBeatDialog(
+            date,
+            initialBeat: _resolveInitialBeat(displayBeats),
+            allowRemoveOption: hasPending && !hasSaved,
+          );
         },
         child: Container(
           decoration: BoxDecoration(
@@ -263,27 +289,35 @@ class _BeatListViewState extends State<BeatListView> {
                     bottom: 4,
                   ),
                   child: Row(
-                    children: displayBeats.map((beat) {
-                      final isSavedBadge = hasSaved;
-                      final badgeColor =
-                          isSavedBadge ? Colors.blue : Colors.white;
-                      return Container(
-                        margin: EdgeInsets.only(right: 6),
-                        width: 16,
-                        height: 16,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        margin: EdgeInsets.only(right: 6, top: 2),
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(
-                          color: badgeColor,
+                          color: hasSaved
+                              ? Colors.green.shade700
+                              : Colors.orange.shade200,
                           shape: BoxShape.circle,
                         ),
-                        child: Center(
-                          child: Icon(
-                            Icons.check,
-                            size: 10,
-                            color: isSavedBadge ? Colors.white : Colors.orange,
+                      ),
+                      Expanded(
+                        child: Text(
+                          displayBeats.map((b) => b.beatName).join(', '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            height: 1.1,
+                            fontWeight: FontWeight.w500,
+                            color: hasSaved
+                                ? Colors.green.shade900
+                                : Colors.brown.shade900,
                           ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -332,16 +366,51 @@ class _BeatListViewState extends State<BeatListView> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  Future<void> _openBeatDialog(DateTime date) async {
-    final selected = await showModalBottomSheet<Beat>(
+  Beat? _resolveInitialBeat(List<BeatScheduler> dateBeats) {
+    if (dateBeats.isEmpty) return null;
+
+    final first = dateBeats.first;
+    for (final beat in beatController.beats) {
+      if (beat.beatCd == first.beatCd) {
+        return beat;
+      }
+    }
+
+    return Beat(
+      id: first.id,
+      beatCd: first.beatCd,
+      beatName: first.beatName,
+      userCd: first.userCd,
+    );
+  }
+
+  Future<void> _openBeatDialog(
+    DateTime date, {
+    Beat? initialBeat,
+    bool allowRemoveOption = false,
+  }) async {
+    final result = await showModalBottomSheet<BeatSelectionResult>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => BeatSelectionSheet(selectedDate: date),
+      builder: (_) => BeatSelectionSheet(
+        selectedDate: date,
+        userNameByCode: _userNameByCode,
+        initialSelectedBeat: initialBeat,
+        allowRemoveOption: allowRemoveOption,
+      ),
     );
 
-    if (selected == null) return;
+    if (result == null) return;
 
     try {
+      if (result.remove) {
+        beatController.removePendingBeatForDate(date);
+        return;
+      }
+
+      final selected = result.beat;
+      if (selected == null) return;
+
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
       final userCd = profileProvider.userCode ?? '';
@@ -352,11 +421,14 @@ class _BeatListViewState extends State<BeatListView> {
   }
 
   Future<void> _showBeatInfoDialog(DateTime date, List beats) async {
+    final routeLabelPlural =
+        RouteLabelHelper.plural(context.read<ProfileProvider>());
+
     await showDialog(
       context: context,
       builder: (_) {
         return AlertDialog(
-          title: Text('Assigned beats'),
+          title: Text('Assigned ${routeLabelPlural.toLowerCase()}'),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -383,12 +455,15 @@ class _BeatListViewState extends State<BeatListView> {
   }
 
   Future<void> _showNoBeatDialog(DateTime date) async {
+    final routeLabel =
+        RouteLabelHelper.singular(context.read<ProfileProvider>());
+
     await showDialog(
       context: context,
       builder: (_) {
         return AlertDialog(
-          title: Text('No beat'),
-          content: Text('No beat assigned on this date.'),
+          title: Text('No $routeLabel'),
+          content: Text('No $routeLabel assigned on this date.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -407,7 +482,7 @@ class _BeatListViewState extends State<BeatListView> {
       builder: (_) => AlertDialog(
         title: Text('Confirm Save'),
         content: Text(
-            'Are you sure you want to save the selected beats? You cannot change them later. Save Changes?'),
+            'Are you sure you want to save the selected ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}? You cannot change them later. Save Changes?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -451,12 +526,14 @@ class _BeatListViewState extends State<BeatListView> {
           isSaved = true;
         });
         AppSnackBar.showGetXCustomSnackBar(
-          message: 'Beats saved successfully',
+          message:
+              '${RouteLabelHelper.plural(context.read<ProfileProvider>())} saved successfully',
           backgroundColor: Colors.green,
         );
       } else {
         AppSnackBar.showGetXCustomSnackBar(
-          message: 'Failed to save beats',
+          message:
+              'Failed to save ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}',
           backgroundColor: Colors.green,
         );
       }
@@ -468,7 +545,8 @@ class _BeatListViewState extends State<BeatListView> {
       } catch (_) {}
       if (mounted) {
         AppSnackBar.showGetXCustomSnackBar(
-          message: 'Error saving beats: $e',
+          message:
+              'Error saving ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}: $e',
           backgroundColor: Colors.green,
         );
       }

@@ -1,12 +1,35 @@
+import 'package:arham_corporation/helper/route_label_helper.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
+
 import '../controllers/beat_controller.dart';
 import '../models/beat_model.dart';
 
+class BeatSelectionResult {
+  final Beat? beat;
+  final bool remove;
+
+  const BeatSelectionResult.select(this.beat) : remove = false;
+  const BeatSelectionResult.remove()
+      : beat = null,
+        remove = true;
+}
+
 class BeatSelectionSheet extends StatefulWidget {
   final DateTime selectedDate;
+  final Map<String, String> userNameByCode;
+  final Beat? initialSelectedBeat;
+  final bool allowRemoveOption;
 
-  const BeatSelectionSheet({required this.selectedDate, super.key});
+  const BeatSelectionSheet({
+    required this.selectedDate,
+    required this.userNameByCode,
+    this.initialSelectedBeat,
+    this.allowRemoveOption = false,
+    super.key,
+  });
 
   @override
   State<BeatSelectionSheet> createState() => _BeatSelectionSheetState();
@@ -28,6 +51,12 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
 
     // Initialize with all beats from controller
     filteredBeats = List.from(beatController.beats);
+
+    if (widget.initialSelectedBeat != null) {
+      selectedBeat = widget.initialSelectedBeat;
+      _controller.text = widget.initialSelectedBeat!.beatName;
+      filteredBeats = [widget.initialSelectedBeat!];
+    }
   }
 
   void _filter(String value) {
@@ -51,6 +80,10 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+    final routeLabel =
+        RouteLabelHelper.singular(context.read<ProfileProvider>());
+    final routeLabelPlural =
+        RouteLabelHelper.plural(context.read<ProfileProvider>());
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
@@ -74,7 +107,7 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Text(
-                  "Select a Beat",
+                  "Select a $routeLabel",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -92,7 +125,7 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
               controller: _controller,
               onChanged: _filter,
               decoration: InputDecoration(
-                hintText: "Search Beat",
+                hintText: "Search $routeLabel",
                 suffixIcon: _controller.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(Icons.close),
@@ -115,18 +148,27 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: filteredBeats.isEmpty
-                  ? Center(child: Text("No results"))
+                  ? Center(
+                      child: Text("No ${routeLabelPlural.toLowerCase()} found"))
                   : ListView.builder(
                       itemCount: filteredBeats.length,
                       itemBuilder: (context, index) {
                         final beat = filteredBeats[index];
+                        final userName =
+                            widget.userNameByCode[beat.userCd] ?? '';
+                        final displayTitle = userName.isNotEmpty
+                            ? "${beat.beatName} - $userName"
+                            : beat.beatName;
 
                         return ListTile(
-                          title: Text("${beat.beatCd} - ${beat.beatName}"),
+                          title: Text(displayTitle),
+                          subtitle: beat.userCd.isNotEmpty && userName.isEmpty
+                              ? Text('Assigned user: ${beat.userCd}')
+                              : null,
                           onTap: () {
                             setState(() {
                               selectedBeat = beat;
-                              _controller.text = beat.beatCd;
+                              _controller.text = beat.beatName;
                               filteredBeats = [beat];
                             });
                           },
@@ -148,6 +190,21 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
                     child: Text("Cancel"),
                   ),
                 ),
+                if (widget.allowRemoveOption) ...[
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(
+                            context, const BeatSelectionResult.remove());
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                      child: Text("Remove"),
+                    ),
+                  ),
+                ],
                 SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
@@ -156,9 +213,11 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
                         : () {
                             print(
                                 "Selected Beat: ${selectedBeat!.beatCd} - ${selectedBeat!.beatName}");
-                            Navigator.pop(context, selectedBeat);
+                            Navigator.pop(context,
+                                BeatSelectionResult.select(selectedBeat));
                           },
-                    child: Text("Add"),
+                    child: Text(
+                        widget.initialSelectedBeat == null ? "Add" : "Update"),
                   ),
                 ),
               ],

@@ -2,14 +2,21 @@ class Beat {
   final int id;
   final String beatCd;
   final String beatName;
+  final String userCd;
 
-  Beat({required this.id, required this.beatCd, required this.beatName});
+  Beat({
+    required this.id,
+    required this.beatCd,
+    required this.beatName,
+    this.userCd = '',
+  });
 
   factory Beat.fromJson(Map<String, dynamic> json) {
     return Beat(
       id: (json['ID'] as num?)?.toInt() ?? 0,
       beatCd: (json['BEAT_CD'] ?? '').toString(),
       beatName: (json['BEAT_NAME'] ?? '').toString(),
+      userCd: (json['USER_CD'] ?? '').toString(),
     );
   }
 

@@ -1,4 +1,6 @@
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/helper/route_label_helper.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/route_schedule_plan/services/beat_service.dart';
 import 'package:arham_corporation/widgets/user_search_dropdown.dart';
@@ -60,6 +62,9 @@ class _AddBeatBottomSheetState extends State<AddBeatBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = context.watch<ProfileProvider>();
+    final routeLabel = RouteLabelHelper.singular(profile);
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -74,7 +79,7 @@ class _AddBeatBottomSheetState extends State<AddBeatBottomSheet> {
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
-                "Add Tour",
+                RouteLabelHelper.addTitle(profile),
                 style: TextStyle(
                   fontSize: 20,
                 ),
@@ -91,8 +96,8 @@ class _AddBeatBottomSheetState extends State<AddBeatBottomSheet> {
                 children: [
                   TextField(
                     controller: beatNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tour name',
+                    decoration: InputDecoration(
+                      labelText: '$routeLabel name',
                       border: OutlineInputBorder(),
                     ),
                   ),

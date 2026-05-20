@@ -1,4 +1,5 @@
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/route_label_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
@@ -538,7 +539,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 size: 30,
               ),
               title: Text(
-                'Tour Master',
+                RouteLabelHelper.masterTitle(p),
                 style: TextStyle(
                   fontSize: 20,
                 ),
@@ -556,7 +557,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 size: 30,
               ),
               title: Text(
-                'Tour Planner',
+                RouteLabelHelper.plannerTitle(p),
                 style: TextStyle(
                   fontSize: 20,
                 ),
@@ -715,13 +716,17 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                   return AlertDialog(
                     title: Text('Logout Confirmation'),
                     content: Text('Are you sure you want to log out?'),
+                    backgroundColor: Colors.white,
                     actions: [
                       TextButton(
                         onPressed: () {
                           // Cancel button: Close the dialog
                           Navigator.of(context).pop();
                         },
-                        child: Text('Cancel'),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
                       ),
                       TextButton(
                         onPressed: () {
@@ -731,6 +736,10 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                             Get.offAll(() => LoginPage());
                           });
                         },
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
                         child: Text('Logout'),
                       ),
                     ],
