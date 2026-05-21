@@ -87,7 +87,8 @@ class _ProductCardState extends State<ProductCard> {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: clStkColor,
+            // color: clStkColor,
+            color: Colors.white,
             // Light red
             // gradient: LinearGradient(
             //   colors: (double.tryParse(widget.product.cStk.toString()) ?? 0) > 0
@@ -194,11 +195,20 @@ class _ProductCardState extends State<ProductCard> {
             children: [
               _infoRow('Cl. Stk :', widget.product.cStk),
               _infoRow('P.Order:', widget.product.orStk),
-              _infoRow(
-                'Avl Stk :',
-                widget.product.avlStk,
-                labelColor: avlStkColor,
-                valueColor: avlStkColor,
+              Flexible(
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: avlStkColor?.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: _infoRow(
+                    'Avl Stk :',
+                    widget.product.avlStk,
+                    labelColor: avlStkColor,
+                    valueColor: avlStkColor,
+                  ),
+                ),
               ),
             ],
           ),
@@ -652,59 +662,92 @@ class _ProductCardState extends State<ProductCard> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: TextFormField(
-                        controller: quantityController,
-                        decoration: const InputDecoration(
-                          hintText: 'Qty',
-                          labelText: 'Qty',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.grey[300],
                         ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                          SingleDecimalFormatter(),
-                        ],
-                        onChanged: (value) {
-                          cartController.setQuantity(
-                              widget.product.itemCd, value);
-                        },
+                        child: TextFormField(
+                          controller: quantityController,
+                          decoration: InputDecoration(
+                            hintText: 'Qty',
+                            // labelText: 'Qty',
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                                vertical: 5.h, horizontal: 8.w),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.]')),
+                            SingleDecimalFormatter(),
+                          ],
+                          onChanged: (value) {
+                            cartController.setQuantity(
+                                widget.product.itemCd, value);
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
                       flex: 2,
-                      child: TextFormField(
-                        decoration: InputDecoration(
-                          labelText: 'Free',
-                          isDense: true,
-                          suffixIcon: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              icon: const Icon(Icons.arrow_drop_down),
-                              onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  freeQtyController.text = newValue;
-                                  selectedFreeDescription = newValue;
-                                  cartController.setFreeQuantity(
-                                      widget.product.itemCd, newValue);
-                                }
-                              },
-                              items: otherDescEntries.map((entry) {
-                                return DropdownMenuItem<String>(
-                                  value: entry.value,
-                                  child: Text(entry.label),
-                                );
-                              }).toList(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.grey[300],
+                        ),
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            // labelText: 'Free',
+                            hintText: 'Free',
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              vertical: 5.h,
+                              horizontal: 8.w,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            suffixIcon: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                icon: Icon(
+                                  Icons.arrow_drop_down,
+                                ),
+                                onChanged: (String? newValue) {
+                                  if (newValue != null) {
+                                    freeQtyController.text = newValue;
+                                    selectedFreeDescription = newValue;
+                                    cartController.setFreeQuantity(
+                                        widget.product.itemCd, newValue);
+                                  }
+                                },
+                                items: otherDescEntries.map((entry) {
+                                  return DropdownMenuItem<String>(
+                                    value: entry.value,
+                                    child: Text(entry.label),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            suffixIconConstraints: BoxConstraints(
+                              minHeight: 24,
+                              minWidth: 24,
                             ),
                           ),
+                          controller: freeQtyController,
+                          inputFormatters: [
+                            SingleDecimalFormatter(),
+                          ],
+                          onChanged: (value) {
+                            selectedFreeDescription = value;
+                            cartController.setFreeQuantity(
+                                widget.product.itemCd, value);
+                          },
                         ),
-                        controller: freeQtyController,
-                        inputFormatters: [
-                          SingleDecimalFormatter(),
-                        ],
-                        onChanged: (value) {
-                          selectedFreeDescription = value;
-                          cartController.setFreeQuantity(
-                              widget.product.itemCd, value);
-                        },
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -975,7 +1018,8 @@ class _ProductCardState extends State<ProductCard> {
                       // },
 
                       child: Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 12),
                         decoration: BoxDecoration(
                           color: isAdded
                               ? Colors.green.shade600
@@ -988,10 +1032,25 @@ class _ProductCardState extends State<ProductCard> {
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                       Colors.white),
                                 )
-                              : Text(
-                                  isAdded ? 'Product Added' : 'Add To Cart',
-                                  style: TextStyle(
-                                      fontSize: 14.sp, color: Colors.white),
+                              : Row(
+                                  children: [
+                                    Icon(
+                                      Icons.add_shopping_cart,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
+                                    Text(
+                                      isAdded ? 'Product Added' : 'Add To Cart',
+                                      style: TextStyle(
+                                        fontSize: 12.sp,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                         ),
                       ),
@@ -1113,32 +1172,31 @@ class _ProductCardState extends State<ProductCard> {
       {Color? labelColor, Color? valueColor}) {
     if (value == null || value.trim().isEmpty) return SizedBox.shrink();
 
-    return Flexible(
-      child: Row(
-        children: [
-          Flexible(
-            child: Text(
-              '$label ',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12.sp,
-                color: labelColor ?? Colors.black54,
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            '$label ',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 12.sp,
+              color: labelColor ?? Colors.black54,
             ),
           ),
-          Flexible(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: valueColor ?? Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 12.sp,
-              ),
-              overflow: TextOverflow.ellipsis,
+        ),
+        Flexible(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? Colors.black87,
+              fontWeight: FontWeight.w600,
+              fontSize: 12.sp,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

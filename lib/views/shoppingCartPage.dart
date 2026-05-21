@@ -378,9 +378,13 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                 element.rate = fallbackRate;
               }
 
+              final runtimeRate = _amountRateForRuntime(element, profile);
               final currentAmount = element.amount ?? 0.0;
-              if ((currentAmount <= 0) && qtyVal > 0 && fallbackRate > 0) {
-                element.amount = qtyVal * fallbackRate;
+              if (qtyVal > 0 && runtimeRate > 0 && currentAmount <= 0) {
+                // Only backfill missing amounts. If the API already sent a
+                // valid amount, preserve it so qtySettings does not overwrite
+                // the server-calculated value with stale local rate data.
+                element.amount = qtyVal * runtimeRate;
               }
             }
 
@@ -461,8 +465,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
               // }
 
               if (editMasterRate == 'Y' || editOperatorRate == 'Y') {
-                rate[element.itemCd] =
-                    TextEditingController(text: element.rate.toString());
+                rate[element.itemCd] = TextEditingController(
+                    text:
+                        _displayCartRate(element, profile).toStringAsFixed(2));
               }
 
               //TODO : lRateSetting
@@ -812,9 +817,19 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   }
 
   void calculateNetAmount() {
-    // Ensure all amounts are summed up correctly as doubles
-    double total = datacart.fold(0.0,
-        (sum, item) => sum + (item.amount ?? 0.0)); // Safely sum the amounts
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    final useQtySettings = _isQtySettingsEnabled(profile);
+
+    // When qtySettings=Y, runtime amount is quantity * nrate.
+    double total = datacart.fold(0.0, (sum, item) {
+      final quantity = double.tryParse(item.quantity?.toString() ?? '0') ?? 0.0;
+      if (useQtySettings) {
+        final runtimeAmount = quantity * _nrateForAmount(item);
+        item.amount = runtimeAmount;
+        return sum + runtimeAmount;
+      }
+      return sum + (item.amount ?? 0.0);
+    });
     final totalQuantity = datacart.fold<int>(0, (sum, item) {
       final qtyValue = double.tryParse(item.quantity?.toString() ?? '0') ?? 0.0;
       return sum + qtyValue.toInt();
@@ -877,39 +892,35 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
     _tempParty = Helper.buildSearchList("Cart Item", party);
 
-    // if (p.data?.profileSettings
-    //             .firstWhere((element) => element.variable == 'punchInOut')
-    //             .value ==
-    //         'N' &&
-    //     party.party != "") {
-    //   getCart();
-    //   getOptions();
-    // } else if (p.data?.profileSettings
-    //             .firstWhere((element) => element.variable == 'punchInOut')
-    //             .value ==
-    //         'Y' &&
-    //     party.punchInOutParty != "") {
-    //   getCart();
-    //   getOptions();
-    // }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
 
-    if ((p.data?.profileSettings
-                .any((e) => e.variable == 'punchInOut' && e.value == 'N') ??
-            false) &&
-        (party.party.isNotEmpty)) {
-      getCart();
-      getOptions();
-    } else if ((p.data?.profileSettings
-                .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
-            false) &&
-        (party.punchInOutParty.isNotEmpty)) {
-      getCart();
-      getOptions();
-    } else {
-      print('call this way');
-      getCart();
-      getOptions();
-    }
+      try {
+        await p.loadSettings(context);
+      } catch (e) {
+        print('[SHOPPING_CART_INIT] ⚠️ loadSettings failed: $e');
+      }
+
+      if (!mounted) return;
+
+      if ((p.data?.profileSettings
+                  .any((e) => e.variable == 'punchInOut' && e.value == 'N') ??
+              false) &&
+          (party.party.isNotEmpty)) {
+        getCart();
+        getOptions();
+      } else if ((p.data?.profileSettings
+                  .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+              false) &&
+          (party.punchInOutParty.isNotEmpty)) {
+        getCart();
+        getOptions();
+      } else {
+        print('call this way');
+        getCart();
+        getOptions();
+      }
+    });
 
     super.initState();
   }
@@ -1520,7 +1531,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                             },
                                                                             child:
                                                                                 Text(
-                                                                              "${datacart[index].itemCd} ( Rate : ${_effectiveCartRate(datacart[index]).toStringAsFixed(2)})",
+                                                                              "${datacart[index].itemCd} ( Rate : ${_displayCartRate(datacart[index], profile).toStringAsFixed(2)})",
                                                                               style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
                                                                             ),
                                                                           ),
@@ -1603,13 +1614,16 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                 (value) {
                                                                               double? quantity = double.tryParse(value);
                                                                               if (quantity != null && quantity > 0) {
+                                                                                final qtySettingsEnabled = _isQtySettingsEnabled(profile);
                                                                                 final lrateSetting = profile.data?.profileSettings.firstWhere(
                                                                                   (element) => element.variable == 'lrateSetting',
                                                                                   orElse: () => DatumSettings(variable: 'lrateSetting', value: 'N'),
                                                                                 );
 
                                                                                 double price = 0.0;
-                                                                                if (lrateSetting?.value == 'Y') {
+                                                                                if (qtySettingsEnabled) {
+                                                                                  price = _displayCartRate(item, profile);
+                                                                                } else if (lrateSetting?.value == 'Y') {
                                                                                   price = double.tryParse(item.lrate.toString()) ?? 0.0;
                                                                                 } else {
                                                                                   price = double.tryParse(item.rate.toString()) ?? 0.0;
@@ -1805,7 +1819,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                 double? quantity = double.tryParse(qtyController.text);
 
                                                                                 if (rate != null && quantity != null && quantity > 0) {
-                                                                                  double amount = rate * quantity;
+                                                                                  final qtySettingsEnabled = _isQtySettingsEnabled(profile);
+                                                                                  final amount = qtySettingsEnabled ? (quantity * _displayCartRate(item, profile)) : (rate * quantity);
 
                                                                                   setState(() {
                                                                                     item.rate = rate.toString();
@@ -1915,6 +1930,42 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
   double toDouble(dynamic value) {
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  bool _isQtySettingsEnabled(ProfileProvider profile) {
+    try {
+      final setting = profile.data?.profileSettings.firstWhere(
+        (e) => e.variable == 'qtySettings',
+      );
+      return (setting?.value ?? 'N').toString().toUpperCase() == 'Y';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  double _nrateForAmount(DatumCartList item) {
+    final nrate = toDouble(item.item?.nrate);
+    if (nrate > 0) return nrate;
+    return _effectiveCartRate(item);
+  }
+
+  double _displayCartRate(DatumCartList item, ProfileProvider profile) {
+    if (_isQtySettingsEnabled(profile)) {
+      final quantity = toDouble(item.quantity);
+      final amount = toDouble(item.amount);
+      if (quantity > 0 && amount > 0) {
+        return amount / quantity;
+      }
+      return _nrateForAmount(item);
+    }
+    return _effectiveCartRate(item);
+  }
+
+  double _amountRateForRuntime(DatumCartList item, ProfileProvider profile) {
+    if (_isQtySettingsEnabled(profile)) {
+      return _displayCartRate(item, profile);
+    }
+    return _effectiveCartRate(item);
   }
 
   double _effectiveCartRate(DatumCartList item) {

@@ -226,7 +226,7 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
                             arguments: {'PartyID': partyID});
                       },
                       icon: Icon(
-                        Icons.shopping_cart,
+                        Icons.shopping_cart_outlined,
                         color: Colors.white,
                         size: 25,
                       ),
@@ -238,7 +238,8 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
                             'Cart',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 12,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -300,8 +301,14 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       width: 500,
       //padding: const EdgeInsets.symmetric(horizontal: 10.0),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
+      // decoration: const BoxDecoration(
+      //   color: Colors.transparent,
+      // ),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+      margin: EdgeInsets.only(bottom: 5),
+      decoration: BoxDecoration(
+        color: Colors.transparent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Theme(
         data: Theme.of(Get.context!).copyWith(
@@ -314,14 +321,14 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: TextField(
           controller: controller.searchController,
           focusNode: controller.focusNode,
-          style: const TextStyle(color: Colors.black, fontSize: 16),
+          style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: const InputDecoration(
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
+            // focusedBorder: UnderlineInputBorder(
+            //   borderSide: BorderSide(color: Colors.white),
+            // ),
+            // enabledBorder: UnderlineInputBorder(
+            //   borderSide: BorderSide(color: Colors.white),
+            // ),
             hintText: "  Use * for multi Search ",
             hintStyle: TextStyle(color: Colors.white, fontSize: 14),
             border: InputBorder.none,

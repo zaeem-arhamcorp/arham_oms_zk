@@ -25,7 +25,6 @@ class SelectableChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChoiceChip(
-
       label: Text(
         label,
         style: isSelected ? selectedTextStyle : unselectedTextStyle,
@@ -33,9 +32,10 @@ class SelectableChip extends StatelessWidget {
       selected: isSelected,
       onSelected: onSelected,
       selectedColor: Colors.blue,
-      backgroundColor: Colors.grey[200],
+      backgroundColor: Colors.grey[300],
+      checkmarkColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(180),
       ),
     );
   }

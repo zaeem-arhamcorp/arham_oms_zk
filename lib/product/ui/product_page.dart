@@ -25,6 +25,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../constants/constants.dart';
 import '../../models/partynameModal.dart';
 import '../../models/productModal.dart';
 import '../../providers/cart_list_provider.dart';
@@ -704,8 +705,51 @@ class _ProductsPageState extends State<ProductsPage> {
     return {'lat': lat, 'long': long};
   }
 
+  /// Show a snackbar inside ProductPage that respects the
+  /// `enableOfflineMode` profile setting. If `enforceNetworkMessage` is true
+  /// and the device is offline, the snackbar will be suppressed when
+  /// `profile.isOfflineModeEnabled()` is true. This keeps behavior local to
+  /// `ProductsPage` and non-destructive to global `AppSnackBar`.
+  Future<void> _showProductPageSnackBar(String message,
+      {bool enforceNetworkMessage = true}) async {
+    try {
+      final profile = Provider.of<ProfileProvider>(context, listen: false);
+      if (!enforceNetworkMessage) {
+        AppSnackBar.showGetXCustomSnackBar(
+            message: message, enforceNetworkMessage: false);
+        return;
+      }
+
+      bool hasNet = true;
+      try {
+        hasNet = await NetworkHelper.hasInternet();
+      } catch (_) {
+        hasNet = true;
+      }
+
+      if (!hasNet) {
+        // If offline mode is enabled for this firm, suppress the network snackbar
+        if (profile.isOfflineModeEnabled()) return;
+
+        // Otherwise show the canonical network message
+        AppSnackBar.showGetXCustomSnackBar(
+            message: Constants.networkMsg, enforceNetworkMessage: false);
+        return;
+      }
+
+      AppSnackBar.showGetXCustomSnackBar(
+          message: message, enforceNetworkMessage: false);
+    } catch (e) {
+      // Fallback: show the original message using global helper
+      AppSnackBar.showGetXCustomSnackBar(
+          message: message, enforceNetworkMessage: false);
+    }
+  }
+
   @override
   void dispose() {
+    // Restore global snackbar behavior when leaving ProductsPage
+    AppSnackBar.suppressNetworkSnackForProductPage = false;
     _focusNode.dispose();
     super.dispose();
   }
@@ -719,6 +763,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
   @override
   void initState() {
+    // When on ProductsPage, prefer to suppress global network snackbars if
+    // the firm's `enableOfflineMode` is 'Y'. The global `AppSnackBar` will
+    // consult this flag before showing the network message.
+    AppSnackBar.suppressNetworkSnackForProductPage = true;
     final ProfileProvider p =
         Provider.of<ProfileProvider>(context, listen: false);
 
@@ -1100,6 +1148,7 @@ class _ProductsPageState extends State<ProductsPage> {
               ),
           ],
         ),
+        backgroundColor: Colors.grey[100],
         body: SafeArea(
           child: profile.data != null &&
                   profile.data!.modulesList!
@@ -1109,11 +1158,17 @@ class _ProductsPageState extends State<ProductsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SizedBox(
+                        height: 8,
+                      ),
                       // if (profile.data!.profileSettings.any((e) =>
                       //     e.variable == 'showStockistUserLink' &&
                       //     e.value == 'Y'))
                       _buildStockistHeader(),
                       _buildPartyHeader(profile),
+                      SizedBox(
+                        height: 5,
+                      ),
                       _buildChipSelector(),
                       Expanded(child: _buildProductList()),
                     ],
@@ -1210,6 +1265,19 @@ class _ProductsPageState extends State<ProductsPage> {
                             }
                           }
                         },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: 20,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadiusGeometry.circular(11),
+                    ),
+                  ),
                   child: _isOrderProcessing
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1219,13 +1287,17 @@ class _ProductsPageState extends State<ProductsPage> {
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
+                                color: Colors.white,
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   Theme.of(context).primaryColor,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Text("Processing..."),
+                            const Text(
+                              "Processing...",
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ],
                         )
                       : const Text("Start Order"),
@@ -1348,6 +1420,19 @@ class _ProductsPageState extends State<ProductsPage> {
                             });
                           }
                         },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: 20,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadiusGeometry.circular(11),
+                    ),
+                  ),
                   child: _isOrderProcessing
                       ? Row(
                           mainAxisSize: MainAxisSize.min,

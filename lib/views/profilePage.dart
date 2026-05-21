@@ -882,22 +882,22 @@ class _ProfilePageState extends State<ProfilePage> {
                 controller: _nameClt,
                 label: "Name",
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 4),
               _buildProfileTextField(
                 controller: _codeClt,
                 label: "User Type",
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 4),
               _buildProfileTextField(
                 controller: _addressClt,
                 label: "Company Name",
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 4),
               _buildProfileTextField(
                 controller: _phoneNoClt,
                 label: "Phone No",
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 4),
               _buildProfileTextField(
                 controller: _emailController,
                 label: "Email",

@@ -34,10 +34,10 @@ import 'package:provider/provider.dart';
 import 'package:whatsapp_share/whatsapp_share.dart';
 
 import '../models/orderReportModal.dart';
-import 'monthly_target/services/api_services.dart';
 import '../providers/party_provider.dart';
 import '../widgets/pdfViewerScreen.dart';
 import '../widgets/user_search_dropdown.dart';
+import 'monthly_target/services/api_services.dart';
 
 class OrderReportScreen extends StatefulWidget {
   final String? selectedUserCd;
@@ -1987,24 +1987,73 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                           TextAlign
                                                                               .start),
                                                                 ),
-                                                                Expanded(
-                                                                  flex: 2,
-                                                                  child: Text(
-                                                                      //"${(data[index].ordritms[i].lRate.isEmpty || data[index].ordritms[i].lRate == '0.00') ? data[index].ordritms[i].rate : data[index].ordritms[i].lRate}",
-                                                                      data[index]
-                                                                          .ordritms[
-                                                                              i]
-                                                                          .rate
-                                                                          .toString(),
-                                                                      style: TextStyle(
-                                                                          color: Colors
-                                                                              .grey,
-                                                                          fontSize:
-                                                                              12.0),
+                                                                if ((profile
+                                                                        .data
+                                                                        ?.profileSettings
+                                                                        .any((e) =>
+                                                                            e.variable ==
+                                                                                'qtySettings' &&
+                                                                            e.value ==
+                                                                                'Y') ??
+                                                                    false)) ...[
+                                                                  Expanded(
+                                                                    flex: 2,
+                                                                    child: Text(
+                                                                      "${(data[index].ordritms[i].nRate == '0.00') ? data[index].ordritms[i].rate : data[index].ordritms[i].nRate}",
+                                                                      style:
+                                                                          TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12,
+                                                                      ),
                                                                       textAlign:
                                                                           TextAlign
-                                                                              .center),
-                                                                ),
+                                                                              .right,
+                                                                      // data[index]
+                                                                      //     .ordritms[
+                                                                      //         i]
+                                                                      //     .nRate
+                                                                      //     .toString(),
+                                                                      // style: TextStyle(
+                                                                      //     color: Colors
+                                                                      //         .grey,
+                                                                      //     fontSize:
+                                                                      //         12.0),
+                                                                      // textAlign:
+                                                                      //     TextAlign.center),
+                                                                    ),
+                                                                  ),
+                                                                ] else ...[
+                                                                  Expanded(
+                                                                    flex: 2,
+                                                                    child: Text(
+                                                                      "${(data[index].ordritms[i].lRate == '0.00') ? data[index].ordritms[i].rate : data[index].ordritms[i].lRate}",
+                                                                      style:
+                                                                          TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12,
+                                                                      ),
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .right,
+                                                                      // data[index]
+                                                                      //     .ordritms[
+                                                                      //         i]
+                                                                      //     .rate
+                                                                      //     .toString(),
+                                                                      // style: TextStyle(
+                                                                      //     color: Colors
+                                                                      //         .grey,
+                                                                      //     fontSize:
+                                                                      //         12.0),
+                                                                      // textAlign:
+                                                                      //     TextAlign.right),
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                                 Expanded(
                                                                   flex: 2,
                                                                   child: Text(

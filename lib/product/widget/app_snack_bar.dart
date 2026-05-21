@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
+
 import '../../constants/constants.dart';
 import '../../helper/network_helper.dart';
+import '../../providers/profile_provider.dart';
 
 class AppSnackBar {
+  /// When true, `showGetXCustomSnackBar` will suppress the network
+  /// connectivity snackbar if the current `ProfileProvider` reports
+  /// `enableOfflineMode='Y'`. Used by `ProductsPage` to avoid showing the
+  /// network message when offline mode is intentionally enabled for product
+  /// browsing.
+  static bool suppressNetworkSnackForProductPage = false;
   static void snackBarSuccessMsg(BuildContext context, String text) {
     showGetXCustomSnackBar(message: text, backgroundColor: Colors.green);
   }
@@ -36,6 +45,23 @@ class AppSnackBar {
         try {
           final hasNet = await NetworkHelper.hasInternet();
           if (!hasNet) {
+            // If product-page suppression is enabled AND the profile's
+            // enableOfflineMode is 'Y', skip showing the network snackbar.
+            final overlayContext = Get.context ?? Get.overlayContext;
+            if (suppressNetworkSnackForProductPage && overlayContext != null) {
+              try {
+                final profile =
+                    Provider.of<ProfileProvider>(overlayContext, listen: false);
+                if (profile.isOfflineModeEnabled()) {
+                  print(
+                      '[AppSnackBar] Suppressing network snackbar for product page (offline mode enabled).');
+                  return;
+                }
+              } catch (_) {
+                // ignore and fall back to showing network message
+              }
+            }
+
             message = Constants.networkMsg;
             backgroundColor = Colors.orange;
           }

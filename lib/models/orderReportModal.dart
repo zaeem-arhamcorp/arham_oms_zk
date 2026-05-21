@@ -174,6 +174,7 @@ class Ordritm {
     required this.quantity,
     required this.rate,
     required this.lRate,
+    this.nRate,
     required this.syncId,
     required this.amount,
     this.otherDesc,
@@ -191,6 +192,7 @@ class Ordritm {
   dynamic lastEdit;
   dynamic quantity;
   dynamic rate;
+  dynamic nRate;
   dynamic lRate;
   dynamic syncId;
   dynamic fld5;
@@ -209,6 +211,7 @@ class Ordritm {
         lastEdit: json["LAST_EDIT"],
         quantity: json["QUANTITY"],
         rate: json["RATE"],
+        nRate: json["NRATE"],
         lRate: json['LRATE'] ?? '',
         syncId: json["SYNC_ID"],
         amount: json["AMOUNT"],
@@ -230,6 +233,7 @@ class Ordritm {
         "LAST_EDIT": lastEdit,
         "QUANTITY": quantity,
         "RATE": rate,
+        "NRATE": nRate,
         "LRATE": lRate,
         "SYNC_ID": syncId,
         "AMOUNT": amount,
