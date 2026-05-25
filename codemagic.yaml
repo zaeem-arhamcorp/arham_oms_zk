@@ -8,9 +8,6 @@ workflows:
       flutter: stable
       xcode: latest
 
-    integrations:
-      app_store_connect: codemagic
-
     scripts:
       - flutter clean
       - flutter pub get
@@ -18,7 +15,3 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
-
-    publishing:
-      app_store_connect:
-        auth: integration
