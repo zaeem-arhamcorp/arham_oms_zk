@@ -714,6 +714,7 @@ class _ProductCardState extends State<ProductCard> {
                             focusedBorder: InputBorder.none,
                             suffixIcon: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
+                                isDense: true,
                                 icon: Icon(
                                   Icons.arrow_drop_down,
                                 ),

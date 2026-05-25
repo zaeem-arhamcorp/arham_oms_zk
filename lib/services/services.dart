@@ -3046,13 +3046,15 @@ class Services {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
     try {
+      final url = "${AppConfig.baseURL}settings/sync";
       final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURL}settings/sync"),
+        Uri.parse(url),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       );
+      print("GET $url");
       print(response.body);
       if (response.statusCode == 200) {
         return settingModalFromJson(response.body);

@@ -1999,7 +1999,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                   Expanded(
                                                                     flex: 2,
                                                                     child: Text(
-                                                                      "${(data[index].ordritms[i].nRate == '0.00') ? data[index].ordritms[i].rate : data[index].ordritms[i].nRate}",
+                                                                      "${(data[index].ordritms[i].nRate.toString().isEmpty) ? data[index].ordritms[i].rate : data[index].ordritms[i].nRate}",
                                                                       style:
                                                                           TextStyle(
                                                                         color: Colors
@@ -2028,7 +2028,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                   Expanded(
                                                                     flex: 2,
                                                                     child: Text(
-                                                                      "${(data[index].ordritms[i].lRate == '0.00') ? data[index].ordritms[i].rate : data[index].ordritms[i].lRate}",
+                                                                      "${(data[index].ordritms[i].lRate == '0') ? data[index].ordritms[i].rate : data[index].ordritms[i].lRate}",
                                                                       style:
                                                                           TextStyle(
                                                                         color: Colors

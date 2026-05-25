@@ -1465,6 +1465,17 @@ class _ProductsPageState extends State<ProductsPage> {
               }
               showMenu();
             },
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(11),
+              ),
+              padding: EdgeInsets.symmetric(
+                vertical: 7,
+                horizontal: 20,
+              ),
+            ),
             child: const Text("Change"),
           ),
       ],
@@ -1526,7 +1537,8 @@ class _ProductsPageState extends State<ProductsPage> {
       return Column(
         children: [
           Container(
-            // padding: const EdgeInsets.symmetric(vertical: 8.0),
+            padding: const EdgeInsets.only(bottom: 3.0),
+            margin: EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Colors.grey.shade300),
@@ -1580,6 +1592,19 @@ class _ProductsPageState extends State<ProductsPage> {
                   onPressed: () {
                     showStockistMenu();
                   },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: 20,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadiusGeometry.circular(11),
+                    ),
+                  ),
                   child: const Text('Select'),
                 ),
               ],

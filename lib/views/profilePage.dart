@@ -906,7 +906,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   p.data!.modulesList!.any((module) =>
                       module.mODULENO == "236" &&
                       module.rEADRIGHT == true)) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       vertical: 8.0, horizontal: 8.0), // Consistent padding

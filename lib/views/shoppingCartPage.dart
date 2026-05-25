@@ -1944,8 +1944,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   }
 
   double _nrateForAmount(DatumCartList item) {
-    final nrate = toDouble(item.item?.nrate);
-    if (nrate > 0) return nrate;
+    final topLevel = toDouble(item.nrate);
+    if (topLevel > 0) return topLevel;
+
+    final nested = toDouble(item.item?.nrate);
+    if (nested > 0) return nested;
+
     return _effectiveCartRate(item);
   }
 

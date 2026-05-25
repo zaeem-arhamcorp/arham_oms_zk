@@ -34,6 +34,7 @@ class CartListModal {
 
 class DatumCartList {
   DatumCartList({
+    this.nrate,
     this.cId,
     this.partyCd,
     this.userCd,
@@ -55,6 +56,7 @@ class DatumCartList {
   dynamic quantity;
   dynamic rate;
   dynamic lrate;
+  dynamic nrate;
   dynamic otherDesc;
 
   //dynamic amount;
@@ -71,6 +73,7 @@ class DatumCartList {
         quantity: json["QUANTITY"],
         rate: json["RATE"],
         lrate: json["LRATE"] ?? 0.0,
+        nrate: json["NRATE"],
         // Default to 0.0 if null
         //amount: json["AMOUNT"],
         amount: (json["AMOUNT"] is String)
@@ -106,6 +109,8 @@ class DatumCartList {
         amount: (amount is String)
             ? double.tryParse(amount) ?? 0.0
             : (amount as num?)?.toDouble() ?? 0.0,
+        nrate: json['nrate'] ??
+            (json['item'] != null ? json['item']['NRATE'] ?? 0 : 0),
         syncId: null,
         otherDesc: json['other_desc'] ?? '',
         fld5: json['fld5'] ?? '',
@@ -172,6 +177,7 @@ class DatumCartList {
         "QUANTITY": quantity,
         "RATE": rate,
         "LRATE": lrate,
+        "NRATE": nrate,
         // If lrate is null, it will stay as null or you can set it to 0.0
         "AMOUNT": amount,
         "SYNC_ID": syncId,
