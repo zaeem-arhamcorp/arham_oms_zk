@@ -8,6 +8,13 @@ workflows:
       flutter: stable
       xcode: latest
 
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.arhamerp.app
+
+    integrations:
+      app_store_connect: codemagic
+
     scripts:
       - flutter clean
       - flutter pub get
@@ -15,3 +22,7 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
+
+    publishing:
+      app_store_connect:
+        auth: integration
