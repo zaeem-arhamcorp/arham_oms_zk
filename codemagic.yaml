@@ -7,21 +7,12 @@ workflows:
     environment:
       flutter: stable
       xcode: latest
-      vars:
-        BUNDLE_ID: com.arhamerp.app
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.arhamerp.app
 
     scripts:
-      - name: Clean Flutter build state
-        script: flutter clean
-      - name: Fetch Dart dependencies
-        script: flutter pub get
-      - name: Apply iOS signing profiles
-        script: xcode-project use-profiles
-      - name: Build signed IPA
-        script: flutter build ipa --release
+      - flutter clean
+      - flutter pub get
+      - xcode-project use-profiles
+      - flutter build ipa --release
 
     artifacts:
       - build/ios/ipa/*.ipa
