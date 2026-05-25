@@ -9,14 +9,15 @@ workflows:
       xcode: latest
       vars:
         BUNDLE_ID: com.arhamerp.app
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.arhamerp.app
 
     scripts:
       - name: Clean Flutter build state
         script: flutter clean
       - name: Fetch Dart dependencies
         script: flutter pub get
-      - name: Initialize signing keychain
-        script: keychain initialize
       - name: Apply iOS signing profiles
         script: xcode-project use-profiles
       - name: Build signed IPA
