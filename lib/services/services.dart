@@ -3439,6 +3439,8 @@ class Services {
           : Uri.parse(
               '${AppConfig.baseURL}location/trip/status?user_cd=$userCd');
 
+      print(uri);
+
       return http.get(
         uri,
         headers: {

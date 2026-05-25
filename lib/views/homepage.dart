@@ -25,6 +25,7 @@ import 'package:arham_corporation/widgets/battery_optimization_dialog.dart';
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/location_permission_dialog.dart';
 import 'package:confetti/confetti.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -306,9 +307,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // Add listener to show warning snackbar whenever it's set by the API
     _profileProvider.addListener(_handlePendingWarning);
 
+    // Add listener to show stale-trip punch-out prompt after HomePage is ready
+    _profileProvider.addListener(_handlePendingStaleTripPunchOut);
+
     // Check for any existing warning at init time
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handlePendingWarning();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handlePendingStaleTripPunchOut();
     });
 
     // Show post-order WhatsApp share popup on homepage (if pending payload exists)
@@ -326,7 +334,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             Provider.of<ProfileProvider>(context, listen: false);
 
         // ✅ Check if offline mode is enabled in settings
-        final isOfflineModeEnabled = pb.isOfflineModeEnabled();
+        final isOfflineModeEnabled = _isOfflineModeEnabled(pb);
         print('[HomePage] Offline mode enabled: $isOfflineModeEnabled');
 
         if (!isOfflineModeEnabled) {
@@ -593,6 +601,84 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  bool _isOfflineModeEnabled(ProfileProvider profileProvider) {
+    final settings = profileProvider.data?.profileSettings;
+    if (settings == null || settings.isEmpty) {
+      return false;
+    }
+
+    for (final setting in settings) {
+      if (setting.variable == 'enableOfflineMode') {
+        return setting.value?.toString().toUpperCase() == 'Y';
+      }
+    }
+
+    return false;
+  }
+
+  bool _isWhatsAppShareOnOrderEnabled(ProfileProvider profileProvider) {
+    final settings = profileProvider.data?.profileSettings;
+    if (settings == null || settings.isEmpty) {
+      return false;
+    }
+
+    for (final setting in settings) {
+      if (setting.variable == 'askWhatsAppShareOnOrder') {
+        return setting.value?.toString().toUpperCase() == 'Y';
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _handlePendingStaleTripPunchOut() async {
+    if (!mounted) return;
+    if (!_profileProvider.pendingStaleTripPunchOut) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final location = Provider.of<LocationProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+
+    await Get.dialog(
+      CupertinoAlertDialog(
+        title: const Text('Punch Out required'),
+        content: const Text(
+          'Your active trip should have been punched out before 11:00 PM. Please punch out now.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('Punch Out'),
+            onPressed: () async {
+              location.setRemarks('PUNCH OUT');
+              final punchSucceeded = await location.sendLocation(userProvider,
+                  profile: profileProvider);
+
+              if (!mounted) {
+                return;
+              }
+
+              if (punchSucceeded) {
+                _profileProvider.clearPendingStaleTripPunchOut();
+                if (Get.isDialogOpen == true) {
+                  Get.back();
+                }
+              } else {
+                AppSnackBar.showGetXCustomSnackBar(
+                  message:
+                      'Punch out failed. Please connect to the internet and try again.',
+                  backgroundColor: Colors.red,
+                );
+              }
+            },
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
   Future<String?> _downloadOrderReportPdfForShare(String reportUrl) async {
     final reportName =
         'Order_Report_${DateFormat('dd-MM-yyyy_HH-mm-ss').format(DateTime.now())}';
@@ -635,7 +721,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _checkAndShowPendingOrderSharePopup() async {
     if (!mounted || _isOrderShareDialogVisible) return;
 
-    if (!_profileProvider.isWhatsAppShareOnOrderEnabled()) {
+    if (!_isWhatsAppShareOnOrderEnabled(_profileProvider)) {
       print('[HomePage] WhatsApp share on order disabled - skipping popup');
       return;
     }
@@ -1361,11 +1447,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             context
                                 .read<ProfileProvider>()
                                 .getProfile()
-                                .then((value) {
+                                .then((value) async {
                               // Load settings after profile is loaded
-                              context
-                                  .read<ProfileProvider>()
-                                  .loadSettings(context);
+                              try {
+                                await (context.read<ProfileProvider>()
+                                        as dynamic)
+                                    .loadSettings(context);
+                              } catch (e) {
+                                print(
+                                    '[HomePage] loadSettings fallback failed: $e');
+                              }
 
                               Get.offAll(() => BottomnavigationBarScreen());
                             });

@@ -160,17 +160,15 @@ class LocationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future sendLocation(UserProvider ub, {ProfileProvider? profile}) async {
+  Future<bool> sendLocation(UserProvider ub, {ProfileProvider? profile}) async {
     if (remarks == null) {
-      // No punch action requested
-      return;
+      return false;
     }
 
     isLoading = true;
     notifyListeners();
 
     try {
-      // Determine continuous location tracking setting
       bool isContinuousTracking = true;
       if (profile != null) {
         try {
@@ -178,19 +176,17 @@ class LocationProvider extends ChangeNotifier {
             (e) => e.variable == 'continuousLocationTracking',
           );
           isContinuousTracking = (setting?.value ?? 'Y') == 'Y';
-        } catch (e) {
-          // Setting not found, default to continuous tracking (Y)
+        } catch (_) {
           isContinuousTracking = true;
         }
       }
 
       print(
           '[LocationProvider] 📍 Tracking mode: ${isContinuousTracking ? "CONTINUOUS" : "ON-DEMAND"}');
-      // Use LocationService for offline-first punch-in/out
       final locationService = LocationService();
       final now = DateTime.now();
-      final vouchDt = now.toString().split(' ')[0]; // YYYY-MM-DD format
-      final vouchTime = now.toString().split(' ')[1]; // HH:MM:SS format
+      final vouchDt = now.toString().split(' ')[0];
+      final vouchTime = now.toString().split(' ')[1];
       final sp = await SharedPreferences.getInstance();
       final actualUserCd = sp.getString('UserCode') ?? '';
       final firmSyncId = int.tryParse(ub.syncId ?? '0') ?? 0;
@@ -203,10 +199,8 @@ class LocationProvider extends ChangeNotifier {
         throw Exception('Missing USER_CD or SYNC_ID for punch operation');
       }
 
-      // Call appropriate method based on punch type
       final Map<String, dynamic> result;
       if (remarks == 'PUNCH IN') {
-        // PUNCH IN: Use punchIn() which starts background tracking (or on-demand mode)
         result = await locationService.punchIn(
           userCd: actualUserCd,
           vouchDt: vouchDt,
@@ -218,7 +212,6 @@ class LocationProvider extends ChangeNotifier {
           continuousLocationTracking: isContinuousTracking,
         );
       } else if (remarks == 'PUNCH OUT') {
-        // PUNCH OUT: Use punchOut() which stops background tracking (or handles on-demand mode cleanup)
         result = await locationService.punchOut(
           userCd: actualUserCd,
           vouchDt: vouchDt,
@@ -230,7 +223,6 @@ class LocationProvider extends ChangeNotifier {
           continuousLocationTracking: isContinuousTracking,
         );
       } else {
-        // Fallback for other punch types
         result = await locationService.punchInOut(
           userCd: actualUserCd,
           vouchDt: vouchDt,
@@ -245,11 +237,9 @@ class LocationProvider extends ChangeNotifier {
 
       if (result['success'] == true) {
         if (result['synced'] == true) {
-          // Successful online sync
           print(
               '[LocationProvider] 🟢 RESULT: SYNCED | locId=${result['locId']} | Lat=${result['lat']}, Lng=${result['longi']}');
 
-          // Check if background tracking was started (for PUNCH IN)
           if (result['tracking_started'] == true) {
             print(
                 '[LocationProvider] ✅ Background tracking STARTED with trip_id=${result['trip_id']}');
@@ -258,7 +248,6 @@ class LocationProvider extends ChangeNotifier {
               backgroundColor: Colors.green,
             );
           } else if (result['tracking_stopped'] == true) {
-            // PUNCH OUT completed
             print('[LocationProvider] ✅ Background tracking STOPPED');
             final syncStats = result['sync_stats'] ?? {};
             final syncedCount = syncStats['tracking_synced'] ?? 0;
@@ -276,7 +265,6 @@ class LocationProvider extends ChangeNotifier {
             );
           }
         } else {
-          // Saved locally, will sync when online
           print(
               '[LocationProvider] 🟠 RESULT: OFFLINE | locId=${result['locId']} | Lat=${result['lat']}, Lng=${result['longi']}');
           AppSnackBar.showGetXCustomSnackBar(
@@ -285,31 +273,23 @@ class LocationProvider extends ChangeNotifier {
           );
         }
 
-        // Toggle punch state immediately so button updates right away
         final bool wasIn = remarks == 'PUNCH IN';
-        remarks = null; // clear after capturing
+        remarks = null;
         if (Get.context != null) {
           final ProfileProvider p =
               Provider.of<ProfileProvider>(Get.context!, listen: false);
-          // Update in-memory punch state so UI reflects the change immediately
-          p.setPunchState(wasIn); // true if just punched in → show Punch Out
-
-          // Do NOT refresh the full profile immediately after punch even when
-          // synced: fetching the profile can overwrite the in-memory punch
-          // state with stale server data and cause the UI to revert. The app
-          // now restores punch state from the local `locations` table on
-          // startup, and server-driven profile refreshs should run via the
-          // normal startup/sync flows.
+          p.setPunchState(wasIn);
         }
-      } else {
-        // Failed to punch
-        print(
-            '[LocationProvider] 🔴 RESULT: FAILED | Error: ${result['error']}');
-        AppSnackBar.showGetXCustomSnackBar(
-          message: result['error'] ?? 'Failed to punch. Please try again.',
-          backgroundColor: Colors.red,
-        );
+
+        return true;
       }
+
+      print('[LocationProvider] 🔴 RESULT: FAILED | Error: ${result['error']}');
+      AppSnackBar.showGetXCustomSnackBar(
+        message: result['error'] ?? 'Failed to punch. Please try again.',
+        backgroundColor: Colors.red,
+      );
+      return false;
     } catch (e, stack) {
       print('[LocationProvider] 🔴 EXCEPTION: ${e.toString()} | Stack: $stack');
       CrashlyticsService.recordNonFatal(e, stack);
@@ -317,6 +297,7 @@ class LocationProvider extends ChangeNotifier {
         message: 'Error during punch: ${e.toString()}',
         backgroundColor: Colors.red,
       );
+      return false;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -324,15 +305,9 @@ class LocationProvider extends ChangeNotifier {
   }
 
   String formatLocation(double value) {
-    // 2 decimal places
     String formatted = value.toStringAsFixed(2);
-
-    // Split into integer and decimal parts
     List<String> parts = formatted.split('.');
-
-    // Pad integer part to 10 digits
     String intPart = parts[0].padLeft(10, '0');
-
     return "$intPart.${parts[1]}";
   }
 

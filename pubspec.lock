@@ -1880,10 +1880,9 @@ packages:
   whatsapp_share:
     dependency: "direct main"
     description:
-      name: whatsapp_share
-      sha256: d1884f302a52d9f400bc3d7d4274b77aad83424e08f425351cea8d13b4cb8649
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/whatsapp_share"
+      relative: true
+    source: path
     version: "2.0.2"
   win32:
     dependency: "direct main"

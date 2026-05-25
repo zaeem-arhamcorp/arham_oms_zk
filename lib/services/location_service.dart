@@ -700,6 +700,7 @@ class LocationService {
       print(
           '[LocationService]   ✅ Location recorded: locId=${punchResult['locId']}');
       print('[LocationService]   ✅ Background tracking stopped');
+
       print('[LocationService]   ✅ All location data synced');
       print(
           '[LocationService]   📍 Coordinates: ${punchResult['lat']}, ${punchResult['longi']}');

@@ -38,6 +38,9 @@ class ProfileProvider extends DisposableProvider {
   String? _pendingWarning;
   String? get pendingWarning => _pendingWarning;
 
+  bool _pendingStaleTripPunchOut = false;
+  bool get pendingStaleTripPunchOut => _pendingStaleTripPunchOut;
+
   void setPendingWarning(String warning) {
     _pendingWarning = warning;
     notifyListeners();
@@ -45,6 +48,16 @@ class ProfileProvider extends DisposableProvider {
 
   void clearPendingWarning() {
     _pendingWarning = null;
+    notifyListeners();
+  }
+
+  void setPendingStaleTripPunchOut(bool value) {
+    _pendingStaleTripPunchOut = value;
+    notifyListeners();
+  }
+
+  void clearPendingStaleTripPunchOut() {
+    _pendingStaleTripPunchOut = false;
     notifyListeners();
   }
 
@@ -79,6 +92,135 @@ class ProfileProvider extends DisposableProvider {
           '[PROFILE-ONLINE] ⚠️ Failed to read deferred auto punch-out state: $e');
       return false;
     }
+  }
+
+  bool _isContinuousLocationTrackingEnabled() {
+    return _data?.profileSettings.any(
+          (e) => e.variable == 'continuousLocationTracking' && e.value == 'Y',
+        ) ??
+        true;
+  }
+
+  DateTime? _parseTripStartTime(dynamic rawStartTime) {
+    if (rawStartTime == null) return null;
+    final value = rawStartTime.toString().trim();
+    if (value.isEmpty) return null;
+
+    final parsed = DateTime.tryParse(value);
+    if (parsed != null) {
+      return parsed.toLocal();
+    }
+
+    return DateTime.tryParse(value.replaceFirst(' ', 'T'))?.toLocal();
+  }
+
+  DateTime _previousDayCutoff(DateTime now) {
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    return startOfToday.subtract(const Duration(days: 1)).add(
+          const Duration(hours: 23),
+        );
+  }
+
+  String _formatLocalDate(DateTime value) {
+    final localValue = value.toLocal();
+    return '${localValue.year}-${localValue.month.toString().padLeft(2, '0')}-${localValue.day.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDateTimeForDisplay(DateTime value) {
+    final localValue = value.toLocal();
+    final date =
+        '${localValue.year}-${localValue.month.toString().padLeft(2, '0')}-${localValue.day.toString().padLeft(2, '0')}';
+    final time =
+        '${localValue.hour.toString().padLeft(2, '0')}:${localValue.minute.toString().padLeft(2, '0')}';
+    return '$date $time';
+  }
+
+  Future<DateTime?> _resolveActiveTripStartTime({
+    required String userCd,
+    required int syncId,
+    required String token,
+    required bool online,
+  }) async {
+    final yesterday = DateTime.now().toLocal().subtract(const Duration(days: 1));
+    final yesterdayDate = _formatLocalDate(yesterday);
+
+    if (online && token.isNotEmpty) {
+      try {
+        final activeTrip = await Services().getActiveTripStatus(
+          userCd,
+          syncId,
+          token,
+        );
+        final startTime = _parseTripStartTime(activeTrip?['start_time']);
+        if (startTime != null && _formatLocalDate(startTime) == yesterdayDate) {
+          return startTime;
+        }
+      } catch (e) {
+        print('[PROFILE] ⚠️ Failed to resolve active trip from server: $e');
+      }
+    }
+
+    try {
+      final latestPunch = await DatabaseHelper().getLatestPunchForUser(
+        userCd,
+        syncId,
+      );
+      if (latestPunch == null) return null;
+
+      final latestRemark = (latestPunch['REMARK'] ?? '').toString();
+      if (latestRemark != 'PUNCH IN') return null;
+
+      final punchDate = (latestPunch['VOUCH_DT'] ?? '').toString().trim();
+      final punchTime = (latestPunch['VOUCH_TIME'] ?? '').toString().trim();
+      if (punchDate.isEmpty || punchTime.isEmpty) return null;
+
+      if (punchDate != yesterdayDate) {
+        return null;
+      }
+
+      return DateTime.tryParse(
+        '${punchDate}T${punchTime.split('.').first}',
+      )?.toLocal();
+    } catch (e) {
+      print('[PROFILE] ⚠️ Failed to resolve active trip from local DB: $e');
+      return null;
+    }
+  }
+
+  Future<bool> _promptStaleTripPunchOutIfNeeded({
+    required String userCd,
+    required int syncId,
+    required String token,
+    required bool online,
+    required String logTag,
+  }) async {
+    if (_data?.isPunchIn != true) return true;
+    if (userCd.trim().isEmpty || syncId <= 0) return true;
+
+    final startTime = await _resolveActiveTripStartTime(
+      userCd: userCd,
+      syncId: syncId,
+      token: token,
+      online: online,
+    );
+
+    if (startTime == null) {
+      print(
+          '$logTag ℹ️ Active trip start time unavailable; skipping stale-trip prompt.');
+      return true;
+    }
+
+    final cutoff = _previousDayCutoff(DateTime.now());
+    if (!startTime.isBefore(cutoff)) {
+      return true;
+    }
+
+    print(
+      '$logTag ⚠️ Stale active trip detected (start=${_formatDateTimeForDisplay(startTime)} cutoff=${_formatDateTimeForDisplay(cutoff)}). Queuing punch-out dialog.',
+    );
+    setPendingStaleTripPunchOut(true);
+
+    return false;
   }
 
   Future saveUserCode(userCode) async {
@@ -185,6 +327,14 @@ class ProfileProvider extends DisposableProvider {
               userCd: userCodeFromPrefs,
               syncIdValue: syncId,
               locService: locService,
+              logTag: '[PROFILE-OFFLINE]',
+            );
+
+            await _promptStaleTripPunchOutIfNeeded(
+              userCd: userCodeFromPrefs,
+              syncId: syncId,
+              token: token,
+              online: false,
               logTag: '[PROFILE-OFFLINE]',
             );
           } catch (e) {
@@ -316,6 +466,17 @@ class ProfileProvider extends DisposableProvider {
               return;
             }
 
+            final canContinue = await _promptStaleTripPunchOutIfNeeded(
+              userCd: effectiveUserCd,
+              syncId: syncId,
+              token: token,
+              online: true,
+              logTag: '[PROFILE-ONLINE]',
+            );
+            if (!canContinue) {
+              return;
+            }
+
             final deferredAutoPunchOutPending =
                 await _isDeferredAutoPunchOutPending();
             if (deferredAutoPunchOutPending) {
@@ -410,6 +571,14 @@ class ProfileProvider extends DisposableProvider {
               userCd: effectiveUserCd,
               syncIdValue: syncId,
               locService: locService,
+              logTag: '[PROFILE-ONLINE]',
+            );
+
+            await _promptStaleTripPunchOutIfNeeded(
+              userCd: effectiveUserCd,
+              syncId: syncId,
+              token: token,
+              online: true,
               logTag: '[PROFILE-ONLINE]',
             );
           }

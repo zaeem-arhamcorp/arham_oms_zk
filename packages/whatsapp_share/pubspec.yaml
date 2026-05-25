@@ -1,0 +1,13 @@
+name: whatsapp_share
+description: Compatibility shim for WhatsApp sharing used by the app.
+version: 2.0.2
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  share_plus: ^12.0.1
+  url_launcher: ^6.3.0
