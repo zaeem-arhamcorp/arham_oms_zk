@@ -1,9 +1,15 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 class CrashlyticsService {
-  static final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+  static FirebaseCrashlytics? get _crashlytics {
+    try {
+      if (Firebase.apps.isNotEmpty) return FirebaseCrashlytics.instance;
+    } catch (_) {}
+    return null;
+  }
 
   static final DateFormat _timestampFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
 
@@ -22,7 +28,9 @@ class CrashlyticsService {
 
   static Future<void> _setSafeKey(String key, Object? value) async {
     if (_isSensitiveKey(key)) return;
-    await _crashlytics.setCustomKey(key, _safeString(value));
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.setCustomKey(key, _safeString(value));
   }
 
   static Future<void> setScreenName(String screenName) async {
@@ -30,7 +38,9 @@ class CrashlyticsService {
     if (safeScreenName.isEmpty) return;
 
     await _setSafeKey('screen_name', safeScreenName);
-    await _crashlytics.log('screen:$safeScreenName');
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.log('screen:$safeScreenName');
   }
 
   static Future<void> setUserContext({
@@ -43,13 +53,15 @@ class CrashlyticsService {
     final safeUserId =
         _safeString(userId).isEmpty ? 'unknown' : _safeString(userId);
 
-    await _crashlytics.setUserIdentifier(safeUserId);
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.setUserIdentifier(safeUserId);
     await _setSafeKey('user_id', safeUserId);
     await _setSafeKey('user_name', _safeString(userName));
     await _setSafeKey('user_email', _safeString(userEmail));
     await _setSafeKey('user_phone', _safeString(userPhone));
     await _setSafeKey('user_role', _safeString(userRole));
-    await _crashlytics.log('user_context_updated');
+    await _crashlytics?.log('user_context_updated');
   }
 
   static Future<void> logAction(
@@ -69,7 +81,9 @@ class CrashlyticsService {
     }
 
     final suffix = parts.isEmpty ? '' : ' [${parts.join(', ')}]';
-    await _crashlytics.log('action:$safeAction$suffix');
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.log('action:$safeAction$suffix');
   }
 
   static Future<void> setCrashTimeNow() async {
@@ -90,7 +104,9 @@ class CrashlyticsService {
       await _setSafeKey('ctx_${entry.key}', entry.value);
     }
 
-    await _crashlytics.recordError(
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.recordError(
       error,
       stack,
       fatal: false,
@@ -106,7 +122,9 @@ class CrashlyticsService {
   }) async {
     await setCrashTimeNow();
     await _setSafeKey('error_reason', reason);
-    await _crashlytics.recordError(
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.recordError(
       error,
       stack,
       fatal: true,
@@ -121,6 +139,8 @@ class CrashlyticsService {
   }) async {
     await setCrashTimeNow();
     await _setSafeKey('error_reason', reason);
-    await _crashlytics.recordFlutterFatalError(details);
+    final c = _crashlytics;
+    if (c == null) return;
+    await c.recordFlutterFatalError(details);
   }
 }
