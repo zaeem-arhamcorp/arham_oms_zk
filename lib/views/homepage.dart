@@ -649,7 +649,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         actions: [
           CupertinoDialogAction(
             isDefaultAction: true,
-            child: const Text('Punch Out'),
+            child: const Text(
+              'Punch Out',
+              style: TextStyle(color: Colors.red),
+            ),
             onPressed: () async {
               location.setRemarks('PUNCH OUT');
               final punchSucceeded = await location.sendLocation(userProvider,

@@ -44,6 +44,10 @@ class BackgroundLocationService {
       'pending_auto_punch_out_loc_id';
   static const String _manualReopenAfterAutoPunchOutDateKey =
       'manual_reopen_after_auto_punch_out_date';
+  static String _resolvedAutoPunchOutKey(String userCd, int syncId) {
+    return 'resolved_auto_punch_out_${syncId}_${userCd.trim()}';
+  }
+
   static const platform = MethodChannel('com.arhamerp.app/notification');
   static const trackingControlPlatform =
       MethodChannel('com.arhamerp.app/tracking_control');
@@ -864,6 +868,22 @@ class BackgroundLocationService {
     return prefs.getBool(_pendingAutoPunchOutKey) ?? false;
   }
 
+  Future<bool> hasResolvedAutoPunchOut({
+    required String userCd,
+    required int syncId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_resolvedAutoPunchOutKey(userCd, syncId)) ?? false;
+  }
+
+  Future<void> markResolvedAutoPunchOut({
+    required String userCd,
+    required int syncId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_resolvedAutoPunchOutKey(userCd, syncId), true);
+  }
+
   Future<bool> isAutoPunchOutCompletedToday() async {
     final prefs = await SharedPreferences.getInstance();
     final key = _autoPunchOutDoneKeyForDate(DateTime.now());
@@ -897,6 +917,7 @@ class BackgroundLocationService {
       final syncId = prefs.getInt(_pendingAutoPunchOutSyncIdKey);
       final endTimeMs = prefs.getInt(_pendingAutoPunchOutTimeMsKey);
       final pendingLocId = prefs.getInt(_pendingAutoPunchOutLocIdKey);
+      final userCd = prefs.getString('active_user_cd') ?? '';
 
       if (tripId == null || syncId == null || endTimeMs == null) {
         print(
@@ -961,6 +982,11 @@ class BackgroundLocationService {
         print(
             '[AUTO-PUNCH-OUT] Deferred trip end failed: ${endTripResponse.statusCode} ${endTripResponse.body}');
         return false;
+      }
+
+      await _db.deleteLocationTrackingBySyncId(syncId);
+      if (userCd.isNotEmpty) {
+        await markResolvedAutoPunchOut(userCd: userCd, syncId: syncId);
       }
 
       await prefs.remove('active_trip_id');
@@ -1159,15 +1185,16 @@ class BackgroundLocationService {
       final prefs = await SharedPreferences.getInstance();
       final manualReopenDate =
           prefs.getString(_manualReopenAfterAutoPunchOutDateKey);
-      final allowManualReopenToday = manualReopenDate == today;
+      final hasManualReopenAfterAutoPunchOut =
+          manualReopenDate != null && manualReopenDate.isNotEmpty;
+
+      if (hasManualReopenAfterAutoPunchOut) {
+        print(
+            '[AUTO-PUNCH-OUT] Manual post-11PM punch-in is active; keeping tracking alive across day change.');
+        return false;
+      }
 
       if ((prefs.getBool(autoDoneKey) ?? false) == true) {
-        if (allowManualReopenToday) {
-          print(
-              '[AUTO-PUNCH-OUT] Already completed for $today, but user manually punched in again. Keeping tracking active.');
-          return false;
-        }
-
         print(
             '[AUTO-PUNCH-OUT] Already completed for $today. Stopping active tracking.');
 

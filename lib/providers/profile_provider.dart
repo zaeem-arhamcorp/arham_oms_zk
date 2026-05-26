@@ -94,6 +94,39 @@ class ProfileProvider extends DisposableProvider {
     }
   }
 
+  Future<bool> _shouldPreserveOfflineAutoPunchOutState() async {
+    try {
+      final backgroundService = BackgroundLocationService();
+      if (await backgroundService.hasPendingAutoPunchOut()) {
+        return true;
+      }
+
+      if (await backgroundService.isAutoPunchOutCompletedToday()) {
+        return true;
+      }
+
+      final effectiveUserCd =
+          (_data?.userCd?.toString().trim().isNotEmpty ?? false)
+              ? _data!.userCd.toString().trim()
+              : (_userCode ?? '').trim();
+      final syncIdStr =
+          (await SharedPreferences.getInstance()).getString('SyncId') ?? '';
+      final syncId = int.tryParse(syncIdStr) ?? 0;
+      if (effectiveUserCd.isNotEmpty && syncId > 0) {
+        return await backgroundService.hasResolvedAutoPunchOut(
+          userCd: effectiveUserCd,
+          syncId: syncId,
+        );
+      }
+
+      return false;
+    } catch (e) {
+      print(
+          '[PROFILE-ONLINE] ⚠️ Failed to read auto punch-out completion state: $e');
+      return false;
+    }
+  }
+
   bool _isContinuousLocationTrackingEnabled() {
     return _data?.profileSettings.any(
           (e) => e.variable == 'continuousLocationTracking' && e.value == 'Y',
@@ -141,8 +174,35 @@ class ProfileProvider extends DisposableProvider {
     required String token,
     required bool online,
   }) async {
-    final yesterday = DateTime.now().toLocal().subtract(const Duration(days: 1));
+    final yesterday =
+        DateTime.now().toLocal().subtract(const Duration(days: 1));
     final yesterdayDate = _formatLocalDate(yesterday);
+
+    try {
+      final latestPunch = await DatabaseHelper().getLatestPunchForUser(
+        userCd,
+        syncId,
+      );
+      if (latestPunch != null) {
+        final latestRemark = (latestPunch['REMARK'] ?? '').toString();
+        final punchDate = (latestPunch['VOUCH_DT'] ?? '').toString().trim();
+        final punchTime = (latestPunch['VOUCH_TIME'] ?? '').toString().trim();
+
+        if (latestRemark == 'PUNCH IN' &&
+            punchDate.isNotEmpty &&
+            punchTime.isNotEmpty &&
+            punchDate == yesterdayDate) {
+          final localStartTime = DateTime.tryParse(
+            '${punchDate}T${punchTime.split('.').first}',
+          )?.toLocal();
+          if (localStartTime != null) {
+            return localStartTime;
+          }
+        }
+      }
+    } catch (e) {
+      print('[PROFILE] ⚠️ Failed to resolve active trip from local DB: $e');
+    }
 
     if (online && token.isNotEmpty) {
       try {
@@ -160,31 +220,7 @@ class ProfileProvider extends DisposableProvider {
       }
     }
 
-    try {
-      final latestPunch = await DatabaseHelper().getLatestPunchForUser(
-        userCd,
-        syncId,
-      );
-      if (latestPunch == null) return null;
-
-      final latestRemark = (latestPunch['REMARK'] ?? '').toString();
-      if (latestRemark != 'PUNCH IN') return null;
-
-      final punchDate = (latestPunch['VOUCH_DT'] ?? '').toString().trim();
-      final punchTime = (latestPunch['VOUCH_TIME'] ?? '').toString().trim();
-      if (punchDate.isEmpty || punchTime.isEmpty) return null;
-
-      if (punchDate != yesterdayDate) {
-        return null;
-      }
-
-      return DateTime.tryParse(
-        '${punchDate}T${punchTime.split('.').first}',
-      )?.toLocal();
-    } catch (e) {
-      print('[PROFILE] ⚠️ Failed to resolve active trip from local DB: $e');
-      return null;
-    }
+    return null;
   }
 
   Future<bool> _promptStaleTripPunchOutIfNeeded({
@@ -466,6 +502,15 @@ class ProfileProvider extends DisposableProvider {
               return;
             }
 
+            final preserveOfflineAutoPunchOutState =
+                await _shouldPreserveOfflineAutoPunchOutState();
+            if (preserveOfflineAutoPunchOutState) {
+              _data!.isPunchIn = false;
+              print(
+                  '[PROFILE-ONLINE] ℹ️ Preserving offline auto punch-out state; skipped trip resume and stale-trip prompt.');
+              return;
+            }
+
             final canContinue = await _promptStaleTripPunchOutIfNeeded(
               userCd: effectiveUserCd,
               syncId: syncId,
@@ -547,15 +592,24 @@ class ProfileProvider extends DisposableProvider {
               if (!_data!.isPunchIn) {
                 print(
                     '[PROFILE-ONLINE] ℹ️ No local open punch found, checking server state...');
-                serverPunchRemark =
-                    await Services().getCurrentPunchState(token);
-                print(
-                    '[PROFILE-ONLINE] 📊 Server punch state: $serverPunchRemark');
-
-                if (serverPunchRemark != null && serverPunchRemark.isNotEmpty) {
-                  _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
+                final preserveOfflineAutoPunchOutState =
+                    await _shouldPreserveOfflineAutoPunchOutState();
+                if (preserveOfflineAutoPunchOutState) {
+                  _data!.isPunchIn = false;
                   print(
-                      '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=${_data!.isPunchIn}');
+                      '[PROFILE-ONLINE] ℹ️ Offline auto punch-out is still pending/completed today; skipping server punch-state fallback.');
+                } else {
+                  serverPunchRemark =
+                      await Services().getCurrentPunchState(token);
+                  print(
+                      '[PROFILE-ONLINE] 📊 Server punch state: $serverPunchRemark');
+
+                  if (serverPunchRemark != null &&
+                      serverPunchRemark.isNotEmpty) {
+                    _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
+                    print(
+                        '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=${_data!.isPunchIn}');
+                  }
                 }
               } else {
                 print(

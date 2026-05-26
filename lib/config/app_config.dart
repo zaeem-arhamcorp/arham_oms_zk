@@ -32,6 +32,8 @@ class AppConfig {
   // TODO: Command to build with today's build date
   // flutter build apk --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
+  // flutter build appbundle --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+
   // TODO: Update today's date in ProfilePage before building apk
   // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 

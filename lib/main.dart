@@ -14,6 +14,9 @@ import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/person_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/connectivity_service.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:arham_corporation/services/database_helper.dart';
 import 'package:arham_corporation/views/item_wise_sale/providers/item_list_provider.dart'
     as item_wise_sale_provider;
 import 'package:arham_corporation/views/splashScreen.dart';
@@ -28,13 +31,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'constants/constants.dart';
-import 'package:arham_corporation/services/database_helper.dart';
-import 'package:arham_corporation/services/connectivity_service.dart';
-import 'package:arham_corporation/services/background_location_service.dart';
-import 'package:arham_corporation/services/crashlytics_service.dart';
-import 'package:arham_corporation/services/location_tracking_workmanager.dart';
-import 'package:arham_corporation/services/heartbeat_workmanager.dart';
-import 'package:workmanager/workmanager.dart';
 
 void main() {
   runZonedGuarded(() async {
@@ -43,24 +39,24 @@ void main() {
 
     WidgetsFlutterBinding.ensureInitialized();
 
-    // await Firebase.initializeApp();
+    await Firebase.initializeApp();
 
-    // FlutterError.onError = (errorDetails) {
-    //   FlutterError.presentError(errorDetails);
-    //   unawaited(CrashlyticsService.recordFlutterFatal(
-    //     errorDetails,
-    //     reason: 'flutter_framework_uncaught',
-    //   ));
-    // };
+    FlutterError.onError = (errorDetails) {
+      FlutterError.presentError(errorDetails);
+      unawaited(CrashlyticsService.recordFlutterFatal(
+        errorDetails,
+        reason: 'flutter_framework_uncaught',
+      ));
+    };
 
-    // PlatformDispatcher.instance.onError = (error, stack) {
-    //   unawaited(CrashlyticsService.recordFatal(
-    //     error,
-    //     stack,
-    //     reason: 'platform_dispatcher_uncaught',
-    //   ));
-    //   return true;
-    // };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      unawaited(CrashlyticsService.recordFatal(
+        error,
+        stack,
+        reason: 'platform_dispatcher_uncaught',
+      ));
+      return true;
+    };
 
     // ✅ Initialize Hive BEFORE building widgets
     Directory directory = await getApplicationDocumentsDirectory();
@@ -80,7 +76,7 @@ void main() {
     // print('[Main] Initializing background location service...');
     // await BackgroundLocationService().initialize();
     // print('[Main] ✅ Background location service initialized');
-
+    //
     // // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
     // print('[Main] Initializing Workmanager core...');
     // try {
@@ -97,20 +93,20 @@ void main() {
     //     reason: 'workmanager_init_warning',
     //   );
     // }
-
+    //
     // print('[Main] Initializing location tracking WorkManager...');
     // await LocationTrackingWorkmanager.initialize();
     // await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
     // await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
     // print('[Main] ✅ Location tracking WorkManager initialized');
-
+    //
     // // ✅ Initialize heartbeat workmanager BEFORE building widgets
     // print('[Main] Initializing heartbeat WorkManager...');
     // await HeartbeatWorkmanager.initialize();
     // await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
     // await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
     // print('[Main] ✅ Heartbeat WorkManager initialized');
-
+    //
     // // ✅ Attempt immediate resume if app was killed with active tracking
     // print('[Main] Checking for active trip to resume...');
     // try {
