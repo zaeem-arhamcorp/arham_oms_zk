@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:app_settings/app_settings.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -39,6 +42,45 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final BehaviorSubject<String?> behaviorSubject = BehaviorSubject<String?>();
+  static const MethodChannel _iosNotificationChannel =
+      MethodChannel('arham_oms/notification_debug');
+
+  void _log(String message) {
+    debugPrint('[NotificationService] $message');
+  }
+
+  Future<void> _logIosNotificationStatus(String stage) async {
+    if (!Platform.isIOS) {
+      return;
+    }
+    try {
+      final result = await _iosNotificationChannel.invokeMethod('getStatus');
+      if (result is Map) {
+        final normalized = <String, String>{};
+        result.forEach((key, value) {
+          normalized['$key'] = '$value';
+        });
+        _log('iOS status ($stage): ${jsonEncode(normalized)}');
+      } else {
+        _log('iOS status ($stage): unexpected response: $result');
+      }
+    } catch (e) {
+      _log('iOS status ($stage) failed: $e');
+    }
+  }
+
+  Future<void> _requestIosRemoteNotifications() async {
+    if (!Platform.isIOS) {
+      return;
+    }
+    try {
+      final result = await _iosNotificationChannel
+          .invokeMethod('registerForRemoteNotifications');
+      _log('iOS registerForRemoteNotifications result: $result');
+    } catch (e) {
+      _log('iOS registerForRemoteNotifications failed: $e');
+    }
+  }
 
   Future<void> initializePlatformNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -168,9 +210,12 @@ class NotificationService {
 
   Future<bool> requestNotificationPermission() async {
     PermissionStatus status;
+    _log(
+        'requestNotificationPermission start: platform=${Platform.operatingSystem}');
     if (Platform.isAndroid) {
       final deviceInfo = DeviceInfoPlugin();
       final androidInfo = await deviceInfo.androidInfo;
+      _log('Android SDK: ${androidInfo.version.sdkInt}');
       if (androidInfo.version.sdkInt >= 33) {
         // Android 13 (TIRAMISU)
         status = await Permission.notification.request();
@@ -180,20 +225,64 @@ class NotificationService {
     } else if (Platform.isIOS) {
       // For iOS, permission is typically requested during initialization.
       // This call will prompt if not yet determined, or return current status.
+      final deviceInfo = DeviceInfoPlugin();
+      final iosInfo = await deviceInfo.iosInfo;
+      _log(
+          'iOS device: model=${iosInfo.utsname.machine}, systemVersion=${iosInfo.systemVersion}');
+      final beforeStatus = await Permission.notification.status;
+      _log('iOS status before request: isGranted=${beforeStatus.isGranted}, '
+          'isDenied=${beforeStatus.isDenied}, '
+          'isPermanentlyDenied=${beforeStatus.isPermanentlyDenied}, '
+          'isRestricted=${beforeStatus.isRestricted}, '
+          'isLimited=${beforeStatus.isLimited}, '
+          'isProvisional=${beforeStatus.isProvisional}');
+      await _logIosNotificationStatus('before_request');
+      _log('iOS requesting notification permission');
       status = await Permission.notification.request();
+      final afterStatus = await Permission.notification.status;
+      _log('iOS status after request: isGranted=${afterStatus.isGranted}, '
+          'isDenied=${afterStatus.isDenied}, '
+          'isPermanentlyDenied=${afterStatus.isPermanentlyDenied}, '
+          'isRestricted=${afterStatus.isRestricted}, '
+          'isLimited=${afterStatus.isLimited}, '
+          'isProvisional=${afterStatus.isProvisional}');
+      await _logIosNotificationStatus('after_request');
     } else {
       return true; // Platform not requiring explicit permission (e.g., desktop, web - adjust as needed)
     }
 
+    _log(
+      'permission result: '
+      'isGranted=${status.isGranted}, '
+      'isDenied=${status.isDenied}, '
+      'isPermanentlyDenied=${status.isPermanentlyDenied}, '
+      'isRestricted=${status.isRestricted}, '
+      'isLimited=${status.isLimited}, '
+      'isProvisional=${status.isProvisional}',
+    );
+
     if (status.isGranted) {
+      if (Platform.isIOS) {
+        await _requestIosRemoteNotifications();
+        await _logIosNotificationStatus('after_remote_register');
+      }
       return true;
     } else if (status.isPermanentlyDenied) {
+      _log('opening notification settings');
       AppSnackBar.showGetXCustomSnackBar(
         message:
             'Notification permission permanently denied. Please enable it from app settings.',
         backgroundColor: Colors.orange,
       );
-      await openAppSettings();
+      if (Platform.isIOS) {
+        try {
+          await AppSettings.openAppSettings(type: AppSettingsType.notification);
+        } catch (_) {
+          await openAppSettings();
+        }
+      } else {
+        await openAppSettings();
+      }
       return false;
     } else {
       // isDenied, isRestricted, isLimited
@@ -201,6 +290,9 @@ class NotificationService {
         message: 'Notification permission denied.',
         backgroundColor: Colors.red,
       );
+      if (Platform.isIOS) {
+        await _logIosNotificationStatus('denied');
+      }
       return false;
     }
   }
