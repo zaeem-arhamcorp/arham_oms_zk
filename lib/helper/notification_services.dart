@@ -193,8 +193,7 @@ class NotificationService {
             'Notification permission permanently denied. Please enable it from app settings.',
         backgroundColor: Colors.orange,
       );
-      // Consider offering to open app settings:
-      // await openAppSettings();
+      await openAppSettings();
       return false;
     } else {
       // isDenied, isRestricted, isLimited
