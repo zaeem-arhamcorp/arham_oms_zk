@@ -1531,7 +1531,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                             },
                                                                             child:
                                                                                 Text(
-                                                                              "${datacart[index].itemCd} ( Rate : ${_displayCartRate(datacart[index], profile).toStringAsFixed(2)})",
+                                                                              "${datacart[index].itemCd} ( Rate : ${_displayCartRate(datacart[index], profile).toStringAsFixed(2)} | MRP : ${(double.tryParse(datacart[index].item?.srate3?.toString() ?? '') ?? 0.0).toStringAsFixed(2)})",
                                                                               style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
                                                                             ),
                                                                           ),
@@ -1954,6 +1954,18 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   }
 
   double _displayCartRate(DatumCartList item, ProfileProvider profile) {
+    if (_isQtySettingsEnabled(profile)) {
+      final quantity = toDouble(item.quantity);
+      final amount = toDouble(item.amount);
+      if (quantity > 0 && amount > 0) {
+        return amount / quantity;
+      }
+      return _nrateForAmount(item);
+    }
+    return _effectiveCartRate(item);
+  }
+
+  double _displayCartMRP(DatumCartList item, ProfileProvider profile) {
     if (_isQtySettingsEnabled(profile)) {
       final quantity = toDouble(item.quantity);
       final amount = toDouble(item.amount);

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
@@ -697,7 +698,8 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _monthlyTargetController.text = selectedTarget == null
             ? 'No Monthly Target'
-            : selectedTarget.salesmanTargetAmount.toStringAsFixed(0);
+            : Helper.parseNumericValue(
+                selectedTarget.salesmanTargetAmount.toStringAsFixed(2));
       });
     } catch (e) {
       print('[PROFILE] Failed to load monthly target amount: $e');

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/widgets/common_timeline_tile.dart';
 import 'package:flutter/material.dart';
@@ -2408,7 +2409,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                                   ),
                                 ),
                                 Text(
-                                  'Amt: ₹${amount}',
+                                  'Amt: ₹${Helper.parseNumericValue(amount.toString())}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -4727,7 +4728,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '₹$totalSaleAmountText',
+                      '₹${Helper.parseNumericValue(totalSaleAmountText)}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,

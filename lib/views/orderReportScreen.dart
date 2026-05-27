@@ -1578,7 +1578,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          "${data[index].orderAmt ?? ""}",
+                                                          "${Helper.parseNumericValue(data[index].orderAmt.toString() ?? "")}",
                                                           style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1681,7 +1681,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                           'Y' &&
                                                       isOmsWithoutErpSync)
                                                     Expanded(
-                                                      flex: 2,
+                                                      flex: 1,
                                                       child: Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
@@ -1696,7 +1696,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                             ),
                                                           ),
                                                           Text(
-                                                            "${Helper.trimValue(data[index].user.userName, 14)}",
+                                                            "${Helper.trimValue(data[index].user.userName, 8)}",
                                                             style: TextStyle(
                                                                 fontSize: 12,
                                                                 color: Colors
@@ -2984,7 +2984,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                "${_calculateTotalOrderAmt().toStringAsFixed(2)}",
+                                "₹ ${Helper.parseNumericValue(_calculateTotalOrderAmt().toStringAsFixed(2))}",
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[700],
@@ -3006,7 +3006,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                "${_calculateTotalNetAmt().toStringAsFixed(2)}",
+                                "₹ ${Helper.parseNumericValue(_calculateTotalNetAmt().toStringAsFixed(2))}",
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[700],

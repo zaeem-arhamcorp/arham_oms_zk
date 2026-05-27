@@ -553,6 +553,7 @@ class ProductsPage extends StatefulWidget {
 }
 
 class _ProductsPageState extends State<ProductsPage> {
+  PartyProvider? _partyProvider;
   final ProductController controller = Get.isRegistered<ProductController>()
       ? Get.find<ProductController>()
       : Get.put(ProductController());
@@ -746,10 +747,33 @@ class _ProductsPageState extends State<ProductsPage> {
     }
   }
 
+  Future<void> _syncPartySelectionFromProvider() async {
+    if (!mounted) return;
+
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    if (profile.YN == "Y") return;
+
+    final party =
+        _partyProvider ?? Provider.of<PartyProvider>(context, listen: false);
+    final sharedPartyId = party.partyid.trim();
+    final sharedPartyName = party.party.trim();
+
+    if (sharedPartyId.isEmpty) return;
+    if (controller.selectedPartyId.value == sharedPartyId &&
+        controller.selectedPartyName.value == sharedPartyName) {
+      return;
+    }
+
+    controller.selectedPartyId.value = sharedPartyId;
+    controller.selectedPartyName.value = sharedPartyName;
+    await controller.savePartySelection();
+  }
+
   @override
   void dispose() {
     // Restore global snackbar behavior when leaving ProductsPage
     AppSnackBar.suppressNetworkSnackForProductPage = false;
+    _partyProvider?.removeListener(_syncPartySelectionFromProvider);
     _focusNode.dispose();
     super.dispose();
   }
@@ -795,6 +819,9 @@ class _ProductsPageState extends State<ProductsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final profile = Provider.of<ProfileProvider>(context, listen: false);
       final party = Provider.of<PartyProvider>(context, listen: false);
+      _partyProvider = party;
+      _partyProvider?.removeListener(_syncPartySelectionFromProvider);
+      _partyProvider?.addListener(_syncPartySelectionFromProvider);
 
       // Ensure latest settings are merged into ProfileProvider before deciding
       // stockist visibility/requirement.
@@ -805,6 +832,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
       // Restore party selection first (persists across Get.offAll() navigation)
       await controller.restorePartySelection();
+
+      // For non-punch-in/out users, keep ProductPage aligned with the shared
+      // party selected from other screens.
+      await _syncPartySelectionFromProvider();
 
       // Restore persisted stockist only when user setting allows stockist link.
       if (isStockistEnabled) {

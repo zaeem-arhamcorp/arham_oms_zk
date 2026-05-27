@@ -1118,7 +1118,7 @@ class _ProductCardState extends State<ProductCard> {
                           style: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: Colors.pink,
                           ),
                         ),
                       ],
@@ -1127,7 +1127,8 @@ class _ProductCardState extends State<ProductCard> {
                     SizedBox(
                       width: 10,
                     ),
-                  if (matchedItem.otherDesc != null)
+                  if ((matchedItem.otherDesc?.toString().trim() ?? '')
+                      .isNotEmpty)
                     Row(
                       children: [
                         Text(
@@ -1143,7 +1144,7 @@ class _ProductCardState extends State<ProductCard> {
                           style: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: Colors.pink,
                           ),
                         ),
                       ],

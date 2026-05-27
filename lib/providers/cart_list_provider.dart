@@ -20,6 +20,20 @@ class CartListProvider extends DisposableProvider {
   // List<DatumCartList> data2 = [];
   List<DatumCartList> get data => _data;
 
+  void upsertLocalCartItem(DatumCartList item) {
+    final existingIndex = _data.indexWhere(
+      (element) => element.itemCd.toString() == item.itemCd.toString(),
+    );
+
+    if (existingIndex >= 0) {
+      _data[existingIndex] = item;
+    } else {
+      _data.add(item);
+    }
+
+    notifyListeners();
+  }
+
   // Future getCartItem(BuildContext context, String? partyId) async {
   //   final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
   //

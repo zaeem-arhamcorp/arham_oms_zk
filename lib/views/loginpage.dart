@@ -20,6 +20,7 @@ import 'package:arham_corporation/widgets/common_button.dart';
 import 'package:arham_corporation/widgets/common_input_dialog.dart';
 import 'package:arham_corporation/widgets/common_text.dart';
 import 'package:arham_corporation/widgets/common_text_button.dart';
+import 'package:arham_corporation/widgets/location_permission_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -29,11 +30,12 @@ import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../product/controller/product_controller.dart';
 import '../providers/item_list_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/party_provider.dart';
-import '../product/controller/product_controller.dart';
 import '../providers/user_provider.dart';
+import '../services/location_permission_service.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -43,6 +45,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool showPassword = false;
   bool isLoginProcessing = false; // New state variable to track login process
+  bool _hasShownInitialLocationDisclosure = false;
+  bool _isShowingInitialLocationDisclosure = false;
   TextEditingController _emailClt = TextEditingController();
   TextEditingController _passwordClt = TextEditingController();
 
@@ -118,11 +122,67 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  Future<void> _checkAndShowLocationPermissionDialog() async {
+    try {
+      final hasPermission =
+          await LocationPermissionService.hasBackgroundLocationPermission();
+      if (!hasPermission && mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const LocationPermissionDialog(),
+        );
+      }
+    } catch (e) {
+      print('[LoginPage] Error checking location permission: $e');
+    }
+  }
+
+  Future<void> _showInitialLocationDisclosure() async {
+    if (_hasShownInitialLocationDisclosure ||
+        _isShowingInitialLocationDisclosure ||
+        !mounted) {
+      return;
+    }
+
+    _isShowingInitialLocationDisclosure = true;
+
+    try {
+      final hasPermission =
+          await LocationPermissionService.hasBackgroundLocationPermission();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!hasPermission) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const LocationPermissionDialog(),
+        );
+      }
+    } catch (e) {
+      print('[LoginPage] Error showing initial location disclosure: $e');
+    } finally {
+      _isShowingInitialLocationDisclosure = false;
+      if (mounted) {
+        setState(() {
+          _hasShownInitialLocationDisclosure = true;
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     CrashlyticsService.setScreenName('LoginPage');
     CrashlyticsService.logAction('login_screen_opened');
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showInitialLocationDisclosure();
+    });
   }
 
   @override
@@ -133,6 +193,17 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasShownInitialLocationDisclosure) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0XFF2c9ed9),
+          ),
+        ),
+      );
+    }
+
     //fToast.init(context); // Initialize FToast
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
@@ -955,7 +1026,7 @@ class _LoginPageState extends State<LoginPage> {
           }}, using=$newRole');
 
           ub.saveUserData(newRole, value["token"]).then((value) {
-            ub.setSignIn().then((value) {
+            ub.setSignIn().then((value) async {
               final locationProvider =
                   Provider.of<LocationProvider>(context, listen: false);
               final userProvider =
@@ -967,6 +1038,7 @@ class _LoginPageState extends State<LoginPage> {
                 productController.selectedPartyId.value = '';
               }
 
+              await _checkAndShowLocationPermissionDialog();
               locationProvider.start(userProvider);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);

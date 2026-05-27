@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/providers/cart_list_provider.dart';
 import 'package:arham_corporation/services/cart_service.dart';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_config.dart';
+import '../../models/cartListModal.dart';
 import '../../services/database_helper.dart';
 import '../../views/loginpage.dart';
 
@@ -26,6 +28,44 @@ class CartController extends GetxController {
   var productRemarks = <String, String>{}.obs;
 
   final dio = Dio();
+
+  void _syncLocalCartItem({
+    required String partyid,
+    required String itemCd,
+    required String qty,
+    String? otherDesc,
+    String? lrate,
+    String? rate,
+    String? nrate,
+    String? remarks,
+  }) {
+    final context = Get.context;
+    if (context == null) return;
+
+    final cartProvider = Provider.of<CartListProvider>(context, listen: false);
+    final quantityValue = double.tryParse(qty) ?? 0;
+    final rateValue = double.tryParse((rate ?? '').trim()) ?? 0;
+    final lrateValue = double.tryParse((lrate ?? '').trim()) ?? 0;
+    final effectiveRate = rateValue > 0 ? rateValue : lrateValue;
+
+    cartProvider.upsertLocalCartItem(
+      DatumCartList(
+        partyCd: partyid,
+        itemCd: itemCd,
+        quantity: quantityValue,
+        otherDesc: (otherDesc != null && otherDesc.trim().isNotEmpty)
+            ? otherDesc.trim()
+            : null,
+        rate: rateValue > 0 ? rateValue : null,
+        lrate: lrateValue > 0 ? lrateValue : null,
+        nrate: double.tryParse((nrate ?? '').trim()) ?? effectiveRate,
+        amount: effectiveRate * quantityValue,
+        fld5: (remarks != null && remarks.trim().isNotEmpty)
+            ? remarks.trim()
+            : null,
+      ),
+    );
+  }
 
   Future<void> addItemToCart({
     required String partyid,
@@ -91,6 +131,16 @@ class CartController extends GetxController {
 
       // ✅ Update UI immediately on API success
       productAddedStates[itemCd] = true;
+      _syncLocalCartItem(
+        partyid: partyid,
+        itemCd: itemCd,
+        qty: qty,
+        otherDesc: otherDesc,
+        lrate: lrate,
+        rate: rate,
+        nrate: nrate,
+        remarks: remarks,
+      );
       log("Cart response: ${response.data}");
 
       // 📱 NOW save to local DB in background (non-blocking)
@@ -196,6 +246,16 @@ class CartController extends GetxController {
           );
 
           productAddedStates[itemCd] = true;
+          _syncLocalCartItem(
+            partyid: partyid,
+            itemCd: itemCd,
+            qty: qty,
+            otherDesc: otherDesc,
+            lrate: lrate,
+            rate: rate,
+            nrate: nrate,
+            remarks: remarks,
+          );
           print(
               '[OFFLINE_DB] ✅ Item $itemCd successfully saved to local DB (OFFLINE mode)');
           AppSnackBar.showGetXCustomSnackBar(

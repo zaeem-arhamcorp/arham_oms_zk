@@ -313,9 +313,9 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: Theme(
         data: Theme.of(Get.context!).copyWith(
           textSelectionTheme: const TextSelectionThemeData(
-            selectionColor: Colors.white,
+            selectionColor: Colors.blue,
             cursorColor: Colors.white,
-            selectionHandleColor: Colors.green,
+            selectionHandleColor: Colors.blueAccent,
           ),
         ),
         child: TextField(
@@ -350,9 +350,9 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: Theme(
         data: Theme.of(Get.context!).copyWith(
           textSelectionTheme: const TextSelectionThemeData(
-            selectionColor: Colors.white,
-            cursorColor: Colors.white,
-            selectionHandleColor: Colors.green,
+            selectionColor: Colors.black,
+            cursorColor: Colors.black,
+            selectionHandleColor: Colors.blue,
           ),
         ),
         child: TextField(

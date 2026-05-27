@@ -186,6 +186,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final token = userProvider.token;
+      String? userCd = _profileProvider.data?.userCd?.toString();
       if (token == null || token.trim().isEmpty) {
         print('[HomePage] Monthly target fetch skipped: missing token');
         return null;
@@ -193,7 +194,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       final targetMonth = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final uri = Uri.parse(
-        '${AppConfig.baseURL}monthly-sales-target?targetMonth=$targetMonth&type=POB',
+        '${AppConfig.baseURL}monthly-sales-target?&userCd=$userCd&targetMonth=$targetMonth&type=POB',
       );
 
       print('[HomePage] Fetching monthly target: $uri');
@@ -2078,7 +2079,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         final percent =
                             _calculateProgressPercent(achieved, target);
                         final targetText =
-                            'Target: ₹${target.toStringAsFixed(2)}';
+                            'Target: ₹${Helper.parseNumericValue(target.toStringAsFixed(2))}';
 
                         return Padding(
                           padding: EdgeInsets.only(
@@ -2434,7 +2435,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         Row(
                                           children: [
                                             Text(
-                                              "Target: ₹${target.toStringAsFixed(2)}",
+                                              "Target: ₹${Helper.parseNumericValue(target.toStringAsFixed(2))}",
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 color: Color(0xff006705),
