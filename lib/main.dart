@@ -78,58 +78,58 @@ void main() {
     await DatabaseHelper().database;
 
     // ✅ Initialize background location service BEFORE building widgets
-    print('[Main] Initializing background location service...');
-    await BackgroundLocationService().initialize();
-    print('[Main] ✅ Background location service initialized');
+    // print('[Main] Initializing background location service...');
+    // await BackgroundLocationService().initialize();
+    // print('[Main] ✅ Background location service initialized');
 
-    // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
-    print('[Main] Initializing Workmanager core...');
-    try {
-      await Workmanager().initialize(
-        locationTrackingCallbackDispatcher,
-        isInDebugMode: false,
-      );
-      print('[Main] ✅ Workmanager core initialized');
-    } catch (e, stack) {
-      print('[Main] ⚠️ Workmanager init warning: $e');
-      await CrashlyticsService.recordNonFatal(
-        e,
-        stack,
-        reason: 'workmanager_init_warning',
-      );
-    }
+    // // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
+    // print('[Main] Initializing Workmanager core...');
+    // try {
+    //   await Workmanager().initialize(
+    //     locationTrackingCallbackDispatcher,
+    //     isInDebugMode: false,
+    //   );
+    //   print('[Main] ✅ Workmanager core initialized');
+    // } catch (e, stack) {
+    //   print('[Main] ⚠️ Workmanager init warning: $e');
+    //   await CrashlyticsService.recordNonFatal(
+    //     e,
+    //     stack,
+    //     reason: 'workmanager_init_warning',
+    //   );
+    // }
 
-    print('[Main] Initializing location tracking WorkManager...');
-    await LocationTrackingWorkmanager.initialize();
-    await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
-    await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
-    print('[Main] ✅ Location tracking WorkManager initialized');
+    // print('[Main] Initializing location tracking WorkManager...');
+    // await LocationTrackingWorkmanager.initialize();
+    // await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
+    // await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
+    // print('[Main] ✅ Location tracking WorkManager initialized');
 
-    // ✅ Initialize heartbeat workmanager BEFORE building widgets
-    print('[Main] Initializing heartbeat WorkManager...');
-    await HeartbeatWorkmanager.initialize();
-    await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
-    await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
-    print('[Main] ✅ Heartbeat WorkManager initialized');
+    // // ✅ Initialize heartbeat workmanager BEFORE building widgets
+    // print('[Main] Initializing heartbeat WorkManager...');
+    // await HeartbeatWorkmanager.initialize();
+    // await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
+    // await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
+    // print('[Main] ✅ Heartbeat WorkManager initialized');
 
-    // ✅ Attempt immediate resume if app was killed with active tracking
-    print('[Main] Checking for active trip to resume...');
-    try {
-      final resumed =
-          await BackgroundLocationService().resumeTrackingIfActiveTrip();
-      if (resumed) {
-        print('[Main] ✅ Active trip resumed on app startup');
-      } else {
-        print('[Main] ℹ️ No active trip to resume');
-      }
-    } catch (e, stack) {
-      print('[Main] ⚠️ Error resuming active trip: $e');
-      await CrashlyticsService.recordNonFatal(
-        e,
-        stack,
-        reason: 'resume_active_trip_failed',
-      );
-    }
+    // // ✅ Attempt immediate resume if app was killed with active tracking
+    // print('[Main] Checking for active trip to resume...');
+    // try {
+    //   final resumed =
+    //       await BackgroundLocationService().resumeTrackingIfActiveTrip();
+    //   if (resumed) {
+    //     print('[Main] ✅ Active trip resumed on app startup');
+    //   } else {
+    //     print('[Main] ℹ️ No active trip to resume');
+    //   }
+    // } catch (e, stack) {
+    //   print('[Main] ⚠️ Error resuming active trip: $e');
+    //   await CrashlyticsService.recordNonFatal(
+    //     e,
+    //     stack,
+    //     reason: 'resume_active_trip_failed',
+    //   );
+    // }
 
     // ✅ NOW set orientation and build app (all initialization done)
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
