@@ -58,26 +58,43 @@ class InternetDeptmentModal {
 }
 
 class DeptmentModal {
-  dynamic DEPT_CD;
-  dynamic DEPT_NAME;
-  dynamic SYNC_ID;
+  final String deptCd;
+  final String deptName;
+  final String? grouping;
+  final String syncId;
+  final String? updatedAt;
+  final String? createdAt;
 
   DeptmentModal({
-    required this.DEPT_CD,
-    required this.DEPT_NAME,
-    required this.SYNC_ID,
+    required this.deptCd,
+    required this.deptName,
+    this.grouping,
+    required this.syncId,
+    this.updatedAt,
+    this.createdAt,
   });
 
-  factory DeptmentModal.fromJson(Map<String, dynamic> json) => DeptmentModal(
-      DEPT_CD: json["DEPT_CD"],
-      DEPT_NAME: json["DEPT_NAME"],
-      SYNC_ID: json["SYNC_ID"]);
+  factory DeptmentModal.fromJson(Map<String, dynamic> json) {
+    return DeptmentModal(
+      deptCd: json['DEPT_CD']?.toString() ?? "",
+      deptName: json['DEPT_NAME']?.toString() ?? "",
+      grouping: json['GROUPING']?.toString(),
+      syncId: json['SYNC_ID']?.toString() ?? "",
+      updatedAt: json['UPDATED_AT']?.toString(),
+      createdAt: json['CREATED_AT']?.toString(),
+    );
+  }
 
-  Map<String, dynamic> toJson() => {
-        "DEPT_CD": DEPT_CD,
-        "DEPT_NAME": DEPT_NAME,
-        "SYNC_ID": SYNC_ID,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'DEPT_CD': deptCd,
+      'DEPT_NAME': deptName,
+      'GROUPING': grouping,
+      'SYNC_ID': syncId,
+      'UPDATED_AT': updatedAt,
+      'CREATED_AT': createdAt,
+    };
+  }
 }
 
 // class ItemImageModal {
@@ -181,139 +198,147 @@ class ItemImageModal {
 }
 
 class DatumProduct {
-  dynamic nrate;
-  dynamic prate;
-  dynamic exDt;
-  dynamic itemCd;
-  dynamic itemName;
-  dynamic itemSname;
-  dynamic itemLname;
-  dynamic deptCd;
-  dynamic srate1;
-  dynamic srate3;
-  dynamic cStk;
-  dynamic orStk;
-  dynamic avlStk;
-  dynamic syncId;
-  dynamic frmlSrt1;
-  dynamic sdisc;
-  dynamic sdisc1;
-  dynamic itemDesc;
-  dynamic itemCd2;
-  dynamic itemGrade;
-  dynamic rackNo;
-  dynamic itemCat;
-  dynamic subCat;
-  dynamic itemBrand;
-  dynamic pDisc;
-  dynamic gstPerc;
-  dynamic tLAND;
-  dynamic hsnNo;
-  final DeptmentModal? deptment;
-  ItemImageModal? itemImage;
+  final String? itemCd2;
+  final String? nrate;
+  final String? avlStk;
+  final String? exDt;
+  final String? rackNo;
+  final String? itemCat;
+  final String? subCat;
+  final String? itemBrand;
+  final String itemCd;
+  final String itemName;
+  final String itemSname;
+  final String? itemBoxPacking;
+  final String? itemLname;
+  final String deptCd;
+  final String srate1;
+  final String srate3;
+  final String syncId;
+  final String? itemGrade;
+  final String? itemDesc;
+  final String prate;
+  final String pdisc;
+  final String? tLAND;
+  final String? gstPerc;
+  final String? frmlSrt1;
+  final String? sdisc;
+  final String? sdisc1;
+  final String? cStk;
+  final String? orStk;
+  final String? minStk;
+  final String? hsnNo;
+  final DeptmentModal deptment;
+  final List<String> itemImages;
 
-  DatumProduct(
-      {required this.nrate,
-      this.exDt,
-      required this.itemCd,
-      required this.itemName,
-      required this.itemSname,
-      required this.itemLname,
-      required this.deptCd,
-      required this.srate1,
-      required this.srate3,
-      required this.cStk,
-      this.orStk,
-      required this.syncId,
-      required this.frmlSrt1,
-      required this.sdisc,
-      required this.sdisc1,
-      required this.deptment,
-      this.itemImage,
-      this.avlStk,
-      this.itemDesc,
-      this.itemBrand,
-      this.itemCat,
-      this.itemCd2,
-      this.itemGrade,
-      this.rackNo,
-      this.subCat,
-      this.prate,
-      this.pDisc,
-      this.gstPerc,
-      this.tLAND,
-      this.hsnNo});
+  DatumProduct({
+    this.itemCd2,
+    this.nrate,
+    this.avlStk,
+    this.exDt,
+    this.rackNo,
+    this.itemCat,
+    this.subCat,
+    this.itemBrand,
+    required this.itemCd,
+    required this.itemName,
+    required this.itemSname,
+    required this.itemBoxPacking,
+    this.itemLname,
+    required this.deptCd,
+    required this.srate1,
+    required this.srate3,
+    required this.syncId,
+    this.itemGrade,
+    this.itemDesc,
+    required this.prate,
+    required this.pdisc,
+    required this.tLAND,
+    required this.gstPerc,
+    this.frmlSrt1,
+    this.sdisc,
+    this.sdisc1,
+    this.cStk,
+    this.orStk,
+    this.minStk,
+    this.hsnNo,
+    required this.deptment,
+    required this.itemImages,
+  });
 
-  factory DatumProduct.fromJson(Map<String, dynamic> json) => DatumProduct(
-        nrate: json["NRATE"],
-        exDt: json["EX_DT"],
-        itemCd: json["ITEM_CD"],
-        itemName: json["ITEM_NAME"],
-        itemSname: json["ITEM_SNAME"],
-        itemLname: json["ITEM_LNAME"],
-        deptCd: json["DEPT_CD"],
-        srate1: json["SRATE1"]?.toDouble(),
-        srate3: json["SRATE3"],
-        cStk: json["C_STK"],
-        orStk: json["OR_STK"],
-        avlStk: json['AVL_STK'],
-        syncId: json["SYNC_ID"],
-        frmlSrt1: json["FRML_SRT1"],
-        prate: json['PRATE'],
-        sdisc: json["SDISC"],
-        sdisc1: json["SDISC1"],
-        itemImage: json['item_image'] != null
-            ? ItemImageModal.fromJson(json['item_image'])
-            : null,
-        itemDesc: json['ITEM_DESC'],
-        itemCd2: json['ITEM_CD2'],
-        itemGrade: json['ITEM_GRADE'],
-        rackNo: json['RACK_NO'],
-        itemCat: json['ITEM_CAT'],
-        subCat: json['SUBCAT'],
-        pDisc: json['PDISC'],
-        gstPerc: json['GST_PERC'],
-        tLAND: json['T_LAND'],
-        itemBrand: json['ITEM_BRAND'],
-        hsnNo: json['HSN_NO'],
-        // Null check for 'deptment'
-        deptment: json['deptment'] != null
-            ? DeptmentModal.fromJson(json['deptment'])
-            : null,
-      );
+  factory DatumProduct.fromJson(Map<String, dynamic> json) {
+    return DatumProduct(
+      itemCd2: json['ITEM_CD2']?.toString(),
+      nrate: json['NRATE']?.toString(),
+      avlStk: json['AVL_STK']?.toString(),
+      exDt: json['EX_DT']?.toString(),
+      rackNo: json['RACK_NO']?.toString(),
+      itemCat: json['ITEM_CAT']?.toString() ?? "",
+      subCat: json['SUBCAT']?.toString(),
+      itemBrand: json['ITEM_BRAND']?.toString(),
+      itemCd: json['ITEM_CD']?.toString() ?? "",
+      itemName: json['ITEM_NAME']?.toString() ?? "",
+      itemSname: json['ITEM_SNAME']?.toString() ?? "",
+      itemBoxPacking: json['ITEM_BOX_PACKING']?.toString() ?? "",
+      itemLname: json['ITEM_LNAME']?.toString(),
+      deptCd: json['DEPT_CD']?.toString() ?? "",
+      srate1: json['SRATE1']?.toString() ?? "",
+      srate3: json['SRATE3']?.toString() ?? "",
+      syncId: json['SYNC_ID']?.toString() ?? "",
+      itemGrade: json['ITEM_GRADE']?.toString(),
+      itemDesc: json['ITEM_DESC']?.toString(),
+      prate: json['PRATE']?.toString() ?? "",
+      pdisc: json['PDISC']?.toString() ?? "",
+      tLAND: json['T_LAND']?.toString() ?? "",
+      gstPerc: json['GST_PERC']?.toString() ?? "",
+      frmlSrt1: json['FRML_SRT1']?.toString(),
+      sdisc: json['SDISC']?.toString(),
+      sdisc1: json['SDISC1']?.toString(),
+      cStk: json['C_STK']?.toString(),
+      orStk: json['OR_STK']?.toString(),
+      minStk: json['MIN_STK']?.toString() ?? "",
+      hsnNo: json['HSN_NO']?.toString(),
+      deptment: DeptmentModal.fromJson(json['deptment'] ?? {}),
+      itemImages: List<String>.from(json['item_image']?['ITEM_IMG'] ?? []),
+    );
+  }
 
-  Map<String, dynamic> toJson() => {
-        "NRATE": nrate,
-        "EX_DT": exDt,
-        "ITEM_CD": itemCd,
-        "ITEM_NAME": itemName,
-        "ITEM_SNAME": itemSname,
-        "ITEM_LNAME": itemLname,
-        "DEPT_CD": deptCd,
-        "SRATE1": srate1,
-        "SRATE3": srate3,
-        "C_STK": cStk,
-        "OR_STK": orStk,
-        "AVL_STK": avlStk,
-        "SYNC_ID": syncId,
-        "FRML_SRT1": frmlSrt1,
-        "SDISC": sdisc,
-        "SDISC1": sdisc1,
-        "deptment": deptment,
-        "itemImg": itemImage,
-        "ITEM_DESC": itemDesc,
-        "ITEM_CD2": itemCd2,
-        "ITEM_GRADE": itemGrade,
-        "RACK_NO": rackNo,
-        "ITEM_CAT": itemCat,
-        "PDISC": pDisc,
-        "GST_PERC": gstPerc,
-        "T_LAND": tLAND,
-        "SUBCAT": subCat,
-        "PRATE": prate,
-        "ITEM_BRAND": itemBrand,
-        "HSN_NO": hsnNo,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'itemCd2': itemCd2,
+      'nrate': nrate,
+      'avlStk': avlStk,
+      'exDt': exDt,
+      'rackNo': rackNo,
+      'itemCat': itemCat,
+      'subCat': subCat,
+      'itemBrand': itemBrand,
+      'itemCd': itemCd,
+      'itemName': itemName,
+      'itemSname': itemSname,
+      'itemBoxPacking': itemBoxPacking,
+      'itemLname': itemLname,
+      'deptCd': deptCd,
+      'srate1': srate1,
+      'srate3': srate3,
+      'syncId': syncId,
+      'itemGrade': itemGrade,
+      'itemDesc': itemDesc,
+      'prate': prate,
+      'pdisc': pdisc,
+      'tLAND': tLAND,
+      'gstPerc': gstPerc,
+      'frmlSrt1': frmlSrt1,
+      'sdisc': sdisc,
+      'sdisc1': sdisc1,
+      'cStk': cStk,
+      'orStk': orStk,
+      'minStk': minStk,
+      'hsnNo': hsnNo,
+      'deptment': deptment.toJson(),
+      'itemImages': itemImages,
+    };
+  }
 }
 
 class Payload {

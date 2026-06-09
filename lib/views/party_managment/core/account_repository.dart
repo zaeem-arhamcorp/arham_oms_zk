@@ -188,7 +188,7 @@ class AccountRepository extends GetxService {
           "add2": "",
           "add3": "",
           "mobile2": "",
-          "email": "",
+          "email": account.email,
           "panNo": "",
           "accKm": 0,
           "age": 0,

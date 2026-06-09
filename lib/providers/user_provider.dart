@@ -209,7 +209,14 @@ class UserProvider extends ChangeNotifier {
     // Step 4: Clear SharedPreferences
     final SharedPreferences sp = await SharedPreferences.getInstance();
     print('[UserProvider] 🗑️ Clearing SharedPreferences');
-    sp.clear();
+    // sp.clear();
+    final disclaimerShown = sp.getBool('location_disclaimer_shown') ?? false;
+    await sp.clear();
+    await sp.setBool(
+      'location_disclaimer_shown',
+      disclaimerShown,
+    );
+    print('[UserProvider] location_disclaimer_shown: disclaimer key restored');
 
     // Step 5: Call server logout using captured token (no context/provider lookup)
     try {

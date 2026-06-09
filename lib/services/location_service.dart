@@ -649,6 +649,19 @@ class LocationService {
         print(
             '[LocationService] ${tripEnded ? '✅' : '⚠️'} Trip end after sync');
 
+        // Reprocess trip gps for forceSnapping
+        if (tripEnded && tripIdToClear != null && tripIdToClear > 0) {
+          print(
+              '[LocationService] 📍 Processing trip GPS snap for tripId=$tripIdToClear');
+
+          await processTripGps(
+            tripId: tripIdToClear,
+            token: token,
+          );
+
+          print('[LocationService] ✅ Trip GPS snap processing completed');
+        }
+
         if (tripIdToClear != null && tripIdToClear > 0) {
           try {
             final deleted = await db.deleteLocationTrackingBySyncId(syncId);
@@ -727,6 +740,35 @@ class LocationService {
         'message': 'Failed to punch out: $e',
         'error': e.toString(),
       };
+    }
+  }
+
+  Future<void> processTripGps({
+    required int tripId,
+    required String token,
+  }) async {
+    try {
+      final url = Uri.parse(
+        '${AppConfig.baseURL}debug/gps/process-trip/$tripId?forceSnap=true',
+      );
+      print(url);
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+      );
+      print(
+        '[LocationService] GPS Process Trip Response: ${response.statusCode}',
+      );
+      print(
+        '[LocationService] GPS Process Trip Body: ${response.body}',
+      );
+    } catch (e) {
+      print(
+        '[LocationService] Failed to process trip GPS snap: $e',
+      );
     }
   }
 

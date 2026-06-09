@@ -747,14 +747,46 @@ class _ProductsPageState extends State<ProductsPage> {
     }
   }
 
+  // Future<void> _syncPartySelectionFromProvider() async {
+  //   if (!mounted) return;
+  //
+  //   final profile = Provider.of<ProfileProvider>(context, listen: false);
+  //   if (profile.YN == "Y") return;
+  //
+  //   final party =
+  //       _partyProvider ?? Provider.of<PartyProvider>(context, listen: false);
+  //   final sharedPartyId = party.partyid.trim();
+  //   final sharedPartyName = party.party.trim();
+  //
+  //   if (sharedPartyId.isEmpty) return;
+  //   if (controller.selectedPartyId.value == sharedPartyId &&
+  //       controller.selectedPartyName.value == sharedPartyName) {
+  //     return;
+  //   }
+  //
+  //   controller.selectedPartyId.value = sharedPartyId;
+  //   controller.selectedPartyName.value = sharedPartyName;
+  //   await controller.savePartySelection();
+  // }
+
   Future<void> _syncPartySelectionFromProvider() async {
     if (!mounted) return;
 
     final profile = Provider.of<ProfileProvider>(context, listen: false);
-    if (profile.YN == "Y") return;
-
     final party =
         _partyProvider ?? Provider.of<PartyProvider>(context, listen: false);
+
+    if (profile.YN == "Y") {
+      // FIX: Instead of an early return, keep the controller and provider states synchronized.
+      if (party.punchInOutParty.isNotEmpty &&
+          controller.selectedPartyId.value.isEmpty) {
+        controller.selectedPartyName.value = party.punchInOutParty;
+        controller.selectedPartyId.value = party.punchInOutPartyId;
+        await controller.savePartySelection();
+      }
+      return;
+    }
+
     final sharedPartyId = party.partyid.trim();
     final sharedPartyName = party.party.trim();
 
@@ -819,19 +851,41 @@ class _ProductsPageState extends State<ProductsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final profile = Provider.of<ProfileProvider>(context, listen: false);
       final party = Provider.of<PartyProvider>(context, listen: false);
-      _partyProvider = party;
-      _partyProvider?.removeListener(_syncPartySelectionFromProvider);
-      _partyProvider?.addListener(_syncPartySelectionFromProvider);
 
       // Ensure latest settings are merged into ProfileProvider before deciding
       // stockist visibility/requirement.
       await profile.loadSettings(context);
       if (!mounted) return;
 
+      final hasActiveOrder =
+          p.ACC_NAME.trim().isNotEmpty && p.ACC_CD.trim().isNotEmpty;
+
+      final isPunchInOutEnabled = profile.data?.profileSettings
+              .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+          false;
+
+      if (isPunchInOutEnabled && hasActiveOrder) {
+        await controller.restorePartySelection();
+        await controller.restorePunchInOutParty(reliableContext: context);
+        if (mounted) setState(() {});
+      }
+
+      _partyProvider = party;
+      _partyProvider?.removeListener(_syncPartySelectionFromProvider);
+      _partyProvider?.addListener(_syncPartySelectionFromProvider);
+
       final isStockistEnabled = _isStockistUserLinkEnabled(profile);
 
       // Restore party selection first (persists across Get.offAll() navigation)
-      await controller.restorePartySelection();
+      // final isPunchInOutEnabled = profile.data?.profileSettings
+      //         .any((e) => e.variable == 'punchInOut' && e.value == 'Y') ??
+      //     false;
+      // if (isPunchInOutEnabled) {
+      //   // Pass the current view context to guarantee clean widget tree traversal
+      //   await controller.restorePartySelection();
+      //   await controller.restorePunchInOutParty(reliableContext: context);
+      //   if (mounted) setState(() {});
+      // }
 
       // For non-punch-in/out users, keep ProductPage aligned with the shared
       // party selected from other screens.
@@ -852,21 +906,21 @@ class _ProductsPageState extends State<ProductsPage> {
 
       // If controller has no restored party but PartyProvider has one (punchInOut or normal),
       // populate controller so Add To Cart checks pass.
-      if (controller.selectedPartyId.value.isEmpty) {
-        final savedPartyId =
-            (profile.YN == "Y") ? party.punchInOutPartyId : party.partyid;
-        final savedPartyName =
-            (profile.YN == "Y") ? party.punchInOutParty : party.party;
-
-        if (savedPartyId.trim().isNotEmpty) {
-          controller.selectedPartyId.value = savedPartyId.trim();
-          controller.selectedPartyName.value = savedPartyName ?? '';
-          // Persist so future reopens restore immediately
-          await controller.savePartySelection();
-          print(
-              '[PRODUCT_PAGE] Restored party from PartyProvider: $savedPartyName ($savedPartyId)');
-        }
-      }
+      // if (controller.selectedPartyId.value.isEmpty) {
+      //   final savedPartyId =
+      //       (profile.YN == "Y") ? party.punchInOutPartyId : party.partyid;
+      //   final savedPartyName =
+      //       (profile.YN == "Y") ? party.punchInOutParty : party.party;
+      //
+      //   if (savedPartyId.trim().isNotEmpty) {
+      //     controller.selectedPartyId.value = savedPartyId.trim();
+      //     controller.selectedPartyName.value = savedPartyName ?? '';
+      //     // Persist so future reopens restore immediately
+      //     await controller.savePartySelection();
+      //     print(
+      //         '[PRODUCT_PAGE] Restored party from PartyProvider: $savedPartyName ($savedPartyId)');
+      //   }
+      // }
 
       if (controller.selectedPartyId.value.isNotEmpty) {
         cartController.productAddedStates.clear(); // Clear previous state
@@ -1380,6 +1434,7 @@ class _ProductsPageState extends State<ProductsPage> {
                               "3",
                               id: 1,
                             );
+                            await controller.clearPunchInOutParty();
 
                             print('[END_ORDER] ✅ Order ended successfully');
 
@@ -2142,24 +2197,11 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Future<void> showMenu() async {
-    // ⚡ Check if offline mode is enabled BEFORE showing party selection menu
-    final isOnline = await NetworkHelper.hasInternet();
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
     final offlineModeEnabled = profileProvider.isOfflineModeEnabled();
-    print(
-        '[START_ORDER_MENU] 🔍 Network Check: isOnline=$isOnline, offlineModeEnabled=$offlineModeEnabled');
-
-    if (!isOnline && !offlineModeEnabled) {
-      print(
-          '[START_ORDER_MENU] ❌ BLOCKED: Offline but offline mode not enabled');
-      AppSnackBar.showGetXCustomSnackBar(
-        message: "You are offline. Please check your internet connection.",
-        enforceNetworkMessage: false,
-      );
-      return;
-    }
-    print('[START_ORDER_MENU] ✅ Check passed: Showing party selection menu');
+    print('[START_ORDER_MENU] 🔍 offlineModeEnabled=$offlineModeEnabled');
+    print('[START_ORDER_MENU] ✅ Showing party selection menu immediately');
 
     // 🛡️ Mounted guard: Prevent null context crash if user navigates away
     if (!mounted) return;
@@ -2184,7 +2226,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
     Future.microtask(() async {
       try {
-        await pp.getPartyNameProductPage(pageContext);
+        await pp.getPartyNameProductPage(
+          pageContext,
+          allowCacheFallback: offlineModeEnabled,
+        );
         final profile =
             Provider.of<ProfileProvider>(pageContext, listen: false);
         final bool willSort = _isContinuousLocationTrackingEnabled(profile);
@@ -2406,6 +2451,11 @@ class _ProductsPageState extends State<ProductsPage> {
                                                                     true,
                                                                 type: "1",
                                                                 pageContext);
+                                                        await controller
+                                                            .savePunchInOutParty(
+                                                          selectedParty.accName,
+                                                          selectedParty.accCd,
+                                                        );
                                                       } else {
                                                         AppSnackBar
                                                             .showGetXCustomSnackBar(
@@ -2609,8 +2659,8 @@ class _ProductsPageState extends State<ProductsPage> {
           // Persist party selection so it survives Get.offAll() navigation
           await controller.savePartySelection();
 
-          log("Selected Party Name: ${controller.selectedPartyName.value}");
-          log("Selected Party ID: ${controller.selectedPartyId.value}");
+          print("Selected Party Name: ${controller.selectedPartyName.value}");
+          print("Selected Party ID: ${controller.selectedPartyId.value}");
 
           // Close the bottom sheet
           Navigator.pop(context);
@@ -2637,6 +2687,10 @@ class _ProductsPageState extends State<ProductsPage> {
                   isProductPage: true,
                   type: "1",
                   context,
+                );
+                await controller.savePunchInOutParty(
+                  selectedParty.accName,
+                  selectedParty.accCd,
                 );
               } else {
                 AppSnackBar.showGetXCustomSnackBar(

@@ -59,6 +59,7 @@ class DatumPartyname {
       this.drugLic2,
       this.fssaiNo,
       this.email,
+      this.userCd,
       this.panNo,
       this.creditDay,
       this.crLimit});
@@ -79,6 +80,7 @@ class DatumPartyname {
   String? person_nm;
   String? pincode;
   String? email;
+  String? userCd;
   String? panNo;
   String? gstNo;
   String? gstType;
@@ -111,6 +113,7 @@ class DatumPartyname {
       person_nm: json['PERSON_NM'],
       pincode: json['PINCODE'] ?? "",
       email: json['EMAIL'] ?? "",
+      userCd: json['USER_CD'] ?? "",
       panNo: json['PAN_NO'] ?? "",
       gstNo: json['GST_NO'] ?? "",
       gstType: json['GST_TYPE'] ?? "",
@@ -133,7 +136,7 @@ class DatumPartyname {
         "ACC_ADD": accAddress,
         "Mobile1": mobile,
         "ACC_CART_ITEM": accCartItem,
-        "whNo": whNo,
+        "whatsappNo": whNo,
         "ADD1": add1,
         "ADD2": add2,
         "ADD3": add3,
@@ -142,7 +145,8 @@ class DatumPartyname {
         "STATE": state,
         "PERSON_NM": person_nm,
         "PINCODE": pincode,
-        "EMAIL": email,
+        "email": email,
+        "USER_CD": userCd,
         "PAN_NO": panNo,
         "GST_NO": gstNo,
         "GST_TYPE": gstType,

@@ -11,7 +11,6 @@ import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/widgets/common_app_input.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -111,6 +110,53 @@ class _EditUserScreenState extends State<EditUserScreen> {
     });
   }
 
+  // Future<void> _pickUserImage() async {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  //     ),
+  //     builder: (_) {
+  //       return SafeArea(
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             ListTile(
+  //               leading: const Icon(Icons.camera_alt),
+  //               title: const Text('Capture from Camera'),
+  //               onTap: () async {
+  //                 Navigator.pop(context);
+  //                 final image = await _userImagePicker.pickImage(
+  //                   source: ImageSource.camera,
+  //                 );
+  //                 if (image != null) {
+  //                   await _handleUserImage(image.path);
+  //                 }
+  //               },
+  //             ),
+  //             ListTile(
+  //               leading: const Icon(Icons.folder_open),
+  //               title: const Text('Select from Files'),
+  //               onTap: () async {
+  //                 Navigator.pop(context);
+  //                 final result = await FilePicker.platform.pickFiles(
+  //                   type: FileType.image,
+  //                   allowMultiple: false,
+  //                 );
+  //                 if (result != null && result.files.isNotEmpty) {
+  //                   final path = result.files.first.path;
+  //                   if (path != null && path.isNotEmpty) {
+  //                     await _handleUserImage(path);
+  //                   }
+  //                 }
+  //               },
+  //             ),
+  //           ],
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
   Future<void> _pickUserImage() async {
     showModalBottomSheet(
       context: context,
@@ -136,19 +182,17 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.folder_open),
-                title: const Text('Select from Files'),
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Select from Gallery'),
                 onTap: () async {
                   Navigator.pop(context);
-                  final result = await FilePicker.platform.pickFiles(
-                    type: FileType.image,
-                    allowMultiple: false,
+
+                  final image = await _userImagePicker.pickImage(
+                    source: ImageSource.gallery,
                   );
-                  if (result != null && result.files.isNotEmpty) {
-                    final path = result.files.first.path;
-                    if (path != null && path.isNotEmpty) {
-                      await _handleUserImage(path);
-                    }
+
+                  if (image != null) {
+                    await _handleUserImage(image.path);
                   }
                 },
               ),

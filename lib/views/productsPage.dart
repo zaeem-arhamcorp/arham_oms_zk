@@ -1,21 +1,21 @@
 import 'dart:async';
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
-import 'package:arham_corporation/providers/location_provider.dart';
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/models/narrationModal.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/cart_list_provider.dart';
+import 'package:arham_corporation/providers/location_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/views/productDetailPage.dart';
 import 'package:arham_corporation/views/shoppingCartPage.dart';
 import 'package:arham_corporation/widgets/pdfViewerScreen.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
@@ -188,15 +188,14 @@ class _ProductPageState extends State<ProductPage> {
 
         // Always add "All Item" as the first option
         deptData.add(DeptmentModal(
-            DEPT_CD: "All Item",
-            DEPT_NAME: "All Item",
-            SYNC_ID:
-                value != null && value.isNotEmpty ? value[0].SYNC_ID : "0"));
+            deptCd: "All Item",
+            deptName: "All Item",
+            syncId: value != null && value.isNotEmpty ? value[0].syncId : "0"));
 
         // Add the rest of the departments if value is not null or empty
         if (value != null && value.isNotEmpty) {
           value.forEach((e) => deptData.add(DeptmentModal(
-              DEPT_CD: e.DEPT_CD, DEPT_NAME: e.DEPT_NAME, SYNC_ID: e.SYNC_ID)));
+              deptCd: e.deptCd, deptName: e.deptName, syncId: e.syncId)));
           print(
               '[PRODUCTS] Loaded ${deptData.length} departments (including All Item)');
         } else {
@@ -215,7 +214,7 @@ class _ProductPageState extends State<ProductPage> {
       setState(() {
         deptData.clear();
         deptData.add(DeptmentModal(
-            DEPT_CD: "All Item", DEPT_NAME: "All Item", SYNC_ID: "0"));
+            deptCd: "All Item", deptName: "All Item", syncId: "0"));
         maindeptData.clear();
         maindeptData.addAll(deptData);
         print('[PRODUCTS] Using default All Item department due to error');
@@ -227,7 +226,7 @@ class _ProductPageState extends State<ProductPage> {
     List<DeptmentModal> _searchList = [];
 
     for (int i = 0; i < maindeptData.length; i++) {
-      String deptName = maindeptData[i].DEPT_NAME;
+      String deptName = maindeptData[i].deptName;
       if (deptName.toLowerCase().contains(userSearchTerm.toLowerCase())) {
         _searchList.add(maindeptData[i]);
       }
@@ -677,9 +676,9 @@ class _ProductPageState extends State<ProductPage> {
                         setState(() {
                           deptData.clear();
                           deptData.add(DeptmentModal(
-                              DEPT_CD: "All Item",
-                              DEPT_NAME: "All Item",
-                              SYNC_ID: maindeptData[0].SYNC_ID));
+                              deptCd: "All Item",
+                              deptName: "All Item",
+                              syncId: maindeptData[0].syncId));
                           deptData.addAll(filterDeptmentData(val));
                         });
                       }
@@ -1009,11 +1008,11 @@ class _ProductPageState extends State<ProductPage> {
                                       EdgeInsets.symmetric(horizontal: 4.h),
                                   child: InkWell(
                                     onTap: () {
-                                      if (deptCd == deptData[index].DEPT_CD ||
-                                          deptData[index].DEPT_CD ==
+                                      if (deptCd == deptData[index].deptCd ||
+                                          deptData[index].deptCd ==
                                               "All Item") {
                                         setState(() {
-                                          if (deptData[index].DEPT_CD ==
+                                          if (deptData[index].deptCd ==
                                               "All Item")
                                             deptCd = 'All Item';
                                           else
@@ -1029,7 +1028,7 @@ class _ProductPageState extends State<ProductPage> {
                                         getProduct();
                                       } else {
                                         setState(() {
-                                          deptCd = deptData[index].DEPT_CD;
+                                          deptCd = deptData[index].deptCd;
                                           isLoading = true;
                                           dataProduct.clear();
                                           _page = 1;
@@ -1043,13 +1042,13 @@ class _ProductPageState extends State<ProductPage> {
                                     },
                                     child: Chip(
                                       label:
-                                          Text('${deptData[index].DEPT_NAME}'),
+                                          Text('${deptData[index].deptName}'),
                                       backgroundColor:
-                                          deptCd == deptData[index].DEPT_CD
+                                          deptCd == deptData[index].deptCd
                                               ? Color(0XFF1C22C3)
                                               : null,
                                       labelStyle:
-                                          deptCd == deptData[index].DEPT_CD
+                                          deptCd == deptData[index].deptCd
                                               ? TextStyle(color: Colors.white)
                                               : null,
                                     ),
@@ -1490,7 +1489,7 @@ class _ProductPageState extends State<ProductPage> {
                                                     Row(
                                                       children: [
                                                         Text(
-                                                          "(${dataProduct[index].deptment?.DEPT_NAME})"
+                                                          "(${dataProduct[index].deptment?.deptName})"
                                                           " (${dataProduct[index].itemCd}) ${dataProduct[index].itemCd2 != null ? "(${dataProduct[index].itemCd2})" : ""} ",
                                                           style: TextStyle(
                                                               fontSize: 10.sp,

@@ -1,7 +1,10 @@
+import 'package:arham_corporation/providers/children_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
 import '../controllers/edit_account_controller.dart';
+import '../../route_schedule_plan/controllers/beat_controller.dart';
 import '../widgets/form_widgets.dart';
 
 class EditAccountScreen extends StatefulWidget {
@@ -26,6 +29,13 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         ? Get.find<EditAccountController>()
         : Get.put(EditAccountController());
     controller.prefill(widget.accountData);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ChildrenProvider>().loadUsers(context);
+      final beatCtrl = Get.isRegistered<BeatController>()
+          ? Get.find<BeatController>()
+          : Get.put(BeatController());
+      beatCtrl.fetchBeats();
+    });
   }
 
   @override

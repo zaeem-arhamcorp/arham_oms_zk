@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
@@ -71,6 +72,12 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   var totalFreeQty = "0";
   var totalQty = "0";
 
+  static const String _orderLatPrefKey = 'shopping_cart_order_lat';
+  static const String _orderLongPrefKey = 'shopping_cart_order_long';
+
+  bool _isFetchingOrderLocation = false;
+  bool _isOrderLocationReady = false;
+
   TextEditingController orderRemarks = TextEditingController();
 
   List<DatumNarration> otherDescOptions = [];
@@ -78,8 +85,23 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
   List<DatumNarration> narrationOptions = [];
 
   bool loading = false;
+  final Set<String> _deletingCartItemIds = {};
 
   deleteCartItem(cartid, itemCd) async {
+    final String itemKey = itemCd.toString();
+
+    if (_deletingCartItemIds.contains(itemKey)) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _deletingCartItemIds.add(itemKey);
+      });
+    } else {
+      _deletingCartItemIds.add(itemKey);
+    }
+
     // Check if offline mode is enabled before allowing cart item deletion
     final ProfileProvider profile =
         Provider.of<ProfileProvider>(context, listen: false);
@@ -147,7 +169,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         if (mounted) {
           setState(() {
             loading = false;
+            _deletingCartItemIds.remove(itemKey);
           });
+        } else {
+          _deletingCartItemIds.remove(itemKey);
         }
       }
       return;
@@ -236,7 +261,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
       if (mounted) {
         setState(() {
           loading = false;
+          _deletingCartItemIds.remove(itemKey);
         });
+      } else {
+        _deletingCartItemIds.remove(itemKey);
       }
     }
   }
@@ -816,6 +844,75 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     return {'lat': lat, 'long': long};
   }
 
+  Future<void> _prepareOrderLocation(
+    ProfileProvider profile,
+    PartyProvider party,
+  ) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isOperator = userProvider.role == AppConfig.operatoruser;
+
+    if (!isOperator) {
+      if (!mounted) return;
+      setState(() {
+        _isOrderLocationReady = true;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isFetchingOrderLocation = true;
+      _isOrderLocationReady = false;
+    });
+
+    try {
+      final locationData = await _getLocationForOrder(profile, party);
+      final lat = (locationData['lat'] ?? '0').trim();
+      final long = (locationData['long'] ?? '0').trim();
+      final hasValidLocation =
+          lat.isNotEmpty && long.isNotEmpty && lat != '0' && long != '0';
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_orderLatPrefKey, lat);
+      await prefs.setString(_orderLongPrefKey, long);
+
+      if (!mounted) return;
+      setState(() {
+        _isOrderLocationReady = hasValidLocation;
+      });
+
+      if (!hasValidLocation) {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Location could not be fetched. Please try again.',
+          enforceNetworkMessage: false,
+        );
+      }
+    } catch (e) {
+      print('[SHOPPING_CART_LOCATION] ⚠️ Failed to prepare location: $e');
+      if (!mounted) return;
+      setState(() {
+        _isOrderLocationReady = false;
+      });
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Location could not be fetched. Please try again.',
+        enforceNetworkMessage: false,
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isFetchingOrderLocation = false;
+      });
+    }
+  }
+
+  Future<Map<String, String>> _getStoredOrderLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'lat': prefs.getString(_orderLatPrefKey) ?? '0',
+      'long': prefs.getString(_orderLongPrefKey) ?? '0',
+    };
+  }
+
   void calculateNetAmount() {
     final profile = Provider.of<ProfileProvider>(context, listen: false);
     final useQtySettings = _isQtySettingsEnabled(profile);
@@ -903,6 +1000,8 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
       if (!mounted) return;
 
+      unawaited(_prepareOrderLocation(p, party));
+
       if ((p.data?.profileSettings
                   .any((e) => e.variable == 'punchInOut' && e.value == 'N') ??
               false) &&
@@ -931,6 +1030,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     final PartyProvider party = context.watch<PartyProvider>();
     final ProfileProvider profile =
         Provider.of<ProfileProvider>(context, listen: false);
+    final UserProvider userProvider =
+        Provider.of<UserProvider>(context, listen: false);
+    final bool isOperator = userProvider.role == AppConfig.operatoruser;
     return WillPopScope(
       onWillPop: () async {
         // final CartProvider cart = Provider.of<CartProvider>(context, listen: false);
@@ -1061,96 +1163,104 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                         width: 15.w,
                       ),
                       GestureDetector(
-                        onTap: () {
-                          if (datacart.length != 0) {
-                            setState(() {
-                              loading = true;
-                            });
-                            //TODO : Comment Update Qty At Time Logic
-                            // for (var i = 0; i < datacart.length; i++) {
-                            //   var tempRate = '';
-                            //   var tempRemarks = '';
-                            //
-                            //   if (profile.data?.profileSettings
-                            //               .firstWhere((element) =>
-                            //                   element.variable ==
-                            //                   'editMasterRateSettings')
-                            //               .value ==
-                            //           'Y' ||
-                            //       profile.data?.profileSettings
-                            //               .firstWhere((element) =>
-                            //                   element.variable ==
-                            //                   'editOperatorRateSettings')
-                            //               .value ==
-                            //           'Y') {
-                            //     tempRate = rate[i].text;
-                            //   }
-                            //
-                            //   if (profile.data?.profileSettings
-                            //           .firstWhere((element) =>
-                            //               element.variable ==
-                            //               'showItemWiseRemarks')
-                            //           .value ==
-                            //       'Y') {
-                            //     tempRemarks = remarks[i].text;
-                            //   }
-                            //   updateitemtoCart(
-                            //       datacart[i].itemCd,
-                            //       qty[i].text.toString(),
-                            //       freeQty[i].text.toString(),
-                            //       // tempRate.isEmpty
-                            //       //     ? datacart[i].lrate
-                            //       //     : tempRate,//FAZAL CHANGES 12/03/2025
-                            //       tempRate,
-                            //       datacart[i].lrate != null
-                            //           ? datacart[i].lrate
-                            //           : '',
-                            //       tempRemarks,
-                            //       datacart[i].cId);
-                            // }
-                            datacart.forEach((element) {
-                              // ordersItems.add(OrderItm(
-                              //     itemCd: element.itemCd,
-                              //     //qty: int.parse(element.quantity.toString()),
-                              //     qty: (double.tryParse(element.quantity
-                              //                 .toString()) ??
-                              //             0)
-                              //         .toInt(),
-                              //     rate:
-                              //         double.parse(element.rate.toString()),
-                              //     amt: double.parse(
-                              //         element.amount.toString()),
-                              //     otherDesc: element.otherDesc,
-                              //     nrate: double.parse(
-                              //         element.item!.nrate.toString())));
-                              ordersItems.add(OrderItm(
-                                itemCd: element.itemCd,
-                                qty: toDouble(element.quantity).toInt(),
-                                rate: toDouble(element.rate),
-                                amt: toDouble(element.amount),
-                                otherDesc: element.otherDesc,
-                                nrate: _effectiveCartRate(element),
-                              ));
-                              orders = Ordermodal(
-                                  partyCd: party.partyid,
-                                  netAmt: netAmount,
-                                  orderItm: ordersItems);
-                            });
-                            var f = ordermodalToJson(orders!);
-                            // print(f);
-                            _handelAddOrder(f);
-                          }
-                        },
+                        onTap: (_isFetchingOrderLocation ||
+                                (isOperator && !_isOrderLocationReady))
+                            ? null
+                            : () {
+                                if (datacart.length != 0) {
+                                  setState(() {
+                                    loading = true;
+                                  });
+                                  //TODO : Comment Update Qty At Time Logic
+                                  // for (var i = 0; i < datacart.length; i++) {
+                                  //   var tempRate = '';
+                                  //   var tempRemarks = '';
+                                  //
+                                  //   if (profile.data?.profileSettings
+                                  //               .firstWhere((element) =>
+                                  //                   element.variable ==
+                                  //                   'editMasterRateSettings')
+                                  //               .value ==
+                                  //           'Y' ||
+                                  //       profile.data?.profileSettings
+                                  //               .firstWhere((element) =>
+                                  //                   element.variable ==
+                                  //                   'editOperatorRateSettings')
+                                  //               .value ==
+                                  //           'Y') {
+                                  //     tempRate = rate[i].text;
+                                  //   }
+                                  //
+                                  //   if (profile.data?.profileSettings
+                                  //           .firstWhere((element) =>
+                                  //               element.variable ==
+                                  //               'showItemWiseRemarks')
+                                  //           .value ==
+                                  //       'Y') {
+                                  //     tempRemarks = remarks[i].text;
+                                  //   }
+                                  //   updateitemtoCart(
+                                  //       datacart[i].itemCd,
+                                  //       qty[i].text.toString(),
+                                  //       freeQty[i].text.toString(),
+                                  //       // tempRate.isEmpty
+                                  //       //     ? datacart[i].lrate
+                                  //       //     : tempRate,//FAZAL CHANGES 12/03/2025
+                                  //       tempRate,
+                                  //       datacart[i].lrate != null
+                                  //           ? datacart[i].lrate
+                                  //           : '',
+                                  //       tempRemarks,
+                                  //       datacart[i].cId);
+                                  // }
+                                  datacart.forEach((element) {
+                                    // ordersItems.add(OrderItm(
+                                    //     itemCd: element.itemCd,
+                                    //     //qty: int.parse(element.quantity.toString()),
+                                    //     qty: (double.tryParse(element.quantity
+                                    //                 .toString()) ??
+                                    //             0)
+                                    //         .toInt(),
+                                    //     rate:
+                                    //         double.parse(element.rate.toString()),
+                                    //     amt: double.parse(
+                                    //         element.amount.toString()),
+                                    //     otherDesc: element.otherDesc,
+                                    //     nrate: double.parse(
+                                    //         element.item!.nrate.toString())));
+                                    ordersItems.add(OrderItm(
+                                      itemCd: element.itemCd,
+                                      qty: toDouble(element.quantity).toInt(),
+                                      rate: toDouble(element.rate),
+                                      amt: toDouble(element.amount),
+                                      otherDesc: element.otherDesc,
+                                      nrate: _effectiveCartRate(element),
+                                    ));
+                                    orders = Ordermodal(
+                                        partyCd: party.partyid,
+                                        netAmt: netAmount,
+                                        orderItm: ordersItems);
+                                  });
+                                  var f = ordermodalToJson(orders!);
+                                  // print(f);
+                                  _handelAddOrder(f);
+                                }
+                              },
                         child: Container(
                           padding: EdgeInsets.only(left: 10.w, right: 10.w),
                           height: 40.h,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: Color(0xff0A98FF),
+                            color: (_isFetchingOrderLocation ||
+                                    (isOperator && !_isOrderLocationReady))
+                                ? Colors.blueGrey
+                                : Color(0xff0A98FF),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            "Order Now",
+                            _isFetchingOrderLocation && isOperator
+                                ? "Preparing..."
+                                : "Order Now",
                             style:
                                 TextStyle(color: Colors.white, fontSize: 10.w),
                           ),
@@ -1163,7 +1273,7 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
             ),
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.grey[100],
         appBar: CustomAppBar(
           title: "Shopping Cart",
         ),
@@ -1225,7 +1335,22 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                               if (profile.ACC_CD == "" &&
                                   profile.ACC_NAME == "")
                                 TextButton(
-                                    onPressed: showMenu, child: Text("Change"))
+                                  onPressed: showMenu,
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 0,
+                                      horizontal: 0,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    "Change",
+                                  ),
+                                )
                           ],
                         ),
                       ),
@@ -1427,14 +1552,13 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                       // var itemImg = itemImage
                                                       //     ?.itemImg.first;
                                                       var itemImage =
-                                                          product?.itemImage;
+                                                          product?.itemImages;
 
                                                       var itemImg = (itemImage !=
                                                                   null &&
-                                                              itemImage.itemImg
+                                                              itemImage
                                                                   .isNotEmpty)
-                                                          ? itemImage
-                                                              .itemImg.first
+                                                          ? itemImage.first
                                                           : null;
 
                                                       return Padding(
@@ -1442,204 +1566,485 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                             const EdgeInsets
                                                                 .only(
                                                                 bottom: 5),
-                                                        child: Container(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 5,
-                                                                  right: 5,
-                                                                  top: 8,
-                                                                  bottom: 8),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            gradient:
-                                                                LinearGradient(
-                                                              colors: [
-                                                                Color(
-                                                                    0xffFAD9F1),
-                                                                Color(
-                                                                    0xffF3C0AD),
-                                                              ],
-                                                            ),
+                                                        child: Card(
+                                                          elevation: 8,
+                                                          shape:
+                                                              RoundedRectangleBorder(
                                                             borderRadius:
                                                                 BorderRadius
                                                                     .circular(
-                                                                        5),
+                                                                        6),
                                                           ),
-                                                          child: Row(
-                                                            children: [
-                                                              GestureDetector(
-                                                                onTap: () {
-                                                                  if (product !=
-                                                                      null) {
-                                                                    Get.to(() =>
-                                                                        ProductDetailPage(
-                                                                            data:
-                                                                                product));
-                                                                  }
-                                                                },
-                                                                child:
-                                                                    Container(
-                                                                  decoration:
-                                                                      BoxDecoration(
-                                                                    color: Colors
-                                                                            .grey[
-                                                                        200],
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(6),
-                                                                    border: Border
-                                                                        .all(),
+                                                          shadowColor: Colors
+                                                              .black
+                                                              .withOpacity(0.2),
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                                    left: 6,
+                                                                    right: 6,
+                                                                    top: 8,
+                                                                    bottom: 8),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color:
+                                                                  Colors.white,
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          5),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                GestureDetector(
+                                                                  onTap: () {
+                                                                    if (product !=
+                                                                        null) {
+                                                                      Get.to(() =>
+                                                                          ProductDetailPage(
+                                                                              data: product));
+                                                                    }
+                                                                  },
+                                                                  child:
+                                                                      Container(
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      color: Colors
+                                                                              .grey[
+                                                                          200],
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              6),
+                                                                      border: Border
+                                                                          .all(),
+                                                                    ),
+                                                                    height: 50,
+                                                                    width: 50,
+                                                                    child: itemImg ==
+                                                                            null
+                                                                        ? Image.asset(
+                                                                            Assets
+                                                                                .assetsNopreview,
+                                                                            fit: BoxFit
+                                                                                .cover)
+                                                                        : Image.network(
+                                                                            itemImg,
+                                                                            fit:
+                                                                                BoxFit.cover),
                                                                   ),
-                                                                  height: 50,
-                                                                  width: 50,
-                                                                  child: itemImg ==
-                                                                          null
-                                                                      ? Image.asset(
-                                                                          Assets
-                                                                              .assetsNopreview,
-                                                                          fit: BoxFit
-                                                                              .cover)
-                                                                      : Image.network(
-                                                                          itemImg,
-                                                                          fit: BoxFit
-                                                                              .cover),
                                                                 ),
-                                                              ),
-                                                              SizedBox(
-                                                                  width: 10.w),
-                                                              Expanded(
-                                                                flex: 2,
-                                                                child: Column(
-                                                                  crossAxisAlignment:
-                                                                      CrossAxisAlignment
-                                                                          .start,
-                                                                  children: [
-                                                                    Row(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .spaceBetween,
-                                                                      children: [
-                                                                        Expanded(
-                                                                          child:
-                                                                              GestureDetector(
-                                                                            onTap:
-                                                                                () {
-                                                                              if (product != null) {
-                                                                                Get.to(() => ProductDetailPage(data: product));
-                                                                              }
-                                                                            },
+                                                                SizedBox(
+                                                                    width:
+                                                                        10.w),
+                                                                Expanded(
+                                                                  flex: 2,
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                    children: [
+                                                                      Row(
+                                                                        mainAxisAlignment:
+                                                                            MainAxisAlignment.spaceBetween,
+                                                                        children: [
+                                                                          Expanded(
                                                                             child:
-                                                                                Text(
-                                                                              "${datacart[index].itemCd} ( Rate : ${_displayCartRate(datacart[index], profile).toStringAsFixed(2)} | MRP : ${(double.tryParse(datacart[index].item?.srate3?.toString() ?? '') ?? 0.0).toStringAsFixed(2)})",
-                                                                              style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
+                                                                                GestureDetector(
+                                                                              onTap: () {
+                                                                                if (product != null) {
+                                                                                  Get.to(() => ProductDetailPage(data: product));
+                                                                                }
+                                                                              },
+                                                                              child: Text(
+                                                                                "${datacart[index].itemCd} ( Rate : ${_displayCartRate(datacart[index], profile).toStringAsFixed(2)} | MRP : ${(double.tryParse(datacart[index].item?.srate3?.toString() ?? '') ?? 0.0).toStringAsFixed(2)})",
+                                                                                style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
+                                                                              ),
                                                                             ),
                                                                           ),
-                                                                        ),
-                                                                        GestureDetector(
-                                                                          onTap:
-                                                                              () {
-                                                                            if (datacart[index].cId !=
-                                                                                null) {
-                                                                              deleteCartItem(datacart[index].cId, datacart[index].itemCd);
-                                                                            }
-                                                                          },
-                                                                          child:
-                                                                              Icon(Icons.delete),
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                    GestureDetector(
-                                                                      onTap:
-                                                                          () {
-                                                                        if (product !=
-                                                                            null) {
-                                                                          Get.to(() =>
-                                                                              ProductDetailPage(data: product));
-                                                                        }
-                                                                      },
-                                                                      child:
-                                                                          Text(
-                                                                        "${datacart[index].item?.itemName ?? 'Unknown Product'}",
-                                                                        maxLines:
-                                                                            2,
-                                                                        style: TextStyle(
+                                                                          GestureDetector(
+                                                                            onTap: (_deletingCartItemIds.contains(datacart[index].itemCd.toString()) || datacart[index].cId == null)
+                                                                                ? null
+                                                                                : () {
+                                                                                    deleteCartItem(datacart[index].cId, datacart[index].itemCd);
+                                                                                  },
+                                                                            child: _deletingCartItemIds.contains(datacart[index].itemCd.toString())
+                                                                                ? SizedBox(
+                                                                                    height: 18,
+                                                                                    width: 18,
+                                                                                    child: CircularProgressIndicator(
+                                                                                      strokeWidth: 2,
+                                                                                    ),
+                                                                                  )
+                                                                                : Icon(
+                                                                                    Icons.delete,
+                                                                                    color: Colors.red,
+                                                                                    size: 25,
+                                                                                  ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                      GestureDetector(
+                                                                        onTap:
+                                                                            () {
+                                                                          if (product !=
+                                                                              null) {
+                                                                            Get.to(() =>
+                                                                                ProductDetailPage(data: product));
+                                                                          }
+                                                                        },
+                                                                        child:
+                                                                            Text(
+                                                                          "${datacart[index].item?.itemName ?? 'Unknown Product'}",
+                                                                          maxLines:
+                                                                              2,
+                                                                          style:
+                                                                              TextStyle(
                                                                             fontSize:
                                                                                 12.sp,
-                                                                            fontWeight: FontWeight.normal),
+                                                                            fontWeight:
+                                                                                FontWeight.bold,
+                                                                          ),
+                                                                        ),
                                                                       ),
-                                                                    ),
-                                                                    GestureDetector(
-                                                                      onTap:
-                                                                          () {
-                                                                        if (product !=
-                                                                            null) {
-                                                                          Get.to(() =>
-                                                                              ProductDetailPage(data: product));
-                                                                        }
-                                                                      },
-                                                                      child:
-                                                                          Text(
-                                                                        "Amt : ${Helper.parseNumericValue(datacart[index].amount.toString())}",
-                                                                        style: TextStyle(
-                                                                            fontSize:
-                                                                                14.sp,
-                                                                            fontWeight: FontWeight.bold),
+                                                                      GestureDetector(
+                                                                        onTap:
+                                                                            () {
+                                                                          if (product !=
+                                                                              null) {
+                                                                            Get.to(() =>
+                                                                                ProductDetailPage(data: product));
+                                                                          }
+                                                                        },
+                                                                        child:
+                                                                            Text(
+                                                                          "Amt : ${Helper.parseNumericValue(datacart[index].amount.toString())}",
+                                                                          style: TextStyle(
+                                                                              fontSize: 14.sp,
+                                                                              fontWeight: FontWeight.bold),
+                                                                        ),
                                                                       ),
-                                                                    ),
-                                                                    Row(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .spaceBetween,
-                                                                      crossAxisAlignment:
-                                                                          CrossAxisAlignment
-                                                                              .end,
-                                                                      children: [
-                                                                        // Qty Field
-                                                                        Flexible(
-                                                                          flex:
-                                                                              1.5.toInt(),
-                                                                          child:
-                                                                              TextFormField(
-                                                                            controller:
-                                                                                qtyController,
-                                                                            decoration:
-                                                                                const InputDecoration(
-                                                                              hintText: 'Enter Qty',
-                                                                              labelText: 'Enter Qty',
+                                                                      SizedBox(
+                                                                        height:
+                                                                            5,
+                                                                      ),
+                                                                      Row(
+                                                                        mainAxisAlignment:
+                                                                            MainAxisAlignment.spaceBetween,
+                                                                        crossAxisAlignment:
+                                                                            CrossAxisAlignment.end,
+                                                                        children: [
+                                                                          // Qty Field
+                                                                          Flexible(
+                                                                            flex:
+                                                                                1.5.toInt(),
+                                                                            child:
+                                                                                Container(
+                                                                              height: 35,
+                                                                              decoration: BoxDecoration(
+                                                                                borderRadius: BorderRadius.circular(10),
+                                                                                color: Colors.grey[300],
+                                                                              ),
+                                                                              child: TextFormField(
+                                                                                controller: qtyController,
+                                                                                decoration: InputDecoration(
+                                                                                  hintText: 'Enter Qty',
+                                                                                  // labelText: 'Enter Qty',
+                                                                                  isDense: true,
+                                                                                  contentPadding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 8.w),
+                                                                                  border: InputBorder.none,
+                                                                                  enabledBorder: InputBorder.none,
+                                                                                  focusedBorder: InputBorder.none,
+                                                                                ),
+                                                                                keyboardType: TextInputType.number,
+                                                                                onChanged: (value) {
+                                                                                  double? quantity = double.tryParse(value);
+                                                                                  if (quantity != null && quantity > 0) {
+                                                                                    final qtySettingsEnabled = _isQtySettingsEnabled(profile);
+                                                                                    final lrateSetting = profile.data?.profileSettings.firstWhere(
+                                                                                      (element) => element.variable == 'lrateSetting',
+                                                                                      orElse: () => DatumSettings(variable: 'lrateSetting', value: 'N'),
+                                                                                    );
+
+                                                                                    double price = 0.0;
+                                                                                    if (qtySettingsEnabled) {
+                                                                                      price = _displayCartRate(item, profile);
+                                                                                    } else if (lrateSetting?.value == 'Y') {
+                                                                                      price = double.tryParse(item.lrate.toString()) ?? 0.0;
+                                                                                    } else {
+                                                                                      price = double.tryParse(item.rate.toString()) ?? 0.0;
+                                                                                    }
+
+                                                                                    double amount = quantity * price;
+
+                                                                                    setState(() {
+                                                                                      item.amount = amount;
+                                                                                      item.quantity = quantity.toString();
+                                                                                      calculateNetAmount();
+                                                                                    });
+
+                                                                                    cartController.setQuantity(
+                                                                                      item.itemCd,
+                                                                                      value,
+                                                                                    );
+
+                                                                                    updateitemtoCart(
+                                                                                      item.itemCd,
+                                                                                      qtyController.text,
+                                                                                      freeQtyController.text,
+                                                                                      rateController?.text ?? '',
+                                                                                      item.lrate ?? '',
+                                                                                      remarksController?.text ?? '',
+                                                                                      item.cId,
+                                                                                    );
+                                                                                  }
+                                                                                },
+
+                                                                                // onChanged: (value) {
+                                                                                //   double? quantity = double.tryParse(value);
+                                                                                //
+                                                                                //   if (quantity != null && quantity > 0) {
+                                                                                //     // Use itemCd to find correct index in datacart
+                                                                                //     String itemCd = filteredList[index].itemCd; // Use filtered/search list if applicable
+                                                                                //     int actualIndex = datacart.indexWhere((item) => item.itemCd == itemCd);
+                                                                                //
+                                                                                //     if (actualIndex == -1) return; // Item not found, exit safely
+                                                                                //
+                                                                                //     double price = double.tryParse(datacart[actualIndex].rate.toString()) ?? 0.0;
+                                                                                //     double amount = quantity * price;
+                                                                                //
+                                                                                //     setState(() {
+                                                                                //       datacart[actualIndex].amount = amount;
+                                                                                //       datacart[actualIndex].quantity = quantity.toString();
+                                                                                //       calculateNetAmount();
+                                                                                //     });
+                                                                                //
+                                                                                //     print("Updated Qty for ItemCd $itemCd: ${datacart[actualIndex].quantity}");
+                                                                                //     print("Updated Amount: ${datacart[actualIndex].amount}");
+                                                                                //     print("Net Amount: $netAmount");
+                                                                                //
+                                                                                //     var tempRate = '';
+                                                                                //     var tempRemarks = '';
+                                                                                //
+                                                                                //     if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value == 'Y' ||
+                                                                                //         profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value == 'Y') {
+                                                                                //       tempRate = rate[index].text;
+                                                                                //     }
+                                                                                //
+                                                                                //     if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'showItemWiseRemarks').value == 'Y') {
+                                                                                //       tempRemarks = remarks[index].text;
+                                                                                //     }
+                                                                                //
+                                                                                //     updateitemtoCart(
+                                                                                //       datacart[actualIndex].itemCd,
+                                                                                //       qty[index].text,
+                                                                                //       freeQty[index].text,
+                                                                                //       tempRate,
+                                                                                //       datacart[actualIndex].lrate ?? '',
+                                                                                //       tempRemarks,
+                                                                                //       datacart[actualIndex].cId,
+                                                                                //     );
+                                                                                //   }
+                                                                                // }
+                                                                              ),
                                                                             ),
-                                                                            keyboardType:
-                                                                                TextInputType.number,
-                                                                            onChanged:
+                                                                          ),
+                                                                          const SizedBox(
+                                                                              width: 8),
+
+                                                                          // Free Dropdown
+                                                                          Flexible(
+                                                                            flex:
+                                                                                2.5.toInt(),
+                                                                            child:
+                                                                                Container(
+                                                                              height: 35,
+                                                                              decoration: BoxDecoration(
+                                                                                borderRadius: BorderRadius.circular(10),
+                                                                                color: Colors.grey[300],
+                                                                              ),
+                                                                              child: Row(
+                                                                                children: [
+                                                                                  Expanded(
+                                                                                    child: TextFormField(
+                                                                                      controller: freeQtyController,
+                                                                                      decoration: InputDecoration(
+                                                                                        hintText: 'Free',
+                                                                                        // labelText: 'Free',
+                                                                                        isDense: true,
+                                                                                        contentPadding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 8.w),
+                                                                                        border: InputBorder.none,
+                                                                                        enabledBorder: InputBorder.none,
+                                                                                        focusedBorder: InputBorder.none,
+                                                                                        suffixIconConstraints: const BoxConstraints(
+                                                                                          minWidth: 24,
+                                                                                          minHeight: 24,
+                                                                                        ),
+                                                                                        suffixIcon: PopupMenuButton<String>(
+                                                                                          padding: EdgeInsets.zero,
+                                                                                          iconSize: 18,
+                                                                                          constraints: const BoxConstraints(
+                                                                                            minWidth: 24,
+                                                                                            minHeight: 24,
+                                                                                          ),
+                                                                                          icon: const Icon(Icons.arrow_drop_down),
+                                                                                          onSelected: (String newValue) {
+                                                                                            freeQtyController.text = newValue;
+
+                                                                                            setState(() {
+                                                                                              item.otherDesc = newValue;
+                                                                                            });
+
+                                                                                            cartController.setFreeQuantity(
+                                                                                              item.itemCd,
+                                                                                              newValue,
+                                                                                            );
+
+                                                                                            updateitemtoCart(
+                                                                                              item.itemCd,
+                                                                                              qtyController.text,
+                                                                                              newValue,
+                                                                                              rateController?.text ?? '',
+                                                                                              item.lrate ?? '',
+                                                                                              remarksController?.text ?? '',
+                                                                                              item.cId,
+                                                                                            );
+                                                                                          },
+                                                                                          itemBuilder: (context) => otherDescOptions
+                                                                                              .map(
+                                                                                                (e) => PopupMenuItem<String>(
+                                                                                                  value: e.NARR_NAME,
+                                                                                                  child: Text(e.NARR_NAME),
+                                                                                                ),
+                                                                                              )
+                                                                                              .toList(),
+                                                                                        ),
+                                                                                      ),
+                                                                                      onChanged: (value) {
+                                                                                        setState(() {
+                                                                                          item.otherDesc = value;
+                                                                                        });
+
+                                                                                        cartController.setFreeQuantity(
+                                                                                          item.itemCd,
+                                                                                          value,
+                                                                                        );
+
+                                                                                        updateitemtoCart(
+                                                                                          item.itemCd,
+                                                                                          qtyController.text,
+                                                                                          freeQtyController.text,
+                                                                                          rateController?.text ?? '',
+                                                                                          item.lrate ?? '',
+                                                                                          remarksController?.text ?? '',
+                                                                                          item.cId,
+                                                                                        );
+                                                                                      },
+                                                                                    ),
+                                                                                  ),
+                                                                                ],
+                                                                              ),
+                                                                            ),
+                                                                          ),
+
+                                                                          // Spacer before Rate field (if needed)
+                                                                          if (showRate)
+                                                                            const SizedBox(width: 8),
+
+                                                                          // Rate Field (conditionally shown)
+                                                                          if (showRate)
+
+                                                                            // Flexible(
+                                                                            //   flex:
+                                                                            //       1.5.toInt(),
+                                                                            //   child:
+                                                                            //       TextFormField(
+                                                                            //     controller:
+                                                                            //         rateController,
+                                                                            //     decoration:
+                                                                            //         const InputDecoration(
+                                                                            //       hintText: 'Rate',
+                                                                            //       labelText: 'Rate',
+                                                                            //     ),
+                                                                            //     keyboardType:
+                                                                            //         TextInputType.number,
+                                                                            //   ),
+                                                                            // ),
+
+                                                                            Flexible(
+                                                                              flex: 1.5.toInt(),
+                                                                              child: TextFormField(
+                                                                                controller: rateController,
+                                                                                decoration: const InputDecoration(
+                                                                                  hintText: 'Rate',
+                                                                                  labelText: 'Rate',
+                                                                                ),
+                                                                                keyboardType: TextInputType.number,
+                                                                                onChanged: (value) {
+                                                                                  double? rate = double.tryParse(value);
+                                                                                  double? quantity = double.tryParse(qtyController.text);
+
+                                                                                  if (rate != null && quantity != null && quantity > 0) {
+                                                                                    final qtySettingsEnabled = _isQtySettingsEnabled(profile);
+                                                                                    final amount = qtySettingsEnabled ? (quantity * _displayCartRate(item, profile)) : (rate * quantity);
+
+                                                                                    setState(() {
+                                                                                      item.rate = rate.toString();
+                                                                                      item.amount = amount;
+                                                                                      calculateNetAmount();
+                                                                                    });
+
+                                                                                    updateitemtoCart(
+                                                                                      item.itemCd,
+                                                                                      qtyController.text,
+                                                                                      freeQtyController.text,
+                                                                                      rateController?.text ?? '',
+                                                                                      item.lrate ?? '',
+                                                                                      remarksController?.text ?? '',
+                                                                                      item.cId,
+                                                                                    );
+                                                                                  }
+                                                                                },
+                                                                              ),
+                                                                            ),
+                                                                        ],
+                                                                      ),
+                                                                      if (showRemarks)
+                                                                        Padding(
+                                                                          padding:
+                                                                              EdgeInsets.only(bottom: 4.h),
+                                                                          child:
+                                                                              DropdownMenu<dynamic>(
+                                                                            width:
+                                                                                size.width - 200,
+                                                                            controller:
+                                                                                remarksController,
+                                                                            requestFocusOnTap:
+                                                                                true,
+                                                                            enableFilter:
+                                                                                true,
+                                                                            label:
+                                                                                const Text('Remarks'),
+                                                                            dropdownMenuEntries: fld5DescOptions
+                                                                                .map((e) => DropdownMenuEntry<dynamic>(
+                                                                                      value: e.NARR_NAME,
+                                                                                      label: e.NARR_NAME,
+                                                                                    ))
+                                                                                .toList(),
+                                                                            inputDecorationTheme:
+                                                                                const InputDecorationTheme(
+                                                                              isDense: true,
+                                                                            ),
+                                                                            enableSearch:
+                                                                                true,
+                                                                            onSelected:
                                                                                 (value) {
-                                                                              double? quantity = double.tryParse(value);
-                                                                              if (quantity != null && quantity > 0) {
-                                                                                final qtySettingsEnabled = _isQtySettingsEnabled(profile);
-                                                                                final lrateSetting = profile.data?.profileSettings.firstWhere(
-                                                                                  (element) => element.variable == 'lrateSetting',
-                                                                                  orElse: () => DatumSettings(variable: 'lrateSetting', value: 'N'),
-                                                                                );
+                                                                              FocusManager.instance.primaryFocus?.unfocus();
 
-                                                                                double price = 0.0;
-                                                                                if (qtySettingsEnabled) {
-                                                                                  price = _displayCartRate(item, profile);
-                                                                                } else if (lrateSetting?.value == 'Y') {
-                                                                                  price = double.tryParse(item.lrate.toString()) ?? 0.0;
-                                                                                } else {
-                                                                                  price = double.tryParse(item.rate.toString()) ?? 0.0;
-                                                                                }
-
-                                                                                double amount = quantity * price;
-
-                                                                                setState(() {
-                                                                                  item.amount = amount;
-                                                                                  item.quantity = quantity.toString();
-                                                                                  calculateNetAmount();
-                                                                                });
-
-                                                                                cartController.setQuantity(
+                                                                              if (value != null) {
+                                                                                cartController.setRemark(
                                                                                   item.itemCd,
-                                                                                  value,
+                                                                                  value.toString(),
                                                                                 );
 
                                                                                 updateitemtoCart(
@@ -1648,258 +2053,18 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                                                                   freeQtyController.text,
                                                                                   rateController?.text ?? '',
                                                                                   item.lrate ?? '',
-                                                                                  remarksController?.text ?? '',
+                                                                                  value.toString(),
                                                                                   item.cId,
                                                                                 );
                                                                               }
                                                                             },
-
-                                                                            // onChanged: (value) {
-                                                                            //   double? quantity = double.tryParse(value);
-                                                                            //
-                                                                            //   if (quantity != null && quantity > 0) {
-                                                                            //     // Use itemCd to find correct index in datacart
-                                                                            //     String itemCd = filteredList[index].itemCd; // Use filtered/search list if applicable
-                                                                            //     int actualIndex = datacart.indexWhere((item) => item.itemCd == itemCd);
-                                                                            //
-                                                                            //     if (actualIndex == -1) return; // Item not found, exit safely
-                                                                            //
-                                                                            //     double price = double.tryParse(datacart[actualIndex].rate.toString()) ?? 0.0;
-                                                                            //     double amount = quantity * price;
-                                                                            //
-                                                                            //     setState(() {
-                                                                            //       datacart[actualIndex].amount = amount;
-                                                                            //       datacart[actualIndex].quantity = quantity.toString();
-                                                                            //       calculateNetAmount();
-                                                                            //     });
-                                                                            //
-                                                                            //     print("Updated Qty for ItemCd $itemCd: ${datacart[actualIndex].quantity}");
-                                                                            //     print("Updated Amount: ${datacart[actualIndex].amount}");
-                                                                            //     print("Net Amount: $netAmount");
-                                                                            //
-                                                                            //     var tempRate = '';
-                                                                            //     var tempRemarks = '';
-                                                                            //
-                                                                            //     if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'editMasterRateSettings').value == 'Y' ||
-                                                                            //         profile.data?.profileSettings.firstWhere((element) => element.variable == 'editOperatorRateSettings').value == 'Y') {
-                                                                            //       tempRate = rate[index].text;
-                                                                            //     }
-                                                                            //
-                                                                            //     if (profile.data?.profileSettings.firstWhere((element) => element.variable == 'showItemWiseRemarks').value == 'Y') {
-                                                                            //       tempRemarks = remarks[index].text;
-                                                                            //     }
-                                                                            //
-                                                                            //     updateitemtoCart(
-                                                                            //       datacart[actualIndex].itemCd,
-                                                                            //       qty[index].text,
-                                                                            //       freeQty[index].text,
-                                                                            //       tempRate,
-                                                                            //       datacart[actualIndex].lrate ?? '',
-                                                                            //       tempRemarks,
-                                                                            //       datacart[actualIndex].cId,
-                                                                            //     );
-                                                                            //   }
-                                                                            // }
                                                                           ),
                                                                         ),
-                                                                        const SizedBox(
-                                                                            width:
-                                                                                8),
-
-                                                                        // Free Dropdown
-                                                                        Flexible(
-                                                                          flex:
-                                                                              2.5.toInt(),
-                                                                          child:
-                                                                              TextFormField(
-                                                                            controller:
-                                                                                freeQtyController,
-                                                                            decoration:
-                                                                                InputDecoration(
-                                                                              labelText: 'Free',
-                                                                              isDense: true,
-                                                                              suffixIcon: DropdownButtonHideUnderline(
-                                                                                child: DropdownButton<String>(
-                                                                                  icon: const Icon(Icons.arrow_drop_down),
-                                                                                  onChanged: (String? newValue) {
-                                                                                    if (newValue != null) {
-                                                                                      freeQtyController.text = newValue;
-
-                                                                                      setState(() {
-                                                                                        item.otherDesc = newValue;
-                                                                                      });
-
-                                                                                      cartController.setFreeQuantity(
-                                                                                        item.itemCd,
-                                                                                        newValue,
-                                                                                      );
-
-                                                                                      updateitemtoCart(
-                                                                                        item.itemCd,
-                                                                                        qtyController.text,
-                                                                                        newValue,
-                                                                                        rateController?.text ?? '',
-                                                                                        item.lrate ?? '',
-                                                                                        remarksController?.text ?? '',
-                                                                                        item.cId,
-                                                                                      );
-                                                                                    }
-                                                                                  },
-                                                                                  items: otherDescOptions
-                                                                                      .map((e) => DropdownMenuItem<String>(
-                                                                                            value: e.NARR_NAME,
-                                                                                            child: Text(e.NARR_NAME),
-                                                                                          ))
-                                                                                      .toList(),
-                                                                                ),
-                                                                              ),
-                                                                            ),
-                                                                            onChanged:
-                                                                                (value) {
-                                                                              setState(() {
-                                                                                item.otherDesc = value;
-                                                                              });
-
-                                                                              cartController.setFreeQuantity(
-                                                                                item.itemCd,
-                                                                                value,
-                                                                              );
-
-                                                                              updateitemtoCart(
-                                                                                item.itemCd,
-                                                                                qtyController.text,
-                                                                                freeQtyController.text,
-                                                                                rateController?.text ?? '',
-                                                                                item.lrate ?? '',
-                                                                                remarksController?.text ?? '',
-                                                                                item.cId,
-                                                                              );
-                                                                            },
-                                                                          ),
-                                                                        ),
-
-                                                                        // Spacer before Rate field (if needed)
-                                                                        if (showRate)
-                                                                          const SizedBox(
-                                                                              width: 8),
-
-                                                                        // Rate Field (conditionally shown)
-                                                                        if (showRate)
-
-                                                                          // Flexible(
-                                                                          //   flex:
-                                                                          //       1.5.toInt(),
-                                                                          //   child:
-                                                                          //       TextFormField(
-                                                                          //     controller:
-                                                                          //         rateController,
-                                                                          //     decoration:
-                                                                          //         const InputDecoration(
-                                                                          //       hintText: 'Rate',
-                                                                          //       labelText: 'Rate',
-                                                                          //     ),
-                                                                          //     keyboardType:
-                                                                          //         TextInputType.number,
-                                                                          //   ),
-                                                                          // ),
-
-                                                                          Flexible(
-                                                                            flex:
-                                                                                1.5.toInt(),
-                                                                            child:
-                                                                                TextFormField(
-                                                                              controller: rateController,
-                                                                              decoration: const InputDecoration(
-                                                                                hintText: 'Rate',
-                                                                                labelText: 'Rate',
-                                                                              ),
-                                                                              keyboardType: TextInputType.number,
-                                                                              onChanged: (value) {
-                                                                                double? rate = double.tryParse(value);
-                                                                                double? quantity = double.tryParse(qtyController.text);
-
-                                                                                if (rate != null && quantity != null && quantity > 0) {
-                                                                                  final qtySettingsEnabled = _isQtySettingsEnabled(profile);
-                                                                                  final amount = qtySettingsEnabled ? (quantity * _displayCartRate(item, profile)) : (rate * quantity);
-
-                                                                                  setState(() {
-                                                                                    item.rate = rate.toString();
-                                                                                    item.amount = amount;
-                                                                                    calculateNetAmount();
-                                                                                  });
-
-                                                                                  updateitemtoCart(
-                                                                                    item.itemCd,
-                                                                                    qtyController.text,
-                                                                                    freeQtyController.text,
-                                                                                    rateController?.text ?? '',
-                                                                                    item.lrate ?? '',
-                                                                                    remarksController?.text ?? '',
-                                                                                    item.cId,
-                                                                                  );
-                                                                                }
-                                                                              },
-                                                                            ),
-                                                                          ),
-                                                                      ],
-                                                                    ),
-                                                                    if (showRemarks)
-                                                                      Padding(
-                                                                        padding:
-                                                                            EdgeInsets.only(bottom: 4.h),
-                                                                        child: DropdownMenu<
-                                                                            dynamic>(
-                                                                          width:
-                                                                              size.width - 200,
-                                                                          controller:
-                                                                              remarksController,
-                                                                          requestFocusOnTap:
-                                                                              true,
-                                                                          enableFilter:
-                                                                              true,
-                                                                          label:
-                                                                              const Text('Remarks'),
-                                                                          dropdownMenuEntries: fld5DescOptions
-                                                                              .map((e) => DropdownMenuEntry<dynamic>(
-                                                                                    value: e.NARR_NAME,
-                                                                                    label: e.NARR_NAME,
-                                                                                  ))
-                                                                              .toList(),
-                                                                          inputDecorationTheme:
-                                                                              const InputDecorationTheme(
-                                                                            isDense:
-                                                                                true,
-                                                                          ),
-                                                                          enableSearch:
-                                                                              true,
-                                                                          onSelected:
-                                                                              (value) {
-                                                                            FocusManager.instance.primaryFocus?.unfocus();
-
-                                                                            if (value !=
-                                                                                null) {
-                                                                              cartController.setRemark(
-                                                                                item.itemCd,
-                                                                                value.toString(),
-                                                                              );
-
-                                                                              updateitemtoCart(
-                                                                                item.itemCd,
-                                                                                qtyController.text,
-                                                                                freeQtyController.text,
-                                                                                rateController?.text ?? '',
-                                                                                item.lrate ?? '',
-                                                                                value.toString(),
-                                                                                item.cId,
-                                                                              );
-                                                                            }
-                                                                          },
-                                                                        ),
-                                                                      ),
-                                                                  ],
+                                                                    ],
+                                                                  ),
                                                                 ),
-                                                              ),
-                                                            ],
+                                                              ],
+                                                            ),
                                                           ),
                                                         ),
                                                       );
@@ -2228,14 +2393,28 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     final PartyProvider party =
         Provider.of<PartyProvider>(context, listen: false);
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+    final bool isOperator = ub.role == AppConfig.operatoruser;
+
+    if (isOperator && !_isOrderLocationReady) {
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Location is still being fetched. Please wait.',
+        enforceNetworkMessage: false,
+      );
+      setState(() {
+        loading = false;
+      });
+      return;
+    }
 
     // Define lat/long outside try-catch so they're accessible in catch block
     var lat = "0";
     var long = "0";
 
     try {
-      // Get location based on tracking preference
-      final locationData = await _getLocationForOrder(profile, party);
+      // Use the location already fetched when the cart page opened.
+      final locationData = isOperator
+          ? await _getStoredOrderLocation()
+          : {'lat': '0', 'long': '0'};
       lat = locationData['lat'] ?? "0";
       long = locationData['long'] ?? "0";
 
@@ -2306,14 +2485,20 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         final selectedPartyName =
             profile.YN == "Y" ? party.punchInOutParty : party.party;
 
-        try {
-          await _savePendingOrderSharePayloadIfPossible(
-            partyId: selectedPartyId,
-            partyName: selectedPartyName,
-          );
-        } catch (e, stack) {
-          CrashlyticsService.recordNonFatal(e, stack);
-          print('[Order Share] Failed to save share payload: $e');
+        if (profile.data?.profileSettings
+                .firstWhere(
+                    (element) => element.variable == 'showItemWiseRemarks')
+                .value ==
+            'Y') {
+          try {
+            await _savePendingOrderSharePayloadIfPossible(
+              partyId: selectedPartyId,
+              partyName: selectedPartyName,
+            );
+          } catch (e, stack) {
+            CrashlyticsService.recordNonFatal(e, stack);
+            print('[Order Share] Failed to save share payload: $e');
+          }
         }
 
         // NOW clear stockist selection for next order

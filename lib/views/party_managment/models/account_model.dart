@@ -10,6 +10,9 @@ class AccountModel {
   final double latitude;
   final double longitude;
   final String beatCd;
+  final String whatsappNo;
+  final String email;
+  final String userCd;
 
   final String? gstNo;
   final String gstType;
@@ -29,6 +32,9 @@ class AccountModel {
     required this.latitude,
     required this.longitude,
     required this.beatCd,
+    required this.whatsappNo,
+    required this.email,
+    required this.userCd,
     this.gstNo,
     required this.gstType,
     this.drugLic1,
@@ -46,6 +52,9 @@ class AccountModel {
       "moduleNo": "102",
       'mobile1': mobile1,
       'add1': add1,
+      'whatsappNo': whatsappNo,
+      'email': email,
+      'userCd': userCd,
       'zone': area,
       'city': city,
       'state': state,

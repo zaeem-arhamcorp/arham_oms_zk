@@ -51,6 +51,9 @@ class EditAccountController extends AccountController {
     AccountFormFields.cityController.text = data['CITY'] ?? '';
     AccountFormFields.stateController.text = data['STATE'] ?? '';
     AccountFormFields.pincodeController.text = data['PINCODE'] ?? '';
+    AccountFormFields.whatsappNoController.text = data['WA_NO'] ?? '';
+    AccountFormFields.emailController.text = data['EMAIL'] ?? '';
+    AccountFormFields.userController.text = data['USER_CD'] ?? '';
 
     // Beat code (may come as BEAT_CD or beatCd)
     AccountFormFields.beatCdController.text =
@@ -98,6 +101,9 @@ class EditAccountController extends AccountController {
         state: AccountFormFields.stateController.text.trim(),
         pincode: AccountFormFields.pincodeController.text.trim(),
         beatCd: AccountFormFields.beatCdController.text.trim(),
+        whatsappNo: AccountFormFields.whatsappNoController.text.trim(),
+        email: AccountFormFields.emailController.text.trim(),
+        userCd: AccountFormFields.userController.text.trim(),
 
         /// 🔒 STRICTLY FIXED
         latitude: fixedLatitude,
@@ -131,6 +137,9 @@ class EditAccountController extends AccountController {
             final partyProvider =
                 Provider.of<PartyProvider>(context, listen: false);
             final updatedData = result['data']['data'] as Map<String, dynamic>;
+            print(result['data']);
+            print(result['data']['data'].runtimeType);
+            print(result['data']['data']);
             partyProvider.updatePartyData(accCode, updatedData);
           } catch (e) {
             print('❌ Error updating PartyProvider: $e');

@@ -1,5 +1,5 @@
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/helper/route_label_helper.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/route_schedule_plan/services/beat_service.dart';
@@ -63,7 +63,7 @@ class _AddBeatBottomSheetState extends State<AddBeatBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileProvider>();
-    final routeLabel = RouteLabelHelper.singular(profile);
+    final routeLabel = RouteLabelHelper.singularMaster(profile);
 
     return Padding(
       padding: EdgeInsets.only(

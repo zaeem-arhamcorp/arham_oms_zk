@@ -1,10 +1,15 @@
+import 'package:arham_corporation/providers/children_provider.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
 
+import '../../../helper/route_label_helper.dart';
+import '../../../models/children_model.dart';
 import '../../route_schedule_plan/controllers/beat_controller.dart';
 import '../controllers/account_controller.dart';
 import '../core/form_validation.dart';
@@ -98,6 +103,200 @@ class FormWidgets {
               FormValidation.validateRequired(v, 'Mobile Number'),
         ),
         textField(
+          controller: AccountFormFields.whatsappNoController,
+          label: 'Whatsapp Number',
+          isNumber: true,
+          isRequired: true,
+          maxLength: 10,
+          validator: (v) =>
+              FormValidation.validatePhone(v) ??
+              FormValidation.validateRequired(v, 'Whatsapp Number'),
+        ),
+        textField(
+          controller: AccountFormFields.emailController,
+          label: 'Email',
+          isRequired: true,
+          validator: (v) =>
+              FormValidation.validateEmail(v) ??
+              FormValidation.validateRequired(v, 'Email'),
+        ),
+
+        Builder(
+          builder: (context) {
+            final childrenProvider = Provider.of<ChildrenProvider>(context);
+
+            if (childrenProvider.isLoading && childrenProvider.users.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text('Loading users...'),
+                  ],
+                ),
+              );
+            }
+
+            final items = childrenProvider.users;
+
+            final rawUserCd = AccountFormFields.userController.text;
+
+            final matchedUser = items.cast<Data?>().firstWhere(
+                  (u) => u?.userCd == rawUserCd,
+                  orElse: () => null,
+                );
+
+            final displayText = matchedUser?.userName ?? '';
+
+            return GestureDetector(
+              onTap: () async {
+                final selected = await showModalBottomSheet<Data>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  builder: (sheetContext) {
+                    final searchController = TextEditingController();
+
+                    List<Data> filtered = List.from(items);
+
+                    return StatefulBuilder(
+                      builder: (context, setModalState) {
+                        return SafeArea(
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * .75,
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: 40,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Select User',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: TextField(
+                                    controller: searchController,
+                                    decoration: const InputDecoration(
+                                      prefixIcon: Icon(Icons.search),
+                                      hintText: 'Search user',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onChanged: (value) {
+                                      final q = value.trim().toLowerCase();
+
+                                      setModalState(() {
+                                        if (q.isEmpty) {
+                                          filtered = List.from(items);
+                                        } else {
+                                          filtered = items.where((u) {
+                                            return u.userName
+                                                    .toLowerCase()
+                                                    .contains(q) ||
+                                                u.userCd
+                                                    .toLowerCase()
+                                                    .contains(q);
+                                          }).toList();
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(
+                                  child: ListView.builder(
+                                    itemCount: filtered.length,
+                                    itemBuilder: (_, index) {
+                                      final user = filtered[index];
+
+                                      return ListTile(
+                                        title: Text(
+                                          user.userName,
+                                        ),
+                                        subtitle: Text(
+                                          user.userCd,
+                                        ),
+                                        onTap: () {
+                                          Navigator.pop(
+                                            sheetContext,
+                                            user,
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                                if (childrenProvider.isLoadingMore)
+                                  const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+
+                if (selected != null) {
+                  AccountFormFields.userController.text = selected.userCd;
+
+                  (context as Element).markNeedsBuild();
+                }
+              },
+              child: AbsorbPointer(
+                child: TextFormField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: displayText,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'User',
+                    border: const OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: const Icon(
+                      Icons.arrow_drop_down,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        SizedBox(
+          height: 15,
+        ),
+        sectionHeader("Address"),
+        textField(
             controller: AccountFormFields.add1Controller,
             label: 'Address',
             maxLength: 255),
@@ -121,6 +320,15 @@ class FormWidgets {
         ),
         // Beat dropdown (loaded from API) - autofills with existing account beat
         Builder(builder: (context) {
+          final profileProvider = Provider.of<ProfileProvider>(context);
+          final hasBeatAccess = profileProvider.data != null &&
+              profileProvider.data!.modulesList!.any((module) =>
+                  module.mODULENO == "233" && module.rEADRIGHT == true);
+
+          if (!hasBeatAccess) {
+            return const SizedBox.shrink();
+          }
+
           // Lazily register BeatController when form is used in a widget tree
           final beatCtrl = Get.isRegistered<BeatController>()
               ? Get.find<BeatController>()
@@ -169,17 +377,25 @@ class FormWidgets {
                 ? matchedBeat!.beatName
                 : (matchedBeat?.beatCd ?? '');
 
+            final profile = context.watch<ProfileProvider>();
+            final singularRouteLabel = RouteLabelHelper.singularMaster(profile);
+            final pluralRouteLabel = RouteLabelHelper.singularMaster(profile);
+
             return GestureDetector(
               onTap: () async {
+                if (beatCtrl.beats.isEmpty) {
+                  await beatCtrl.fetchBeats();
+                }
+                if (!context.mounted) return;
                 final selected = await showDialog<dynamic>(
                   context: context,
                   builder: (dialogCtx) {
                     final searchCtrl = TextEditingController();
-                    var filtered = List.from(items);
+                    var filtered = List.from(beatCtrl.beats);
 
                     return StatefulBuilder(builder: (c, setState) {
                       return AlertDialog(
-                        title: const Text('Select Beat'),
+                        title: Text('Select $singularRouteLabel'),
                         backgroundColor: Colors.white,
                         content: SizedBox(
                           width: double.maxFinite,
@@ -188,17 +404,17 @@ class FormWidgets {
                             children: [
                               TextField(
                                 controller: searchCtrl,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   prefixIcon: Icon(Icons.search),
-                                  hintText: 'Search beats',
+                                  hintText: 'Search $pluralRouteLabel',
                                 ),
                                 onChanged: (s) {
                                   final q = s.trim().toLowerCase();
                                   setState(() {
                                     if (q.isEmpty) {
-                                      filtered = List.from(items);
+                                      filtered = List.from(beatCtrl.beats);
                                     } else {
-                                      filtered = items
+                                      filtered = beatCtrl.beats
                                           .where((b) =>
                                               b.beatName
                                                   .toString()
@@ -216,8 +432,9 @@ class FormWidgets {
                               const SizedBox(height: 8),
                               Expanded(
                                 child: filtered.isEmpty
-                                    ? const Center(
-                                        child: Text('No beats found'))
+                                    ? Center(
+                                        child:
+                                            Text('No $pluralRouteLabel found'))
                                     : ListView.builder(
                                         itemCount: filtered.length,
                                         itemBuilder: (_, i) {
@@ -239,7 +456,10 @@ class FormWidgets {
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: const Text('Cancel'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            child: Text('Cancel'),
                           )
                         ],
                       );
@@ -259,7 +479,7 @@ class FormWidgets {
                   readOnly: true,
                   controller: TextEditingController(text: displayText),
                   decoration: InputDecoration(
-                    labelText: 'Beat',
+                    labelText: singularRouteLabel,
                     border: const OutlineInputBorder(),
                     filled: true,
                     fillColor: Colors.grey.shade50,

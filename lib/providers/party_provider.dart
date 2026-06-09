@@ -110,6 +110,9 @@ class PartyProvider extends DisposableProvider {
         party.accName = updatedData['ACC_NAME'] ?? party.accName;
         party.accAddress = updatedData['ADD1'] ?? party.accAddress;
         party.mobile = updatedData['MOBILE1'] ?? party.mobile;
+        party.whNo = updatedData['WA_NO'] ?? party.whNo;
+        party.email = updatedData['EMAIL'] ?? party.email;
+        party.userCd = updatedData['USER_CD'] ?? party.userCd;
         party.add1 = updatedData['ADD1'] ?? party.add1;
         party.add2 = updatedData['ADD2'] ?? party.add2;
         party.add3 = updatedData['ADD3'] ?? party.add3;
@@ -118,7 +121,7 @@ class PartyProvider extends DisposableProvider {
         party.state = updatedData['STATE'] ?? party.state;
         party.pincode = updatedData['PINCODE'] ?? party.pincode;
         party.person_nm = updatedData['PERSON_NM'] ?? party.person_nm;
-        party.email = updatedData['EMAIL'] ?? party.email;
+        // party.email = updatedData['EMAIL'] ?? party.email;
         party.panNo = updatedData['PAN_NO'] ?? party.panNo;
         party.gstNo = updatedData['GST_NO'] ?? party.gstNo;
         party.gstType = updatedData['GST_TYPE'] ?? party.gstType;
@@ -140,7 +143,10 @@ class PartyProvider extends DisposableProvider {
     }
   }
 
-  Future<PartynameModal?> getPartyNameProductPage(context) async {
+  Future<PartynameModal?> getPartyNameProductPage(
+    context, {
+    bool allowCacheFallback = true,
+  }) async {
     preparePartyLoad();
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
@@ -148,16 +154,15 @@ class PartyProvider extends DisposableProvider {
     // OPTIMISTIC LOADING: Try API immediately without internet check!
     // This saves ~2 seconds that was spent on connectivity check
     try {
+      print(
+          "Here the product page is calling :-  ${AppConfig.baseURL}products/party");
       final http.Response response = await http.get(
-        Uri.parse(AppConfig.baseURL + "products/party"),
+        Uri.parse("${AppConfig.baseURL}products/party"),
         headers: {
           "Authorization": "Bearer ${ub.token}",
           'x-app-type': 'oms',
         },
       ).timeout(const Duration(seconds: 10));
-      print("Here the product page is calling :-  " +
-          AppConfig.baseURL +
-          "products/party");
       print("Bearer ${ub.token}");
       print(response.body);
       if (response.statusCode == 200) {
@@ -220,30 +225,39 @@ class PartyProvider extends DisposableProvider {
         });
       }
     } catch (e) {
-      // ❌ API FAILED or offline - fallback to cache
-      print('🔴 API failed: $e, falling back to cache');
-      try {
-        final cached = await DatabaseHelper().getCachedParties();
-        // ⚡ GET ACTUAL CART COUNTS FROM LOCAL DB FOR EACH PARTY
-        final cartCounts = await DatabaseHelper().getAllPartyCartCounts();
+      // ❌ API FAILED or offline
+      print('🔴 API failed: $e');
+      if (allowCacheFallback) {
+        print('🔄 Falling back to cache');
+        try {
+          final cached = await DatabaseHelper().getCachedParties();
+          // ⚡ GET ACTUAL CART COUNTS FROM LOCAL DB FOR EACH PARTY
+          final cartCounts = await DatabaseHelper().getAllPartyCartCounts();
 
-        for (var row in cached) {
-          String accCd = row['acc_cd']?.toString() ?? '';
-          int cartCount = cartCounts[accCd] ?? 0;
-          _data.add(DatumPartyname(
-            accCd: accCd,
-            accName: row['name'] ?? '',
-            accAddress: row['address'] ?? '',
-            mobile: row['phone'] ?? '',
-            accCartItem: cartCount > 0
-                ? "$cartCount Cart Item${cartCount > 1 ? 's' : ''}"
-                : '',
-          ));
+          for (var row in cached) {
+            String accCd = row['acc_cd']?.toString() ?? '';
+            int cartCount = cartCounts[accCd] ?? 0;
+            _data.add(DatumPartyname(
+              accCd: accCd,
+              accName: row['name'] ?? '',
+              accAddress: row['address'] ?? '',
+              mobile: row['phone'] ?? '',
+              accCartItem: cartCount > 0
+                  ? "$cartCount Cart Item${cartCount > 1 ? 's' : ''}"
+                  : '',
+            ));
+          }
+          nolistParty = _data.isEmpty;
+          print('📦 Loaded ${_data.length} parties from cache');
+        } catch (cacheErr) {
+          print('Failed to load from cache: $cacheErr');
+          nolistParty = true;
         }
-        nolistParty = _data.isEmpty;
-        print('📦 Loaded ${_data.length} parties from cache');
-      } catch (cacheErr) {
-        print('Failed to load from cache: $cacheErr');
+      } else {
+        AppSnackBar.showGetXCustomSnackBar(
+          message: 'Something went wrong',
+          enforceNetworkMessage: false,
+        );
         nolistParty = true;
       }
     }

@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
-import 'package:arham_corporation/widgets/common_timeline_tile.dart';
+import 'package:arham_corporation/views/route%20timeline/timeline_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -4396,6 +4396,153 @@ class _RouteMapViewState extends State<RouteMapView> {
                 padding: EdgeInsets.all(32.0),
                 child: Center(child: Text('No activities for this trip')),
               )
+            // else
+            //   ListView.builder(
+            //     physics: const NeverScrollableScrollPhysics(),
+            //     shrinkWrap: true,
+            //     itemCount: _timelineData.length,
+            //     padding: const EdgeInsets.symmetric(horizontal: 16),
+            //     itemBuilder: (context, index) {
+            //       final item = _timelineData[index];
+            //       final tripId = item['tripId'] as int? ?? 0;
+            //       final timestamp = item['timestamp'] as String? ?? '';
+            //       final eventType = item['event_type'] as String? ?? '';
+            //       final title = item['name'] ??
+            //           item['title'] ??
+            //           _formatEventType(eventType) ??
+            //           'Activity';
+            //       final subtitle =
+            //           item['description'] ?? item['subtitle'] ?? '';
+            //
+            //       // Format date and time
+            //       String dateStr = 'N/A';
+            //       String timeStr = 'N/A';
+            //       try {
+            //         if (timestamp.isNotEmpty) {
+            //           final dt = DateTime.parse(timestamp);
+            //           dateStr = DateFormat('dd MMM').format(dt);
+            //           timeStr = DateFormat('hh:mm a').format(dt);
+            //         }
+            //       } catch (_) {}
+            //
+            //       final isFirst = index == 0;
+            //       final isLast = index == _timelineData.length - 1;
+            //       final bullet = _getBulletForEvent(eventType);
+            //
+            //       // Check if this is an order_placed event
+            //       final isOrderPlaced =
+            //           eventType.toLowerCase() == 'order_placed';
+            //       final orderItems = _extractOrderItemsFromTimelineItem(item);
+            //       final partyInfo = _extractPartyInfoFromTimelineItem(item);
+            //       final partyName = partyInfo['partyName'] ?? '';
+            //       final partyCode = partyInfo['partyCode'] ?? '';
+            //       final partyAddress = partyInfo['partyAddress'] ?? '';
+            //       final displayTitle = partyName.isNotEmpty &&
+            //               _shouldShowPartyNameForTimelineItem(
+            //                 title.toString(),
+            //                 eventType,
+            //               )
+            //           ? '$title - $partyName'
+            //           : title.toString();
+            //
+            //       if (isOrderPlaced && orderItems.isEmpty) {
+            //         final dynamic rawOrder = item['ORDER'] ?? item['order'];
+            //         final orderKeys = rawOrder is Map
+            //             ? rawOrder.keys.map((k) => k.toString()).join(',')
+            //             : 'none';
+            //         print(
+            //           '[RouteMapView] [ORDER_DEBUG] Empty order items for order_placed | O_ID=${item['O_ID'] ?? item['o_id'] ?? '-'} | eventKeys=${item.keys.take(30).join(',')} | orderKeys=$orderKeys',
+            //         );
+            //       }
+            //
+            //       print(
+            //         '[RouteMapView] Timeline Event - Type: "$eventType", isOrderPlaced: $isOrderPlaced, itemsCount: ${orderItems.length}, partyName: "$partyName"',
+            //       );
+            //
+            //       // Build action buttons for order_placed events
+            //       Widget? actionButtons;
+            //       if (isOrderPlaced) {
+            //         actionButtons = Row(
+            //           children: [
+            //             GestureDetector(
+            //               onTap: () {
+            //                 _showOrderItemsDialog(
+            //                   orderItems,
+            //                   partyName,
+            //                   partyCode,
+            //                   partyAddress,
+            //                 );
+            //               },
+            //               child: Row(
+            //                 children: [
+            //                   Icon(
+            //                     Icons.visibility,
+            //                     size: 15,
+            //                     color: Colors.blue,
+            //                   ),
+            //                   SizedBox(width: 3),
+            //                   Text(
+            //                     'View Items',
+            //                     style: TextStyle(
+            //                       color: Colors.blue,
+            //                       decoration: TextDecoration.underline,
+            //                       decorationColor: Colors.blue,
+            //                     ),
+            //                   ),
+            //                 ],
+            //               ),
+            //             ),
+            //             const SizedBox(width: 15),
+            //             GestureDetector(
+            //               onTap: () {
+            //                 _fetchAndShowPartyHistory(
+            //                   _selectedUser?['userCode'] as String? ?? '',
+            //                   partyCode,
+            //                   partyName: partyName,
+            //                 );
+            //               },
+            //               child: Row(
+            //                 children: [
+            //                   Icon(Icons.history, size: 15, color: Colors.blue),
+            //                   SizedBox(width: 3),
+            //                   Text(
+            //                     'View History',
+            //                     style: TextStyle(
+            //                       color: Colors.blue,
+            //                       decoration: TextDecoration.underline,
+            //                       decorationColor: Colors.blue,
+            //                     ),
+            //                   ),
+            //                 ],
+            //               ),
+            //             ),
+            //           ],
+            //         );
+            //       }
+            //
+            //       return GestureDetector(
+            //         onTap: tripId > 0
+            //             ? () {
+            //                 setState(() {
+            //                   _selectedTrip = item;
+            //                 });
+            //                 _fetchAndDisplayTripRoute(tripId);
+            //               }
+            //             : null,
+            //         child: CommonTimelineTile(
+            //           date: dateStr,
+            //           time: timeStr,
+            //           title: displayTitle,
+            //           subtitle: subtitle.toString(),
+            //           isFirst: isFirst,
+            //           isLast: isLast,
+            //           bulletWidget: bullet,
+            //           actionButtons: actionButtons,
+            //         ),
+            //       );
+            //     },
+            //   ),
+            // Locate line 961 inside your _buildTimelineSheet function
             else
               ListView.builder(
                 physics: const NeverScrollableScrollPhysics(),
@@ -4405,120 +4552,12 @@ class _RouteMapViewState extends State<RouteMapView> {
                 itemBuilder: (context, index) {
                   final item = _timelineData[index];
                   final tripId = item['tripId'] as int? ?? 0;
-                  final timestamp = item['timestamp'] as String? ?? '';
-                  final eventType = item['event_type'] as String? ?? '';
-                  final title = item['name'] ??
-                      item['title'] ??
-                      _formatEventType(eventType) ??
-                      'Activity';
-                  final subtitle =
-                      item['description'] ?? item['subtitle'] ?? '';
-
-                  // Format date and time
-                  String dateStr = 'N/A';
-                  String timeStr = 'N/A';
-                  try {
-                    if (timestamp.isNotEmpty) {
-                      final dt = DateTime.parse(timestamp);
-                      dateStr = DateFormat('dd MMM').format(dt);
-                      timeStr = DateFormat('hh:mm a').format(dt);
-                    }
-                  } catch (_) {}
-
-                  final isFirst = index == 0;
                   final isLast = index == _timelineData.length - 1;
-                  final bullet = _getBulletForEvent(eventType);
 
-                  // Check if this is an order_placed event
-                  final isOrderPlaced =
-                      eventType.toLowerCase() == 'order_placed';
-                  final orderItems = _extractOrderItemsFromTimelineItem(item);
                   final partyInfo = _extractPartyInfoFromTimelineItem(item);
                   final partyName = partyInfo['partyName'] ?? '';
                   final partyCode = partyInfo['partyCode'] ?? '';
                   final partyAddress = partyInfo['partyAddress'] ?? '';
-                  final displayTitle = partyName.isNotEmpty &&
-                          _shouldShowPartyNameForTimelineItem(
-                            title.toString(),
-                            eventType,
-                          )
-                      ? '$title - $partyName'
-                      : title.toString();
-
-                  if (isOrderPlaced && orderItems.isEmpty) {
-                    final dynamic rawOrder = item['ORDER'] ?? item['order'];
-                    final orderKeys = rawOrder is Map
-                        ? rawOrder.keys.map((k) => k.toString()).join(',')
-                        : 'none';
-                    print(
-                      '[RouteMapView] [ORDER_DEBUG] Empty order items for order_placed | O_ID=${item['O_ID'] ?? item['o_id'] ?? '-'} | eventKeys=${item.keys.take(30).join(',')} | orderKeys=$orderKeys',
-                    );
-                  }
-
-                  print(
-                    '[RouteMapView] Timeline Event - Type: "$eventType", isOrderPlaced: $isOrderPlaced, itemsCount: ${orderItems.length}, partyName: "$partyName"',
-                  );
-
-                  // Build action buttons for order_placed events
-                  Widget? actionButtons;
-                  if (isOrderPlaced) {
-                    actionButtons = Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            _showOrderItemsDialog(
-                              orderItems,
-                              partyName,
-                              partyCode,
-                              partyAddress,
-                            );
-                          },
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.visibility,
-                                size: 15,
-                                color: Colors.blue,
-                              ),
-                              SizedBox(width: 3),
-                              Text(
-                                'View Items',
-                                style: TextStyle(
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: Colors.blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        GestureDetector(
-                          onTap: () {
-                            _fetchAndShowPartyHistory(
-                              _selectedUser?['userCode'] as String? ?? '',
-                              partyCode,
-                              partyName: partyName,
-                            );
-                          },
-                          child: Row(
-                            children: [
-                              Icon(Icons.history, size: 15, color: Colors.blue),
-                              SizedBox(width: 3),
-                              Text(
-                                'View History',
-                                style: TextStyle(
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: Colors.blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  }
 
                   return GestureDetector(
                     onTap: tripId > 0
@@ -4529,15 +4568,26 @@ class _RouteMapViewState extends State<RouteMapView> {
                             _fetchAndDisplayTripRoute(tripId);
                           }
                         : null,
-                    child: CommonTimelineTile(
-                      date: dateStr,
-                      time: timeStr,
-                      title: displayTitle,
-                      subtitle: subtitle.toString(),
-                      isFirst: isFirst,
+                    child: TimelineTile(
+                      event: item,
                       isLast: isLast,
-                      bulletWidget: bullet,
-                      actionButtons: actionButtons,
+                      onViewItems: (eventData) {
+                        final extractedItems =
+                            _extractOrderItemsFromTimelineItem(eventData);
+                        _showOrderItemsDialog(
+                          extractedItems,
+                          partyName,
+                          partyCode,
+                          partyAddress,
+                        );
+                      },
+                      onViewHistory: (eventData) {
+                        _fetchAndShowPartyHistory(
+                          _selectedUser?['userCode'] as String? ?? '',
+                          partyCode,
+                          partyName: partyName,
+                        );
+                      },
                     ),
                   );
                 },

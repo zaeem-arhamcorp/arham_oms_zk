@@ -80,20 +80,46 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                 SizedBox(
                   height: 10,
                 ),
-                _buildDetailRow(Icons.code, "Item Code", widget.data.itemCd),
                 _buildDetailRow(
-                    Icons.qr_code_2, "Alternate Code", widget.data.itemCd2),
+                  Icons.code,
+                  "Item Code",
+                  widget.data.itemCd,
+                ),
                 _buildDetailRow(
-                    Icons.category, "Category", widget.data.itemCat),
-                _buildDetailRow(Icons.apartment, "Department",
-                    widget.data.deptment.deptName),
+                  Icons.qr_code_2,
+                  "Alternate Code",
+                  widget.data.itemCd2,
+                ),
                 _buildDetailRow(
-                    Icons.widgets, "Sub-Category", widget.data.subCat),
+                  Icons.category,
+                  "Category",
+                  widget.data.itemCat,
+                ),
                 _buildDetailRow(
-                    Icons.branding_watermark, "Brand", widget.data.itemBrand),
-                _buildDetailRow(Icons.medical_information, "Drug Contain",
-                    widget.data.itemLname),
-                _buildDetailRow(Icons.sync, "HSN Code", widget.data.hsnNo),
+                  Icons.apartment,
+                  "Department",
+                  widget.data.deptment.deptName,
+                ),
+                _buildDetailRow(
+                  Icons.widgets,
+                  "Sub-Category",
+                  widget.data.subCat,
+                ),
+                _buildDetailRow(
+                  Icons.branding_watermark,
+                  "Brand",
+                  widget.data.itemBrand,
+                ),
+                _buildDetailRow(
+                  Icons.medical_information,
+                  "Drug Contain",
+                  widget.data.itemLname,
+                ),
+                _buildDetailRow(
+                  Icons.sync,
+                  "HSN Code",
+                  widget.data.hsnNo,
+                ),
               ]),
               SizedBox(height: 8.h),
 
@@ -102,7 +128,9 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
                 _buildConditionalRow(
                   Icons.attach_money,
                   "MRP",
-                  Helper.parseNumericValue(widget.data.srate3),
+                  Helper.parseNumericValue(
+                    widget.data.srate3,
+                  ),
                 ),
                 _buildConditionalRow(Icons.price_check, "Rate",
                     Helper.parseNumericValue(widget.data.srate1)),

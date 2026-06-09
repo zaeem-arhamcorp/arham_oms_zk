@@ -183,81 +183,89 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late Future<MonthlyTargetItemModel?> _monthlyTargetFuture;
 
   Future<MonthlyTargetItemModel?> _fetchCurrentMonthPobTarget() async {
-    try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final token = userProvider.token;
-      String? userCd = _profileProvider.data?.userCd?.toString();
-      if (token == null || token.trim().isEmpty) {
-        print('[HomePage] Monthly target fetch skipped: missing token');
-        return null;
-      }
+    if (_profileProvider.data != null &&
+        _profileProvider.data!.modulesList!.any(
+            (module) => module.mODULENO == "236" && module.rEADRIGHT == true)) {
+      try {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        final token = userProvider.token;
+        String? userCd = _profileProvider.data?.userCd?.toString();
+        if (token == null || token.trim().isEmpty) {
+          print('[HomePage] Monthly target fetch skipped: missing token');
+          return null;
+        }
 
-      final targetMonth = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final uri = Uri.parse(
-        '${AppConfig.baseURL}monthly-sales-target?&userCd=$userCd&targetMonth=$targetMonth&type=POB',
-      );
-
-      print('[HomePage] Fetching monthly target: $uri');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
-      );
-
-      print('[HomePage] Monthly target response: ${response.statusCode}');
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        return null;
-      }
-
-      final decoded = jsonDecode(response.body);
-      final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
-      if (data is! List || data.isEmpty) {
-        return null;
-      }
-
-      final now = DateTime.now();
-      MonthlyTargetItemModel? monthItem;
-
-      for (final item in data.whereType<Map>()) {
-        final model = MonthlyTargetItemModel.fromJson(
-          Map<String, dynamic>.from(item as Map),
+        final targetMonth = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final uri = Uri.parse(
+          '${AppConfig.baseURL}monthly-sales-target?&userCd=$userCd&targetMonth=$targetMonth&type=POB',
         );
-        if (model.type.toUpperCase() != 'POB') continue;
 
-        final parsedTargetDate = DateTime.tryParse(model.targetDate);
-        if (parsedTargetDate != null &&
-            parsedTargetDate.year == now.year &&
-            parsedTargetDate.month == now.month) {
-          monthItem = model;
-          break;
+        print('[HomePage] Fetching monthly target: $uri');
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+          },
+        );
+
+        print('[HomePage] Monthly target response: ${response.statusCode}');
+        if (response.statusCode != 200 && response.statusCode != 201) {
+          return null;
         }
 
-        final monthNames = [
-          'january',
-          'february',
-          'march',
-          'april',
-          'may',
-          'june',
-          'july',
-          'august',
-          'september',
-          'october',
-          'november',
-          'december'
-        ];
-        final expectedMonth = '${now.year}-${monthNames[now.month - 1]}';
-        if (model.targetMonth.toLowerCase() == expectedMonth) {
-          monthItem = model;
-          break;
+        final decoded = jsonDecode(response.body);
+        final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+        if (data is! List || data.isEmpty) {
+          return null;
         }
+
+        final now = DateTime.now();
+        MonthlyTargetItemModel? monthItem;
+
+        for (final item in data.whereType<Map>()) {
+          final model = MonthlyTargetItemModel.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          );
+          if (model.type.toUpperCase() != 'POB') continue;
+
+          final parsedTargetDate = DateTime.tryParse(model.targetDate);
+          if (parsedTargetDate != null &&
+              parsedTargetDate.year == now.year &&
+              parsedTargetDate.month == now.month) {
+            monthItem = model;
+            break;
+          }
+
+          final monthNames = [
+            'january',
+            'february',
+            'march',
+            'april',
+            'may',
+            'june',
+            'july',
+            'august',
+            'september',
+            'october',
+            'november',
+            'december'
+          ];
+          final expectedMonth = '${now.year}-${monthNames[now.month - 1]}';
+          if (model.targetMonth.toLowerCase() == expectedMonth) {
+            monthItem = model;
+            break;
+          }
+        }
+
+        return monthItem;
+      } catch (e) {
+        print('[HomePage] Monthly target fetch error: $e');
+        return null;
       }
-
-      return monthItem;
-    } catch (e) {
-      print('[HomePage] Monthly target fetch error: $e');
+    } else {
+      print(
+          '[HomePage] Monthly target fetching skipped: moduleNo 236 not found');
       return null;
     }
   }
@@ -275,6 +283,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     getDashboarddata();
     notification();
     loadData();
+    _fetchActiveTripStatus();
     // Future.microtask(() {
     //   notification();
     //   loadData();
@@ -495,10 +504,39 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _fetchActiveTripStatus() async {
+    if (!mounted) return;
+
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
+    final user = Provider.of<UserProvider>(context, listen: false);
+
+    if (profile.userCode == null || user.token == null) return;
+
+    final syncId = int.tryParse(user.syncId?.toString() ?? '0') ?? 0;
+
+    try {
+      final activeTrip = await Services()
+          .getActiveTripStatus(profile.userCode!, syncId, user.token!);
+
+      if (!mounted) return;
+
+      if (activeTrip != null) {
+        // SUCCESS: You found an active trip.
+        // Update the UI here, for example:
+        print("Active trip found: ${activeTrip['trip_id']}");
+      } else {
+        print("No active trip at this moment.");
+      }
+    } catch (e) {
+      print('Error during API call: $e');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _triggerQueuedSecondaryShareIfAny();
+      _fetchActiveTripStatus();
     }
   }
 
@@ -1384,7 +1422,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 onSelected: (int? newValue) {
-                  setState(() {
+                  setState(() async {
                     selectedSyncId = newValue;
 
                     selectedFirmName = firmList.firstWhere(
@@ -1402,6 +1440,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         Provider.of<PartyProvider>(context, listen: false);
                     party.clearParty();
                     party.clearPunchInOutParty();
+                    final productController =
+                        Get.isRegistered<ProductController>()
+                            ? Get.find<ProductController>()
+                            : Get.put(ProductController());
+                    await productController.clearPartySelection();
+
+                    // Reset punch state so new firm's homepage doesn't inherit old firm's state
+                    final profileProvider =
+                        Provider.of<ProfileProvider>(context, listen: false);
+                    profileProvider.setPunchState(false); // <-- add this
 
                     // Fluttertoast.showToast(
                     //     msg: 'Please wait, loading firm data...');
@@ -2770,17 +2818,55 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                           ),
                                                           SizedBox(height: 10),
                                                           Text(
-                                                              "Email: info@arhamerp.com"),
+                                                              "Email: info@arhamcorp.in"),
                                                           SizedBox(height: 20),
-                                                          Center(
-                                                            child:
-                                                                ElevatedButton(
-                                                              onPressed: () {
-                                                                Get.back();
-                                                              },
-                                                              child: Text(
-                                                                  "Renew License"),
-                                                            ),
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child:
+                                                                    ElevatedButton(
+                                                                  onPressed:
+                                                                      () {
+                                                                    Get.back();
+                                                                  },
+                                                                  style: ElevatedButton
+                                                                      .styleFrom(
+                                                                    shadowColor:
+                                                                        Colors
+                                                                            .transparent,
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .transparent,
+                                                                    foregroundColor:
+                                                                        Colors
+                                                                            .green,
+                                                                    side:
+                                                                        BorderSide(
+                                                                      color: Colors
+                                                                          .green,
+                                                                      width: 1,
+                                                                    ),
+                                                                    shape:
+                                                                        RoundedRectangleBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius
+                                                                              .circular(
+                                                                        15,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    "Renew License",
+                                                                    style:
+                                                                        TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ],
                                                       ),
@@ -2800,32 +2886,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             },
                                             child: Container(
                                               decoration: BoxDecoration(
-                                                  color: Color(0XFFFF6263)
-                                                      .withOpacity(0.2),
-                                                  borderRadius:
-                                                      BorderRadius.all(
-                                                          Radius.circular(
-                                                              15.w))),
-                                              height: 50.h,
-                                              width: double.infinity,
-                                              child: Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                    horizontal: 10.h),
-                                                child: Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons.info_outline,
-                                                      color: Colors.red,
-                                                    ),
-                                                    Padding(
-                                                      padding: EdgeInsets.only(
-                                                          left: 5.w),
-                                                      child: Text(
-                                                        "Your License is expiring in ${DateTime(int.parse(p.data!.license!.licEndDate.toString().split("-")[0]), int.parse(p.data!.license!.licEndDate.toString().split("-")[1]), int.parse(p.data!.license!.licEndDate.toString().split("-")[2])).difference(DateTime.now()).inDays} days.",
-                                                      ),
-                                                    )
-                                                  ],
+                                                color: const Color(0XFFFF6263)
+                                                    .withOpacity(0.2),
+                                                borderRadius: BorderRadius.all(
+                                                  Radius.circular(15.w),
                                                 ),
+                                              ),
+                                              width: double.infinity,
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 10.h,
+                                                vertical: 10.h,
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.info_outline,
+                                                    color: Colors.red,
+                                                  ),
+                                                  SizedBox(width: 5.w),
+                                                  Expanded(
+                                                    child: Text(
+                                                      "Your License is expiring in ${DateTime(
+                                                        int.parse(p.data!
+                                                            .license!.licEndDate
+                                                            .toString()
+                                                            .split("-")[0]),
+                                                        int.parse(p.data!
+                                                            .license!.licEndDate
+                                                            .toString()
+                                                            .split("-")[1]),
+                                                        int.parse(p.data!
+                                                            .license!.licEndDate
+                                                            .toString()
+                                                            .split("-")[2]),
+                                                      ).difference(DateTime.now()).inDays} days.",
+                                                      softWrap: true,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
@@ -2994,6 +3094,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                           ProductController());
                                                   productController
                                                       .clearStockistSelection();
+                                                  await productController
+                                                      .clearPartySelection();
                                                 } else {
                                                   location
                                                       .setRemarks("PUNCH IN");
@@ -3107,6 +3209,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                           if (party.partyid
                                                               .isNotEmpty) {
                                                             getDashboarddata();
+                                                            _fetchActiveTripStatus();
                                                           }
                                                         }
                                                       });

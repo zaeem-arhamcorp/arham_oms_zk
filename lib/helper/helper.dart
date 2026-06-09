@@ -219,22 +219,8 @@ class Helper {
           ? Permission.mediaLibrary
           : Permission.storage)) {
         Directory? directory;
-        directory = Platform.isIOS
-            ? await getApplicationDocumentsDirectory()
-            //: await Directory("/storage/emulated/0/Download");
-            : Directory("/storage/emulated/0/Download");
-        String newPath = "";
-        List<String> paths = directory.path.split("/");
-        for (int x = 1; x < paths.length; x++) {
-          String folder = paths[x];
-          if (folder != "Android") {
-            newPath += "/$folder";
-          } else {
-            break;
-          }
-        }
-        newPath = "$newPath/ArhamErp";
-        directory = Directory(newPath);
+        directory = await getApplicationDocumentsDirectory();
+        directory = Directory("${directory.path}/ArhamErp");
 
         saveFileUrl =
             File("${directory.path}/$reportName.${url.split(".").last}");
@@ -420,18 +406,32 @@ class Helper {
 
     // Format last-order age into a readable and non-empty label.
     final int? daysAgo = listOfParty[index].lastOrderDays;
+
     late final String lastOrderText;
+    late final Color lastOrderColor;
+
     if (daysAgo == null) {
       lastOrderText = 'No previous order';
+      lastOrderColor = Colors.red;
     } else if (daysAgo == 0) {
       lastOrderText = 'Last order: Today';
+      lastOrderColor = Colors.green;
     } else if (daysAgo == 1) {
       lastOrderText = 'Last order: Yesterday';
+      lastOrderColor = Colors.green;
     } else if (daysAgo > 1) {
       lastOrderText = 'Last order: $daysAgo days ago';
+
+      if (daysAgo > 60) {
+        lastOrderColor = Colors.red;
+      } else if (daysAgo > 15) {
+        lastOrderColor = Colors.orange;
+      } else {
+        lastOrderColor = Colors.green; // 2-28 days
+      }
     } else {
-      // Defensive fallback for unexpected negative values.
       lastOrderText = 'No previous order';
+      lastOrderColor = Colors.red;
     }
 
     // Get beat information if party has beatCd
@@ -510,7 +510,7 @@ class Helper {
             TextSpan(
               text: "\n$lastOrderText",
               style: TextStyle(
-                color: Colors.blue,
+                color: lastOrderColor,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -540,6 +540,8 @@ class Helper {
       'PERSON_NM': party.person_nm ?? '',
       'MOBILE1': party.mobile ?? '',
       'ADD1': party.add1 ?? '',
+      'WA_NO': party.whNo ?? '',
+      'USER_CD': party.userCd ?? '',
       'ZONE': party.zone ?? '',
       'CITY': party.city ?? '',
       'STATE': party.state ?? '',

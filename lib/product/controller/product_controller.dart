@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/database_helper.dart';
@@ -501,6 +502,90 @@ class ProductController extends GetxController {
     log("Filtered products: $filteredList");
   }
 
+  ///------------------------------Old Code-------------------------------------
+  // void searchProducts(String query) {
+  //   final queryNormalized = query.trim().toLowerCase();
+  //
+  //   // 🔍 Filter products by selected department first
+  //   List<ProductItem> baseList = selectedChip.value.isEmpty
+  //       ? products
+  //       : products
+  //           .where((product) =>
+  //               product.deptCd.toLowerCase() ==
+  //               selectedChip.value.toLowerCase())
+  //           .toList();
+  //
+  //   List<ProductItem> filteredList;
+  //
+  //   if (queryNormalized.isEmpty) {
+  //     // If query is empty, show all from the current department
+  //     filteredList = baseList;
+  //   } else if (queryNormalized.contains('*')) {
+  //     // Wildcard search
+  //     final searchPattern = queryNormalized.replaceAll('*', '.*');
+  //     final regex = RegExp(searchPattern, caseSensitive: false);
+  //
+  //     filteredList = baseList.where((product) {
+  //       return regex.hasMatch(product.itemName.toLowerCase()) ||
+  //           regex.hasMatch(product.itemLname?.toLowerCase() ?? "") ||
+  //           regex.hasMatch(product.itemCd.toLowerCase()) ||
+  //           regex.hasMatch(product.itemBrand?.toLowerCase() ?? "") ||
+  //           regex.hasMatch(product.itemCat?.toLowerCase() ?? "");
+  //     }).toList();
+  //   } else if (queryNormalized.contains(' ')) {
+  //     // Multi-word search
+  //     final searchWords = queryNormalized.split(' ');
+  //
+  //     filteredList = baseList.where((product) {
+  //       final searchableFields = [
+  //         product.itemName.toLowerCase(),
+  //         product.itemLname?.toLowerCase() ?? "",
+  //         product.itemCd.toLowerCase(),
+  //         product.itemBrand?.toLowerCase() ?? "",
+  //         product.itemCat?.toLowerCase() ?? ""
+  //       ];
+  //
+  //       return searchWords.every(
+  //         (word) => searchableFields.any((field) => field.contains(word)),
+  //       );
+  //     }).toList();
+  //   } else {
+  //     // Normal single-word search
+  //     final startsWithMatch = baseList.where((product) {
+  //       final fields = [
+  //         product.itemName.toLowerCase(),
+  //         product.itemLname?.toLowerCase() ?? "",
+  //         product.itemCd.toLowerCase(),
+  //         product.itemBrand?.toLowerCase() ?? "",
+  //         product.itemCat?.toLowerCase() ?? ""
+  //       ];
+  //
+  //       return fields.any((field) => field.startsWith(queryNormalized));
+  //     }).toList();
+  //
+  //     final containsMatch = baseList.where((product) {
+  //       final fields = [
+  //         product.itemName.toLowerCase(),
+  //         product.itemLname?.toLowerCase() ?? "",
+  //         product.itemCd.toLowerCase(),
+  //         product.itemBrand?.toLowerCase() ?? "",
+  //         product.itemCat?.toLowerCase() ?? ""
+  //       ];
+  //
+  //       return fields.any((field) => field.contains(queryNormalized));
+  //     }).toList();
+  //
+  //     // Merge and deduplicate
+  //     filteredList = [
+  //       ...{...startsWithMatch, ...containsMatch}
+  //     ];
+  //   }
+  //
+  //   filteredProducts.assignAll(filteredList);
+  //   log("Filtered products: $filteredList");
+  // }
+
+  ///------------------------------New Code-------------------------------------
   void searchProducts(String query) {
     final queryNormalized = query.trim().toLowerCase();
     final isExactMatchSearchEnabled = _isExactMatchSearchEnabled();
@@ -524,15 +609,29 @@ class ProductController extends GetxController {
       // - default: strict word-to-word (prefix) search
       // - with '*': wildcard multi-search
       if (queryNormalized.contains('*')) {
-        final searchPattern = queryNormalized.replaceAll('*', '.*');
-        final regex = RegExp(searchPattern, caseSensitive: false);
+        // Wildcard multi-word search (order independent)
+        // Example:
+        // *10cm cotton crepe elastic
+        // matches:
+        // Elastic Cotton Crepe 10CM
+        final searchWords = queryNormalized
+            .replaceAll('*', ' ')
+            .split(RegExp(r'\s+'))
+            .where((word) => word.isNotEmpty)
+            .toList();
 
         filteredList = baseList.where((product) {
-          return regex.hasMatch(product.itemName.toLowerCase()) ||
-              regex.hasMatch(product.itemLname?.toLowerCase() ?? "") ||
-              regex.hasMatch(product.itemCd.toLowerCase()) ||
-              regex.hasMatch(product.itemBrand?.toLowerCase() ?? "") ||
-              regex.hasMatch(product.itemCat?.toLowerCase() ?? "");
+          final searchableText = [
+            product.itemName,
+            product.itemLname ?? "",
+            product.itemCd,
+            product.itemBrand ?? "",
+            product.itemCat ?? ""
+          ].join(' ').toLowerCase();
+
+          return searchWords.every(
+            (word) => searchableText.contains(word),
+          );
         }).toList();
       } else {
         final strictQuery = queryNormalized.trim();
@@ -549,26 +648,103 @@ class ProductController extends GetxController {
         }).toList();
       }
     } else {
+      if (queryNormalized.isEmpty) {
+        // If query is empty, show all from the current department
+        filteredList = baseList;
+      } else if (queryNormalized.contains('*')) {
+        // Wildcard multi-word search (order independent)
+        // Example:
+        // *10cm cotton crepe elastic
+        // matches:
+        // Elastic Cotton Crepe 10CM
+        final searchWords = queryNormalized
+            .replaceAll('*', ' ')
+            .split(RegExp(r'\s+'))
+            .where((word) => word.isNotEmpty)
+            .toList();
+
+        filteredList = baseList.where((product) {
+          final searchableText = [
+            product.itemName,
+            product.itemLname ?? "",
+            product.itemCd,
+            product.itemBrand ?? "",
+            product.itemCat ?? ""
+          ].join(' ').toLowerCase();
+
+          return searchWords.every(
+            (word) => searchableText.contains(word),
+          );
+        }).toList();
+      } else if (queryNormalized.contains(' ')) {
+        // Multi-word search
+        final searchWords = queryNormalized.split(' ');
+
+        filteredList = baseList.where((product) {
+          final searchableFields = [
+            product.itemName.toLowerCase(),
+            product.itemLname?.toLowerCase() ?? "",
+            product.itemCd.toLowerCase(),
+            product.itemBrand?.toLowerCase() ?? "",
+            product.itemCat?.toLowerCase() ?? ""
+          ];
+
+          return searchWords.every(
+            (word) => searchableFields.any((field) => field.contains(word)),
+          );
+        }).toList();
+      } else {
+        // Normal single-word search
+        final startsWithMatch = baseList.where((product) {
+          final fields = [
+            product.itemName.toLowerCase(),
+            product.itemLname?.toLowerCase() ?? "",
+            product.itemCd.toLowerCase(),
+            product.itemBrand?.toLowerCase() ?? "",
+            product.itemCat?.toLowerCase() ?? ""
+          ];
+
+          return fields.any((field) => field.startsWith(queryNormalized));
+        }).toList();
+
+        final containsMatch = baseList.where((product) {
+          final fields = [
+            product.itemName.toLowerCase(),
+            product.itemLname?.toLowerCase() ?? "",
+            product.itemCd.toLowerCase(),
+            product.itemBrand?.toLowerCase() ?? "",
+            product.itemCat?.toLowerCase() ?? ""
+          ];
+
+          return fields.any((field) => field.contains(queryNormalized));
+        }).toList();
+
+        // Merge and deduplicate
+        filteredList = [
+          ...{...startsWithMatch, ...containsMatch}
+        ];
+      }
+
       // Setting disabled: loose search by default (no '*' required).
       // Split by spaces and '*' so users can type natural multi-word queries.
-      final searchWords = queryNormalized
-          .split(RegExp(r'[\s*]+'))
-          .where((word) => word.isNotEmpty)
-          .toList();
-
-      filteredList = baseList.where((product) {
-        final searchableFields = [
-          product.itemName.toLowerCase(),
-          product.itemLname?.toLowerCase() ?? "",
-          product.itemCd.toLowerCase(),
-          product.itemBrand?.toLowerCase() ?? "",
-          product.itemCat?.toLowerCase() ?? ""
-        ];
-
-        return searchWords.every(
-          (word) => searchableFields.any((field) => field.contains(word)),
-        );
-      }).toList();
+      // final searchWords = queryNormalized
+      //     .split(RegExp(r'[\s*]+'))
+      //     .where((word) => word.isNotEmpty)
+      //     .toList();
+      //
+      // filteredList = baseList.where((product) {
+      //   final searchableFields = [
+      //     product.itemName.toLowerCase(),
+      //     product.itemLname?.toLowerCase() ?? "",
+      //     product.itemCd.toLowerCase(),
+      //     product.itemBrand?.toLowerCase() ?? "",
+      //     product.itemCat?.toLowerCase() ?? ""
+      //   ];
+      //
+      //   return searchWords.every(
+      //     (word) => searchableFields.any((field) => field.contains(word)),
+      //   );
+      // }).toList();
     }
 
     filteredProducts.assignAll(filteredList);
@@ -656,10 +832,10 @@ class ProductController extends GetxController {
       if (serviceResult != null && serviceResult.isNotEmpty) {
         final mapped = serviceResult
             .map((d) => Department.fromJson({
-                  'DEPT_CD': d.DEPT_CD?.toString() ?? '',
-                  'DEPT_NAME': d.DEPT_NAME?.toString() ?? '',
+                  'DEPT_CD': d.deptCd.toString(),
+                  'DEPT_NAME': d.deptName.toString(),
                   'GROUPING': '',
-                  'SYNC_ID': d.SYNC_ID?.toString() ?? '',
+                  'SYNC_ID': d.syncId.toString(),
                   'UPDATED_AT': '',
                   'CREATED_AT': ''
                 }))
@@ -1001,9 +1177,13 @@ class ProductController extends GetxController {
   /// Save party selection to SharedPreferences (persists across app navigation)
   Future<void> savePartySelection() async {
     try {
+      // final prefs = await SharedPreferences.getInstance();
+      // await prefs.setString('selectedPartyName', selectedPartyName.value);
+      // await prefs.setString('selectedPartyId', selectedPartyId.value);
+      final key = _currentSyncId();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('selectedPartyName', selectedPartyName.value);
-      await prefs.setString('selectedPartyId', selectedPartyId.value);
+      await prefs.setString('selectedPartyName_$key', selectedPartyName.value);
+      await prefs.setString('selectedPartyId_$key', selectedPartyId.value);
       print(
           '[Party] Saved selection: ${selectedPartyName.value} (${selectedPartyId.value})');
     } catch (e) {
@@ -1014,10 +1194,19 @@ class ProductController extends GetxController {
   /// Restore party selection from SharedPreferences (survives Get.offAll() navigation)
   Future<void> restorePartySelection() async {
     try {
+      // final prefs = await SharedPreferences.getInstance();
+      // final name = prefs.getString('selectedPartyName') ?? '';
+      // final id = prefs.getString('selectedPartyId') ?? '';
+      //
+      // if (name.isNotEmpty && id.isNotEmpty) {
+      //   selectedPartyName.value = name;
+      //   selectedPartyId.value = id;
+      //   print('[Party] Restored selection: $name ($id)');
+      // }
+      final key = _currentSyncId();
       final prefs = await SharedPreferences.getInstance();
-      final name = prefs.getString('selectedPartyName') ?? '';
-      final id = prefs.getString('selectedPartyId') ?? '';
-
+      final name = prefs.getString('selectedPartyName_$key') ?? '';
+      final id = prefs.getString('selectedPartyId_$key') ?? '';
       if (name.isNotEmpty && id.isNotEmpty) {
         selectedPartyName.value = name;
         selectedPartyId.value = id;
@@ -1031,15 +1220,140 @@ class ProductController extends GetxController {
   /// Clear party selection from SharedPreferences (called on explicit End Order)
   Future<void> clearPartySelection() async {
     try {
+      // final prefs = await SharedPreferences.getInstance();
+      // await prefs.remove('selectedPartyName');
+      // await prefs.remove('selectedPartyId');
+      // selectedPartyName.value = '';
+      // selectedPartyId.value = '';
+      // print('[Party] Cleared selection');
+      final key = _currentSyncId();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('selectedPartyName');
-      await prefs.remove('selectedPartyId');
+      await prefs.remove('selectedPartyName_$key');
+      await prefs.remove('selectedPartyId_$key');
       selectedPartyName.value = '';
       selectedPartyId.value = '';
       print('[Party] Cleared selection');
     } catch (e) {
       print('[Party] Error clearing selection: $e');
     }
+  }
+
+  // In ProductController.dart (or PartyProvider)
+  Future<void> savePunchInOutParty(String partyName, String partyId) async {
+    try {
+      // final prefs = await SharedPreferences.getInstance();
+      // await prefs.setString('punchInOutPartyName', partyName);
+      // await prefs.setString('punchInOutPartyId', partyId);
+      // print('[PUNCH_IN_OUT] Saved active party: $partyName ($partyId)');
+      final key = _currentSyncId();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('punchInOutPartyName_$key', partyName);
+      await prefs.setString('punchInOutPartyId_$key', partyId);
+      print('[PUNCH_IN_OUT] Saved active party: $partyName ($partyId)');
+    } catch (e) {
+      print('[PUNCH_IN_OUT] Save failed: $e');
+    }
+  }
+
+  // Future<void> restorePunchInOutParty() async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final name = prefs.getString('punchInOutPartyName') ?? '';
+  //     final id = prefs.getString('punchInOutPartyId') ?? '';
+  //
+  //     if (name.isNotEmpty && id.isNotEmpty) {
+  //       selectedPartyName.value = name;
+  //       selectedPartyId.value = id;
+  //
+  //       // Sync with providers
+  //       try {
+  //         final context = Get.context;
+  //         if (context != null) {
+  //           final profile =
+  //               Provider.of<ProfileProvider>(context, listen: false);
+  //           final party = Provider.of<PartyProvider>(context, listen: false);
+  //
+  //           profile.ACC_NAME = name;
+  //           profile.ACC_CD = id;
+  //           party.punchInOutParty = name;
+  //           party.punchInOutPartyId = id;
+  //
+  //           print(
+  //               '[PUNCH_IN_OUT] ✅ Restored to Controller + Providers: $name ($id)');
+  //         }
+  //       } catch (e) {
+  //         print('[PUNCH_IN_OUT] Provider sync warning: $e');
+  //       }
+  //
+  //       await savePartySelection(); // Also save in normal party selection
+  //     }
+  //   } catch (e) {
+  //     print('[PUNCH_IN_OUT] Restore error: $e');
+  //   }
+  // }
+
+  Future<void> restorePunchInOutParty({BuildContext? reliableContext}) async {
+    try {
+      // final prefs = await SharedPreferences.getInstance();
+      // final name = prefs.getString('punchInOutPartyName') ?? '';
+      // final id = prefs.getString('punchInOutPartyId') ?? '';
+      final context = reliableContext ?? Get.context;
+      final ub = context != null
+          ? Provider.of<UserProvider>(context, listen: false)
+          : null;
+      final key = ub?.syncId ?? '0';
+
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString('punchInOutPartyName_$key') ?? '';
+      final id = prefs.getString('punchInOutPartyId_$key') ?? '';
+
+      if (name.isNotEmpty && id.isNotEmpty) {
+        selectedPartyName.value = name;
+        selectedPartyId.value = id;
+
+        // FIX: Fallback to Get.context only if an explicit context wasn't passed down.
+        final targetContext = reliableContext ?? Get.context;
+        if (targetContext != null) {
+          final profile =
+              Provider.of<ProfileProvider>(targetContext, listen: false);
+          final party =
+              Provider.of<PartyProvider>(targetContext, listen: false);
+
+          profile.ACC_NAME = name;
+          profile.ACC_CD = id;
+          party.punchInOutParty = name;
+          party.punchInOutPartyId = id;
+          print(
+              '[PUNCH_IN_OUT] ✅ Synchronized State Across All Providers: $name ($id)');
+        }
+        await savePartySelection();
+      }
+    } catch (e) {
+      print('[PUNCH_IN_OUT] Restore error: $e');
+    }
+  }
+
+  Future<void> clearPunchInOutParty() async {
+    // final prefs = await SharedPreferences.getInstance();
+    // await prefs.remove('punchInOutPartyName');
+    // await prefs.remove('punchInOutPartyId');
+    final key = _currentSyncId();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('punchInOutPartyName_$key');
+    await prefs.remove('punchInOutPartyId_$key');
+    // Also clear providers...
+  }
+
+  // Helper to get current syncId — call this inside each method
+  String _currentSyncId() {
+    try {
+      final context = Get.context;
+      if (context != null) {
+        final ub = Provider.of<UserProvider>(context, listen: false);
+        return ub.syncId ?? '0';
+      }
+    } catch (_) {}
+    return '0';
   }
 
   Future<void> fetchOptions() async {

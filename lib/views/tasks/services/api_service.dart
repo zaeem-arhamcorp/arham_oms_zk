@@ -60,7 +60,7 @@ class TaskApiService {
   static Future<DepartmentResponse> getMyDepartments(
       {required String token}) async {
     try {
-      final Uri url = Uri.parse(AppConfig.getMyDepartmentsURL);
+      final Uri url = Uri.parse(AppConfig.getDepartmentGroupingURL);
       final Map<String, String> headers = <String, String>{
         'x-app-type': 'oms',
         'Authorization': 'Bearer $token',

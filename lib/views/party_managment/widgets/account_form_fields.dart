@@ -5,6 +5,9 @@ class AccountFormFields {
   static final personNmController = TextEditingController();
   static final accNameController = TextEditingController();
   static final mobile1Controller = TextEditingController();
+  static final whatsappNoController = TextEditingController();
+  static final emailController = TextEditingController();
+  static final userController = TextEditingController();
   static final add1Controller = TextEditingController();
   static final cityController = TextEditingController();
   static final areaController = TextEditingController();
@@ -25,6 +28,9 @@ class AccountFormFields {
     accNameController.clear();
     personNmController.clear();
     mobile1Controller.clear();
+    whatsappNoController.clear();
+    emailController.clear();
+    userController.clear();
     add1Controller.clear();
     cityController.clear();
     areaController.clear();

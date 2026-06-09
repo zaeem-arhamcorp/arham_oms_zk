@@ -110,13 +110,22 @@ class _SignUpPageState extends State<SignUpPage> {
     // fToast.init(context); // Initialize FToast
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 50.h),
-            child: isVerified.value ? _signUpView(context) : _otpView(context),
+      body: Stack(
+        children: [
+          Image.asset(
+            'assets/login_page_bg.png',
+            fit: BoxFit.fill,
+            height: double.infinity,
+            width: double.infinity,
           ),
-        ),
+          SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 50.h),
+              child:
+                  isVerified.value ? _signUpView(context) : _otpView(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -129,9 +138,10 @@ class _SignUpPageState extends State<SignUpPage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/login_img.png', width: 150.w),
+        Image.asset('assets/arhamOMS_icon.png', width: 250.w),
         SizedBox(height: 20.h),
         Card(
+          color: Colors.white,
           elevation: 5,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -145,7 +155,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: TextStyle(
                           fontSize: 30.sp, fontWeight: FontWeight.w500)),
                 ),
-                SizedBox(height: 20.h),
+                SizedBox(height: 10.h),
                 _buildTextField(
                     _userCd,
                     'User  Code',
@@ -305,42 +315,56 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget _buildSignUpButton(Global global) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: global.loadingSignup
-              ? Center(
-                  child: SizedBox(
-                    height: 20.0,
-                    width: 20.0,
-                    child: CircularProgressIndicator(
-                      color: Color(0XFF2c3f9b),
-                      strokeWidth: 2,
-                    ),
-                  ),
-                )
-              : Text("Sign Up",
-                  style: TextStyle(fontSize: 18.sp, color: Colors.white)),
-        ),
-        onPressed: () async {
-          List<ConnectivityResult> results =
-              await Connectivity().checkConnectivity();
-
-          if (results.contains(ConnectivityResult.none)) {
-            AppSnackBar.showGetXCustomSnackBar(
-              message: 'Please check your internet connection.',
-            );
-          } else {
-            await _handleSignup(global);
-          }
-        },
-        style: ButtonStyle(
-          shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10.0),
-            ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF3463CD),
+              Color(0xFF1C4FBA),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          backgroundColor: WidgetStateProperty.all(Color(0XFF2c9ed9)),
+        ),
+        child: ElevatedButton(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: global.loadingSignup
+                ? Center(
+                    child: SizedBox(
+                      height: 20.0,
+                      width: 20.0,
+                      child: CircularProgressIndicator(
+                        color: Color(0XFF2c3f9b),
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  )
+                : Text("Sign Up",
+                    style: TextStyle(fontSize: 18.sp, color: Colors.white)),
+          ),
+          onPressed: () async {
+            List<ConnectivityResult> results =
+                await Connectivity().checkConnectivity();
+
+            if (results.contains(ConnectivityResult.none)) {
+              AppSnackBar.showGetXCustomSnackBar(
+                message: 'Please check your internet connection.',
+              );
+            } else {
+              await _handleSignup(global);
+            }
+          },
+          style: ButtonStyle(
+            shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+            ),
+            backgroundColor: WidgetStateProperty.all(Colors.transparent),
+            shadowColor: WidgetStateProperty.all(Colors.transparent),
+          ),
         ),
       ),
     );
@@ -360,18 +384,21 @@ class _SignUpPageState extends State<SignUpPage> {
             Expanded(child: Divider(color: Colors.black, thickness: 0.8)),
           ]),
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 15.0),
-          child: Text("Already Have an account?",
-              style: TextStyle(color: Colors.black)),
-        ),
-        TextButton(
-          onPressed: () {
-            // Get.to(() => LoginPage());
-            Get.back();
-          },
-          child: Text("Login", style: TextStyle(color: Color(0XFF2c9ed9))),
-        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text("Already Have an account?",
+                style: TextStyle(color: Colors.black)),
+            TextButton(
+              onPressed: () {
+                // Get.to(() => LoginPage());
+                Get.back();
+              },
+              child: Text("Login", style: TextStyle(color: Color(0xFF1C4FBA))),
+            ),
+          ],
+        )
       ],
     );
   }

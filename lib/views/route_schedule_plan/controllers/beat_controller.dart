@@ -1,10 +1,10 @@
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/material.dart';
 
+import '../../../providers/user_provider.dart';
 import '../models/beat_model.dart';
 import '../services/beat_service.dart';
-import '../../../providers/user_provider.dart';
 
 class BeatController extends GetxController {
   final _beats = <Beat>[].obs;
@@ -31,8 +31,18 @@ class BeatController extends GetxController {
   }
 
   Future<void> fetchBeatsIfNeeded() async {
-    if (_beats.isNotEmpty) return;
-    await fetchBeats();
+    final profileProvider = Get.put(ProfileProvider());
+    final hasBeatAccess = profileProvider.data != null &&
+        profileProvider.data!.modulesList!.any(
+            (module) => module.mODULENO == "233" && module.rEADRIGHT == true);
+
+    if (hasBeatAccess) {
+      if (_beats.isNotEmpty) return;
+      await fetchBeats();
+    } else {
+      print('Beat fetching skipped: module permission checks not met');
+      return null;
+    }
   }
 
   Future<void> fetchBeats() async {

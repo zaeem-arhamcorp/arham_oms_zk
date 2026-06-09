@@ -1,6 +1,6 @@
+import 'package:arham_corporation/generated/assets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:arham_corporation/generated/assets.dart';
 import 'package:get/get.dart';
 
 import '../widgets/bottomnavebar.dart';
@@ -24,7 +24,7 @@ class _OrderConformationPageState extends State<OrderConformationPage> {
       _orderId = args['orderId'];
     }
 
-    Future.delayed(Duration(seconds: 3)).then((value) {
+    Future.delayed(Duration(seconds: 1)).then((value) {
       Get.offAll(() => BottomnavigationBarScreen());
     });
     super.initState();

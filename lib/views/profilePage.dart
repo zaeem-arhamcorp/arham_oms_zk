@@ -18,7 +18,6 @@ import 'package:arham_corporation/views/monthly_target/services/api_services.dar
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -340,20 +339,35 @@ class _ProfilePageState extends State<ProfilePage> {
                   }
                 },
               ),
+              // ListTile(
+              //   leading: const Icon(Icons.folder_open),
+              //   title: const Text('Select from Files'),
+              //   onTap: () async {
+              //     Navigator.pop(context);
+              //     final result = await FilePicker.platform.pickFiles(
+              //       type: FileType.image,
+              //       allowMultiple: false,
+              //     );
+              //     if (result != null && result.files.isNotEmpty) {
+              //       final path = result.files.first.path;
+              //       if (path != null && path.isNotEmpty) {
+              //         await _handleUserImage(path);
+              //       }
+              //     }
+              //   },
+              // ),
               ListTile(
-                leading: const Icon(Icons.folder_open),
-                title: const Text('Select from Files'),
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Select from Gallery'),
                 onTap: () async {
                   Navigator.pop(context);
-                  final result = await FilePicker.platform.pickFiles(
-                    type: FileType.image,
-                    allowMultiple: false,
+
+                  final image = await _userImagePicker.pickImage(
+                    source: ImageSource.gallery,
                   );
-                  if (result != null && result.files.isNotEmpty) {
-                    final path = result.files.first.path;
-                    if (path != null && path.isNotEmpty) {
-                      await _handleUserImage(path);
-                    }
+
+                  if (image != null) {
+                    await _handleUserImage(image.path);
                   }
                 },
               ),
@@ -736,7 +750,12 @@ class _ProfilePageState extends State<ProfilePage> {
         ? (_existingImageUrl ?? '').trim()
         : (p.data?.userImageUrl ?? '').toString().trim();
 
-    const buildTime = String.fromEnvironment('BUILD_TIME');
+    // const buildTime = String.fromEnvironment('BUILD_TIME');
+
+    const buildTime = String.fromEnvironment(
+      'BUILD_TIME',
+      defaultValue: '',
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -806,10 +825,19 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          Text(
-            "Build date: $buildTime",
-            style: TextStyle(color: Colors.white),
-          ),
+          if (buildTime.trim().isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Text(
+                  "Build: $buildTime",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       drawer: CommonAppDrawer(

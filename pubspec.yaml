@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.27+31
+version: 1.0.27+32
 
 environment:
   sdk: '>=3.0.0 <4.0.0' # ✅ Upgraded SDK constraint for modern packages
@@ -74,8 +74,7 @@ dependencies:
   flutter_typeahead: ^5.2.0
   win32: ^5.5.1
   number_paginator: ^1.1.1
-  whatsapp_share:
-    path: packages/whatsapp_share
+  whatsapp_share: ^2.0.2
   pinput: ^6.0.1
   image_picker: ^1.1.2
   file_picker: ^10.3.2
@@ -92,6 +91,7 @@ dependencies:
   flutter_activity_recognition: ^4.0.0
   timeline_tile: ^2.0.0
   confetti: ^0.7.0
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:
@@ -116,7 +116,7 @@ flutter:
   assets:
     - assets/
     - assets/icons/
-  
+
 flutter_launcher_icons:
   android: true
   ios: true

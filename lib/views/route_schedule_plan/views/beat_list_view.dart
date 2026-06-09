@@ -36,7 +36,7 @@ class _BeatListViewState extends State<BeatListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final routeLabel =
-            RouteLabelHelper.singular(context.read<ProfileProvider>());
+            RouteLabelHelper.singularPlanner(context.read<ProfileProvider>());
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
@@ -102,7 +102,7 @@ class _BeatListViewState extends State<BeatListView> {
   @override
   Widget build(BuildContext context) {
     final routeLabel =
-        RouteLabelHelper.singular(context.read<ProfileProvider>());
+        RouteLabelHelper.singularPlanner(context.read<ProfileProvider>());
     final weeks = _buildMonthMatrix(currentMonth);
 
     return Scaffold(
@@ -422,7 +422,7 @@ class _BeatListViewState extends State<BeatListView> {
 
   Future<void> _showBeatInfoDialog(DateTime date, List beats) async {
     final routeLabelPlural =
-        RouteLabelHelper.plural(context.read<ProfileProvider>());
+        RouteLabelHelper.pluralPlanner(context.read<ProfileProvider>());
 
     await showDialog(
       context: context,
@@ -445,10 +445,12 @@ class _BeatListViewState extends State<BeatListView> {
           ),
           actions: [
             TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               onPressed: () => Navigator.of(context).pop(),
               child: Text('Close'),
             )
           ],
+          backgroundColor: Colors.white,
         );
       },
     );
@@ -456,7 +458,7 @@ class _BeatListViewState extends State<BeatListView> {
 
   Future<void> _showNoBeatDialog(DateTime date) async {
     final routeLabel =
-        RouteLabelHelper.singular(context.read<ProfileProvider>());
+        RouteLabelHelper.singularPlanner(context.read<ProfileProvider>());
 
     await showDialog(
       context: context,
@@ -467,6 +469,7 @@ class _BeatListViewState extends State<BeatListView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(foregroundColor: Color(0xFF1C4FBA)),
               child: Text('OK'),
             )
           ],
@@ -482,7 +485,7 @@ class _BeatListViewState extends State<BeatListView> {
       builder: (_) => AlertDialog(
         title: Text('Confirm Save'),
         content: Text(
-            'Are you sure you want to save the selected ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}? You cannot change them later. Save Changes?'),
+            'Are you sure you want to save the selected ${RouteLabelHelper.pluralPlanner(context.read<ProfileProvider>()).toLowerCase()}? You cannot change them later. Save Changes?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -527,13 +530,13 @@ class _BeatListViewState extends State<BeatListView> {
         });
         AppSnackBar.showGetXCustomSnackBar(
           message:
-              '${RouteLabelHelper.plural(context.read<ProfileProvider>())} saved successfully',
+              '${RouteLabelHelper.pluralPlanner(context.read<ProfileProvider>())} saved successfully',
           backgroundColor: Colors.green,
         );
       } else {
         AppSnackBar.showGetXCustomSnackBar(
           message:
-              'Failed to save ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}',
+              'Failed to save ${RouteLabelHelper.pluralPlanner(context.read<ProfileProvider>()).toLowerCase()}',
           backgroundColor: Colors.red,
         );
       }
@@ -546,7 +549,7 @@ class _BeatListViewState extends State<BeatListView> {
       if (mounted) {
         AppSnackBar.showGetXCustomSnackBar(
           message:
-              'Error saving ${RouteLabelHelper.plural(context.read<ProfileProvider>()).toLowerCase()}: $e',
+              'Error saving ${RouteLabelHelper.pluralPlanner(context.read<ProfileProvider>()).toLowerCase()}: $e',
           backgroundColor: Colors.red,
         );
       }

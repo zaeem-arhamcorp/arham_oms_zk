@@ -5,12 +5,14 @@ class CommonTextButton extends StatelessWidget {
   final String title;
   final VoidCallback onPressed;
   final bool underline;
+  final Color? color;
 
   const CommonTextButton({
     super.key,
     required this.title,
     required this.onPressed,
     this.underline = false, // 👈 default no underline
+    this.color,
   });
 
   @override
@@ -30,6 +32,7 @@ class CommonTextButton extends StatelessWidget {
         //color: underline ? null : Theme.of(context).colorScheme.primary,
         //color: underline ? Colors.red : null,
         decoration: underline ? TextDecoration.underline : TextDecoration.none,
+        color: color,
       ),
     );
   }

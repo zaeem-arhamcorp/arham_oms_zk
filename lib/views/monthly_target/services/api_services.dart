@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:get/get.dart';
 
 import '../../../../config/app_config.dart';
@@ -113,33 +114,41 @@ class MonthlyTargetApiService extends GetxService {
     required String stockistCd,
     required String? token,
   }) async {
-    try {
-      final userCd = _extractUserCdFromToken(token);
-      if (userCd.isEmpty) {
-        appLog('pob-sync skipped: userCd missing from token',
-            tag: 'MonthlyTarget');
+    final profileProvider = Get.find<ProfileProvider>();
+    if (profileProvider.data != null &&
+        profileProvider.data!.modulesList!.any(
+            (module) => module.mODULENO == "236" && module.rEADRIGHT == true)) {
+      try {
+        final userCd = _extractUserCdFromToken(token);
+        if (userCd.isEmpty) {
+          appLog('pob-sync skipped: userCd missing from token',
+              tag: 'MonthlyTarget');
+          return false;
+        }
+
+        final response = await _apiService.post(
+          'monthly-sales-target/pob-sync',
+          headers: {
+            if (token != null) 'Authorization': 'Bearer $token',
+            'x-app-type': 'oms',
+          },
+          body: {
+            'targetMonth': _currentTargetMonth(),
+            'stockistCd': stockistCd,
+            'userCd': userCd,
+          },
+        );
+
+        appLog('pob-sync response: $response', tag: 'MonthlyTarget');
+        final statusCode = response['statusCode'] as int;
+        return statusCode == 200 || statusCode == 201;
+      } catch (e, stackTrace) {
+        appLog('pob-sync API error: $e',
+            tag: 'MonthlyTarget', error: e, stackTrace: stackTrace);
         return false;
       }
-
-      final response = await _apiService.post(
-        'monthly-sales-target/pob-sync',
-        headers: {
-          if (token != null) 'Authorization': 'Bearer $token',
-          'x-app-type': 'oms',
-        },
-        body: {
-          'targetMonth': _currentTargetMonth(),
-          'stockistCd': stockistCd,
-          'userCd': userCd,
-        },
-      );
-
-      appLog('pob-sync response: $response', tag: 'MonthlyTarget');
-      final statusCode = response['statusCode'] as int;
-      return statusCode == 200 || statusCode == 201;
-    } catch (e, stackTrace) {
-      appLog('pob-sync API error: $e',
-          tag: 'MonthlyTarget', error: e, stackTrace: stackTrace);
+    } else {
+      appLog('pob-sync skipped: moduleNo 236 not found', tag: 'MonthlyTarget');
       return false;
     }
   }

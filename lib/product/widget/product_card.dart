@@ -63,6 +63,8 @@ class _ProductCardState extends State<ProductCard> {
 
     final clStkValue = double.tryParse(widget.product.cStk ?? '0.0');
     final orStkValue = double.tryParse(widget.product.orStk ?? '0.0');
+    final avlStkValue = double.tryParse(widget.product.avlStk ?? '0.0');
+    final minStkValue = double.tryParse(widget.product.minStk ?? '0.0');
     final finalStkValue = clStkValue! - orStkValue!;
 
     Color? clStkColor;
@@ -71,6 +73,16 @@ class _ProductCardState extends State<ProductCard> {
       clStkColor = Color(0xFFE8FDE1);
     } else if (finalStkValue <= 0) {
       clStkColor = Color(0xFFFBE0E0);
+    }
+
+    Color? avlStkColor;
+
+    if (avlStkValue! <= 0) {
+      avlStkColor = Colors.red;
+    } else if (minStkValue! > avlStkValue) {
+      avlStkColor = Colors.orangeAccent;
+    } else {
+      avlStkColor = Colors.green;
     }
 
     return GestureDetector(
@@ -96,6 +108,23 @@ class _ProductCardState extends State<ProductCard> {
             //       : [Color(0xFFFFD6D6), Color(0xFFFFA1A1)],
             // ),
             borderRadius: BorderRadius.circular(6),
+            border: Border(
+              left: (Provider.of<ProfileProvider>(context)
+                          .data
+                          ?.profileSettings
+                          .any((e) =>
+                              e.variable == 'omsWithoutErpSync' &&
+                              e.value == 'Y') ??
+                      false)
+                  ? BorderSide(
+                      color: Colors.transparent,
+                      width: 0.5,
+                    )
+                  : BorderSide(
+                      color: avlStkColor,
+                      width: 5,
+                    ),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,8 +137,12 @@ class _ProductCardState extends State<ProductCard> {
                       .any((e) =>
                           e.variable == 'omsWithoutErpSync' &&
                           e.value == 'Y') ??
-                  false))
+                  false)) ...[
                 _buildDepartmentAndCodes(),
+                SizedBox(
+                  height: 2,
+                ),
+              ],
               _buildInputFieldsAndDropdowns(
                 size,
                 profile,
@@ -165,15 +198,22 @@ class _ProductCardState extends State<ProductCard> {
     Color? avlStkColor;
 
     if (avlStkValue != null) {
-      avlStkColor =
-          avlStkValue > 0 ? Colors.green.shade800 : Colors.red.shade800;
+      if (avlStkValue <= 0) {
+        avlStkColor = Colors.red.shade800;
+      } else if (avlStkValue < double.parse(widget.product.minStk ?? '')) {
+        avlStkColor = Colors.orange.shade800;
+      } else {
+        avlStkColor = Colors.green.shade800;
+      }
+      // avlStkColor =
+      //     avlStkValue > 0 ? Colors.green.shade800 : Colors.red.shade800;
     }
 
     return Column(
       children: [
         if ((Provider.of<ProfileProvider>(context).data?.profileSettings.any(
                 (e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
-            false))
+            false)) ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -181,58 +221,116 @@ class _ProductCardState extends State<ProductCard> {
               _infoRow('Box Pack : ', widget.product.itemBoxPacking!),
             ],
           ),
+          SizedBox(
+            height: 3,
+          ),
+        ],
+
         _buildRow(
-            ['MRP :', widget.product.srate3],
-            ['Rate :', widget.product.srate1],
+            ['MRP:', widget.product.srate3],
+            ['Rate:', widget.product.srate1],
             widget.product.nrate != '0'
-                ? ['N.Rate :', widget.product.nrate]
-                : null),
+                ? ['N.Rate:', widget.product.nrate]
+                : []),
+        SizedBox(
+          height: 1,
+        ),
         if (!(Provider.of<ProfileProvider>(context).data?.profileSettings.any(
                 (e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
-            false))
+            false)) ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _infoRow('Cl. Stk :', widget.product.cStk),
-              _infoRow('P.Order:', widget.product.orStk),
-              Flexible(
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 5),
-                  decoration: BoxDecoration(
-                    color: avlStkColor?.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: _infoRow(
-                    'Avl Stk :',
-                    widget.product.avlStk,
-                    labelColor: avlStkColor,
-                    valueColor: avlStkColor,
+              Expanded(
+                child: _infoRow('Cl. Stk:', widget.product.cStk),
+              ),
+              Expanded(
+                child: Align(
+                    alignment: Alignment.center,
+                    child: _infoRow('P.Order:', widget.product.orStk)),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 5),
+                        decoration: BoxDecoration(
+                          color: avlStkColor?.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: _infoRow(
+                          avlStkValue == null
+                              ? 'Avl Stk:'
+                              : avlStkValue <= 0
+                                  ? 'Out'
+                                  : avlStkValue <
+                                          (double.tryParse(
+                                                  widget.product.minStk ??
+                                                      '0') ??
+                                              0)
+                                      ? 'Low Stk:'
+                                      : 'Avl Stk:',
+                          avlStkValue == null
+                              ? widget.product.avlStk
+                              : avlStkValue <= 0
+                                  ? 'of Stock'
+                                  : widget.product.avlStk,
+                          labelColor: avlStkColor,
+                          valueColor: avlStkColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
+          SizedBox(
+            height: 1,
+          ),
+        ],
         _buildRow(
-          widget.product.sdisc != "0" ? ['Disc :', widget.product.sdisc] : [],
-          widget.product.sdisc1 != "0"
-              ? ['Cd% :', widget.product.sdisc1]
-              : null,
+          widget.product.sdisc != "0" ? ['Disc:', widget.product.sdisc] : [],
+          widget.product.sdisc1 != "0" ? ['Cd%:', widget.product.sdisc1] : null,
           widget.product.frmlSrt1 != null
-              ? ['Margin :', widget.product.frmlSrt1]
+              ? ['Margin:', widget.product.frmlSrt1]
               : null,
         ),
-        _buildRow(
-          [
-            'Exp Dt :',
-            widget.product.exDt != null
-                ? Helper.convertToFormat(widget.product.exDt!, 'dd-MM-yyyy')
-                : '',
-          ],
-          [
-            'Scheme :',
-            widget.product.itemDesc != null ? widget.product.itemDesc : null,
+        SizedBox(
+          height: 1,
+        ),
+        Row(
+          children: [
+            _infoRow(
+              'Exp Dt:',
+              widget.product.exDt != null
+                  ? Helper.convertToFormat(widget.product.exDt!, 'dd-MM-yyyy')
+                  : '',
+            ),
+            if (widget.product.exDt != null) ...[
+              Spacer(),
+            ],
+            _infoRow(
+              'Scheme:',
+              widget.product.itemDesc != null ? widget.product.itemDesc : null,
+            ),
           ],
         ),
+        // _buildRow(
+        //   [
+        //     'Exp Dt:',
+        //     widget.product.exDt != null
+        //         ? Helper.convertToFormat(widget.product.exDt!, 'dd-MM-yyyy')
+        //         : '',
+        //   ],
+        //   [
+        //     'Scheme:',
+        //     widget.product.itemDesc != null ? widget.product.itemDesc : null,
+        //   ],
+        // ),
       ],
     );
   }
@@ -264,34 +362,104 @@ class _ProductCardState extends State<ProductCard> {
     Color? labelColor,
     Color? valueColor,
   ]) {
-    List<Widget> rowItems = [];
+    Widget buildCell(List<String?>? data) {
+      if (data == null ||
+          data.isEmpty ||
+          data[0] == null ||
+          data[1] == null ||
+          data[1]!.trim().isEmpty) {
+        return const Expanded(child: SizedBox());
+      }
 
-    if (data1.isNotEmpty && data1[0] != null && data1[1] != null) {
-      rowItems.add(_infoRow(data1[0]!, data1[1]!,
-          labelColor: labelColor, valueColor: valueColor));
+      return Expanded(
+        child: Align(
+          alignment: data == data1
+              ? Alignment.centerLeft
+              : data == data2
+                  ? Alignment.center
+                  : Alignment.centerRight,
+          child: _infoRow(
+            data[0]!,
+            data[1]!,
+            labelColor: labelColor,
+            valueColor: valueColor,
+          ),
+        ),
+      );
+      // return Expanded(
+      //   child: Align(
+      //     // alignment: Alignment.centerLeft,
+      //     child: _infoRow(
+      //       data[0]!,
+      //       data[1]!,
+      //       labelColor: labelColor,
+      //       valueColor: valueColor,
+      //     ),
+      //   ),
+      // );
     }
 
-    if (data2 != null &&
-        data2.isNotEmpty &&
-        data2[0] != null &&
-        data2[1] != null) {
-      rowItems.add(_infoRow(data2[0]!, data2[1]!,
-          labelColor: labelColor, valueColor: valueColor));
-    }
+    final hasAnyData = (data1.isNotEmpty &&
+            data1.length > 1 &&
+            (data1[1]?.trim().isNotEmpty ?? false)) ||
+        (data2 != null &&
+            data2.isNotEmpty &&
+            data2.length > 1 &&
+            (data2[1]?.trim().isNotEmpty ?? false)) ||
+        (data3 != null &&
+            data3.isNotEmpty &&
+            data3.length > 1 &&
+            (data3[1]?.trim().isNotEmpty ?? false));
 
-    if (data3 != null &&
-        data3.isNotEmpty &&
-        data3[0] != null &&
-        data3[1] != null) {
-      rowItems.add(_infoRow(data3[0]!, data3[1]!,
-          labelColor: labelColor, valueColor: valueColor));
+    if (!hasAnyData) {
+      return const SizedBox.shrink();
     }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: rowItems,
+      children: [
+        buildCell(data1),
+        buildCell(data2),
+        buildCell(data3),
+      ],
     );
   }
+
+  // Widget _buildRow(
+  //   List<String?> data1, [
+  //   List<String?>? data2,
+  //   List<String?>? data3,
+  //   Color? labelColor,
+  //   Color? valueColor,
+  // ]) {
+  //   List<Widget> rowItems = [];
+  //
+  //   if (data1.isNotEmpty && data1[0] != null && data1[1] != null) {
+  //     rowItems.add(_infoRow(data1[0]!, data1[1]!,
+  //         labelColor: labelColor, valueColor: valueColor));
+  //   }
+  //
+  //   if (data2 != null &&
+  //       data2.isNotEmpty &&
+  //       data2[0] != null &&
+  //       data2[1] != null) {
+  //     rowItems.add(_infoRow(data2[0]!, data2[1]!,
+  //         labelColor: labelColor, valueColor: valueColor));
+  //   }
+  //
+  //   if (data3 != null &&
+  //       data3.isNotEmpty &&
+  //       data3[0] != null &&
+  //       data3[1] != null) {
+  //     rowItems.add(_infoRow(data3[0]!, data3[1]!,
+  //         labelColor: labelColor, valueColor: valueColor));
+  //   }
+  //
+  //   return Row(
+  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //     children: rowItems,
+  //   );
+  // }
 
   Widget _buildDepartmentAndCodes() {
     print("Department Name :${widget.product.deptment.deptName}");
@@ -662,7 +830,9 @@ class _ProductCardState extends State<ProductCard> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
+                      flex: 2,
                       child: Container(
+                        height: 35,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           color: Colors.grey[300],
@@ -693,61 +863,70 @@ class _ProductCardState extends State<ProductCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Flexible(
+                    Expanded(
                       flex: 2,
                       child: Container(
+                        height: 35,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           color: Colors.grey[300],
                         ),
-                        child: TextFormField(
-                          decoration: InputDecoration(
-                            // labelText: 'Free',
-                            hintText: 'Free',
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                              vertical: 5.h,
-                              horizontal: 8.w,
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            suffixIcon: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                isDense: true,
-                                icon: Icon(
-                                  Icons.arrow_drop_down,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                decoration: InputDecoration(
+                                  // labelText: 'Free',
+                                  hintText: 'Free',
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: 5.h,
+                                    horizontal: 8.w,
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  suffixIconConstraints: const BoxConstraints(
+                                    minWidth: 24,
+                                    minHeight: 24,
+                                  ),
+                                  suffixIcon: PopupMenuButton<String>(
+                                    padding: EdgeInsets.zero,
+                                    iconSize: 18,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 24,
+                                      minHeight: 24,
+                                    ),
+                                    icon: const Icon(Icons.arrow_drop_down),
+                                    onSelected: (value) {
+                                      freeQtyController.text = value;
+                                      selectedFreeDescription = value;
+                                      cartController.setFreeQuantity(
+                                        widget.product.itemCd,
+                                        value,
+                                      );
+                                    },
+                                    itemBuilder: (context) =>
+                                        otherDescEntries.map((entry) {
+                                      return PopupMenuItem<String>(
+                                        value: entry.value,
+                                        child: Text(entry.label),
+                                      );
+                                    }).toList(),
+                                  ),
                                 ),
-                                onChanged: (String? newValue) {
-                                  if (newValue != null) {
-                                    freeQtyController.text = newValue;
-                                    selectedFreeDescription = newValue;
-                                    cartController.setFreeQuantity(
-                                        widget.product.itemCd, newValue);
-                                  }
+                                controller: freeQtyController,
+                                inputFormatters: [
+                                  SingleDecimalFormatter(),
+                                ],
+                                onChanged: (value) {
+                                  selectedFreeDescription = value;
+                                  cartController.setFreeQuantity(
+                                      widget.product.itemCd, value);
                                 },
-                                items: otherDescEntries.map((entry) {
-                                  return DropdownMenuItem<String>(
-                                    value: entry.value,
-                                    child: Text(entry.label),
-                                  );
-                                }).toList(),
                               ),
                             ),
-                            suffixIconConstraints: BoxConstraints(
-                              minHeight: 24,
-                              minWidth: 24,
-                            ),
-                          ),
-                          controller: freeQtyController,
-                          inputFormatters: [
-                            SingleDecimalFormatter(),
                           ],
-                          onChanged: (value) {
-                            selectedFreeDescription = value;
-                            cartController.setFreeQuantity(
-                                widget.product.itemCd, value);
-                          },
                         ),
                       ),
                     ),
@@ -761,7 +940,7 @@ class _ProductCardState extends State<ProductCard> {
                           keyboardType: TextInputType.number,
                         ),
                       ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 1),
                     GestureDetector(
                       // onTap: () async {
                       //   if (controller.selectedPartyId.value.isEmpty) {
@@ -1044,7 +1223,7 @@ class _ProductCardState extends State<ProductCard> {
                                       width: 5,
                                     ),
                                     Text(
-                                      isAdded ? 'Product Added' : 'Add To Cart',
+                                      isAdded ? 'Product Added' : 'Add',
                                       style: TextStyle(
                                         fontSize: 12.sp,
                                         color: Colors.white,

@@ -20,11 +20,11 @@ import 'package:arham_corporation/widgets/common_button.dart';
 import 'package:arham_corporation/widgets/common_input_dialog.dart';
 import 'package:arham_corporation/widgets/common_text.dart';
 import 'package:arham_corporation/widgets/common_text_button.dart';
+import 'package:arham_corporation/widgets/location_disclaimer_dialog.dart';
 import 'package:arham_corporation/widgets/location_permission_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
@@ -138,6 +138,41 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Future<void> _showInitialLocationDisclosure() async {
+  //   if (_hasShownInitialLocationDisclosure ||
+  //       _isShowingInitialLocationDisclosure ||
+  //       !mounted) {
+  //     return;
+  //   }
+  //
+  //   _isShowingInitialLocationDisclosure = true;
+  //
+  //   try {
+  //     final hasPermission =
+  //         await LocationPermissionService.hasBackgroundLocationPermission();
+  //
+  //     if (!mounted) {
+  //       return;
+  //     }
+  //
+  //     if (!hasPermission) {
+  //       await showDialog(
+  //         context: context,
+  //         barrierDismissible: false,
+  //         builder: (context) => const LocationPermissionDialog(),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     print('[LoginPage] Error showing initial location disclosure: $e');
+  //   } finally {
+  //     _isShowingInitialLocationDisclosure = false;
+  //     if (mounted) {
+  //       setState(() {
+  //         _hasShownInitialLocationDisclosure = true;
+  //       });
+  //     }
+  //   }
+  // }
   Future<void> _showInitialLocationDisclosure() async {
     if (_hasShownInitialLocationDisclosure ||
         _isShowingInitialLocationDisclosure ||
@@ -148,24 +183,32 @@ class _LoginPageState extends State<LoginPage> {
     _isShowingInitialLocationDisclosure = true;
 
     try {
-      final hasPermission =
-          await LocationPermissionService.hasBackgroundLocationPermission();
+      final prefs = await SharedPreferences.getInstance();
 
-      if (!mounted) {
-        return;
-      }
+      final disclaimerShown =
+          prefs.getBool('location_disclaimer_shown') ?? false;
 
-      if (!hasPermission) {
+      if (!mounted) return;
+
+      if (!disclaimerShown) {
         await showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const LocationPermissionDialog(),
+          builder: (_) => const LocationDisclaimerDialog(),
+        );
+
+        await prefs.setBool(
+          'location_disclaimer_shown',
+          true,
         );
       }
     } catch (e) {
-      print('[LoginPage] Error showing initial location disclosure: $e');
+      print(
+        '[LoginPage] Error showing location disclaimer: $e',
+      );
     } finally {
       _isShowingInitialLocationDisclosure = false;
+
       if (mounted) {
         setState(() {
           _hasShownInitialLocationDisclosure = true;
@@ -212,24 +255,32 @@ class _LoginPageState extends State<LoginPage> {
     final UserProvider up = context.watch<UserProvider>();
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-              //child: isVerified.value ? _loginView(context) : _otpView(context),
-              child: Obx(() {
-                final verified = isVerified.value;
-                final resetEnabled = isResetPasswordEnable.value;
+      body: Stack(
+        children: [
+          Image.asset(
+            "assets/login_page_bg.png",
+            fit: BoxFit.fill,
+            height: double.infinity,
+            width: double.infinity,
+          ),
+          SingleChildScrollView(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                //child: isVerified.value ? _loginView(context) : _otpView(context),
+                child: Obx(() {
+                  final verified = isVerified.value;
+                  final resetEnabled = isResetPasswordEnable.value;
 
-                if (verified && resetEnabled)
-                  return _resetPasswordView(context);
-                if (verified) return _loginView(context);
-                return _otpView(context);
-              }),
+                  if (verified && resetEnabled)
+                    return _resetPasswordView(context);
+                  if (verified) return _loginView(context);
+                  return _otpView(context);
+                }),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -247,7 +298,7 @@ class _LoginPageState extends State<LoginPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: screenHeight * 0.06,
+          height: screenHeight * 0.08,
         ),
         Image.asset(
           'assets/arhamOMS_icon.png',
@@ -257,6 +308,7 @@ class _LoginPageState extends State<LoginPage> {
           height: screenHeight * 0.05,
         ),
         Card(
+          color: Colors.white,
           elevation: 8,
           shadowColor: Colors.blue,
           shape: RoundedRectangleBorder(
@@ -290,8 +342,8 @@ class _LoginPageState extends State<LoginPage> {
                         cursorColor: Colors.black,
                         decoration: InputDecoration(
                           labelText: 'User Code',
-                          prefixIcon:
-                              Icon(Icons.email_outlined, color: Colors.black),
+                          prefixIcon: Icon(Icons.email_outlined,
+                              color: Color(0xFF1C4FBA)),
                           labelStyle: TextStyle(color: Colors.black),
                           border: OutlineInputBorder(),
                           focusedBorder: OutlineInputBorder(
@@ -318,8 +370,8 @@ class _LoginPageState extends State<LoginPage> {
                         cursorColor: Colors.black,
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon:
-                              Icon(Icons.lock_outline, color: Colors.black),
+                          prefixIcon: Icon(Icons.lock_outline,
+                              color: Color(0xFF1C4FBA)),
                           suffixIcon: GestureDetector(
                             onTap: !isLoginProcessing
                                 ? () {
@@ -377,53 +429,54 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 if (tempToken.isEmpty)
                   Row(
-                    //mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Obx(
-                          () => CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            visualDensity: VisualDensity.compact,
-                            // checkColor: AppColors.colorWhite,
-                            // activeColor: AppColors.teal,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            // Moves checkbox to right side
-                            title: InkWell(
-                              child: RichText(
-                                text: TextSpan(
-                                  //text: 'Login With Mobile Number',
-                                  text: 'Login through OTP',
-                                  style: GoogleFonts.notoSans(
-                                    fontSize: AppDimensions.fontSizeRegular,
-                                    fontWeight: AppFontWeight.medium,
-                                    color:
-                                        Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            value: isLoginWithOTP.value,
-                            onChanged: (value) {
-                              setState(() {
-                                _emailClt.clear();
-                                _passwordClt.clear();
-                                mobileNoWithOTPController.value.clear();
-                                forgotPasswordController.value.clear();
-                                isLoginProcessing = false;
-                                isLoginWithOTP.value = value!;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
+                      // Expanded(
+                      //   child: Obx(
+                      //     () => CheckboxListTile(
+                      //       contentPadding: EdgeInsets.zero,
+                      //       dense: true,
+                      //       visualDensity: VisualDensity.compact,
+                      //       // checkColor: AppColors.colorWhite,
+                      //       // activeColor: AppColors.teal,
+                      //       controlAffinity: ListTileControlAffinity.leading,
+                      //       // Moves checkbox to right side
+                      //       title: InkWell(
+                      //         child: RichText(
+                      //           text: TextSpan(
+                      //             //text: 'Login With Mobile Number',
+                      //             text: 'Login through OTP',
+                      //             style: GoogleFonts.notoSans(
+                      //               fontSize: AppDimensions.fontSizeRegular,
+                      //               fontWeight: AppFontWeight.medium,
+                      //               color:
+                      //                   Theme.of(context).colorScheme.onSurface,
+                      //             ),
+                      //           ),
+                      //         ),
+                      //       ),
+                      //       value: isLoginWithOTP.value,
+                      //       onChanged: (value) {
+                      //         setState(() {
+                      //           _emailClt.clear();
+                      //           _passwordClt.clear();
+                      //           mobileNoWithOTPController.value.clear();
+                      //           forgotPasswordController.value.clear();
+                      //           isLoginProcessing = false;
+                      //           isLoginWithOTP.value = value!;
+                      //         });
+                      //       },
+                      //     ),
+                      //   ),
+                      // ),
                       if (isLoginWithOTP.value == false && tempToken.isEmpty)
                         Align(
                           alignment: Alignment.centerRight,
                           child: CommonTextButton(
                             title: 'Forgot Password?',
                             underline: false,
+                            color: Color(0xFF1C4FBA),
                             onPressed: () {
                               showDialog(
                                 context: context,
@@ -450,47 +503,214 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                     ],
                   ).paddingOnly(top: 8, bottom: 8),
+                // Visibility(
+                //   visible: !tempToken.isNotEmpty,
+                //   child: SizedBox(
+                //     width: 230.0,
+                //     child: ElevatedButton(
+                //       child: Padding(
+                //         padding: const EdgeInsets.all(8.0),
+                //         child: global.loadingLogin
+                //             ? Center(
+                //                 child: SizedBox(
+                //                   height: 20.0,
+                //                   width: 20.0,
+                //                   child: CircularProgressIndicator(
+                //                     color: Color(0XFF2c3f9b),
+                //                     strokeWidth: 2,
+                //                   ),
+                //                 ),
+                //               )
+                //             : Text("Login",
+                //                 style: TextStyle(
+                //                     fontSize: 18.0, color: Colors.white)),
+                //       ),
+                //       onPressed: () {
+                //         if (isLoginWithOTP.value) {
+                //           print('call this 1');
+                //           tempLoginValidationWithMobile();
+                //         } else {
+                //           print('call this 2');
+                //           tempLoginValidationWithUserCd(global, lc);
+                //         }
+                //
+                //         //tempLoginValidationWithUserCd(global, lc);
+                //       },
+                //       style: ButtonStyle(
+                //           shape:
+                //               WidgetStateProperty.all<RoundedRectangleBorder>(
+                //                   RoundedRectangleBorder(
+                //             borderRadius: BorderRadius.circular(10.0),
+                //           )),
+                //           backgroundColor:
+                //               WidgetStateProperty.all(Color(0XFF1269ea))),
+                //     ),
+                //   ),
+                // ),
                 Visibility(
-                  visible: !tempToken.isNotEmpty,
+                  visible: tempToken.isEmpty,
                   child: SizedBox(
-                    width: 230.0,
-                    child: ElevatedButton(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: global.loadingLogin
-                            ? Center(
-                                child: SizedBox(
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF3463CD),
+                            Color(0xFF1C4FBA),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (isLoginWithOTP.value) {
+                            print('call this 1');
+                            tempLoginValidationWithMobile();
+                          } else {
+                            print('call this 2');
+                            tempLoginValidationWithUserCd(global, lc);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: global.loadingLogin
+                              ? const SizedBox(
                                   height: 20.0,
                                   width: 20.0,
                                   child: CircularProgressIndicator(
-                                    color: Color(0XFF2c3f9b),
+                                    color: Colors.white,
                                     strokeWidth: 2,
                                   ),
+                                )
+                              : const Text(
+                                  "Login",
+                                  style: TextStyle(
+                                    fontSize: 18.0,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                              )
-                            : Text("Login",
-                                style: TextStyle(
-                                    fontSize: 18.0, color: Colors.white)),
+                        ),
                       ),
-                      onPressed: () {
-                        if (isLoginWithOTP.value) {
-                          print('call this 1');
-                          tempLoginValidationWithMobile();
-                        } else {
-                          print('call this 2');
-                          tempLoginValidationWithUserCd(global, lc);
-                        }
-
-                        //tempLoginValidationWithUserCd(global, lc);
+                    ),
+                  ),
+                ),
+                // Obx(
+                //   () => CheckboxListTile(
+                //     contentPadding: EdgeInsets.zero,
+                //     dense: true,
+                //     visualDensity: VisualDensity.compact,
+                //     // checkColor: AppColors.colorWhite,
+                //     // activeColor: AppColors.teal,
+                //     controlAffinity: ListTileControlAffinity.leading,
+                //     // Moves checkbox to right side
+                //     title: InkWell(
+                //       child: RichText(
+                //         text: TextSpan(
+                //           //text: 'Login With Mobile Number',
+                //           text: 'Login through OTP',
+                //           style: GoogleFonts.notoSans(
+                //             fontSize: AppDimensions.fontSizeRegular,
+                //             fontWeight: AppFontWeight.medium,
+                //             color: Theme.of(context).colorScheme.onSurface,
+                //           ),
+                //         ),
+                //       ),
+                //     ),
+                //     value: isLoginWithOTP.value,
+                //     onChanged: (value) {
+                //       setState(() {
+                //         _emailClt.clear();
+                //         _passwordClt.clear();
+                //         mobileNoWithOTPController.value.clear();
+                //         forgotPasswordController.value.clear();
+                //         isLoginProcessing = false;
+                //         isLoginWithOTP.value = value!;
+                //       });
+                //     },
+                //   ),
+                // ),
+                SizedBox(
+                  height: 10,
+                ),
+                Visibility(
+                  visible: tempToken.isEmpty,
+                  child: Obx(
+                    () => InkWell(
+                      onTap: () {
+                        setState(() {
+                          _emailClt.clear();
+                          _passwordClt.clear();
+                          mobileNoWithOTPController.value.clear();
+                          forgotPasswordController.value.clear();
+                          isLoginProcessing = false;
+                          isLoginWithOTP.value = !isLoginWithOTP.value;
+                        });
                       },
-                      style: ButtonStyle(
-                          shape:
-                              WidgetStateProperty.all<RoundedRectangleBorder>(
-                                  RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                          )),
-                          backgroundColor:
-                              WidgetStateProperty.all(Color(0XFF2c9ed9))),
+                      borderRadius: BorderRadius.circular(14),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        padding:
+                            EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isLoginWithOTP.value
+                                ? const Color(0xFF1269EA)
+                                : Colors.grey.shade300,
+                            width: 1.5,
+                          ),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 16),
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF2FF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.phone_android_rounded,
+                                color: Color(0xFF1269EA),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                'Login with OTP',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLoginWithOTP.value
+                                      ? const Color(0xFF0F172A)
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              isLoginWithOTP.value
+                                  ? Icons.check_circle
+                                  : Icons.arrow_forward_ios_rounded,
+                              color: const Color(0xFF1269EA),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 16),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -583,48 +803,103 @@ class _LoginPageState extends State<LoginPage> {
                 SizedBox(
                   height: 10,
                 ),
+                // Visibility(
+                //   visible: tempToken.isNotEmpty,
+                //   child: SizedBox(
+                //     width: double.infinity,
+                //     child: ElevatedButton(
+                //       child: Padding(
+                //         padding: const EdgeInsets.all(8.0),
+                //         child: global.loadingfetchLogin
+                //             ? Center(
+                //                 child: SizedBox(
+                //                   height: 20.0,
+                //                   width: 20.0,
+                //                   child: CircularProgressIndicator(
+                //                     color: Color(0XFF2c3f9b),
+                //                     strokeWidth: 2,
+                //                   ),
+                //                 ),
+                //               )
+                //             : Text("Continue",
+                //                 style: TextStyle(
+                //                     fontSize: 18.0, color: Colors.white)),
+                //       ),
+                //       onPressed: () {
+                //         changeFirmLoginWithAPI(global, lc);
+                //       },
+                //       style: ButtonStyle(
+                //           shape:
+                //               WidgetStateProperty.all<RoundedRectangleBorder>(
+                //                   RoundedRectangleBorder(
+                //             borderRadius: BorderRadius.circular(10.0),
+                //           )),
+                //           backgroundColor:
+                //               WidgetStateProperty.all(Color(0XFF2c9ed9))),
+                //     ),
+                //   ),
+                // ),
                 Visibility(
                   visible: tempToken.isNotEmpty,
                   child: SizedBox(
-                    width: 230.0,
-                    child: ElevatedButton(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: global.loadingfetchLogin
-                            ? Center(
-                                child: SizedBox(
-                                  height: 20.0,
-                                  width: 20.0,
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF3463CD),
+                            Color(0xFF1C4FBA),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          changeFirmLoginWithAPI(global, lc);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: global.loadingfetchLogin
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
                                   child: CircularProgressIndicator(
-                                    color: Color(0XFF2c3f9b),
+                                    color: Colors.white,
                                     strokeWidth: 2,
                                   ),
+                                )
+                              : const Text(
+                                  "Continue",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              )
-                            : Text("Continue",
-                                style: TextStyle(
-                                    fontSize: 18.0, color: Colors.white)),
+                        ),
                       ),
-                      onPressed: () {
-                        changeFirmLoginWithAPI(global, lc);
-                      },
-                      style: ButtonStyle(
-                          shape:
-                              WidgetStateProperty.all<RoundedRectangleBorder>(
-                                  RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                          )),
-                          backgroundColor:
-                              WidgetStateProperty.all(Color(0XFF2c9ed9))),
                     ),
                   ),
                 ),
-                if (up.showSignUp)
+                if (up.showSignUp && tempToken.isEmpty)
                   Column(
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(
-                            top: 18.0, left: 15.0, right: 15.0),
+                          top: 18.0,
+                          left: 15.0,
+                          right: 15.0,
+                        ),
                         child: Row(children: <Widget>[
                           Expanded(
                               child: Divider(
@@ -646,31 +921,30 @@ class _LoginPageState extends State<LoginPage> {
                           )),
                         ]),
                       ),
-                      Column(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 15.0),
-                            child: Text(
-                              "Don't Have an account yet?",
-                              style: TextStyle(color: Colors.black),
-                            ),
+                          Text(
+                            "Don't Have an account yet?",
+                            style: TextStyle(color: Colors.black),
                           ),
                           TextButton(
-                              onPressed:
-                                  (!isLoginProcessing && tempToken.isEmpty)
-                                      ? () {
-                                          Get.to(() => SignUpPage());
-                                        }
-                                      : null,
-                              child: Text(
-                                "Sign Up",
-                                style: TextStyle(
-                                    // Change text color based on button state
-                                    color: (!isLoginProcessing &&
-                                            tempToken.isEmpty)
-                                        ? Color(0XFF2c9ed9)
-                                        : Colors.grey),
-                              ))
+                            onPressed: (!isLoginProcessing && tempToken.isEmpty)
+                                ? () {
+                                    Get.to(() => SignUpPage());
+                                  }
+                                : null,
+                            child: Text(
+                              "Sign Up",
+                              style: TextStyle(
+                                  // Change text color based on button state
+                                  color:
+                                      (!isLoginProcessing && tempToken.isEmpty)
+                                          ? Color(0xFF1C4FBA)
+                                          : Colors.grey),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -1038,7 +1312,7 @@ class _LoginPageState extends State<LoginPage> {
                 productController.selectedPartyId.value = '';
               }
 
-              await _checkAndShowLocationPermissionDialog();
+              // await _checkAndShowLocationPermissionDialog();
               locationProvider.start(userProvider);
               context.read<PartyProvider>().getpartyname(context);
               context.read<ItemListProvider>().getItems(context);

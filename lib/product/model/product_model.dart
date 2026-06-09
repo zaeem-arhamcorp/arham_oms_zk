@@ -44,6 +44,7 @@ class ProductItem {
   final String? sdisc1;
   final String? cStk;
   final String? orStk;
+  final String? minStk;
   final String? hsnNo;
   final Department deptment;
   final List<String> itemImages;
@@ -77,6 +78,7 @@ class ProductItem {
     this.sdisc1,
     this.cStk,
     this.orStk,
+    this.minStk,
     this.hsnNo,
     required this.deptment,
     required this.itemImages,
@@ -118,6 +120,7 @@ class ProductItem {
       'sdisc1': sdisc1,
       'cStk': cStk,
       'orStk': orStk,
+      'minStk': minStk,
       'hsnNo': hsnNo,
       'deptment': deptment.toJson(),
       'itemImages': itemImages,
@@ -154,6 +157,7 @@ class ProductItem {
       sdisc1: json['SDISC1']?.toString(),
       cStk: json['C_STK']?.toString(),
       orStk: json['OR_STK']?.toString(),
+      minStk: json['MIN_STK']?.toString() ?? "",
       hsnNo: json['HSN_NO']?.toString(),
       deptment: Department.fromJson(json['deptment'] ?? {}),
       itemImages: List<String>.from(json['item_image']?['ITEM_IMG'] ?? []),

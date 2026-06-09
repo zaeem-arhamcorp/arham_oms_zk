@@ -332,14 +332,15 @@ class _NewMenuState extends State<NewMenu> {
                   if (p.data != null &&
                       p.data!.modulesList!.any((module) =>
                           module.mODULENO == "321" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Route Report",
+                    _buildIconTextBox(Icons.account_balance, "Route Summary",
                         () {
                       Get.to(() => const RouteReportScreen());
                     }, iconUrl: "assets/icons/route_report_icon.png"),
                   if (p.data != null &&
                       p.data!.modulesList!.any((module) =>
                           module.mODULENO == "321" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Map Route", () {
+                    _buildIconTextBox(Icons.account_balance, "Route Report",
+                        () {
                       Get.to(() => const RouteMapView());
                     }, iconUrl: "assets/icons/route_report.png"),
                   if (p.data != null &&

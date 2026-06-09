@@ -37,11 +37,17 @@ class BeatService {
   /// Fetch beats scheduled for a specific user
   Future<List<dynamic>> fetchUserBeatSchedule(
       {required String userCd, String? token}) async {
-    final uri = Uri.parse('${baseUrl}beat/scheduler?userCd=$userCd');
+    final uri = Uri.parse('${baseUrl}beat/scheduler?user_cd=$userCd');
+    debugPrint('[BeatService] ${token ?? 'null'}');
+    debugPrint('[BeatService] $uri');
+
     final response = await http.get(uri, headers: {
       if (token != null) 'Authorization': 'Bearer $token',
       'x-app-type': 'oms',
     });
+
+    debugPrint('[BeatService] statusCode: ${response.statusCode}');
+    debugPrint('[BeatService] ${response.body}');
 
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -60,6 +66,10 @@ class BeatService {
     final uri = Uri.parse('${baseUrl}beat/scheduler/bulk');
     final body = jsonEncode(beatsToSave.map((b) => b.toJson()).toList());
 
+    debugPrint('[BeatService] ${token ?? 'null'}');
+    debugPrint('[BeatService] $uri');
+    debugPrint('[BeatService] payload: $body');
+
     final response = await http.post(
       uri,
       headers: {
@@ -69,6 +79,9 @@ class BeatService {
       },
       body: body,
     );
+
+    debugPrint('[BeatService] ${response.statusCode}');
+    debugPrint('[BeatService] response: ${response.body}');
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(

@@ -10,10 +10,21 @@ class DepartmentResponse {
   });
 
   factory DepartmentResponse.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> departmentsJson = json['data'] as List<dynamic>? ?? [];
+
+    final List<Department> departments = departmentsJson
+        .map((e) => Department.fromJson(e as Map<String, dynamic>))
+        .toList();
+
     return DepartmentResponse(
-      status: json['status'] ?? false,
-      message: json['message'] ?? '',
-      data: DepartmentData.fromJson(json['data'] ?? {}),
+      status: true,
+      message: json['message']?.toString() ?? '',
+      data: DepartmentData(
+        userCd: '',
+        syncId: '',
+        departments: departments,
+        deptCodes: departments.map((e) => e.deptCd).toList(),
+      ),
     );
   }
 

@@ -1,14 +1,34 @@
+import 'package:arham_corporation/providers/children_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
 import '../controllers/account_controller.dart';
+import '../../route_schedule_plan/controllers/beat_controller.dart';
 import '../widgets/form_widgets.dart';
 
-class AddAccountScreen extends StatelessWidget {
+class AddAccountScreen extends StatefulWidget {
   const AddAccountScreen({super.key});
 
   // Module 102: Party Management / Account Management
   static const String accountModuleNo = '102';
+
+  @override
+  State<AddAccountScreen> createState() => _AddAccountScreenState();
+}
+
+class _AddAccountScreenState extends State<AddAccountScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ChildrenProvider>().loadUsers(context);
+      final beatCtrl = Get.isRegistered<BeatController>()
+          ? Get.find<BeatController>()
+          : Get.put(BeatController());
+      beatCtrl.fetchBeats();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

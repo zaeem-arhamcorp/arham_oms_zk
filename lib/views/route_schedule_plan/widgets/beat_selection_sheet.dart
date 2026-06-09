@@ -81,9 +81,9 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
     final routeLabel =
-        RouteLabelHelper.singular(context.read<ProfileProvider>());
+        RouteLabelHelper.singularPlanner(context.read<ProfileProvider>());
     final routeLabelPlural =
-        RouteLabelHelper.plural(context.read<ProfileProvider>());
+        RouteLabelHelper.pluralPlanner(context.read<ProfileProvider>());
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),

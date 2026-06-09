@@ -22,7 +22,10 @@ class Beat {
 
   static List<Beat> listFromJson(List<dynamic>? arr) {
     if (arr == null) return [];
-    return arr.whereType<Map<String, dynamic>>().map(Beat.fromJson).toList();
+    return arr
+        .whereType<Map>()
+        .map((e) => Beat.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 }
 
@@ -64,8 +67,8 @@ class BeatScheduler {
   static List<BeatScheduler> listFromJson(List<dynamic>? arr) {
     if (arr == null) return [];
     return arr
-        .whereType<Map<String, dynamic>>()
-        .map(BeatScheduler.fromJson)
+        .whereType<Map>()
+        .map((e) => BeatScheduler.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
 }

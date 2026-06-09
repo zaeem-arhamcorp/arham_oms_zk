@@ -1,8 +1,11 @@
-import 'database_helper.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'database_helper.dart';
 import 'order_tracking_service.dart';
 
 class SyncService {
@@ -979,6 +982,7 @@ class SyncService {
             '[SyncService]   Date: ${payload['VOUCH_DT']} | Time: ${payload['VOUCH_TIME']}');
         print('[SyncService]   GPS: (${payload['LAT']}, ${payload['LONGI']})');
 
+        print("[SyncService] ${AppConfig.baseURL}locations");
         // Post to server
         var response = await http.post(
           Uri.parse("${AppConfig.baseURL}locations"),
@@ -1001,6 +1005,12 @@ class SyncService {
               '[SyncService] ✅ Success! Location #${locId ?? 'unknown'} synced & deleted from local DB');
           print(
               '[SyncService]    (Synced: $synced/${pendingLocations.length})');
+
+          if (remarkStr.toUpperCase() == 'PUNCH OUT') {
+            print(
+                '[SyncService] 🛑 Punch-out detected. Triggering trip-end...');
+            await _triggerTripEnd(token); // Trip-End API hit
+          }
         } else if (response.statusCode == 401) {
           print('[SyncService] ⚠️ Auth expired during location sync');
           break;
@@ -1023,6 +1033,57 @@ class SyncService {
     print(
         '[SyncService] 📍 Location sync complete: $synced synced, $failed failed');
     return {'synced': synced, 'failed': failed};
+  }
+
+  Future<void> _triggerTripEnd(String token) async {
+    // 1. Retrieve the necessary data from SharedPreferences or memory
+    final prefs = await SharedPreferences.getInstance();
+    final int? tripId = prefs.getInt('active_trip_id');
+    final int? syncId = prefs.getInt('active_sync_id');
+
+    if (tripId == null || syncId == null) {
+      print(
+          '[SyncService] ⚠️ No active trip found in SharedPreferences; skipping trip-end.');
+      return;
+    }
+
+    // 2. Prepare the payload (matching your established format)
+    final String endTime = DateTime.now().toIso8601String();
+    final body = {
+      "trip_id": tripId,
+      "sync_id": syncId.toString(),
+      "end_time": endTime,
+    };
+
+    // 3. Hit the /location/trip/end API
+    try {
+      print('[SyncService] 📤 Triggering trip-end API for trip: $tripId');
+      final uri = Uri.parse('${AppConfig.baseURL}location/trip/end');
+      print('[SyncService] $uri');
+      final response = await http.post(
+        uri,
+        headers: {
+          "Authorization": "Bearer $token",
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      );
+      print('[SyncService] $body');
+      print('[SyncService] ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('[SyncService] ✅ Trip ended successfully on server.');
+        // Clear the active trip from storage once the server acknowledges the end
+        await prefs.remove('active_trip_id');
+        await prefs.remove('active_sync_id');
+      } else {
+        print(
+            '[SyncService] ❌ Trip end API failed: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('[SyncService] ❌ Exception in _triggerTripEnd: $e');
+    }
   }
 
   /// Sync order tracking events (start/end order)

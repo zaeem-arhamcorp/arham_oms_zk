@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+
 import '../../product/widget/app_snack_bar.dart';
 
 class AssignTaskView extends StatefulWidget {
@@ -22,6 +23,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
   final TextEditingController _partnerController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _visitTypeController = TextEditingController();
 
   // Data lists
   List<Stockist> _stockists = [];
@@ -41,11 +43,11 @@ class _AssignTaskViewState extends State<AssignTaskView> {
   bool _isSubmitting = false;
 
   static const List<String> _categoryOptions = <String>[
-    'Billing Conflict',
-    'Service Escalation',
-    'Contract Clarification',
-    'Stock Availability',
-    'Other',
+    'Stock',
+    'Payment',
+    'Service',
+    'Display',
+    'Dispatch',
   ];
 
   void _logDebug(String message) {
@@ -89,6 +91,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
     _partnerController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
+    _visitTypeController.dispose();
     super.dispose();
   }
 
@@ -136,7 +139,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
 
       _logDebug('Current token from UserProvider: ${ub.token}');
       _logDebug('Token passed to departments API: $token');
-      _logDebug('Departments API URL: ${AppConfig.getMyDepartmentsURL}');
+      _logDebug('Departments API URL: ${AppConfig.getDepartmentGroupingURL}');
 
       if (token == null || token.isEmpty) {
         throw Exception('Authentication token not found. Please login again.');
@@ -172,6 +175,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
   Future<void> _submitAssignIssue() async {
     final String title = _titleController.text.trim();
     final String description = _descriptionController.text.trim();
+    final String visitType = _visitTypeController.text.trim();
 
     if (title.isEmpty) {
       AppSnackBar.showGetXCustomSnackBar(message: 'Please enter issue title');
@@ -229,6 +233,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
         dueDate: _formatDate(_selectedDueDate!),
         priority: _selectedUrgency,
         assignDeptCd: _selectedDepartmentCode!,
+        visitId: visitType.isEmpty ? null : visitType,
         // visitId is nullable, don't set it
       );
 
@@ -251,6 +256,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
       _partnerController.clear();
       _titleController.clear();
       _descriptionController.clear();
+      _visitTypeController.clear();
       setState(() {
         _selectedStockist = null;
         _selectedCategory = null;
@@ -883,6 +889,18 @@ class _AssignTaskViewState extends State<AssignTaskView> {
       backgroundColor: const Color(0xFFF1F3F8),
       appBar: AppBar(
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF4771D1),
+                Color(0xFF1C4FBA),
+              ],
+            ),
+          ),
+        ),
         title: const Text(
           'Assign Task',
           style: TextStyle(
@@ -1006,136 +1024,6 @@ class _AssignTaskViewState extends State<AssignTaskView> {
           ),
           const SizedBox(height: 18),
 
-          _buildFieldLabel('ISSUE TITLE'),
-          _buildInputContainer(
-            child: TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Brief summary of the conflict',
-                hintStyle: TextStyle(
-                  color: Color(0xFF8B94A8),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildFieldLabel('DETAILED DESCRIPTION'),
-          _buildInputContainer(
-            child: SizedBox(
-              height: 136,
-              child: TextField(
-                controller: _descriptionController,
-                maxLines: null,
-                expands: true,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText:
-                      'Provide technical details and historical context...',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF8B94A8),
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildFieldLabel('CLASSIFICATION CATEGORY'),
-          InkWell(
-            onTap: _openCategoryBottomSheet,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9ECF4),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.category_outlined,
-                    color: Color(0xFF8892A8),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _selectedCategory ?? 'Select category',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: _selectedCategory != null
-                            ? const Color(0xFF1E232D)
-                            : const Color(0xFF8B94A8),
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFF5D667A),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildFieldLabel('URGENCY MATRIX'),
-          Row(
-            children: <Widget>[
-              _buildUrgencyButton('High'),
-              const SizedBox(width: 8),
-              _buildUrgencyButton('Medium'),
-              const SizedBox(width: 8),
-              _buildUrgencyButton('Low'),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _buildFieldLabel('DUE DATE'),
-          InkWell(
-            onTap: _pickDueDate,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9ECF4),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.event_outlined,
-                    color: Color(0xFF8892A8),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _selectedDueDate != null
-                          ? _formatDate(_selectedDueDate!)
-                          : 'Select due date',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: _selectedDueDate != null
-                            ? const Color(0xFF1E232D)
-                            : const Color(0xFF8B94A8),
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFF5D667A),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
           _buildFieldLabel('DEALER NAME'),
           InkWell(
             onTap: _openDealershipBottomSheet,
@@ -1176,6 +1064,113 @@ class _AssignTaskViewState extends State<AssignTaskView> {
               ),
             ),
           ),
+
+          const SizedBox(height: 12),
+
+          _buildFieldLabel('ISSUE TITLE'),
+          _buildInputContainer(
+            child: TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Brief summary of the conflict',
+                hintStyle: TextStyle(
+                  color: Color(0xFF8B94A8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildFieldLabel('DETAILED DESCRIPTION'),
+          _buildInputContainer(
+            child: SizedBox(
+              height: 136,
+              child: TextField(
+                controller: _descriptionController,
+                maxLines: null,
+                expands: true,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText:
+                      'Provide technical details and historical context...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF8B94A8),
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildFieldLabel('ISSUE CATEGORY'),
+          InkWell(
+            onTap: _openCategoryBottomSheet,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9ECF4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.category_outlined,
+                    color: Color(0xFF8892A8),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedCategory ?? 'Select category',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: _selectedCategory != null
+                            ? const Color(0xFF1E232D)
+                            : const Color(0xFF8B94A8),
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Color(0xFF5D667A),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildFieldLabel('PRIORITY'),
+          Row(
+            children: <Widget>[
+              _buildUrgencyButton('High'),
+              const SizedBox(width: 8),
+              _buildUrgencyButton('Medium'),
+              const SizedBox(width: 8),
+              _buildUrgencyButton('Low'),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          _buildFieldLabel('VISIT TYPE'),
+          _buildInputContainer(
+            child: TextField(
+              controller: _visitTypeController,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Enter visit type',
+                hintStyle: TextStyle(
+                  color: Color(0xFF8B94A8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+
           // const SizedBox(height: 12),
           const SizedBox(height: 14),
 
@@ -1220,22 +1215,78 @@ class _AssignTaskViewState extends State<AssignTaskView> {
               ),
             ),
           ),
+
+          const SizedBox(height: 14),
+
+          _buildFieldLabel('DUE DATE'),
+          InkWell(
+            onTap: _pickDueDate,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9ECF4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.event_outlined,
+                    color: Color(0xFF8892A8),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedDueDate != null
+                          ? _formatDate(_selectedDueDate!)
+                          : 'Select due date',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: _selectedDueDate != null
+                            ? const Color(0xFF1E232D)
+                            : const Color(0xFF8B94A8),
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Color(0xFF5D667A),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 26),
-          SizedBox(
+          Container(
             width: double.infinity,
             height: 45,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF4771D1),
+                  Color(0xFF1C4FBA),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _submitAssignIssue,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF245B87),
+                backgroundColor: Colors.transparent,
                 foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(32),
                 ),
                 elevation: 2,
               ),
               child: const Text(
-                'Assign Task',
+                'Raise Issue',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,

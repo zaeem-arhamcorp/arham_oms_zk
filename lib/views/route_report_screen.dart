@@ -9,10 +9,12 @@ import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
+import 'package:arham_corporation/views/route_summary/trip_summary_screen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -500,6 +502,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         trip['ended_at'] ??
         trip['ENDED_AT'];
     return _tryParseDateTime(raw);
+  }
+
+  String _tripStatusFromMap(Map<String, dynamic> trip) {
+    return (trip['status'] ?? trip['STATUS'] ?? '').toString().toUpperCase();
   }
 
   String _formatClock(DateTime? value) {
@@ -1445,9 +1451,124 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     );
   }
 
+  Future<void> _handlePunchOutFromBanner(
+      Map<String, dynamic> trip, int tripId) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final startTimeRaw = trip['start_time'] ??
+        trip['START_TIME'] ??
+        trip['started_at'] ??
+        trip['STARTED_AT'] ??
+        trip['created_at'] ??
+        trip['CREATED_AT'];
+
+    if (startTimeRaw == null || startTimeRaw.toString().trim().isEmpty) {
+      AppSnackBar.showGetXCustomSnackBar(
+          message: "Cannot parse trip start time.",
+          backgroundColor: Colors.red);
+      return;
+    }
+
+    try {
+      // 1. Calculate Time
+      DateTime start =
+          DateTime.parse(startTimeRaw.toString().trim().replaceAll(' ', 'T'));
+      DateTime targetEnd = (start.hour >= 23)
+          ? DateTime(start.year, start.month, start.day + 1, 23, 0, 0)
+          : DateTime(start.year, start.month, start.day, 23, 0, 0);
+      final formattedEndTime =
+          _formatDateTimeWithOffsetForApi(targetEnd.millisecondsSinceEpoch);
+
+      final tripEndURL = Uri.parse('${AppConfig.baseURL}location/trip/end');
+      final body = {
+        "trip_id": tripId,
+        "sync_id": userProvider.syncId.toString(),
+        "end_time": formattedEndTime,
+      };
+
+      // 2. CALL 1: Punch Out
+      print(tripEndURL);
+      final response = await http.post(
+        tripEndURL,
+        headers: {
+          'Authorization': 'Bearer ${userProvider.token}',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      );
+      print(body);
+
+      if (response.statusCode == 200) {
+        // 3. CALL 2: Log Location (Only if first call succeeded)
+        await _logPunchOutLocation(targetEnd);
+        if (mounted) {
+          AppSnackBar.showGetXCustomSnackBar(
+            message: "Punch out and location logged successfully!",
+            backgroundColor: Colors.green,
+          );
+          _fetchTrips(); // Refresh Route Report trip history list
+        }
+      } else {
+        print("Punch out failed: ${response.body}");
+        AppSnackBar.showGetXCustomSnackBar(
+            message: "Error punching out the trip.",
+            backgroundColor: Colors.red);
+      }
+    } catch (e) {
+      print("Exception: $e");
+    }
+  }
+
+  Future<void> _logPunchOutLocation(DateTime targetEnd) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium);
+      final body = {
+        "lat": position.latitude,
+        "long": position.longitude,
+        "moduleNo": 301,
+        "remarks": "PUNCH OUT",
+        "vouchDt":
+            "${targetEnd.year}-${targetEnd.month.toString().padLeft(2, '0')}-${targetEnd.day.toString().padLeft(2, '0')}",
+        "vouchTime":
+            "${targetEnd.hour.toString().padLeft(2, '0')}:${targetEnd.minute.toString().padLeft(2, '0')}:${targetEnd.second.toString().padLeft(2, '0')}"
+      };
+
+      final locationURL = Uri.parse('${AppConfig.baseURL}locations');
+      print(locationURL);
+      print(body);
+
+      final response = await http.post(
+        locationURL,
+        headers: {
+          'Authorization': 'Bearer ${userProvider.token}',
+          'x-app-type': 'oms',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(body),
+      );
+      print("Location log response: ${response.statusCode}");
+    } catch (e) {
+      print("Error logging location: $e");
+    }
+  }
+
+  static String _formatDateTimeWithOffsetForApi(int timestampMs) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(timestampMs).toLocal();
+    final offset = dt.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final absOffset = offset.abs();
+    final offsetHours = absOffset.inHours.toString().padLeft(2, '0');
+    final offsetMinutes = (absOffset.inMinutes % 60).toString().padLeft(2, '0');
+
+    return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}T${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}$sign$offsetHours:$offsetMinutes';
+  }
+
   Widget _buildTripTile(Map<String, dynamic> trip) {
     final tripId = _tripIdFromMap(trip);
     final isActive = _tripActiveFromMap(trip);
+    final tripStatus = _tripStatusFromMap(trip);
     _ensureTripGapInfo(tripId);
     final gapInfo = _gapInfoByTripId[tripId];
     final distanceBreakdown = _distanceBreakdownByTripId[tripId];
@@ -1468,6 +1589,38 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final durationText = _durationByTripId[tripId] ?? _durationFromMap(trip);
     final hasSelfie = _tripHasSelfie(trip);
 
+    final bool isNotCompleted = tripStatus != 'COMPLETED';
+
+    Color statusBg;
+    Color statusBorder;
+    Color statusText;
+
+    switch (tripStatus) {
+      case 'ACTIVE':
+        statusBg = const Color(0xFFFFF4E4);
+        statusBorder = const Color(0xFFFFE2B9);
+        statusText = const Color(0xFFB46A00);
+        break;
+
+      case 'PAUSED':
+        statusBg = const Color(0xFFE8F0FF);
+        statusBorder = const Color(0xFFB8CCFF);
+        statusText = const Color(0xFF2952CC);
+        break;
+
+      case 'COMPLETED':
+      case 'ENDED':
+        statusBg = const Color(0xFFD2FDC9);
+        statusBorder = const Color(0xFFAEF1A9);
+        statusText = const Color(0xFF23A523);
+        break;
+
+      default:
+        statusBg = const Color(0xFFF4F6FA);
+        statusBorder = const Color(0xFFE1E4EE);
+        statusText = const Color(0xFF7B8195);
+    }
+
     return GestureDetector(
       onTap: () {
         CrashlyticsService.logAction(
@@ -1484,8 +1637,8 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        margin: EdgeInsets.only(left: 12, right: 12, bottom: 12),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -1501,6 +1654,61 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isNotCompleted) ...[
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.red.shade200, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 16, color: Colors.red.shade700),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Punch Out not done",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        _handlePunchOutFromBanner(trip, tripId);
+                      },
+                      child: Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          "Punch Out",
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 7,
+              ),
+            ],
             Row(
               children: [
                 Expanded(
@@ -1533,30 +1741,30 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? const Color(0xFFFFF4E4)
-                        : const Color(0xFFF4F6FA),
+                    color: statusBg,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: isActive
-                          ? const Color(0xFFFFE2B9)
-                          : const Color(0xFFE1E4EE),
-                    ),
+                    border: Border.all(color: statusBorder),
                   ),
                   child: Text(
-                    isActive ? 'ACTIVE' : 'ENDED',
+                    tripStatus,
                     style: TextStyle(
-                      fontSize: 13,
+                      color: statusText,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: isActive
-                          ? const Color(0xFFB46A00)
-                          : const Color(0xFF7B8195),
                     ),
                   ),
+                  // child: Text(
+                  //   isActive ? 'ACTIVE' : 'ENDED',
+                  //   style: TextStyle(
+                  //     fontSize: 13,
+                  //     fontWeight: FontWeight.w700,
+                  //     letterSpacing: 1.0,
+                  //     color: isActive
+                  //         ? const Color(0xFFB46A00)
+                  //         : const Color(0xFF7B8195),
+                  //   ),
+                  // ),
                 ),
               ],
             ),
@@ -1801,12 +2009,20 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   Widget build(BuildContext context) {
     final title = _selectedUserName != null
         // ? '{_selectedUserName}\'s Route Report'
-        ? "$_selectedUserName's Route Report"
-        : 'Route Report';
+        ? "$_selectedUserName's Route Summary"
+        : 'Route Summary';
 
     return Scaffold(
       appBar: CustomAppBar(
         title: title,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Get.to(() => TripSummaryScreen());
+            },
+            icon: Icon(Icons.history),
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFFF3F4FA),
       floatingActionButton: null,

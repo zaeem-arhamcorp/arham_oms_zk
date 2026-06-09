@@ -551,6 +551,18 @@ class _TaskListViewState extends State<TaskListView> {
       backgroundColor: const Color(0xFFF3F4F8),
       appBar: AppBar(
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF245B87),
+                Color(0xFF1B3F6B),
+              ],
+            ),
+          ),
+        ),
         title: Text(
           'Department Queue',
           style: TextStyle(
@@ -1146,7 +1158,7 @@ class _TaskListViewState extends State<TaskListView> {
         ? (assigneeName.isNotEmpty ? assigneeName : assigneeCd)
         : 'Unassigned';
 
-    String actionLabel = 'ACCEPT TASK';
+    String actionLabel = 'ASSIGN TASK';
     VoidCallback? actionHandler = () => _showAssignTaskDialog(task);
     Color actionBgColor = const Color(0xFF235987);
 
@@ -1172,11 +1184,20 @@ class _TaskListViewState extends State<TaskListView> {
       }
     }
 
+    // if (!isAssigned && isCompleted) {
+    //   actionLabel = 'COMPLETED';
+    //   actionHandler = null;
+    //   actionBgColor = const Color(0xFF5F6B7A);
+    // } else if (isAssigned && isInProgress) {
+    //   actionLabel = 'IN PROGRESS';
+    //   actionHandler = null;
+    //   actionBgColor = const Color(0xFF5F6B7A);
+    // }
     if (!isAssigned && isCompleted) {
       actionLabel = 'COMPLETED';
       actionHandler = null;
       actionBgColor = const Color(0xFF5F6B7A);
-    } else if (isAssigned && isInProgress) {
+    } else if (isAssigned && isInProgress && !isAssignedToCurrentUser) {
       actionLabel = 'IN PROGRESS';
       actionHandler = null;
       actionBgColor = const Color(0xFF5F6B7A);
@@ -1386,7 +1407,7 @@ class _TaskListViewState extends State<TaskListView> {
                               );
 
                               if (selected == 'reopen') {
-                                _handleReopenTask(task);
+                                _showReopenTaskBottomSheet(task);
                               }
                             },
                           );
@@ -1483,15 +1504,13 @@ class _TaskListViewState extends State<TaskListView> {
   }
 
   Future<void> _handleCompleteTask(Task task) async {
-    await _handleUpdateTaskStatus(
-      task: task,
-      status: 'COMPLETED',
-      note: 'Execution finished',
-      successMessage: 'Task completed successfully',
-    );
+    await _showCompleteTaskBottomSheet(task);
   }
 
-  Future<void> _handleReopenTask(Task task) async {
+  Future<void> _handleReopenTask(
+    Task task,
+    String note,
+  ) async {
     try {
       final UserProvider userProvider =
           Provider.of<UserProvider>(context, listen: false);
@@ -1588,6 +1607,176 @@ class _TaskListViewState extends State<TaskListView> {
         );
       }
     }
+  }
+
+  Future<void> _showCompleteTaskBottomSheet(Task task) async {
+    final TextEditingController noteController = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 36,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Complete Task',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: noteController,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Enter completion note',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final String note = noteController.text.trim();
+
+                    if (note.isEmpty) {
+                      AppSnackBar.showGetXCustomSnackBar(
+                        message: 'Please enter a note',
+                        backgroundColor: Colors.red,
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(context);
+
+                    await _handleUpdateTaskStatus(
+                      task: task,
+                      status: 'COMPLETED',
+                      note: note,
+                      successMessage: 'Task completed successfully',
+                    );
+                  },
+                  child: const Text(
+                    'COMPLETE TASK',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showReopenTaskBottomSheet(Task task) async {
+    final TextEditingController noteController = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 36,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Reopen Task',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: noteController,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Enter reopen reason',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final String note = noteController.text.trim();
+
+                    if (note.isEmpty) {
+                      AppSnackBar.showGetXCustomSnackBar(
+                        message: 'Please enter a note',
+                        backgroundColor: Colors.red,
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(context);
+
+                    await _handleReopenTask(
+                      task,
+                      note,
+                    );
+                  },
+                  child: const Text(
+                    'REOPEN TASK',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildMoreQueueCard() {

@@ -19,6 +19,8 @@ class AppConfig {
 
   //9913889916 - Dipak bhai
 
+  //7801855177 - Aakash Bhai (Mak Marketing)
+
   //9033881931 Rizwan Ansari  - 1    Master
   //9227451051 Mubassira      - 1    Master
   //9723760786 Zaeem Kadri    - 1    Master
@@ -29,21 +31,25 @@ class AppConfig {
   //9033546913 Mahesh Patadiya - Password: 101
   //7383169201 Mehul Dholariya
 
-  // TODO: Command to build with today's build date
+  // TODO: Command to build .apk with today's build date
   // flutter build apk --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
+  // TODO: Command to build .aab with today's build date
   // flutter build appbundle --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
+  ///--------------------------------------------------------------------------------------------------------------------------
+  ///--------------------------------------------------------------------------------------------------------------------------
+
   // TODO: Update today's date in ProfilePage before building apk
-  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
   // TODO: Update today's date in ProfilePage before building apk
   // static const String baseURL =
-  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // TODO: Remove today's date from ProfilePage before building apk
-  static const String baseURL =
-      "https://api.arhamcorp.in/api/"; //TODO: Production
+  // static const String baseURL =
+  //     "https://api.arhamcorp.in/api/"; //TODO: Production
 
   //static const String baseURL = "https://pharma.skyhubs.in/api/";
   static const String baseURLReport = "${baseURL}reports/";
@@ -69,7 +75,6 @@ class AppConfig {
   static String validateReferralCodeUrl = "${baseURL}referral/validate-code";
   static String referralEarningsUrl = "${baseURL}referral/earnings";
   static String claimReferralRewardUrl = "${baseURL}referral/claim-reward";
-
   static const String createAccounttURL = '${baseURL}master-entry/account';
   static const String uploadImageURL =
       '${baseURL}master-entry/account/upload-image';
@@ -89,9 +94,10 @@ class AppConfig {
   // static const String timelineURL = '${baseURL}timeline';
 
   // Task Management APIs
-  static const String getStockistsURL =
-      '${baseURL}products/party?972376groupCd=136';
+  static const String getStockistsURL = '${baseURL}products/party?groupCd=136';
   static const String getMyDepartmentsURL = '${baseURL}my-departments';
+  static const String getDepartmentGroupingURL =
+      '${baseURL}deptment?grouping=TASK %26 ISSUE';
   static const String assignIssueURL = '${baseURL}dealer-flow/issues';
   static const String hierarchyUsersURL =
       '${baseURL}dealer-flow/users/hierarchy';
