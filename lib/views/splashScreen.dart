@@ -15,6 +15,7 @@ import '../services/services.dart';
 import '../widgets/bottomnavebar.dart';
 import '../widgets/platform_helper.dart';
 import '../widgets/updatePageScreen.dart';
+import '../main.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -32,6 +33,11 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _afterSplash() async {
+    // Ensure all background/core initializations (Firebase, Hive) have completed
+    print('[SplashScreen] 🔄 Waiting for main app services initialization...');
+    await initializeAppServices();
+    print('[SplashScreen] ✅ Main app services initialization completed');
+
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
 
     // ✅ CRITICAL: Initialize UserProvider BEFORE any logic
