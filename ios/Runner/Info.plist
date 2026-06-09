@@ -84,9 +84,13 @@
 	
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app uses your location to support attendance and background tracking features.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app tracks your location for attendance and route tracking features even when running in the background.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

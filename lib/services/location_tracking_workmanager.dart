@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
@@ -19,6 +20,10 @@ class LocationTrackingWorkmanager {
   static const String _lastTaskNameKey = 'wm_last_task_name';
 
   static Future<void> initialize() async {
+    if (!Platform.isAndroid) {
+      print('[LocationTrackingWorkmanager] ⏭️ Skipped on ${Platform.operatingSystem} (Android-only service)');
+      return;
+    }
     // ✅ Workmanager is now initialized in main.dart
     // This method is kept for backward compatibility
     // Do NOT call Workmanager().initialize() again here to avoid double-initialization crashes
@@ -27,6 +32,10 @@ class LocationTrackingWorkmanager {
   }
 
   static Future<void> registerPeriodicRecoveryTask() async {
+    if (!Platform.isAndroid) {
+      print('[LocationTrackingWorkmanager] ⏭️ registerPeriodicRecoveryTask skipped on ${Platform.operatingSystem}');
+      return;
+    }
     try {
       print(
           '[LocationTrackingWorkmanager] Attempting to register periodic recovery task...');
@@ -55,6 +64,10 @@ class LocationTrackingWorkmanager {
   }
 
   static Future<void> logLastWorkerHeartbeat() async {
+    if (!Platform.isAndroid) {
+      print('[LocationTrackingWorkmanager] ⏭️ logLastWorkerHeartbeat skipped on ${Platform.operatingSystem}');
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final registeredAt = prefs.getInt(_lastRegisteredAtKey);
     final firedAt = prefs.getInt(_lastFiredAtKey);

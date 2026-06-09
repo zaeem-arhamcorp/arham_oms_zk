@@ -44,7 +44,15 @@ void main() {
 
     WidgetsFlutterBinding.ensureInitialized();
 
+    // ✅ Platform-aware startup logging
+    final String platformName = Platform.isIOS
+        ? 'iOS'
+        : (Platform.isAndroid ? 'Android' : Platform.operatingSystem);
+    print('[Main] 📱 Platform: $platformName');
+    print('[Main] 🚀 App initialization started...');
+
     await Firebase.initializeApp();
+    print('[Main] ✅ Firebase initialized');
 
     FlutterError.onError = (errorDetails) {
       FlutterError.presentError(errorDetails);
@@ -64,18 +72,40 @@ void main() {
     };
 
     // ✅ Initialize Hive BEFORE building widgets
-    Directory directory = await getApplicationDocumentsDirectory();
-    Hive.initFlutter();
-    Hive.init(directory.path);
-    Hive.registerAdapter(OrdermodalAdapter());
-    Hive.registerAdapter(OrderItmAdapter());
-    Hive.registerAdapter(DatumOrderListAdapter());
-    Hive.registerAdapter(DataOrdritmAdapter());
-    await Hive.openBox<Ordermodal>(Constants.addOrder);
-    await Hive.openBox<DatumOrderList>(Constants.orderFetch);
+    // IMPORTANT: Only use initFlutter() — do NOT also call Hive.init()
+    // On iOS, calling both causes path conflicts and Hive read/write failures
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      print('[Main] 📂 App documents directory: ${directory.path}');
+      print('[Main] 🗄️ Initializing Hive...');
+      await Hive.initFlutter();
+      print('[Main] ✅ Hive.initFlutter() completed');
+
+      Hive.registerAdapter(OrdermodalAdapter());
+      Hive.registerAdapter(OrderItmAdapter());
+      Hive.registerAdapter(DatumOrderListAdapter());
+      Hive.registerAdapter(DataOrdritmAdapter());
+      print('[Main] ✅ Hive adapters registered');
+
+      await Hive.openBox<Ordermodal>(Constants.addOrder);
+      print('[Main] ✅ Hive box opened: ${Constants.addOrder}');
+      await Hive.openBox<DatumOrderList>(Constants.orderFetch);
+      print('[Main] ✅ Hive box opened: ${Constants.orderFetch}');
+      print('[Main] ✅ All Hive boxes opened successfully');
+    } catch (e, stack) {
+      print('[Main] ❌ Hive initialization error: $e');
+      print('[Main] ❌ Hive stack: $stack');
+      unawaited(CrashlyticsService.recordNonFatal(
+        e,
+        stack,
+        reason: 'hive_initialization_failed_$platformName',
+      ));
+    }
 
     // ✅ Initialize SQLite database BEFORE building widgets
+    print('[Main] 🗄️ Initializing SQLite database...');
     await DatabaseHelper().database;
+    print('[Main] ✅ SQLite database initialized');
 
     // ✅ Initialize background location service BEFORE building widgets
     // print('[Main] Initializing background location service...');

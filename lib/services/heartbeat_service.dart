@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,9 +94,13 @@ class HeartbeatService {
   @pragma('vm:entry-point')
   static void _onStart(ServiceInstance service) {
     print('[HeartbeatService] [CALLBACK] Background service started');
+    print('[HeartbeatService] [CALLBACK] Platform: ${Platform.operatingSystem}');
 
-    DartPluginRegistrant.ensureInitialized();
-    print('[HeartbeatService] [CALLBACK] DartPluginRegistrant initialized');
+    // DartPluginRegistrant is Android-specific for background isolate plugin initialization
+    if (Platform.isAndroid) {
+      DartPluginRegistrant.ensureInitialized();
+      print('[HeartbeatService] [CALLBACK] DartPluginRegistrant initialized');
+    }
 
     // Timer to send heartbeat every 10 seconds
     Timer.periodic(_heartbeatInterval, (timer) {

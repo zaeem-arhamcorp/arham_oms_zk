@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,6 +20,10 @@ class HeartbeatWorkmanager {
 
   /// Initialize WorkManager for heartbeat tasks
   static Future<void> initialize() async {
+    if (!Platform.isAndroid) {
+      print('[HeartbeatWorkmanager] ⏭️ Skipped on ${Platform.operatingSystem} (Android-only service)');
+      return;
+    }
     // ✅ Workmanager is now initialized in main.dart
     // This method is kept for backward compatibility
     // Do NOT call Workmanager().initialize() again here to avoid double-initialization crashes
@@ -34,6 +39,10 @@ class HeartbeatWorkmanager {
   ///
   /// This runs even if the app is completely closed, ensuring user isn't marked offline
   static Future<void> registerPeriodicHeartbeatTask() async {
+    if (!Platform.isAndroid) {
+      print('[HeartbeatWorkmanager] ⏭️ registerPeriodicHeartbeatTask skipped on ${Platform.operatingSystem}');
+      return;
+    }
     try {
       print(
           '[HeartbeatWorkmanager] Attempting to register periodic heartbeat recovery task...');
@@ -70,6 +79,10 @@ class HeartbeatWorkmanager {
 
   /// Cancel all heartbeat tasks
   static Future<void> cancelHeartbeatTasks() async {
+    if (!Platform.isAndroid) {
+      print('[HeartbeatWorkmanager] ⏭️ cancelHeartbeatTasks skipped on ${Platform.operatingSystem}');
+      return;
+    }
     try {
       print('[HeartbeatWorkmanager] Canceling heartbeat tasks...');
       await Workmanager().cancelByUniqueName(_uniqueTaskName);
@@ -81,6 +94,10 @@ class HeartbeatWorkmanager {
 
   /// Log heartbeat worker stats for debugging
   static Future<void> logHeartbeatWorkerHeartbeat() async {
+    if (!Platform.isAndroid) {
+      print('[HeartbeatWorkmanager] ⏭️ logHeartbeatWorkerHeartbeat skipped on ${Platform.operatingSystem}');
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final registeredAt = prefs.getInt(_lastRegisteredAtKey);
     final firedAt = prefs.getInt(_lastFiredAtKey);
