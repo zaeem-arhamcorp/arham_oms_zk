@@ -164,12 +164,12 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
         Provider.of<ProfileProvider>(context, listen: false);
 
     var moduleEntryAccess = p.data?.modulesList?.firstWhere(
-          (module) => module.mODULENO == "308",
+          (module) => module.mODULENO == "325",
           orElse: () => Modules(),
         ) ??
         Modules();
 
-    if (moduleEntryAccess.mODULENO == "308") {
+    if (moduleEntryAccess.mODULENO == "325") {
       viewRight = moduleEntryAccess.rEADRIGHT!;
       addRight = moduleEntryAccess.wRITERIGHT!;
       updateRight = moduleEntryAccess.uPDATERIGHT!;
@@ -182,7 +182,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
       print('Delete Rights $deleteRight');
       print('Print Rights $printRight');
     } else {
-      print("Module with MODULE_NO '308' not found.");
+      print("Module with MODULE_NO '325' not found.");
     }
 
     // fromdateController.text = Helper.getDefaultFromDate();
@@ -469,7 +469,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
       // Provider not found, return error state
       print('[ItemWiseOrderReportView] Provider error: $e');
       return Scaffold(
-        appBar: CustomAppBar(title: "Item Wise Sale Report"),
+        appBar: CustomAppBar(title: "Item Wise Order Report"),
         body: Center(
           child: Text('Unable to load data. Please try again.'),
         ),
@@ -479,7 +479,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(
-        title: "Item Wise Sale Report",
+        title: "Item Wise Order Report",
         actions: [
           if (printRight)
             PopupMenuButton<dynamic>(
@@ -493,7 +493,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         loading = true;
                       });
                       Services()
-                          .getItemWiseSaleExportFile(
+                          .getItemWiseOrderExportFile(
                               context,
                               Helper.toApi(fromdateController.text),
                               Helper.toApi(toDateController.text),
@@ -512,7 +512,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                           Get.to(() => PdfViewerScreen(
                               pdfUrl: value,
                               fileName:
-                                  "Item Wise Sale Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}"));
+                                  "Item Wise Order Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}"));
                         } else {
                           setState(() {
                             loading = false;
@@ -530,7 +530,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         loading = true;
                       });
                       Services()
-                          .getItemWiseSaleExportFile(
+                          .getItemWiseOrderExportFile(
                               context,
                               Helper.toApi(fromdateController.text),
                               Helper.toApi(toDateController.text),
@@ -545,7 +545,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         if (value != null) {
                           Helper.saveFileAndroid(
                                   value,
-                                  "Item Wise Sale Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
+                                  "Item Wise Order Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
                                   "Excel file has been downloaded")
                               .then((value) => {
                                     setState(() {
@@ -569,7 +569,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         loading = true;
                       });
                       Services()
-                          .getItemWiseSaleExportFile(
+                          .getItemWiseOrderExportFile(
                               context,
                               Helper.toApi(fromdateController.text),
                               Helper.toApi(toDateController.text),
@@ -584,7 +584,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         if (value != null) {
                           Helper.saveFileAndroid(
                                   value,
-                                  "Item Wise Sale Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
+                                  "Item Wise Order Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
                                   "Pdf file has been downloaded")
                               .then((value) async {
                             setState(() {
@@ -617,7 +617,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         loading = true;
                       });
                       Services()
-                          .getItemWiseSaleExportFile(
+                          .getItemWiseOrderExportFile(
                               context,
                               Helper.toApi(fromdateController.text),
                               Helper.toApi(toDateController.text),
@@ -632,7 +632,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                         if (value != null) {
                           Helper.saveFileAndroid(
                                   value,
-                                  "Item Wise Sale Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
+                                  "Item Wise Order Report_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
                                   "Pdf file has been downloaded")
                               .then((value) async {
                             setState(() {
@@ -1069,28 +1069,28 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                           bottom: 15),
                                       title: Row(
                                         children: <Widget>[
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  "Item Cd",
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.black),
-                                                ),
-                                                Text(
-                                                  "${data[index].itemCd}",
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey),
-                                                )
-                                              ],
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
+                                          // Expanded(
+                                          //   child: Column(
+                                          //     crossAxisAlignment:
+                                          //         CrossAxisAlignment.start,
+                                          //     children: [
+                                          //       Text(
+                                          //         "Item Cd",
+                                          //         style: TextStyle(
+                                          //             fontSize: 12,
+                                          //             color: Colors.black),
+                                          //       ),
+                                          //       Text(
+                                          //         "${data[index].itemCd}",
+                                          //         style: TextStyle(
+                                          //             fontSize: 12,
+                                          //             color: Colors.grey),
+                                          //       )
+                                          //     ],
+                                          //   ),
+                                          // ),
+                                          SizedBox(
+                                            width: 90,
                                             child: Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
@@ -1113,7 +1113,7 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                                  CrossAxisAlignment.center,
                                               children: [
                                                 Text(
                                                   "Qty",
@@ -1133,10 +1133,10 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                                  CrossAxisAlignment.center,
                                               children: [
                                                 Text(
-                                                  "Free Qty",
+                                                  "Free",
                                                   style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.black),
@@ -1152,6 +1152,8 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                           ),
                                           Expanded(
                                               child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
                                             children: [
                                               Text("Amount",
                                                   style: TextStyle(
@@ -1164,8 +1166,6 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                                     color: Colors.grey),
                                               )
                                             ],
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
                                           )),
                                         ],
                                       ),
@@ -1198,15 +1198,15 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                               children: [
                                                 Row(
                                                   children: [
+                                                    // Expanded(
+                                                    //     child: Text(
+                                                    //   "Bill No",
+                                                    //   style: TextStyle(
+                                                    //       fontSize: 12.0),
+                                                    // )),
                                                     Expanded(
                                                         child: Text(
-                                                      "Bill No",
-                                                      style: TextStyle(
-                                                          fontSize: 12.0),
-                                                    )),
-                                                    Expanded(
-                                                        child: Text(
-                                                      "Bill Date",
+                                                      "Date",
                                                       style: TextStyle(
                                                           fontSize: 12.0),
                                                     )),
@@ -1221,12 +1221,12 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                                 ),
                                                 Row(
                                                   children: [
-                                                    Expanded(
-                                                        child: Text(
-                                                      "Batch/MRP",
-                                                      style: TextStyle(
-                                                          fontSize: 12.0),
-                                                    )),
+                                                    // Expanded(
+                                                    //     child: Text(
+                                                    //   "Batch/MRP",
+                                                    //   style: TextStyle(
+                                                    //       fontSize: 12.0),
+                                                    // )),
                                                     Expanded(
                                                         child: Padding(
                                                       padding:
@@ -1309,15 +1309,15 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                                         children: [
                                                           Row(
                                                             children: [
-                                                              Expanded(
-                                                                  child: Text(
-                                                                "${detailData[index].refNo}",
-                                                                style: TextStyle(
-                                                                    color: Colors
-                                                                        .grey,
-                                                                    fontSize:
-                                                                        12.0),
-                                                              )),
+                                                              // Expanded(
+                                                              //     child: Text(
+                                                              //   "${detailData[index].refNo}",
+                                                              //   style: TextStyle(
+                                                              //       color: Colors
+                                                              //           .grey,
+                                                              //       fontSize:
+                                                              //           12.0),
+                                                              // )),
                                                               Expanded(
                                                                   child: Text(
                                                                 Helper.toUi(
@@ -1342,15 +1342,15 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                                                           ),
                                                           Row(
                                                             children: [
-                                                              Expanded(
-                                                                  child: Text(
-                                                                "${detailData[index].sizeCd}",
-                                                                style: TextStyle(
-                                                                    color: Colors
-                                                                        .grey,
-                                                                    fontSize:
-                                                                        12.0),
-                                                              )),
+                                                              // Expanded(
+                                                              //     child: Text(
+                                                              //   "${detailData[index].sizeCd}",
+                                                              //   style: TextStyle(
+                                                              //       color: Colors
+                                                              //           .grey,
+                                                              //       fontSize:
+                                                              //           12.0),
+                                                              // )),
                                                               Expanded(
                                                                   child:
                                                                       Padding(

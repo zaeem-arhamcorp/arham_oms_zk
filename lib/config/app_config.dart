@@ -31,6 +31,12 @@ class AppConfig {
   //9033546913 Mahesh Patadiya - Password: 101
   //7383169201 Mehul Dholariya
 
+  // App Primary Color: Color(0xFF004881) - ApproveRx primary color
+  // Arham Corporation logo color - Color(0xFF2C4EA5)
+  // App Primary Color: Color(0xFF0B5EEF) - OMS logo color upper end gradient
+  // App Primary Color: Color(0xFF023AB5) - OMS logo color lower end gradient
+  // POS sale color: Color(0xFFD0E4FF)
+
   // TODO: Command to build .apk with today's build date
   // flutter build apk --release --dart-define=BUILD_TIME="$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
@@ -45,7 +51,7 @@ class AppConfig {
 
   // TODO: Update today's date in ProfilePage before building apk
   // static const String baseURL =
-  //       "https://apidev.arhamcorp.in/api/"; //TODO: Stage
+  //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // TODO: Remove today's date from ProfilePage before building apk
   static const String baseURL =

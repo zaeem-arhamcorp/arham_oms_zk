@@ -389,6 +389,10 @@ class _BeatListViewState extends State<BeatListView> {
     Beat? initialBeat,
     bool allowRemoveOption = false,
   }) async {
+    if (beatController.beats.isEmpty) {
+      await beatController.fetchBeats();
+    }
+
     final result = await showModalBottomSheet<BeatSelectionResult>(
       context: context,
       isScrollControlled: true,

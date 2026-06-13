@@ -23,7 +23,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -36,7 +35,6 @@ import 'package:whatsapp_share/whatsapp_share.dart';
 import '../models/orderReportModal.dart';
 import '../providers/party_provider.dart';
 import '../widgets/pdfViewerScreen.dart';
-import '../widgets/user_search_dropdown.dart';
 import 'monthly_target/services/api_services.dart';
 
 class OrderReportScreen extends StatefulWidget {
@@ -796,6 +794,504 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     );
   }
 
+  Future<Map<String, dynamic>?> _showUserSelectionDialog() async {
+    final TextEditingController searchController = TextEditingController();
+
+    List<Map<String, dynamic>> filteredUsers = List.from(_usersForDropdown);
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text("Select User"),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search User",
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          filteredUsers = _usersForDropdown.where((user) {
+                            final name = (user['userName'] ?? '')
+                                .toString()
+                                .toLowerCase();
+
+                            final code = (user['userCode'] ?? '')
+                                .toString()
+                                .toLowerCase();
+
+                            return name.contains(value.toLowerCase()) ||
+                                code.contains(value.toLowerCase());
+                          }).toList();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredUsers.length,
+                        itemBuilder: (context, index) {
+                          final user = filteredUsers[index];
+
+                          return ListTile(
+                            title: Text(
+                              user['userName'] ?? '',
+                            ),
+                            subtitle: Text(
+                              user['userCode'] ?? '',
+                            ),
+                            onTap: () {
+                              Navigator.pop(dialogContext, user);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showFilterBottomSheet() {
+    final PartyProvider party =
+        Provider.of<PartyProvider>(context, listen: false);
+    final ProfileProvider profile =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final bool isOmsWithoutErpSync = profile.data?.profileSettings
+            .any((e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+        false;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Filters",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            final now = DateTime.now();
+                            final fromDate =
+                                now.subtract(const Duration(days: 90));
+
+                            setModalState(() {
+                              radiocheck = 1;
+
+                              _selectedUserCode = '';
+                              userController.clear();
+
+                              fromdateController.text = Helper.toUi(
+                                DateFormat("yyyy-MM-dd").format(fromDate),
+                              );
+
+                              toDateController.text = Helper.toUi(
+                                DateFormat("yyyy-MM-dd").format(now),
+                              );
+                            });
+                          },
+                          child: Text(
+                            "Reset",
+                            style: TextStyle(
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      "Date Range",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextFormField(
+                                controller: fromdateController,
+                                readOnly: true,
+                                // prevent manual typing
+                                decoration: InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(
+                                      vertical: 10.0, horizontal: 5),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  label: Text("From Date"),
+                                  hintText: "Select date",
+                                  suffixIcon: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        // fromdateController.text =
+                                        //     DateFormat("yyyy-MM-dd")
+                                        //         .format(DateTime.now());
+
+                                        fromdateController.text = Helper.toUi(
+                                            DateFormat("yyyy-MM-dd")
+                                                .format(DateTime.now()));
+                                      });
+                                      getDate();
+                                    },
+                                    child: Tooltip(
+                                      message: "Today",
+                                      child: Icon(Icons.today_outlined),
+                                    ),
+                                  ),
+                                ),
+                                onTap: () {
+                                  DatePicker.showDatePicker(
+                                    context,
+                                    showTitleActions: true,
+                                    minTime: DateTime(2000, 1, 1),
+                                    // safe range
+                                    maxTime: DateTime.now(),
+                                    currentTime: DateTime.now(),
+                                    locale: LocaleType.en,
+                                    onConfirm: (date) {
+                                      setState(() {
+                                        // fromdateController.text =
+                                        //     DateFormat("yyyy-MM-dd").format(date);
+                                        fromdateController.text = Helper.toUi(
+                                            DateFormat("yyyy-MM-dd")
+                                                .format(date));
+                                      });
+                                      getDate();
+                                    },
+                                  );
+                                },
+                                validator: (val) {
+                                  print(val);
+                                  return null;
+                                },
+                                onSaved: (val) {},
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextFormField(
+                                controller: toDateController,
+                                readOnly: true,
+                                decoration: InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(
+                                      vertical: 10.0, horizontal: 5),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  label: Text("To Date"),
+                                  hintText: "Select date",
+                                ),
+                                onTap: () {
+                                  DatePicker.showDatePicker(
+                                    context,
+                                    showTitleActions: true,
+                                    minTime: DateTime(2000, 1, 1),
+                                    // safe range
+                                    maxTime: DateTime(2100, 12, 31),
+                                    currentTime: DateTime.now(),
+                                    locale: LocaleType.en,
+                                    onConfirm: (date) {
+                                      setState(() {
+                                        toDateController.text = Helper.toUi(
+                                            DateFormat("yyyy-MM-dd")
+                                                .format(date));
+                                        // toDateController.text =
+                                        //     DateFormat("yyyy-MM-dd").format(date);
+                                      });
+                                      getDate();
+                                    },
+                                  );
+                                },
+                                validator: (val) {
+                                  print(val);
+                                  return null;
+                                },
+                                onSaved: (val) {},
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 5),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        Visibility(
+                          visible: !isOmsWithoutErpSync,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                                left: 5.0, top: 5.0, bottom: 5.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Divider(),
+                                SizedBox(
+                                  height: 5,
+                                ),
+                                Text(
+                                  "Order Status",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Radio(
+                                          visualDensity: const VisualDensity(
+                                              horizontal:
+                                                  VisualDensity.minimumDensity,
+                                              vertical:
+                                                  VisualDensity.minimumDensity),
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          value: 1,
+                                          groupValue: radiocheck,
+                                          onChanged: (val) {
+                                            setModalState(() {
+                                              radiocheck = val!;
+                                            });
+                                            getDate();
+                                          },
+                                        ),
+                                        Text(
+                                          "All ",
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Radio(
+                                            visualDensity: const VisualDensity(
+                                                horizontal: VisualDensity
+                                                    .minimumDensity,
+                                                vertical: VisualDensity
+                                                    .minimumDensity),
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            value: 2,
+                                            groupValue: radiocheck,
+                                            onChanged: (val) {
+                                              setModalState(() {
+                                                radiocheck = val!;
+                                              });
+                                              getDate();
+                                            }),
+                                        Text(
+                                          "Pending Orders ",
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Radio(
+                                            visualDensity: const VisualDensity(
+                                                horizontal: VisualDensity
+                                                    .minimumDensity,
+                                                vertical: VisualDensity
+                                                    .minimumDensity),
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            value: 3,
+                                            groupValue: radiocheck,
+                                            onChanged: (val) {
+                                              setModalState(() {
+                                                radiocheck = val!;
+                                              });
+                                              getDate();
+                                            }),
+                                        Text(
+                                          "Synced Orders ",
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Radio(
+                                            visualDensity: const VisualDensity(
+                                                horizontal: VisualDensity
+                                                    .minimumDensity,
+                                                vertical: VisualDensity
+                                                    .minimumDensity),
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            value: 4,
+                                            groupValue: radiocheck,
+                                            onChanged: (val) {
+                                              setModalState(() {
+                                                radiocheck = val!;
+                                              });
+                                              getDate();
+                                            }),
+                                        Text(
+                                          "Billed Orders ",
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(
+                                  height: 5,
+                                ),
+                                Divider(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 5),
+                    if (_userHasChildren)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "User",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () async {
+                              final selectedUser =
+                                  await _showUserSelectionDialog();
+
+                              if (selectedUser != null) {
+                                setModalState(() {
+                                  _selectedUserCode =
+                                      selectedUser['userCode'] ?? '';
+
+                                  userController.text =
+                                      selectedUser['userCode'] ?? '';
+                                });
+                              }
+                            },
+                            child: Container(
+                              height: 50,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _selectedUserCode.isEmpty
+                                          ? "Select User"
+                                          : (_usersForDropdown.firstWhere(
+                                                  (e) =>
+                                                      e['userCode'] ==
+                                                      _selectedUserCode,
+                                                  orElse: () =>
+                                                      {})['userName'] ??
+                                              "Select User"),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_down),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+
+                          getDate();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text(
+                          "Apply Filters",
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final PartyProvider party = context.watch<PartyProvider>();
@@ -816,7 +1312,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        backgroundColor: Colors.white,
+        backgroundColor: Color(0xFFF0F3F2),
         appBar: CustomAppBar(
           title: title,
           actions: [
@@ -1017,518 +1513,606 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
               )
           ],
         ),
-        body: SafeArea(
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5.0, vertical: 5.0),
-                    child: Card(
-                        elevation: 1,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                            side: BorderSide(
+        body: Stack(
+          children: [
+            Column(
+              children: [
+                // Padding(
+                //   padding: const EdgeInsets.symmetric(
+                //       horizontal: 5.0, vertical: 5.0),
+                //   child: Card(
+                //       elevation: 1,
+                //       shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(5),
+                //           side: BorderSide(
+                //             color: Colors.grey,
+                //           )),
+                //       child: Padding(
+                //         padding: const EdgeInsets.symmetric(horizontal: 10),
+                //         child: TextButton(
+                //           onPressed: () => showMenu(),
+                //           style: TextButton.styleFrom(
+                //             padding: EdgeInsets.zero,
+                //             splashFactory:
+                //                 NoSplash.splashFactory, // Disable splash effect
+                //           ),
+                //           child: Row(
+                //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                //             children: [
+                //               Icon(
+                //                 Icons.search,
+                //                 color: Colors.black,
+                //                 size: 24,
+                //               ),
+                //               Expanded(
+                //                 child: Text(
+                //                   Provider.of<PartyProvider>(context)
+                //                           .party
+                //                           .isEmpty
+                //                       ? 'Search Party (Name, Phone Number, City, Area)' // Default text
+                //                       : ' ${Helper.trimValue(Provider.of<PartyProvider>(context).party, 80)}', // Party name
+                //                   overflow: TextOverflow.ellipsis,
+                //                   maxLines: 1,
+                //                   style: TextStyle(color: Colors.black),
+                //                   textAlign:
+                //                       TextAlign.start, // Ensure the text is LTR
+                //                 ),
+                //               ),
+                //               if (Provider.of<PartyProvider>(context)
+                //                   .party
+                //                   .isNotEmpty)
+                //                 GestureDetector(
+                //                   onTap: () {
+                //                     party.clearParty();
+                //                     party.clearPunchInOutParty();
+                //                     getDate();
+                //                   },
+                //                   child: Icon(
+                //                     Icons.cancel,
+                //                     color: Colors.black,
+                //                     size: 24,
+                //                   ),
+                //                 ),
+                //             ],
+                //           ),
+                //         ),
+                //       )),
+                // ),
+                Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
                               color: Colors.grey,
-                            )),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: TextButton(
-                            onPressed: () => showMenu(),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              splashFactory: NoSplash
-                                  .splashFactory, // Disable splash effect
                             ),
+                          ),
+                          child: InkWell(
+                            onTap: showMenu,
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                SizedBox(width: 12),
                                 Icon(
                                   Icons.search,
-                                  color: Colors.black,
-                                  size: 24,
+                                  color: Colors.grey.shade600,
                                 ),
+                                SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    Provider.of<PartyProvider>(context)
-                                            .party
-                                            .isEmpty
-                                        ? 'Search Party (Name, Phone Number, City, Area)' // Default text
-                                        : ' ${Helper.trimValue(Provider.of<PartyProvider>(context).party, 80)}', // Party name
-                                    overflow: TextOverflow.ellipsis,
+                                    party.party.isEmpty
+                                        ? "Search Party(Name, Phone No., City, Area)"
+                                        : party.party,
                                     maxLines: 1,
-                                    style: TextStyle(color: Colors.black),
-                                    textAlign: TextAlign
-                                        .start, // Ensure the text is LTR
-                                  ),
-                                ),
-                                if (Provider.of<PartyProvider>(context)
-                                    .party
-                                    .isNotEmpty)
-                                  GestureDetector(
-                                    onTap: () {
-                                      party.clearParty();
-                                      party.clearPunchInOutParty();
-                                      getDate();
-                                    },
-                                    child: Icon(
-                                      Icons.cancel,
-                                      color: Colors.black,
-                                      size: 24,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 14,
                                     ),
                                   ),
+                                ),
                               ],
                             ),
                           ),
-                        )),
-                  ),
-                  // if (ub.role == AppConfig.masteruser)
-                  //   Padding(
-                  //     padding:
-                  //         const EdgeInsets.only(left: 10.0, right: 10.0, bottom: 6.0),
-                  //     child: Row(
-                  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  //       children: [
-                  //         Text('User: ${Helper.trimValue(userController.text, 25)} '),
-                  //         Row(
-                  //           children: [
-                  //             TextButton(
-                  //                 onPressed: showMenu,
-                  //                 child: Text("Change"),
-                  //                 style: TextButton.styleFrom(
-                  //                     padding: EdgeInsets.zero,
-                  //                     minimumSize: Size(50, 30),
-                  //                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  //                     alignment: Alignment.centerLeft)),
-                  //             SizedBox(
-                  //               width: 2.0,
-                  //             ),
-                  //             GestureDetector(
-                  //                 onTap: () {
-                  //                   userController.clear();
-                  //                   getDate();
-                  //                 },
-                  //                 child: Icon(
-                  //                   Icons.close,
-                  //                   size: 18,
-                  //                 )),
-                  //           ],
-                  //         )
-                  //       ],
-                  //     ),
-                  //   ),
-                  Visibility(
-                    visible: !isOmsWithoutErpSync,
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                          left: 5.0, top: 5.0, bottom: 5.0),
-                      child: Row(
-                        children: [
-                          Row(
-                            children: [
-                              Radio(
-                                visualDensity: const VisualDensity(
-                                    horizontal: VisualDensity.minimumDensity,
-                                    vertical: VisualDensity.minimumDensity),
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                value: 1,
-                                groupValue: radiocheck,
-                                onChanged: (val) {
-                                  setState(() {
-                                    radiocheck = val!;
-                                  });
-                                  getDate();
-                                },
-                              ),
-                              Text(
-                                "All ",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Radio(
-                                  visualDensity: const VisualDensity(
-                                      horizontal: VisualDensity.minimumDensity,
-                                      vertical: VisualDensity.minimumDensity),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  value: 2,
-                                  groupValue: radiocheck,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      radiocheck = val!;
-                                    });
-                                    getDate();
-                                  }),
-                              Text(
-                                "Pending Orders ",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Radio(
-                                  visualDensity: const VisualDensity(
-                                      horizontal: VisualDensity.minimumDensity,
-                                      vertical: VisualDensity.minimumDensity),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  value: 3,
-                                  groupValue: radiocheck,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      radiocheck = val!;
-                                    });
-                                    getDate();
-                                  }),
-                              Text(
-                                "Synced Orders ",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Radio(
-                                  visualDensity: const VisualDensity(
-                                      horizontal: VisualDensity.minimumDensity,
-                                      vertical: VisualDensity.minimumDensity),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  value: 4,
-                                  groupValue: radiocheck,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      radiocheck = val!;
-                                    });
-                                    getDate();
-                                  }),
-                              Text(
-                                "Billed Orders ",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Padding(
-                  //   padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                  //   child: Row(
-                  //     children: [
-                  //       Expanded(
-                  //         child: Column(
-                  //           crossAxisAlignment: CrossAxisAlignment.start,
-                  //           children: [
-                  //             Text(
-                  //               "From Date",
-                  //             ),
-                  //             SizedBox(
-                  //               height: 5.h,
-                  //             ),
-                  //             DateTimePicker(
-                  //               controller: fromdateController,
-                  //               decoration: InputDecoration(
-                  //                 contentPadding: EdgeInsets.symmetric(
-                  //                     vertical: 10.0, horizontal: 5),
-                  //                 border: OutlineInputBorder(
-                  //                     borderRadius: BorderRadius.circular(12)),
-                  //                 hintText: "Select date",
-                  //                 suffixIcon: GestureDetector(
-                  //                     onTap: () {
-                  //                       setState(() {
-                  //                         fromdateController.text =
-                  //                             DateFormat("yyyy-MM-dd")
-                  //                                 .format(DateTime.now());
-                  //                       });
-                  //                       getDate();
-                  //                     },
-                  //                     child: Tooltip(
-                  //                         message: "Today",
-                  //                         child: Icon(Icons.today_outlined))),
-                  //               ),
-                  //               firstDate: DateTime(-21000),
-                  //               initialDate: DateTime.now(),
-                  //               lastDate: DateTime.now(),
-                  //               dateLabelText: 'Select Date',
-                  //               onChanged: (val) {
-                  //                 getDate();
-                  //               },
-                  //               validator: (val) {
-                  //                 print(val);
-                  //                 return null;
-                  //               },
-                  //               onSaved: (val) {},
-                  //             ),
-                  //           ],
-                  //         ),
-                  //       ),
-                  //       SizedBox(
-                  //         width: 10,
-                  //       ),
-                  //       Expanded(
-                  //         child: Column(
-                  //           crossAxisAlignment: CrossAxisAlignment.start,
-                  //           children: [
-                  //             Text(
-                  //               "To Date",
-                  //             ),
-                  //             SizedBox(
-                  //               height: 5.h,
-                  //             ),
-                  //             DateTimePicker(
-                  //               controller: toDateController,
-                  //               decoration: InputDecoration(
-                  //                   contentPadding: EdgeInsets.symmetric(
-                  //                       vertical: 10.0, horizontal: 5),
-                  //                   border: OutlineInputBorder(
-                  //                       borderRadius: BorderRadius.circular(12)),
-                  //                   hintText: "Select date"),
-                  //               firstDate: DateTime(-21000),
-                  //               initialDate: DateTime.now(),
-                  //               lastDate: DateTime(21000),
-                  //               dateLabelText: 'Select Date',
-                  //               onChanged: (val) {
-                  //                 getDate();
-                  //               },
-                  //               validator: (val) {
-                  //                 print(val);
-                  //                 return null;
-                  //               },
-                  //               onSaved: (val) {},
-                  //             )
-                  //           ],
-                  //         ),
-                  //       )
-                  //     ],
-                  //   ),
-                  // ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                    child: Row(
-                      children: [
-                        // ------------------- FROM DATE -------------------
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("From Date"),
-                              SizedBox(height: 5.h),
-                              TextFormField(
-                                controller: fromdateController,
-                                readOnly: true,
-                                // prevent manual typing
-                                decoration: InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(
-                                      vertical: 10.0, horizontal: 5),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  hintText: "Select date",
-                                  suffixIcon: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        // fromdateController.text =
-                                        //     DateFormat("yyyy-MM-dd")
-                                        //         .format(DateTime.now());
-
-                                        fromdateController.text = Helper.toUi(
-                                            DateFormat("yyyy-MM-dd")
-                                                .format(DateTime.now()));
-                                      });
-                                      getDate();
-                                    },
-                                    child: Tooltip(
-                                      message: "Today",
-                                      child: Icon(Icons.today_outlined),
-                                    ),
-                                  ),
-                                ),
-                                onTap: () {
-                                  DatePicker.showDatePicker(
-                                    context,
-                                    showTitleActions: true,
-                                    minTime: DateTime(2000, 1, 1),
-                                    // safe range
-                                    maxTime: DateTime.now(),
-                                    currentTime: DateTime.now(),
-                                    locale: LocaleType.en,
-                                    onConfirm: (date) {
-                                      setState(() {
-                                        // fromdateController.text =
-                                        //     DateFormat("yyyy-MM-dd").format(date);
-                                        fromdateController.text = Helper.toUi(
-                                            DateFormat("yyyy-MM-dd")
-                                                .format(date));
-                                      });
-                                      getDate();
-                                    },
-                                  );
-                                },
-                                validator: (val) {
-                                  print(val);
-                                  return null;
-                                },
-                                onSaved: (val) {},
-                              ),
-                            ],
-                          ),
                         ),
-
-                        SizedBox(width: 10),
-
-                        // ------------------- TO DATE -------------------
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("To Date"),
-                              SizedBox(height: 5.h),
-                              TextFormField(
-                                controller: toDateController,
-                                readOnly: true,
-                                decoration: InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(
-                                      vertical: 10.0, horizontal: 5),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  hintText: "Select date",
-                                ),
-                                onTap: () {
-                                  DatePicker.showDatePicker(
-                                    context,
-                                    showTitleActions: true,
-                                    minTime: DateTime(2000, 1, 1),
-                                    // safe range
-                                    maxTime: DateTime(2100, 12, 31),
-                                    currentTime: DateTime.now(),
-                                    locale: LocaleType.en,
-                                    onConfirm: (date) {
-                                      setState(() {
-                                        toDateController.text = Helper.toUi(
-                                            DateFormat("yyyy-MM-dd")
-                                                .format(date));
-                                        // toDateController.text =
-                                        //     DateFormat("yyyy-MM-dd").format(date);
-                                      });
-                                      getDate();
-                                    },
-                                  );
-                                },
-                                validator: (val) {
-                                  print(val);
-                                  return null;
-                                },
-                                onSaved: (val) {},
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // ------------------- USER DROPDOWN -------------------
-                  // Only show search field if user has children in the order data
-                  if (_userHasChildren)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10.0, vertical: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Filter by User"),
-                          SizedBox(height: 5.h),
-                          UserSearchDropdown(
-                            users: _usersForDropdown,
-                            selectedUserCode: _selectedUserCode.isEmpty
-                                ? null
-                                : _selectedUserCode,
-                            loading: _loadingUsers,
-                            hint: "Select User",
-                            onSearchQueryChanged: _onUserSearchQueryChanged,
-                            onChanged: (value) {
-                              CrashlyticsService.logAction(
-                                'order_report_user_filter_changed',
-                                context: {'selected_user_cd': value ?? ''},
-                              );
-                              print('User selected: $value');
-                              setState(() {
-                                _selectedUserCode = value ?? '';
-                                userController.text = value ?? '';
-                              });
-                              print('Calling getDate from user selection');
-                              getDate();
-                            },
-                          ),
-                        ],
                       ),
-                    ),
-                  Divider(),
-                  Expanded(
-                    child: noList == true
-                        ? Center(
-                            child: Text("No Data Found"),
-                          )
-                        : data.isEmpty
-                            ? Center(
-                                child: CircularProgressIndicator(),
-                              )
-                            : ListView.builder(
-                                itemCount: data.length,
-                                shrinkWrap: true,
-                                itemBuilder: (context, index) {
-                                  return Card(
-                                    color: Colors.white,
-                                    elevation: 2,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 10.0),
-                                      child: Container(
-                                        decoration:
-                                            BoxDecoration(color: Colors.white),
-                                        child: ExpansionTile(
-                                          shape: Border(),
-                                          collapsedShape: Border(),
-                                          expandedAlignment: Alignment.topLeft,
-                                          childrenPadding: EdgeInsets.only(
-                                              left: 20,
-                                              right: 20,
-                                              top: 15,
-                                              bottom: 20),
-                                          title: Column(
-                                            children: [
-                                              Row(
-                                                children: <Widget>[
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: _showFilterBottomSheet,
+                        child: Container(
+                          height: 46,
+                          width: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey,
+                            ),
+                          ),
+                          child: const Icon(Icons.tune),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // if (ub.role == AppConfig.masteruser)
+                //   Padding(
+                //     padding:
+                //         const EdgeInsets.only(left: 10.0, right: 10.0, bottom: 6.0),
+                //     child: Row(
+                //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                //       children: [
+                //         Text('User: ${Helper.trimValue(userController.text, 25)} '),
+                //         Row(
+                //           children: [
+                //             TextButton(
+                //                 onPressed: showMenu,
+                //                 child: Text("Change"),
+                //                 style: TextButton.styleFrom(
+                //                     padding: EdgeInsets.zero,
+                //                     minimumSize: Size(50, 30),
+                //                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                //                     alignment: Alignment.centerLeft)),
+                //             SizedBox(
+                //               width: 2.0,
+                //             ),
+                //             GestureDetector(
+                //                 onTap: () {
+                //                   userController.clear();
+                //                   getDate();
+                //                 },
+                //                 child: Icon(
+                //                   Icons.close,
+                //                   size: 18,
+                //                 )),
+                //           ],
+                //         )
+                //       ],
+                //     ),
+                //   ),
+
+                // Visibility(
+                //   visible: !isOmsWithoutErpSync,
+                //   child: Padding(
+                //     padding:
+                //         const EdgeInsets.only(left: 5.0, top: 5.0, bottom: 5.0),
+                //     child: Row(
+                //       children: [
+                //         Row(
+                //           children: [
+                //             Radio(
+                //               visualDensity: const VisualDensity(
+                //                   horizontal: VisualDensity.minimumDensity,
+                //                   vertical: VisualDensity.minimumDensity),
+                //               materialTapTargetSize:
+                //                   MaterialTapTargetSize.shrinkWrap,
+                //               value: 1,
+                //               groupValue: radiocheck,
+                //               onChanged: (val) {
+                //                 setState(() {
+                //                   radiocheck = val!;
+                //                 });
+                //                 getDate();
+                //               },
+                //             ),
+                //             Text(
+                //               "All ",
+                //               style: TextStyle(fontSize: 12),
+                //             ),
+                //           ],
+                //         ),
+                //         Row(
+                //           children: [
+                //             Radio(
+                //                 visualDensity: const VisualDensity(
+                //                     horizontal: VisualDensity.minimumDensity,
+                //                     vertical: VisualDensity.minimumDensity),
+                //                 materialTapTargetSize:
+                //                     MaterialTapTargetSize.shrinkWrap,
+                //                 value: 2,
+                //                 groupValue: radiocheck,
+                //                 onChanged: (val) {
+                //                   setState(() {
+                //                     radiocheck = val!;
+                //                   });
+                //                   getDate();
+                //                 }),
+                //             Text(
+                //               "Pending Orders ",
+                //               style: TextStyle(fontSize: 12),
+                //             ),
+                //           ],
+                //         ),
+                //         Row(
+                //           children: [
+                //             Radio(
+                //                 visualDensity: const VisualDensity(
+                //                     horizontal: VisualDensity.minimumDensity,
+                //                     vertical: VisualDensity.minimumDensity),
+                //                 materialTapTargetSize:
+                //                     MaterialTapTargetSize.shrinkWrap,
+                //                 value: 3,
+                //                 groupValue: radiocheck,
+                //                 onChanged: (val) {
+                //                   setState(() {
+                //                     radiocheck = val!;
+                //                   });
+                //                   getDate();
+                //                 }),
+                //             Text(
+                //               "Synced Orders ",
+                //               style: TextStyle(fontSize: 12),
+                //             ),
+                //           ],
+                //         ),
+                //         Row(
+                //           children: [
+                //             Radio(
+                //                 visualDensity: const VisualDensity(
+                //                     horizontal: VisualDensity.minimumDensity,
+                //                     vertical: VisualDensity.minimumDensity),
+                //                 materialTapTargetSize:
+                //                     MaterialTapTargetSize.shrinkWrap,
+                //                 value: 4,
+                //                 groupValue: radiocheck,
+                //                 onChanged: (val) {
+                //                   setState(() {
+                //                     radiocheck = val!;
+                //                   });
+                //                   getDate();
+                //                 }),
+                //             Text(
+                //               "Billed Orders ",
+                //               style: TextStyle(fontSize: 12),
+                //             ),
+                //           ],
+                //         ),
+                //       ],
+                //     ),
+                //   ),
+                // ),
+
+                // Padding(
+                //   padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                //   child: Row(
+                //     children: [
+                //       Expanded(
+                //         child: Column(
+                //           crossAxisAlignment: CrossAxisAlignment.start,
+                //           children: [
+                //             Text(
+                //               "From Date",
+                //             ),
+                //             SizedBox(
+                //               height: 5.h,
+                //             ),
+                //             DateTimePicker(
+                //               controller: fromdateController,
+                //               decoration: InputDecoration(
+                //                 contentPadding: EdgeInsets.symmetric(
+                //                     vertical: 10.0, horizontal: 5),
+                //                 border: OutlineInputBorder(
+                //                     borderRadius: BorderRadius.circular(12)),
+                //                 hintText: "Select date",
+                //                 suffixIcon: GestureDetector(
+                //                     onTap: () {
+                //                       setState(() {
+                //                         fromdateController.text =
+                //                             DateFormat("yyyy-MM-dd")
+                //                                 .format(DateTime.now());
+                //                       });
+                //                       getDate();
+                //                     },
+                //                     child: Tooltip(
+                //                         message: "Today",
+                //                         child: Icon(Icons.today_outlined))),
+                //               ),
+                //               firstDate: DateTime(-21000),
+                //               initialDate: DateTime.now(),
+                //               lastDate: DateTime.now(),
+                //               dateLabelText: 'Select Date',
+                //               onChanged: (val) {
+                //                 getDate();
+                //               },
+                //               validator: (val) {
+                //                 print(val);
+                //                 return null;
+                //               },
+                //               onSaved: (val) {},
+                //             ),
+                //           ],
+                //         ),
+                //       ),
+                //       SizedBox(
+                //         width: 10,
+                //       ),
+                //       Expanded(
+                //         child: Column(
+                //           crossAxisAlignment: CrossAxisAlignment.start,
+                //           children: [
+                //             Text(
+                //               "To Date",
+                //             ),
+                //             SizedBox(
+                //               height: 5.h,
+                //             ),
+                //             DateTimePicker(
+                //               controller: toDateController,
+                //               decoration: InputDecoration(
+                //                   contentPadding: EdgeInsets.symmetric(
+                //                       vertical: 10.0, horizontal: 5),
+                //                   border: OutlineInputBorder(
+                //                       borderRadius: BorderRadius.circular(12)),
+                //                   hintText: "Select date"),
+                //               firstDate: DateTime(-21000),
+                //               initialDate: DateTime.now(),
+                //               lastDate: DateTime(21000),
+                //               dateLabelText: 'Select Date',
+                //               onChanged: (val) {
+                //                 getDate();
+                //               },
+                //               validator: (val) {
+                //                 print(val);
+                //                 return null;
+                //               },
+                //               onSaved: (val) {},
+                //             )
+                //           ],
+                //         ),
+                //       )
+                //     ],
+                //   ),
+                // ),
+                // Padding(
+                //   padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                //   child: Row(
+                //     children: [
+                //       // ------------------- FROM DATE -------------------
+                //       Expanded(
+                //         child: Column(
+                //           crossAxisAlignment: CrossAxisAlignment.start,
+                //           children: [
+                //             Text("From Date"),
+                //             SizedBox(height: 5.h),
+                //             TextFormField(
+                //               controller: fromdateController,
+                //               readOnly: true,
+                //               // prevent manual typing
+                //               decoration: InputDecoration(
+                //                 contentPadding: EdgeInsets.symmetric(
+                //                     vertical: 10.0, horizontal: 5),
+                //                 border: OutlineInputBorder(
+                //                   borderRadius: BorderRadius.circular(12),
+                //                 ),
+                //                 hintText: "Select date",
+                //                 suffixIcon: GestureDetector(
+                //                   onTap: () {
+                //                     setState(() {
+                //                       // fromdateController.text =
+                //                       //     DateFormat("yyyy-MM-dd")
+                //                       //         .format(DateTime.now());
+                //
+                //                       fromdateController.text = Helper.toUi(
+                //                           DateFormat("yyyy-MM-dd")
+                //                               .format(DateTime.now()));
+                //                     });
+                //                     getDate();
+                //                   },
+                //                   child: Tooltip(
+                //                     message: "Today",
+                //                     child: Icon(Icons.today_outlined),
+                //                   ),
+                //                 ),
+                //               ),
+                //               onTap: () {
+                //                 DatePicker.showDatePicker(
+                //                   context,
+                //                   showTitleActions: true,
+                //                   minTime: DateTime(2000, 1, 1),
+                //                   // safe range
+                //                   maxTime: DateTime.now(),
+                //                   currentTime: DateTime.now(),
+                //                   locale: LocaleType.en,
+                //                   onConfirm: (date) {
+                //                     setState(() {
+                //                       // fromdateController.text =
+                //                       //     DateFormat("yyyy-MM-dd").format(date);
+                //                       fromdateController.text = Helper.toUi(
+                //                           DateFormat("yyyy-MM-dd")
+                //                               .format(date));
+                //                     });
+                //                     getDate();
+                //                   },
+                //                 );
+                //               },
+                //               validator: (val) {
+                //                 print(val);
+                //                 return null;
+                //               },
+                //               onSaved: (val) {},
+                //             ),
+                //           ],
+                //         ),
+                //       ),
+                //
+                //       SizedBox(width: 10),
+                //
+                //       // ------------------- TO DATE -------------------
+                //       Expanded(
+                //         child: Column(
+                //           crossAxisAlignment: CrossAxisAlignment.start,
+                //           children: [
+                //             Text("To Date"),
+                //             SizedBox(height: 5.h),
+                //             TextFormField(
+                //               controller: toDateController,
+                //               readOnly: true,
+                //               decoration: InputDecoration(
+                //                 contentPadding: EdgeInsets.symmetric(
+                //                     vertical: 10.0, horizontal: 5),
+                //                 border: OutlineInputBorder(
+                //                   borderRadius: BorderRadius.circular(12),
+                //                 ),
+                //                 hintText: "Select date",
+                //               ),
+                //               onTap: () {
+                //                 DatePicker.showDatePicker(
+                //                   context,
+                //                   showTitleActions: true,
+                //                   minTime: DateTime(2000, 1, 1),
+                //                   // safe range
+                //                   maxTime: DateTime(2100, 12, 31),
+                //                   currentTime: DateTime.now(),
+                //                   locale: LocaleType.en,
+                //                   onConfirm: (date) {
+                //                     setState(() {
+                //                       toDateController.text = Helper.toUi(
+                //                           DateFormat("yyyy-MM-dd")
+                //                               .format(date));
+                //                       // toDateController.text =
+                //                       //     DateFormat("yyyy-MM-dd").format(date);
+                //                     });
+                //                     getDate();
+                //                   },
+                //                 );
+                //               },
+                //               validator: (val) {
+                //                 print(val);
+                //                 return null;
+                //               },
+                //               onSaved: (val) {},
+                //             ),
+                //           ],
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                // ),
+
+                // ------------------- USER DROPDOWN -------------------
+                // Only show search field if user has children in the order data
+                // if (_userHasChildren)
+                //   Padding(
+                //     padding: const EdgeInsets.symmetric(
+                //         horizontal: 10.0, vertical: 8.0),
+                //     child: Column(
+                //       crossAxisAlignment: CrossAxisAlignment.start,
+                //       children: [
+                //         Text("Filter by User"),
+                //         SizedBox(height: 5.h),
+                //         UserSearchDropdown(
+                //           users: _usersForDropdown,
+                //           selectedUserCode: _selectedUserCode.isEmpty
+                //               ? null
+                //               : _selectedUserCode,
+                //           loading: _loadingUsers,
+                //           hint: "Select User",
+                //           onSearchQueryChanged: _onUserSearchQueryChanged,
+                //           onChanged: (value) {
+                //             CrashlyticsService.logAction(
+                //               'order_report_user_filter_changed',
+                //               context: {'selected_user_cd': value ?? ''},
+                //             );
+                //             print('User selected: $value');
+                //             setState(() {
+                //               _selectedUserCode = value ?? '';
+                //               userController.text = value ?? '';
+                //             });
+                //             print('Calling getDate from user selection');
+                //             getDate();
+                //           },
+                //         ),
+                //       ],
+                //     ),
+                //   ),
+
+                Divider(),
+                Expanded(
+                  child: noList == true
+                      ? Center(
+                          child: Text("No Data Found"),
+                        )
+                      : data.isEmpty
+                          ? Center(
+                              child: CircularProgressIndicator(),
+                            )
+                          : ListView.builder(
+                              itemCount: data.length,
+                              shrinkWrap: true,
+                              itemBuilder: (context, index) {
+                                return Card(
+                                  color: Colors.white,
+                                  elevation: 2,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 10.0),
+                                    child: Container(
+                                      decoration:
+                                          BoxDecoration(color: Colors.white),
+                                      child: ExpansionTile(
+                                        shape: Border(),
+                                        collapsedShape: Border(),
+                                        expandedAlignment: Alignment.topLeft,
+                                        childrenPadding: EdgeInsets.only(
+                                            left: 20,
+                                            right: 20,
+                                            top: 15,
+                                            bottom: 20),
+                                        title: Column(
+                                          children: [
+                                            Row(
+                                              children: <Widget>[
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        "Order No:",
+                                                        textAlign:
+                                                            TextAlign.start,
+                                                        style: TextStyle(
+                                                            fontSize: 12,
+                                                            color:
+                                                                Colors.black),
+                                                      ),
+                                                      Text(
+                                                        isOmsWithoutErpSync
+                                                            ? "${data[index].oId ?? ""}"
+                                                            : "${data[index].orderNo ?? ""}",
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey),
+                                                      )
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (isOmsWithoutErpSync)
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .start,
                                                       children: [
                                                         Text(
-                                                          "Order No:",
-                                                          textAlign:
-                                                              TextAlign.start,
+                                                          "Order Dt:",
                                                           style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.black),
+                                                            fontSize: 12,
+                                                            color: Colors.black,
+                                                          ),
                                                         ),
                                                         Text(
-                                                          isOmsWithoutErpSync
-                                                              ? "${data[index].oId ?? ""}"
-                                                              : "${data[index].orderNo ?? ""}",
-                                                          textAlign:
-                                                              TextAlign.center,
+                                                          Helper.convertToFormat(
+                                                              "${data[index].vouchDt ?? ""}",
+                                                              'dd-MM-yy'),
                                                           style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1537,7 +2121,150 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                       ],
                                                     ),
                                                   ),
-                                                  if (isOmsWithoutErpSync)
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        "Order Amt:",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.black,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        "${Helper.parseNumericValue(data[index].orderAmt.toString() ?? "")}",
+                                                        style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey),
+                                                      )
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (!isOmsWithoutErpSync)
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          "Bill No:",
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.black,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          "${data[index].billNo ?? ""}",
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey),
+                                                        )
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (!isOmsWithoutErpSync)
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          "Bill Dt:",
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.black,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          Helper.convertToFormat(
+                                                              "${data[index].billDt ?? ""}",
+                                                              'dd-MM-yy'),
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey),
+                                                        )
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (!isOmsWithoutErpSync)
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          "Bill Amt:",
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.black,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          "${data[index].netAmt ?? ""}",
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey),
+                                                        )
+                                                      ],
+                                                    ),
+                                                  ),
+                                                SizedBox(
+                                                  width: 10,
+                                                ),
+                                                if (profile.data
+                                                            ?.profileSettings
+                                                            .firstWhere(
+                                                              (element) =>
+                                                                  element
+                                                                      .variable ==
+                                                                  'orderReportMastUser',
+                                                              orElse: () =>
+                                                                  DatumSettings(), // return null if not found
+                                                            )
+                                                            .value ==
+                                                        'Y' &&
+                                                    isOmsWithoutErpSync)
+                                                  Expanded(
+                                                    flex: 1,
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          "User:",
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.black,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          "${Helper.trimValue(data[index].user.userName, 8)}",
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey),
+                                                        )
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 10.0),
+                                              child: Row(
+                                                children: <Widget>[
+                                                  if (!isOmsWithoutErpSync)
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment:
@@ -1545,7 +2272,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            "Order Dt:",
+                                                            "Order Date:",
                                                             style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1565,20 +2292,21 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                       ),
                                                     ),
                                                   Expanded(
+                                                    flex: 2,
                                                     child: Column(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
                                                         Text(
-                                                          "Order Amt:",
+                                                          "Party:",
                                                           style: TextStyle(
                                                             fontSize: 12,
                                                             color: Colors.black,
                                                           ),
                                                         ),
                                                         Text(
-                                                          "${Helper.parseNumericValue(data[index].orderAmt.toString() ?? "")}",
+                                                          "${Helper.trimValue(data[index].account.accName, 14)}",
                                                           style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1587,15 +2315,17 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                       ],
                                                     ),
                                                   ),
-                                                  if (!isOmsWithoutErpSync)
+
+                                                  if (isOmsWithoutErpSync)
                                                     Expanded(
+                                                      flex: 2,
                                                       child: Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            "Bill No:",
+                                                            "City:",
                                                             style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1603,7 +2333,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                             ),
                                                           ),
                                                           Text(
-                                                            "${data[index].billNo ?? ""}",
+                                                            "${Helper.trimValue(data[index].account.accCity, 14)}",
                                                             style: TextStyle(
                                                                 fontSize: 12,
                                                                 color: Colors
@@ -1612,61 +2342,15 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                         ],
                                                       ),
                                                     ),
-                                                  if (!isOmsWithoutErpSync)
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            "Bill Dt:",
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.black,
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            Helper.convertToFormat(
-                                                                "${data[index].billDt ?? ""}",
-                                                                'dd-MM-yy'),
-                                                            style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: Colors
-                                                                    .grey),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  if (!isOmsWithoutErpSync)
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            "Bill Amt:",
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.black,
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            "${data[index].netAmt ?? ""}",
-                                                            style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: Colors
-                                                                    .grey),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  SizedBox(
-                                                    width: 10,
-                                                  ),
+
+                                                  // if (profile.data
+                                                  //         ?.profileSettings
+                                                  //         .firstWhere((element) =>
+                                                  //             element
+                                                  //                 .variable ==
+                                                  //             'orderReportMastUser')
+                                                  //         .value ==
+                                                  //     'Y')
                                                   if (profile.data
                                                               ?.profileSettings
                                                               .firstWhere(
@@ -1679,9 +2363,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                               )
                                                               .value ==
                                                           'Y' &&
-                                                      isOmsWithoutErpSync)
+                                                      !isOmsWithoutErpSync)
                                                     Expanded(
-                                                      flex: 1,
+                                                      flex: 2,
                                                       child: Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
@@ -1696,7 +2380,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                             ),
                                                           ),
                                                           Text(
-                                                            "${Helper.trimValue(data[index].user.userName, 8)}",
+                                                            "${Helper.trimValue(data[index].user.userName, 14)}",
                                                             style: TextStyle(
                                                                 fontSize: 12,
                                                                 color: Colors
@@ -1707,1332 +2391,1230 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                                     ),
                                                 ],
                                               ),
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    top: 10.0),
-                                                child: Row(
-                                                  children: <Widget>[
-                                                    if (!isOmsWithoutErpSync)
+                                            ),
+                                          ],
+                                        ),
+                                        children: [
+                                          Column(children: [
+                                            Column(
+                                              children: [
+                                                // Header Rows
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      flex: 4,
+                                                      child: Text("Item Name:",
+                                                          style: TextStyle(
+                                                              fontSize: 12.0),
+                                                          textAlign:
+                                                              TextAlign.start),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 2,
+                                                      child: Text("Remarks:",
+                                                          style: TextStyle(
+                                                              fontSize: 12.0),
+                                                          textAlign:
+                                                              TextAlign.start),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      flex: 4,
+                                                      child: Text("Batch/MRP:",
+                                                          style: TextStyle(
+                                                              fontSize: 12.0),
+                                                          textAlign:
+                                                              TextAlign.start),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 2,
+                                                      child: Text(
+                                                        "Rate:",
+                                                        style: TextStyle(
+                                                            fontSize: 12.0),
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 2,
+                                                      child: Text("Quantity:",
+                                                          style: TextStyle(
+                                                              fontSize: 12.0),
+                                                          textAlign:
+                                                              TextAlign.center),
+                                                    ),
+                                                    if (profile.data != null &&
+                                                        profile
+                                                            .data!.modulesList!
+                                                            .any((module) =>
+                                                                module
+                                                                    .mODULENO ==
+                                                                "205"))
                                                       Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              "Order Date:",
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: Colors
-                                                                    .black,
-                                                              ),
-                                                            ),
-                                                            Text(
-                                                              Helper.convertToFormat(
-                                                                  "${data[index].vouchDt ?? ""}",
-                                                                  'dd-MM-yy'),
-                                                              style: TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors
-                                                                      .grey),
-                                                            )
-                                                          ],
-                                                        ),
+                                                        flex: 2,
+                                                        child: Text("Free Qty:",
+                                                            style: TextStyle(
+                                                                fontSize: 12.0),
+                                                            textAlign: TextAlign
+                                                                .center),
                                                       ),
                                                     Expanded(
                                                       flex: 2,
-                                                      child: Column(
+                                                      child: Text("Amount:",
+                                                          style: TextStyle(
+                                                              fontSize: 12.0),
+                                                          textAlign:
+                                                              TextAlign.center),
+                                                    ),
+                                                  ],
+                                                ),
+
+                                                // Data Rows
+                                                Padding(
+                                                  padding:
+                                                      EdgeInsets.only(top: 8.0),
+                                                  child: Column(
+                                                    children: List.generate(
+                                                        data[index]
+                                                            .ordritms
+                                                            .length, (i) {
+                                                      return Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
                                                                 .start,
                                                         children: [
-                                                          Text(
-                                                            "Party:",
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.black,
-                                                            ),
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                flex: 4,
+                                                                child: Text(
+                                                                    "${data[index].ordritms[i].item.itemName}",
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12.0),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .start),
+                                                              ),
+                                                              Expanded(
+                                                                flex: 2,
+                                                                child: Text(
+                                                                    "${data[index].ordritms[i].fld5}",
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12.0),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .start),
+                                                              ),
+                                                            ],
                                                           ),
-                                                          Text(
-                                                            "${Helper.trimValue(data[index].account.accName, 14)}",
-                                                            style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: Colors
-                                                                    .grey),
-                                                          )
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                flex: 4,
+                                                                child: Text(
+                                                                    "${data[index].ordritms[i].item.lastSize}",
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12.0),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .start),
+                                                              ),
+                                                              if ((profile.data
+                                                                      ?.profileSettings
+                                                                      .any((e) =>
+                                                                          e.variable ==
+                                                                              'qtySettings' &&
+                                                                          e.value ==
+                                                                              'Y') ??
+                                                                  false)) ...[
+                                                                Expanded(
+                                                                  flex: 2,
+                                                                  child: Text(
+                                                                    "${(data[index].ordritms[i].nRate.toString().isEmpty) ? data[index].ordritms[i].rate : data[index].ordritms[i].nRate}",
+                                                                    style:
+                                                                        TextStyle(
+                                                                      color: Colors
+                                                                          .grey,
+                                                                      fontSize:
+                                                                          12,
+                                                                    ),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .right,
+                                                                    // data[index]
+                                                                    //     .ordritms[
+                                                                    //         i]
+                                                                    //     .nRate
+                                                                    //     .toString(),
+                                                                    // style: TextStyle(
+                                                                    //     color: Colors
+                                                                    //         .grey,
+                                                                    //     fontSize:
+                                                                    //         12.0),
+                                                                    // textAlign:
+                                                                    //     TextAlign.center),
+                                                                  ),
+                                                                ),
+                                                              ] else ...[
+                                                                Expanded(
+                                                                  flex: 2,
+                                                                  child: Text(
+                                                                    "${(data[index].ordritms[i].lRate == '0') ? data[index].ordritms[i].rate : data[index].ordritms[i].lRate}",
+                                                                    style:
+                                                                        TextStyle(
+                                                                      color: Colors
+                                                                          .grey,
+                                                                      fontSize:
+                                                                          12,
+                                                                    ),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .right,
+                                                                    // data[index]
+                                                                    //     .ordritms[
+                                                                    //         i]
+                                                                    //     .rate
+                                                                    //     .toString(),
+                                                                    // style: TextStyle(
+                                                                    //     color: Colors
+                                                                    //         .grey,
+                                                                    //     fontSize:
+                                                                    //         12.0),
+                                                                    // textAlign:
+                                                                    //     TextAlign.right),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                              Expanded(
+                                                                flex: 2,
+                                                                child: Text(
+                                                                    "${data[index].ordritms[i].quantity.toString()}",
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12.0),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center),
+                                                              ),
+                                                              if (profile.data !=
+                                                                      null &&
+                                                                  profile.data!
+                                                                      .modulesList!
+                                                                      .any((module) =>
+                                                                          module
+                                                                              .mODULENO ==
+                                                                          "205"))
+                                                                Expanded(
+                                                                  flex: 2,
+                                                                  child: Text(
+                                                                      "${data[index].ordritms[i].otherDesc.toString()}",
+                                                                      style: TextStyle(
+                                                                          color: Colors
+                                                                              .grey,
+                                                                          fontSize:
+                                                                              12.0),
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .center),
+                                                                ),
+                                                              Expanded(
+                                                                flex: 2,
+                                                                child: Text(
+                                                                    Helper.parseNumericValue(data[
+                                                                            index]
+                                                                        .ordritms[
+                                                                            i]
+                                                                        .amount
+                                                                        .toString()),
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .grey,
+                                                                        fontSize:
+                                                                            12.0),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          SizedBox(height: 7.0),
+                                                          if (i ==
+                                                              data[index]
+                                                                      .ordritms
+                                                                      .length -
+                                                                  1)
+                                                            Row(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .spaceBetween,
+                                                              children: [
+                                                                Expanded(
+                                                                  child: Text(
+                                                                      "${data[index].narration.toString()}"),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          Divider(
+                                                              height: 8.0,
+                                                              thickness: 1.0),
                                                         ],
-                                                      ),
-                                                    ),
-
-                                                    if (isOmsWithoutErpSync)
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              "City:",
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: Colors
-                                                                    .black,
-                                                              ),
-                                                            ),
-                                                            Text(
-                                                              "${Helper.trimValue(data[index].account.accCity, 14)}",
-                                                              style: TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors
-                                                                      .grey),
-                                                            )
-                                                          ],
-                                                        ),
-                                                      ),
-
-                                                    // if (profile.data
-                                                    //         ?.profileSettings
-                                                    //         .firstWhere((element) =>
-                                                    //             element
-                                                    //                 .variable ==
-                                                    //             'orderReportMastUser')
-                                                    //         .value ==
-                                                    //     'Y')
-                                                    if (profile.data
-                                                                ?.profileSettings
-                                                                .firstWhere(
-                                                                  (element) =>
-                                                                      element
-                                                                          .variable ==
-                                                                      'orderReportMastUser',
-                                                                  orElse: () =>
-                                                                      DatumSettings(), // return null if not found
-                                                                )
-                                                                .value ==
-                                                            'Y' &&
-                                                        !isOmsWithoutErpSync)
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              "User:",
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: Colors
-                                                                    .black,
-                                                              ),
-                                                            ),
-                                                            Text(
-                                                              "${Helper.trimValue(data[index].user.userName, 14)}",
-                                                              style: TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors
-                                                                      .grey),
-                                                            )
-                                                          ],
-                                                        ),
-                                                      ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          children: [
-                                            Column(children: [
-                                              Column(
-                                                children: [
-                                                  // Header Rows
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        flex: 4,
-                                                        child: Text(
-                                                            "Item Name:",
-                                                            style: TextStyle(
-                                                                fontSize: 12.0),
-                                                            textAlign: TextAlign
-                                                                .start),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Text("Remarks:",
-                                                            style: TextStyle(
-                                                                fontSize: 12.0),
-                                                            textAlign: TextAlign
-                                                                .start),
-                                                      ),
-                                                    ],
+                                                      );
+                                                    }),
                                                   ),
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        flex: 4,
-                                                        child: Text(
-                                                            "Batch/MRP:",
-                                                            style: TextStyle(
-                                                                fontSize: 12.0),
-                                                            textAlign: TextAlign
-                                                                .start),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Text(
-                                                          "Rate:",
-                                                          style: TextStyle(
-                                                              fontSize: 12.0),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Text("Quantity:",
-                                                            style: TextStyle(
-                                                                fontSize: 12.0),
-                                                            textAlign: TextAlign
-                                                                .center),
-                                                      ),
-                                                      if (profile.data !=
-                                                              null &&
-                                                          profile.data!
-                                                              .modulesList!
-                                                              .any((module) =>
-                                                                  module
-                                                                      .mODULENO ==
-                                                                  "205"))
-                                                        Expanded(
-                                                          flex: 2,
-                                                          child: Text(
-                                                              "Free Qty:",
-                                                              style: TextStyle(
-                                                                  fontSize:
-                                                                      12.0),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center),
-                                                        ),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Text("Amount:",
-                                                            style: TextStyle(
-                                                                fontSize: 12.0),
-                                                            textAlign: TextAlign
-                                                                .center),
-                                                      ),
-                                                    ],
-                                                  ),
-
-                                                  // Data Rows
-                                                  Padding(
-                                                    padding: EdgeInsets.only(
-                                                        top: 8.0),
-                                                    child: Column(
-                                                      children: List.generate(
-                                                          data[index]
-                                                              .ordritms
-                                                              .length, (i) {
-                                                        return Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  flex: 4,
-                                                                  child: Text(
-                                                                      "${data[index].ordritms[i].item.itemName}",
-                                                                      style: TextStyle(
-                                                                          color: Colors
-                                                                              .grey,
-                                                                          fontSize:
-                                                                              12.0),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .start),
-                                                                ),
-                                                                Expanded(
-                                                                  flex: 2,
-                                                                  child: Text(
-                                                                      "${data[index].ordritms[i].fld5}",
-                                                                      style: TextStyle(
-                                                                          color: Colors
-                                                                              .grey,
-                                                                          fontSize:
-                                                                              12.0),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .start),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  flex: 4,
-                                                                  child: Text(
-                                                                      "${data[index].ordritms[i].item.lastSize}",
-                                                                      style: TextStyle(
-                                                                          color: Colors
-                                                                              .grey,
-                                                                          fontSize:
-                                                                              12.0),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .start),
-                                                                ),
-                                                                if ((profile
-                                                                        .data
-                                                                        ?.profileSettings
-                                                                        .any((e) =>
-                                                                            e.variable ==
-                                                                                'qtySettings' &&
-                                                                            e.value ==
-                                                                                'Y') ??
-                                                                    false)) ...[
-                                                                  Expanded(
-                                                                    flex: 2,
-                                                                    child: Text(
-                                                                      "${(data[index].ordritms[i].nRate.toString().isEmpty) ? data[index].ordritms[i].rate : data[index].ordritms[i].nRate}",
-                                                                      style:
-                                                                          TextStyle(
-                                                                        color: Colors
-                                                                            .grey,
-                                                                        fontSize:
-                                                                            12,
-                                                                      ),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .right,
-                                                                      // data[index]
-                                                                      //     .ordritms[
-                                                                      //         i]
-                                                                      //     .nRate
-                                                                      //     .toString(),
-                                                                      // style: TextStyle(
-                                                                      //     color: Colors
-                                                                      //         .grey,
-                                                                      //     fontSize:
-                                                                      //         12.0),
-                                                                      // textAlign:
-                                                                      //     TextAlign.center),
-                                                                    ),
-                                                                  ),
-                                                                ] else ...[
-                                                                  Expanded(
-                                                                    flex: 2,
-                                                                    child: Text(
-                                                                      "${(data[index].ordritms[i].lRate == '0') ? data[index].ordritms[i].rate : data[index].ordritms[i].lRate}",
-                                                                      style:
-                                                                          TextStyle(
-                                                                        color: Colors
-                                                                            .grey,
-                                                                        fontSize:
-                                                                            12,
-                                                                      ),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .right,
-                                                                      // data[index]
-                                                                      //     .ordritms[
-                                                                      //         i]
-                                                                      //     .rate
-                                                                      //     .toString(),
-                                                                      // style: TextStyle(
-                                                                      //     color: Colors
-                                                                      //         .grey,
-                                                                      //     fontSize:
-                                                                      //         12.0),
-                                                                      // textAlign:
-                                                                      //     TextAlign.right),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                                Expanded(
-                                                                  flex: 2,
-                                                                  child: Text(
-                                                                      "${data[index].ordritms[i].quantity.toString()}",
-                                                                      style: TextStyle(
-                                                                          color: Colors
-                                                                              .grey,
-                                                                          fontSize:
-                                                                              12.0),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .center),
-                                                                ),
-                                                                if (profile.data !=
-                                                                        null &&
-                                                                    profile
-                                                                        .data!
-                                                                        .modulesList!
-                                                                        .any((module) =>
-                                                                            module.mODULENO ==
-                                                                            "205"))
-                                                                  Expanded(
-                                                                    flex: 2,
-                                                                    child: Text(
-                                                                        "${data[index].ordritms[i].otherDesc.toString()}",
-                                                                        style: TextStyle(
-                                                                            color: Colors
-                                                                                .grey,
-                                                                            fontSize:
-                                                                                12.0),
-                                                                        textAlign:
-                                                                            TextAlign.center),
-                                                                  ),
-                                                                Expanded(
-                                                                  flex: 2,
-                                                                  child: Text(
-                                                                      Helper.parseNumericValue(data[
-                                                                              index]
-                                                                          .ordritms[
-                                                                              i]
-                                                                          .amount
-                                                                          .toString()),
-                                                                      style: TextStyle(
-                                                                          color: Colors
-                                                                              .grey,
-                                                                          fontSize:
-                                                                              12.0),
-                                                                      textAlign:
-                                                                          TextAlign
-                                                                              .center),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            SizedBox(
-                                                                height: 7.0),
-                                                            if (i ==
-                                                                data[index]
-                                                                        .ordritms
-                                                                        .length -
-                                                                    1)
-                                                              Row(
-                                                                mainAxisAlignment:
-                                                                    MainAxisAlignment
-                                                                        .spaceBetween,
-                                                                children: [
-                                                                  Expanded(
-                                                                    child: Text(
-                                                                        "${data[index].narration.toString()}"),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            Divider(
-                                                                height: 8.0,
-                                                                thickness: 1.0),
-                                                          ],
-                                                        );
-                                                      }),
-                                                    ),
-                                                  )
-                                                ],
-                                              ),
-                                              Row(
-                                                // mainAxisAlignment:
-                                                //     MainAxisAlignment.end,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  if (data[index].imgUrl !=
-                                                              null &&
-                                                          data[index].imgUrl !=
-                                                              '' /*&&
+                                                )
+                                              ],
+                                            ),
+                                            Row(
+                                              // mainAxisAlignment:
+                                              //     MainAxisAlignment.end,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                if (data[index].imgUrl !=
+                                                            null &&
+                                                        data[index].imgUrl !=
+                                                            '' /*&&
                                                       profile.userCode ==
                                                           data[index]
                                                               .user
                                                               .userCd*/
-                                                      )
-                                                    IconButton(
-                                                        onPressed: () {
-                                                          showImagePreviewDialog(
-                                                            context: context,
-                                                            imageUrl:
-                                                                data[index]
-                                                                    .imgUrl,
-                                                          );
-                                                        },
-                                                        icon: Icon(
-                                                            Icons.visibility)),
-                                                  // if (data[index].imgUrl ==
-                                                  //     null &&
-                                                  //     data[index].imgUrl ==
-                                                  //         '' &&
-                                                  //     profile.userCode ==
-                                                  //         data[index]
-                                                  //             .user
-                                                  //             .userCd)
-                                                  // Container(
-                                                  //   child: profile.userCode ==
-                                                  //           data[index]
-                                                  //               .user
-                                                  //               .userCd
-                                                  //       ? IconButton(
-                                                  //           onPressed: () {
-                                                  //             // _openUploadDialog(
-                                                  //             //   context:
-                                                  //             //       context,
-                                                  //             //   oId: data[index]
-                                                  //             //       .oId.toString(),
-                                                  //             // );
-                                                  //
-                                                  //             if (data[index]
-                                                  //                     .imgUrl
-                                                  //                     .toString()
-                                                  //                     .isNotEmpty &&
-                                                  //                 data[index]
-                                                  //                         .imgUrl !=
-                                                  //                     null) {
-                                                  //               showDialog(
-                                                  //                 context:
-                                                  //                     context,
-                                                  //                 builder:
-                                                  //                     (BuildContext
-                                                  //                         context) {
-                                                  //                   return AlertDialog(
-                                                  //                     title: Text(
-                                                  //                         'Replace Image'),
-                                                  //                     content: Text(
-                                                  //                         'Are you sure you want to replace image?'),
-                                                  //                     actions: [
-                                                  //                       TextButton(
-                                                  //                         onPressed:
-                                                  //                             () {
-                                                  //                           Get.back();
-                                                  //                         },
-                                                  //                         child:
-                                                  //                             Text('No'),
-                                                  //                       ),
-                                                  //                       TextButton(
-                                                  //                         onPressed:
-                                                  //                             () {
-                                                  //                           Get.back();
-                                                  //                           final TextEditingController
-                                                  //                               remarksController =
-                                                  //                               TextEditingController();
-                                                  //
-                                                  //                           showDialog(
-                                                  //                             context: context,
-                                                  //                             barrierDismissible: false,
-                                                  //                             builder: (_) => CommonUploadInputDialog(
-                                                  //                               title: "Upload Proof",
-                                                  //                               message: "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                  //                               controllerValue: remarksController,
-                                                  //                               isLoading: false.obs,
-                                                  //                               fileRx: proofOfDelivery,
-                                                  //                               webFileRx: proofOfDeliveryWeb,
-                                                  //                               onUploadTap: () => pickImage('proofOfDelivery'),
-                                                  //                               onDeleteTap: () => removeImage('proofOfDelivery'),
-                                                  //                               onSubmit: () async {
-                                                  //                                 if (proofOfDelivery.value == null && proofOfDeliveryWeb.value == null) {
-                                                  //                                   AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
-                                                  //                                   return;
-                                                  //                                 }
-                                                  //
-                                                  //                                 await insertOrUpdateOrder(
-                                                  //                                   data[index].oId.toString(),
-                                                  //                                   "",
-                                                  //                                   remarksController.text,
-                                                  //                                 ).then((_) {
-                                                  //                                   removeImage('proofOfDelivery');
-                                                  //
-                                                  //                                   Get.back();
-                                                  //                                 });
-                                                  //                               },
-                                                  //                               onCancel: () {
-                                                  //                                 removeImage('proofOfDelivery');
-                                                  //                                 remarksController.clear();
-                                                  //                                 Get.back();
-                                                  //                               },
-                                                  //                             ),
-                                                  //                           );
-                                                  //                         },
-                                                  //                         child:
-                                                  //                             Text('Yes'),
-                                                  //                       ),
-                                                  //                     ],
-                                                  //                   );
-                                                  //                 },
-                                                  //               );
-                                                  //             } else {
-                                                  //               final TextEditingController
-                                                  //                   remarksController =
-                                                  //                   TextEditingController();
-                                                  //
-                                                  //               showDialog(
-                                                  //                 context:
-                                                  //                     context,
-                                                  //                 barrierDismissible:
-                                                  //                     false,
-                                                  //                 builder: (_) =>
-                                                  //                     CommonUploadInputDialog(
-                                                  //                   title:
-                                                  //                       "Upload Proof",
-                                                  //                   message:
-                                                  //                       "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                  //                   controllerValue:
-                                                  //                       remarksController,
-                                                  //                   isLoading:
-                                                  //                       false
-                                                  //                           .obs,
-                                                  //                   fileRx:
-                                                  //                       proofOfDelivery,
-                                                  //                   webFileRx:
-                                                  //                       proofOfDeliveryWeb,
-                                                  //                   onUploadTap: () =>
-                                                  //                       pickImage(
-                                                  //                           'proofOfDelivery'),
-                                                  //                   onDeleteTap: () =>
-                                                  //                       removeImage(
-                                                  //                           'proofOfDelivery'),
-                                                  //                   onSubmit:
-                                                  //                       () async {
-                                                  //                     if (proofOfDelivery.value ==
-                                                  //                             null &&
-                                                  //                         proofOfDeliveryWeb.value ==
-                                                  //                             null) {
-                                                  //                       AppSnackBar.showGetXCustomSnackBar(
-                                                  //                           message:
-                                                  //                               "Please upload image");
-                                                  //                       return;
-                                                  //                     }
-                                                  //
-                                                  //                     await insertOrUpdateOrder(
-                                                  //                       data[index]
-                                                  //                           .oId
-                                                  //                           .toString(),
-                                                  //                       "",
-                                                  //                       remarksController
-                                                  //                           .text,
-                                                  //                     ).then(
-                                                  //                         (_) {
-                                                  //                       removeImage(
-                                                  //                           'proofOfDelivery');
-                                                  //
-                                                  //                       Get.back();
-                                                  //                     });
-                                                  //                   },
-                                                  //                   onCancel:
-                                                  //                       () {
-                                                  //                     removeImage(
-                                                  //                         'proofOfDelivery');
-                                                  //                     remarksController
-                                                  //                         .clear();
-                                                  //                     Get.back();
-                                                  //                   },
-                                                  //                 ),
-                                                  //               );
-                                                  //             }
-                                                  //           },
-                                                  //           icon: Icon(Icons
-                                                  //               .attach_file))
-                                                  //       : Container(),
-                                                  // ),
+                                                    )
                                                   IconButton(
                                                       onPressed: () {
-                                                        // _openUploadDialog(
-                                                        //   context:
-                                                        //       context,
-                                                        //   oId: data[index]
-                                                        //       .oId.toString(),
-                                                        // );
+                                                        showImagePreviewDialog(
+                                                          context: context,
+                                                          imageUrl: data[index]
+                                                              .imgUrl,
+                                                        );
+                                                      },
+                                                      icon: Icon(
+                                                          Icons.visibility)),
+                                                // if (data[index].imgUrl ==
+                                                //     null &&
+                                                //     data[index].imgUrl ==
+                                                //         '' &&
+                                                //     profile.userCode ==
+                                                //         data[index]
+                                                //             .user
+                                                //             .userCd)
+                                                // Container(
+                                                //   child: profile.userCode ==
+                                                //           data[index]
+                                                //               .user
+                                                //               .userCd
+                                                //       ? IconButton(
+                                                //           onPressed: () {
+                                                //             // _openUploadDialog(
+                                                //             //   context:
+                                                //             //       context,
+                                                //             //   oId: data[index]
+                                                //             //       .oId.toString(),
+                                                //             // );
+                                                //
+                                                //             if (data[index]
+                                                //                     .imgUrl
+                                                //                     .toString()
+                                                //                     .isNotEmpty &&
+                                                //                 data[index]
+                                                //                         .imgUrl !=
+                                                //                     null) {
+                                                //               showDialog(
+                                                //                 context:
+                                                //                     context,
+                                                //                 builder:
+                                                //                     (BuildContext
+                                                //                         context) {
+                                                //                   return AlertDialog(
+                                                //                     title: Text(
+                                                //                         'Replace Image'),
+                                                //                     content: Text(
+                                                //                         'Are you sure you want to replace image?'),
+                                                //                     actions: [
+                                                //                       TextButton(
+                                                //                         onPressed:
+                                                //                             () {
+                                                //                           Get.back();
+                                                //                         },
+                                                //                         child:
+                                                //                             Text('No'),
+                                                //                       ),
+                                                //                       TextButton(
+                                                //                         onPressed:
+                                                //                             () {
+                                                //                           Get.back();
+                                                //                           final TextEditingController
+                                                //                               remarksController =
+                                                //                               TextEditingController();
+                                                //
+                                                //                           showDialog(
+                                                //                             context: context,
+                                                //                             barrierDismissible: false,
+                                                //                             builder: (_) => CommonUploadInputDialog(
+                                                //                               title: "Upload Proof",
+                                                //                               message: "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                //                               controllerValue: remarksController,
+                                                //                               isLoading: false.obs,
+                                                //                               fileRx: proofOfDelivery,
+                                                //                               webFileRx: proofOfDeliveryWeb,
+                                                //                               onUploadTap: () => pickImage('proofOfDelivery'),
+                                                //                               onDeleteTap: () => removeImage('proofOfDelivery'),
+                                                //                               onSubmit: () async {
+                                                //                                 if (proofOfDelivery.value == null && proofOfDeliveryWeb.value == null) {
+                                                //                                   AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
+                                                //                                   return;
+                                                //                                 }
+                                                //
+                                                //                                 await insertOrUpdateOrder(
+                                                //                                   data[index].oId.toString(),
+                                                //                                   "",
+                                                //                                   remarksController.text,
+                                                //                                 ).then((_) {
+                                                //                                   removeImage('proofOfDelivery');
+                                                //
+                                                //                                   Get.back();
+                                                //                                 });
+                                                //                               },
+                                                //                               onCancel: () {
+                                                //                                 removeImage('proofOfDelivery');
+                                                //                                 remarksController.clear();
+                                                //                                 Get.back();
+                                                //                               },
+                                                //                             ),
+                                                //                           );
+                                                //                         },
+                                                //                         child:
+                                                //                             Text('Yes'),
+                                                //                       ),
+                                                //                     ],
+                                                //                   );
+                                                //                 },
+                                                //               );
+                                                //             } else {
+                                                //               final TextEditingController
+                                                //                   remarksController =
+                                                //                   TextEditingController();
+                                                //
+                                                //               showDialog(
+                                                //                 context:
+                                                //                     context,
+                                                //                 barrierDismissible:
+                                                //                     false,
+                                                //                 builder: (_) =>
+                                                //                     CommonUploadInputDialog(
+                                                //                   title:
+                                                //                       "Upload Proof",
+                                                //                   message:
+                                                //                       "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                //                   controllerValue:
+                                                //                       remarksController,
+                                                //                   isLoading:
+                                                //                       false
+                                                //                           .obs,
+                                                //                   fileRx:
+                                                //                       proofOfDelivery,
+                                                //                   webFileRx:
+                                                //                       proofOfDeliveryWeb,
+                                                //                   onUploadTap: () =>
+                                                //                       pickImage(
+                                                //                           'proofOfDelivery'),
+                                                //                   onDeleteTap: () =>
+                                                //                       removeImage(
+                                                //                           'proofOfDelivery'),
+                                                //                   onSubmit:
+                                                //                       () async {
+                                                //                     if (proofOfDelivery.value ==
+                                                //                             null &&
+                                                //                         proofOfDeliveryWeb.value ==
+                                                //                             null) {
+                                                //                       AppSnackBar.showGetXCustomSnackBar(
+                                                //                           message:
+                                                //                               "Please upload image");
+                                                //                       return;
+                                                //                     }
+                                                //
+                                                //                     await insertOrUpdateOrder(
+                                                //                       data[index]
+                                                //                           .oId
+                                                //                           .toString(),
+                                                //                       "",
+                                                //                       remarksController
+                                                //                           .text,
+                                                //                     ).then(
+                                                //                         (_) {
+                                                //                       removeImage(
+                                                //                           'proofOfDelivery');
+                                                //
+                                                //                       Get.back();
+                                                //                     });
+                                                //                   },
+                                                //                   onCancel:
+                                                //                       () {
+                                                //                     removeImage(
+                                                //                         'proofOfDelivery');
+                                                //                     remarksController
+                                                //                         .clear();
+                                                //                     Get.back();
+                                                //                   },
+                                                //                 ),
+                                                //               );
+                                                //             }
+                                                //           },
+                                                //           icon: Icon(Icons
+                                                //               .attach_file))
+                                                //       : Container(),
+                                                // ),
+                                                IconButton(
+                                                    onPressed: () {
+                                                      // _openUploadDialog(
+                                                      //   context:
+                                                      //       context,
+                                                      //   oId: data[index]
+                                                      //       .oId.toString(),
+                                                      // );
 
-                                                        if (data[index]
-                                                                .imgUrl
-                                                                .toString()
-                                                                .isNotEmpty &&
-                                                            data[index]
-                                                                    .imgUrl !=
-                                                                null) {
-                                                          showDialog(
-                                                            context: context,
-                                                            builder:
-                                                                (BuildContext
-                                                                    context) {
-                                                              return AlertDialog(
-                                                                title: Text(
-                                                                    'Replace Image'),
-                                                                content: Text(
-                                                                    'Are you sure you want to replace image?'),
-                                                                actions: [
-                                                                  TextButton(
-                                                                    onPressed:
-                                                                        () {
-                                                                      Get.back();
-                                                                    },
-                                                                    child: Text(
-                                                                        'No'),
-                                                                  ),
-                                                                  TextButton(
-                                                                    onPressed:
-                                                                        () {
-                                                                      Get.back();
-                                                                      final TextEditingController
-                                                                          remarksController =
-                                                                          TextEditingController();
+                                                      if (data[index]
+                                                              .imgUrl
+                                                              .toString()
+                                                              .isNotEmpty &&
+                                                          data[index].imgUrl !=
+                                                              null) {
+                                                        showDialog(
+                                                          context: context,
+                                                          builder: (BuildContext
+                                                              context) {
+                                                            return AlertDialog(
+                                                              title: Text(
+                                                                  'Replace Image'),
+                                                              content: Text(
+                                                                  'Are you sure you want to replace image?'),
+                                                              actions: [
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () {
+                                                                    Get.back();
+                                                                  },
+                                                                  child: Text(
+                                                                      'No'),
+                                                                ),
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () {
+                                                                    Get.back();
+                                                                    final TextEditingController
+                                                                        remarksController =
+                                                                        TextEditingController();
 
-                                                                      showDialog(
-                                                                        context:
-                                                                            context,
-                                                                        barrierDismissible:
-                                                                            false,
-                                                                        builder:
-                                                                            (_) =>
-                                                                                CommonUploadInputDialog(
-                                                                          title:
-                                                                              "Upload Proof",
-                                                                          message:
-                                                                              "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                                          controllerValue:
-                                                                              remarksController,
-                                                                          isLoading:
-                                                                              false.obs,
-                                                                          fileRx:
-                                                                              proofOfDelivery,
-                                                                          webFileRx:
-                                                                              proofOfDeliveryWeb,
-                                                                          onUploadTap: () =>
-                                                                              pickImage('proofOfDelivery'),
-                                                                          onDeleteTap: () =>
-                                                                              removeImage('proofOfDelivery'),
-                                                                          onSubmit:
-                                                                              () async {
-                                                                            if (proofOfDelivery.value == null &&
-                                                                                proofOfDeliveryWeb.value == null) {
-                                                                              AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
-                                                                              return;
-                                                                            }
+                                                                    showDialog(
+                                                                      context:
+                                                                          context,
+                                                                      barrierDismissible:
+                                                                          false,
+                                                                      builder:
+                                                                          (_) =>
+                                                                              CommonUploadInputDialog(
+                                                                        title:
+                                                                            "Upload Proof",
+                                                                        message:
+                                                                            "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                                        controllerValue:
+                                                                            remarksController,
+                                                                        isLoading:
+                                                                            false.obs,
+                                                                        fileRx:
+                                                                            proofOfDelivery,
+                                                                        webFileRx:
+                                                                            proofOfDeliveryWeb,
+                                                                        onUploadTap:
+                                                                            () =>
+                                                                                pickImage('proofOfDelivery'),
+                                                                        onDeleteTap:
+                                                                            () =>
+                                                                                removeImage('proofOfDelivery'),
+                                                                        onSubmit:
+                                                                            () async {
+                                                                          if (proofOfDelivery.value == null &&
+                                                                              proofOfDeliveryWeb.value == null) {
+                                                                            AppSnackBar.showGetXCustomSnackBar(message: "Please upload image");
+                                                                            return;
+                                                                          }
 
-                                                                            await insertOrUpdateOrder(
-                                                                              data[index].oId.toString(),
-                                                                              "",
-                                                                              remarksController.text,
-                                                                            ).then((_) {
-                                                                              removeImage('proofOfDelivery');
-
-                                                                              Get.back();
-                                                                            });
-                                                                          },
-                                                                          onCancel:
-                                                                              () {
+                                                                          await insertOrUpdateOrder(
+                                                                            data[index].oId.toString(),
+                                                                            "",
+                                                                            remarksController.text,
+                                                                          ).then(
+                                                                              (_) {
                                                                             removeImage('proofOfDelivery');
-                                                                            remarksController.clear();
-                                                                            Get.back();
-                                                                          },
-                                                                        ),
-                                                                      );
-                                                                    },
-                                                                    child: Text(
-                                                                        'Yes'),
-                                                                  ),
-                                                                ],
-                                                              );
-                                                            },
-                                                          );
-                                                        } else {
-                                                          final TextEditingController
-                                                              remarksController =
-                                                              TextEditingController();
 
-                                                          showDialog(
-                                                            context: context,
-                                                            barrierDismissible:
-                                                                false,
-                                                            builder: (_) =>
-                                                                CommonUploadInputDialog(
-                                                              title:
-                                                                  "Upload Proof",
-                                                              message:
-                                                                  "Please upload delivery proof for Order ID: ${data[index].oId}.",
-                                                              controllerValue:
-                                                                  remarksController,
-                                                              isLoading:
-                                                                  false.obs,
-                                                              fileRx:
-                                                                  proofOfDelivery,
-                                                              webFileRx:
-                                                                  proofOfDeliveryWeb,
-                                                              onUploadTap: () =>
-                                                                  pickImage(
-                                                                      'proofOfDelivery'),
-                                                              onDeleteTap: () =>
-                                                                  removeImage(
-                                                                      'proofOfDelivery'),
-                                                              onSubmit:
-                                                                  () async {
-                                                                if (proofOfDelivery
-                                                                            .value ==
-                                                                        null &&
-                                                                    proofOfDeliveryWeb
-                                                                            .value ==
-                                                                        null) {
-                                                                  AppSnackBar
-                                                                      .showGetXCustomSnackBar(
-                                                                          message:
-                                                                              "Please upload image");
+                                                                            Get.back();
+                                                                          });
+                                                                        },
+                                                                        onCancel:
+                                                                            () {
+                                                                          removeImage(
+                                                                              'proofOfDelivery');
+                                                                          remarksController
+                                                                              .clear();
+                                                                          Get.back();
+                                                                        },
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                  child: Text(
+                                                                      'Yes'),
+                                                                ),
+                                                              ],
+                                                            );
+                                                          },
+                                                        );
+                                                      } else {
+                                                        final TextEditingController
+                                                            remarksController =
+                                                            TextEditingController();
+
+                                                        showDialog(
+                                                          context: context,
+                                                          barrierDismissible:
+                                                              false,
+                                                          builder: (_) =>
+                                                              CommonUploadInputDialog(
+                                                            title:
+                                                                "Upload Proof",
+                                                            message:
+                                                                "Please upload delivery proof for Order ID: ${data[index].oId}.",
+                                                            controllerValue:
+                                                                remarksController,
+                                                            isLoading:
+                                                                false.obs,
+                                                            fileRx:
+                                                                proofOfDelivery,
+                                                            webFileRx:
+                                                                proofOfDeliveryWeb,
+                                                            onUploadTap: () =>
+                                                                pickImage(
+                                                                    'proofOfDelivery'),
+                                                            onDeleteTap: () =>
+                                                                removeImage(
+                                                                    'proofOfDelivery'),
+                                                            onSubmit: () async {
+                                                              if (proofOfDelivery
+                                                                          .value ==
+                                                                      null &&
+                                                                  proofOfDeliveryWeb
+                                                                          .value ==
+                                                                      null) {
+                                                                AppSnackBar
+                                                                    .showGetXCustomSnackBar(
+                                                                        message:
+                                                                            "Please upload image");
+                                                                return;
+                                                              }
+
+                                                              await insertOrUpdateOrder(
+                                                                data[index]
+                                                                    .oId
+                                                                    .toString(),
+                                                                "",
+                                                                remarksController
+                                                                    .text,
+                                                              ).then((_) {
+                                                                removeImage(
+                                                                    'proofOfDelivery');
+
+                                                                Get.back();
+                                                              });
+                                                            },
+                                                            onCancel: () {
+                                                              removeImage(
+                                                                  'proofOfDelivery');
+                                                              remarksController
+                                                                  .clear();
+                                                              Get.back();
+                                                            },
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                                    icon: Icon(
+                                                        Icons.attach_file)),
+                                                // if (data[index].imgUrl ==
+                                                //     null &&
+                                                //     data[index].imgUrl ==
+                                                //         '' &&
+                                                //     profile.userCode ==
+                                                //         data[index]
+                                                //             .user
+                                                //             .userCd)
+                                                Container(
+                                                  child: (profile.userCode ==
+                                                                  data[index]
+                                                                      .user
+                                                                      .userCd ||
+                                                              (profile.data?.profileSettings.any((e) =>
+                                                                      e.variable ==
+                                                                          'omsWithoutErpSync' &&
+                                                                      e.value ==
+                                                                          'Y') ??
+                                                                  false)) &&
+                                                          isEmptyOrNull(
+                                                              data[index]
+                                                                  .orderNo)
+                                                      ? IconButton(
+                                                          onPressed: () {
+                                                            Services()
+                                                                .updateOrder(
+                                                                    data[index]
+                                                                        .oId,
+                                                                    context,
+                                                                    stockist: data[
+                                                                            index]
+                                                                        .account
+                                                                        .accCd
+                                                                        .toString())
+                                                                .then(
+                                                                    (value) async {
+                                                              print(
+                                                                  '[OrderReport] updateOrder response: $value');
+                                                              if (value !=
+                                                                  null) {
+                                                                // New response format with success flag
+                                                                if (value[
+                                                                        'success'] ==
+                                                                    false) {
+                                                                  // Order cannot be edited - show error and don't navigate
+                                                                  AppSnackBar.showGetXCustomSnackBar(
+                                                                      message: value[
+                                                                              'message'] ??
+                                                                          'Order cannot be edited',
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .red);
                                                                   return;
                                                                 }
 
-                                                                await insertOrUpdateOrder(
-                                                                  data[index]
-                                                                      .oId
-                                                                      .toString(),
-                                                                  "",
-                                                                  remarksController
-                                                                      .text,
-                                                                ).then((_) {
-                                                                  removeImage(
-                                                                      'proofOfDelivery');
+                                                                // Order can be edited - show success and navigate
+                                                                AppSnackBar.showGetXCustomSnackBar(
+                                                                    message: value[
+                                                                        'message'],
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .green);
 
-                                                                  Get.back();
-                                                                });
-                                                              },
-                                                              onCancel: () {
-                                                                removeImage(
-                                                                    'proofOfDelivery');
-                                                                remarksController
-                                                                    .clear();
-                                                                Get.back();
-                                                              },
-                                                            ),
-                                                          );
-                                                        }
-                                                      },
-                                                      icon: Icon(
-                                                          Icons.attach_file)),
-                                                  // if (data[index].imgUrl ==
-                                                  //     null &&
-                                                  //     data[index].imgUrl ==
-                                                  //         '' &&
-                                                  //     profile.userCode ==
-                                                  //         data[index]
-                                                  //             .user
-                                                  //             .userCd)
-                                                  Container(
-                                                    child: (profile.userCode ==
-                                                                    data[index]
-                                                                        .user
-                                                                        .userCd ||
-                                                                (profile.data?.profileSettings.any((e) =>
-                                                                        e.variable ==
-                                                                            'omsWithoutErpSync' &&
-                                                                        e.value ==
-                                                                            'Y') ??
-                                                                    false)) &&
-                                                            isEmptyOrNull(
-                                                                data[index]
-                                                                    .orderNo)
-                                                        ? IconButton(
-                                                            onPressed: () {
-                                                              Services()
-                                                                  .updateOrder(
-                                                                      data[index]
-                                                                          .oId,
+                                                                // Trigger POB sync using STOCKIST_CD from report if available
+                                                                try {
+                                                                  final userProvider = Provider.of<
+                                                                          UserProvider>(
                                                                       context,
-                                                                      stockist: data[
-                                                                              index]
-                                                                          .account
-                                                                          .accCd
-                                                                          .toString())
-                                                                  .then(
-                                                                      (value) async {
-                                                                print(
-                                                                    '[OrderReport] updateOrder response: $value');
-                                                                if (value !=
-                                                                    null) {
-                                                                  // New response format with success flag
-                                                                  if (value[
-                                                                          'success'] ==
-                                                                      false) {
-                                                                    // Order cannot be edited - show error and don't navigate
-                                                                    AppSnackBar.showGetXCustomSnackBar(
-                                                                        message:
-                                                                            value['message'] ??
-                                                                                'Order cannot be edited',
-                                                                        backgroundColor:
-                                                                            Colors.red);
-                                                                    return;
-                                                                  }
-
-                                                                  // Order can be edited - show success and navigate
-                                                                  AppSnackBar.showGetXCustomSnackBar(
-                                                                      message:
-                                                                          value[
-                                                                              'message'],
-                                                                      backgroundColor:
-                                                                          Colors
-                                                                              .green);
-
-                                                                  // Trigger POB sync using STOCKIST_CD from report if available
-                                                                  try {
-                                                                    final userProvider = Provider.of<
-                                                                            UserProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                            false);
-                                                                    final stockistToUse = data[index].stockistCd !=
-                                                                                null &&
-                                                                            data[index]
-                                                                                .stockistCd!
-                                                                                .isNotEmpty
-                                                                        ? data[index]
-                                                                            .stockistCd!
-                                                                        : data[index]
-                                                                            .account
-                                                                            .accCd;
-                                                                    await (Get.isRegistered<MonthlyTargetApiService>()
-                                                                            ? Get.find<MonthlyTargetApiService>()
-                                                                            : Get.put(MonthlyTargetApiService()))
-                                                                        .syncPobMonthlyTarget(
-                                                                      stockistCd:
-                                                                          stockistToUse,
-                                                                      token: userProvider
-                                                                          .token,
-                                                                    );
-                                                                  } catch (e) {
-                                                                    print(
-                                                                        '[OrderReport] POB sync after edit failed: $e');
-                                                                  }
-
-                                                                  final PartyProvider
-                                                                      partyProvider =
-                                                                      Provider.of<
-                                                                              PartyProvider>(
-                                                                          context,
-                                                                          listen:
-                                                                              false);
-                                                                  final ProfileProvider
-                                                                      profileProvider =
-                                                                      Provider.of<
-                                                                              ProfileProvider>(
-                                                                          context,
-                                                                          listen:
-                                                                              false);
-                                                                  final orderPartyName =
-                                                                      data[index]
-                                                                          .account
-                                                                          .accName;
-                                                                  final orderPartyId =
-                                                                      data[index]
+                                                                      listen:
+                                                                          false);
+                                                                  final stockistToUse = data[index].stockistCd !=
+                                                                              null &&
+                                                                          data[index]
+                                                                              .stockistCd!
+                                                                              .isNotEmpty
+                                                                      ? data[index]
+                                                                          .stockistCd!
+                                                                      : data[index]
                                                                           .account
                                                                           .accCd;
-
-                                                                  partyProvider.changeParty(
-                                                                      orderPartyName,
-                                                                      orderPartyId,
-                                                                      context);
-                                                                  if (profileProvider
-                                                                          .YN ==
-                                                                      'Y') {
-                                                                    await partyProvider.changePunchInOutParty(
-                                                                        orderPartyName,
-                                                                        orderPartyId,
-                                                                        context);
-                                                                  }
-
-                                                                  Get.to(
-                                                                    () =>
-                                                                        ProductsPage(
-                                                                      initialStockistCd: (data[index].stockistCd != null && data[index].stockistCd!.trim().isNotEmpty)
-                                                                          ? data[index]
-                                                                              .stockistCd!
-                                                                              .trim()
-                                                                          : null,
-                                                                    ),
-                                                                  )?.then(
-                                                                      (result) {
-                                                                    if (result ==
-                                                                        true) {
-                                                                      final PartyProvider
-                                                                          party =
-                                                                          Provider.of<PartyProvider>(
-                                                                              context,
-                                                                              listen: false);
-                                                                      if (party
-                                                                              .partyid !=
-                                                                          "") {
-                                                                        getDate();
-                                                                      } else {
-                                                                        setState(
-                                                                            () {
-                                                                          data.clear();
-                                                                        });
-                                                                      }
-                                                                    }
-                                                                  });
-                                                                } else if (value !=
-                                                                    null) {
-                                                                  // Old response format (String) - treat as success
-                                                                  final message = value
-                                                                          is String
-                                                                      ? value
-                                                                      : value[
-                                                                          'message'];
-                                                                  AppSnackBar.showGetXCustomSnackBar(
-                                                                      message:
-                                                                          message,
-                                                                      backgroundColor:
-                                                                          Colors
-                                                                              .green);
-
-                                                                  // Trigger POB sync using STOCKIST_CD from report if available (old response format path)
-                                                                  try {
-                                                                    final userProvider = Provider.of<
-                                                                            UserProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                            false);
-                                                                    final stockistToUse = data[index].stockistCd !=
-                                                                                null &&
-                                                                            data[index]
-                                                                                .stockistCd!
-                                                                                .isNotEmpty
-                                                                        ? data[index]
-                                                                            .stockistCd!
-                                                                        : data[index]
-                                                                            .account
-                                                                            .accCd;
-                                                                    await (Get.isRegistered<MonthlyTargetApiService>()
-                                                                            ? Get.find<MonthlyTargetApiService>()
-                                                                            : Get.put(MonthlyTargetApiService()))
-                                                                        .syncPobMonthlyTarget(
-                                                                      stockistCd:
-                                                                          stockistToUse,
-                                                                      token: userProvider
-                                                                          .token,
-                                                                    );
-                                                                  } catch (e) {
-                                                                    print(
-                                                                        '[OrderReport] POB sync after edit (old format) failed: $e');
-                                                                  }
-
-                                                                  final PartyProvider
-                                                                      partyProvider =
-                                                                      Provider.of<
-                                                                              PartyProvider>(
-                                                                          context,
-                                                                          listen:
-                                                                              false);
-                                                                  final ProfileProvider
-                                                                      profileProvider =
-                                                                      Provider.of<
-                                                                              ProfileProvider>(
-                                                                          context,
-                                                                          listen:
-                                                                              false);
-                                                                  final orderPartyName =
-                                                                      data[index]
-                                                                          .account
-                                                                          .accName;
-                                                                  final orderPartyId =
-                                                                      data[index]
-                                                                          .account
-                                                                          .accCd;
-
-                                                                  partyProvider.changeParty(
-                                                                      orderPartyName,
-                                                                      orderPartyId,
-                                                                      context);
-                                                                  if (profileProvider
-                                                                          .YN ==
-                                                                      'Y') {
-                                                                    await partyProvider.changePunchInOutParty(
-                                                                        orderPartyName,
-                                                                        orderPartyId,
-                                                                        context);
-                                                                  }
-
-                                                                  Get.to(
-                                                                    () =>
-                                                                        ProductsPage(
-                                                                      initialStockistCd: (data[index].stockistCd != null && data[index].stockistCd!.trim().isNotEmpty)
-                                                                          ? data[index]
-                                                                              .stockistCd!
-                                                                              .trim()
-                                                                          : null,
-                                                                    ),
-                                                                  )?.then(
-                                                                      (result) {
-                                                                    if (result ==
-                                                                        true) {
-                                                                      final PartyProvider
-                                                                          party =
-                                                                          Provider.of<PartyProvider>(
-                                                                              context,
-                                                                              listen: false);
-                                                                      if (party
-                                                                              .partyid !=
-                                                                          "") {
-                                                                        getDate();
-                                                                      } else {
-                                                                        setState(
-                                                                            () {
-                                                                          data.clear();
-                                                                        });
-                                                                      }
-                                                                    }
-                                                                  });
-                                                                }
-                                                              });
-                                                            },
-                                                            icon: Icon(Icons
-                                                                .edit_outlined))
-                                                        : Container(),
-                                                  ),
-                                                  // if (data[index].imgUrl ==
-                                                  //     null &&
-                                                  //     data[index].imgUrl ==
-                                                  //         '' &&
-                                                  //     profile.userCode ==
-                                                  //         data[index]
-                                                  //             .user
-                                                  //             .userCd)
-                                                  Container(
-                                                    child: profile.userCode ==
-                                                            data[index]
-                                                                .user
-                                                                .userCd
-                                                        ? IconButton(
-                                                            onPressed: () {
-                                                              fromdateController
-                                                                      .text =
-                                                                  Helper.convertToFormat(
-                                                                      "${data[index].vouchDt ?? ""}",
-                                                                      'dd-MM-yyyy');
-                                                              toDateController
-                                                                      .text =
-                                                                  Helper.convertToFormat(
-                                                                      "${data[index].vouchDt ?? ""}",
-                                                                      'dd-MM-yyyy');
-
-                                                              setState(() {
-                                                                loading = true;
-                                                              });
-                                                              Services()
-                                                                  .getOrderExportFileItem(
-                                                                      context,
-                                                                      party
-                                                                          .partyid,
-                                                                      fromdateController
-                                                                          .text,
-                                                                      toDateController
-                                                                          .text,
-                                                                      userController
-                                                                          .text,
-                                                                      "pdf")
-                                                                  .then(
-                                                                      (value) {
-                                                                if (value !=
-                                                                    null) {
-                                                                  setState(() {
-                                                                    loading =
-                                                                        false;
-                                                                  });
-                                                                  Get.to(() => PdfViewerScreen(
-                                                                      pdfUrl:
-                                                                          value,
-                                                                      fileName:
-                                                                          "Order Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}"));
-                                                                } else {
-                                                                  setState(() {
-                                                                    loading =
-                                                                        false;
-                                                                  });
-                                                                }
-                                                              });
-                                                            },
-                                                            icon: Icon(
-                                                                Icons.share))
-                                                        : Container(),
-                                                  ),
-                                                  // if (data[index].imgUrl ==
-                                                  //     null &&
-                                                  //     data[index].imgUrl ==
-                                                  //         '' &&
-                                                  //     profile.userCode ==
-                                                  //         data[index]
-                                                  //             .user
-                                                  //             .userCd)
-                                                  Container(
-                                                    child: (profile.userCode ==
-                                                                    data[index]
-                                                                        .user
-                                                                        .userCd ||
-                                                                (profile.data?.profileSettings.any((e) =>
-                                                                        e.variable ==
-                                                                            'omsWithoutErpSync' &&
-                                                                        e.value ==
-                                                                            'Y') ??
-                                                                    false)) &&
-                                                            isEmptyOrNull(
-                                                                data[index]
-                                                                    .billNo)
-                                                        ? IconButton(
-                                                            onPressed: () {
-                                                              showDialog(
-                                                                context:
-                                                                    context,
-                                                                builder:
-                                                                    (BuildContext
-                                                                        context) {
-                                                                  return AlertDialog(
-                                                                    title: Text(
-                                                                        'Delete Confirmation'),
-                                                                    content: Text(
-                                                                        'Are you sure you want to delete order?'),
-                                                                    actions: [
-                                                                      TextButton(
-                                                                        onPressed:
-                                                                            () {
-                                                                          // Cancel button: Close the dialog
-                                                                          Navigator.pop(
-                                                                              context);
-                                                                        },
-                                                                        child: Text(
-                                                                            'No'),
-                                                                      ),
-                                                                      TextButton(
-                                                                        onPressed:
-                                                                            () {
-                                                                          // Confirm logout
-                                                                          Services()
-                                                                              .deleteOrder(data[index].oId, context, stockist: data[index].stockistCd ?? data[index].account.accCd)
-                                                                              .then((value) {
-                                                                            if (value !=
-                                                                                null) {
-                                                                              Navigator.pop(context);
-
-                                                                              AppSnackBar.showGetXCustomSnackBar(message: value, backgroundColor: Colors.green);
-
-                                                                              getDate();
-                                                                            }
-                                                                          });
-                                                                        },
-                                                                        child: Text(
-                                                                            'Yes'),
-                                                                      ),
-                                                                    ],
+                                                                  await (Get.isRegistered<MonthlyTargetApiService>()
+                                                                          ? Get.find<
+                                                                              MonthlyTargetApiService>()
+                                                                          : Get.put(
+                                                                              MonthlyTargetApiService()))
+                                                                      .syncPobMonthlyTarget(
+                                                                    stockistCd:
+                                                                        stockistToUse,
+                                                                    token: userProvider
+                                                                        .token,
                                                                   );
-                                                                },
-                                                              );
+                                                                } catch (e) {
+                                                                  print(
+                                                                      '[OrderReport] POB sync after edit failed: $e');
+                                                                }
 
-                                                              // Services()
-                                                              //     .deleteOrder(
-                                                              //         data[index]
-                                                              //             .oId,
-                                                              //         context)
-                                                              //     .then((value) {
-                                                              //   if (value !=
-                                                              //       null) {
-                                                              //     // Fluttertoast
-                                                              //     //     .showToast(
-                                                              //     //         msg:
-                                                              //     //             value);
-                                                              //     AppSnackBar
-                                                              //         .showGetXCustomSnackBar(
-                                                              //             message:
-                                                              //                 value);
-                                                              //
-                                                              //     getDate();
-                                                              //   }
-                                                              // });
-                                                            },
-                                                            icon: Icon(
-                                                              Icons
-                                                                  .delete_outline,
-                                                              color: Colors.red,
-                                                            ))
-                                                        : Container(),
-                                                  )
-                                                ],
-                                              )
-                                            ]),
-                                          ],
-                                        ),
+                                                                final PartyProvider
+                                                                    partyProvider =
+                                                                    Provider.of<
+                                                                            PartyProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                final ProfileProvider
+                                                                    profileProvider =
+                                                                    Provider.of<
+                                                                            ProfileProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                final orderPartyName =
+                                                                    data[index]
+                                                                        .account
+                                                                        .accName;
+                                                                final orderPartyId =
+                                                                    data[index]
+                                                                        .account
+                                                                        .accCd;
+
+                                                                partyProvider.changeParty(
+                                                                    orderPartyName,
+                                                                    orderPartyId,
+                                                                    context);
+                                                                if (profileProvider
+                                                                        .YN ==
+                                                                    'Y') {
+                                                                  await partyProvider.changePunchInOutParty(
+                                                                      orderPartyName,
+                                                                      orderPartyId,
+                                                                      context);
+                                                                }
+
+                                                                Get.to(
+                                                                  () =>
+                                                                      ProductsPage(
+                                                                    initialStockistCd: (data[index].stockistCd !=
+                                                                                null &&
+                                                                            data[index]
+                                                                                .stockistCd!
+                                                                                .trim()
+                                                                                .isNotEmpty)
+                                                                        ? data[index]
+                                                                            .stockistCd!
+                                                                            .trim()
+                                                                        : null,
+                                                                  ),
+                                                                )?.then(
+                                                                    (result) {
+                                                                  if (result ==
+                                                                      true) {
+                                                                    final PartyProvider
+                                                                        party =
+                                                                        Provider.of<PartyProvider>(
+                                                                            context,
+                                                                            listen:
+                                                                                false);
+                                                                    if (party
+                                                                            .partyid !=
+                                                                        "") {
+                                                                      getDate();
+                                                                    } else {
+                                                                      setState(
+                                                                          () {
+                                                                        data.clear();
+                                                                      });
+                                                                    }
+                                                                  }
+                                                                });
+                                                              } else if (value !=
+                                                                  null) {
+                                                                // Old response format (String) - treat as success
+                                                                final message = value
+                                                                        is String
+                                                                    ? value
+                                                                    : value[
+                                                                        'message'];
+                                                                AppSnackBar.showGetXCustomSnackBar(
+                                                                    message:
+                                                                        message,
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .green);
+
+                                                                // Trigger POB sync using STOCKIST_CD from report if available (old response format path)
+                                                                try {
+                                                                  final userProvider = Provider.of<
+                                                                          UserProvider>(
+                                                                      context,
+                                                                      listen:
+                                                                          false);
+                                                                  final stockistToUse = data[index].stockistCd !=
+                                                                              null &&
+                                                                          data[index]
+                                                                              .stockistCd!
+                                                                              .isNotEmpty
+                                                                      ? data[index]
+                                                                          .stockistCd!
+                                                                      : data[index]
+                                                                          .account
+                                                                          .accCd;
+                                                                  await (Get.isRegistered<MonthlyTargetApiService>()
+                                                                          ? Get.find<
+                                                                              MonthlyTargetApiService>()
+                                                                          : Get.put(
+                                                                              MonthlyTargetApiService()))
+                                                                      .syncPobMonthlyTarget(
+                                                                    stockistCd:
+                                                                        stockistToUse,
+                                                                    token: userProvider
+                                                                        .token,
+                                                                  );
+                                                                } catch (e) {
+                                                                  print(
+                                                                      '[OrderReport] POB sync after edit (old format) failed: $e');
+                                                                }
+
+                                                                final PartyProvider
+                                                                    partyProvider =
+                                                                    Provider.of<
+                                                                            PartyProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                final ProfileProvider
+                                                                    profileProvider =
+                                                                    Provider.of<
+                                                                            ProfileProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false);
+                                                                final orderPartyName =
+                                                                    data[index]
+                                                                        .account
+                                                                        .accName;
+                                                                final orderPartyId =
+                                                                    data[index]
+                                                                        .account
+                                                                        .accCd;
+
+                                                                partyProvider.changeParty(
+                                                                    orderPartyName,
+                                                                    orderPartyId,
+                                                                    context);
+                                                                if (profileProvider
+                                                                        .YN ==
+                                                                    'Y') {
+                                                                  await partyProvider.changePunchInOutParty(
+                                                                      orderPartyName,
+                                                                      orderPartyId,
+                                                                      context);
+                                                                }
+
+                                                                Get.to(
+                                                                  () =>
+                                                                      ProductsPage(
+                                                                    initialStockistCd: (data[index].stockistCd !=
+                                                                                null &&
+                                                                            data[index]
+                                                                                .stockistCd!
+                                                                                .trim()
+                                                                                .isNotEmpty)
+                                                                        ? data[index]
+                                                                            .stockistCd!
+                                                                            .trim()
+                                                                        : null,
+                                                                  ),
+                                                                )?.then(
+                                                                    (result) {
+                                                                  if (result ==
+                                                                      true) {
+                                                                    final PartyProvider
+                                                                        party =
+                                                                        Provider.of<PartyProvider>(
+                                                                            context,
+                                                                            listen:
+                                                                                false);
+                                                                    if (party
+                                                                            .partyid !=
+                                                                        "") {
+                                                                      getDate();
+                                                                    } else {
+                                                                      setState(
+                                                                          () {
+                                                                        data.clear();
+                                                                      });
+                                                                    }
+                                                                  }
+                                                                });
+                                                              }
+                                                            });
+                                                          },
+                                                          icon: Icon(Icons
+                                                              .edit_outlined))
+                                                      : Container(),
+                                                ),
+                                                // if (data[index].imgUrl ==
+                                                //     null &&
+                                                //     data[index].imgUrl ==
+                                                //         '' &&
+                                                //     profile.userCode ==
+                                                //         data[index]
+                                                //             .user
+                                                //             .userCd)
+                                                Container(
+                                                  child: profile.userCode ==
+                                                          data[index]
+                                                              .user
+                                                              .userCd
+                                                      ? IconButton(
+                                                          onPressed: () {
+                                                            fromdateController
+                                                                    .text =
+                                                                Helper.convertToFormat(
+                                                                    "${data[index].vouchDt ?? ""}",
+                                                                    'dd-MM-yyyy');
+                                                            toDateController
+                                                                    .text =
+                                                                Helper.convertToFormat(
+                                                                    "${data[index].vouchDt ?? ""}",
+                                                                    'dd-MM-yyyy');
+
+                                                            setState(() {
+                                                              loading = true;
+                                                            });
+                                                            Services()
+                                                                .getOrderExportFileItem(
+                                                                    context,
+                                                                    party
+                                                                        .partyid,
+                                                                    fromdateController
+                                                                        .text,
+                                                                    toDateController
+                                                                        .text,
+                                                                    userController
+                                                                        .text,
+                                                                    "pdf")
+                                                                .then((value) {
+                                                              if (value !=
+                                                                  null) {
+                                                                setState(() {
+                                                                  loading =
+                                                                      false;
+                                                                });
+                                                                Get.to(() =>
+                                                                    PdfViewerScreen(
+                                                                        pdfUrl:
+                                                                            value,
+                                                                        fileName:
+                                                                            "Order Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}"));
+                                                              } else {
+                                                                setState(() {
+                                                                  loading =
+                                                                      false;
+                                                                });
+                                                              }
+                                                            });
+                                                          },
+                                                          icon:
+                                                              Icon(Icons.share))
+                                                      : Container(),
+                                                ),
+                                                // if (data[index].imgUrl ==
+                                                //     null &&
+                                                //     data[index].imgUrl ==
+                                                //         '' &&
+                                                //     profile.userCode ==
+                                                //         data[index]
+                                                //             .user
+                                                //             .userCd)
+                                                Container(
+                                                  child: (profile.userCode ==
+                                                                  data[index]
+                                                                      .user
+                                                                      .userCd ||
+                                                              (profile.data?.profileSettings.any((e) =>
+                                                                      e.variable ==
+                                                                          'omsWithoutErpSync' &&
+                                                                      e.value ==
+                                                                          'Y') ??
+                                                                  false)) &&
+                                                          isEmptyOrNull(
+                                                              data[index]
+                                                                  .billNo)
+                                                      ? IconButton(
+                                                          onPressed: () {
+                                                            showDialog(
+                                                              context: context,
+                                                              builder:
+                                                                  (BuildContext
+                                                                      context) {
+                                                                return AlertDialog(
+                                                                  title: Text(
+                                                                      'Delete Confirmation'),
+                                                                  content: Text(
+                                                                      'Are you sure you want to delete order?'),
+                                                                  actions: [
+                                                                    TextButton(
+                                                                      onPressed:
+                                                                          () {
+                                                                        // Cancel button: Close the dialog
+                                                                        Navigator.pop(
+                                                                            context);
+                                                                      },
+                                                                      child: Text(
+                                                                          'No'),
+                                                                    ),
+                                                                    TextButton(
+                                                                      onPressed:
+                                                                          () {
+                                                                        // Confirm logout
+                                                                        Services()
+                                                                            .deleteOrder(data[index].oId,
+                                                                                context,
+                                                                                stockist: data[index].stockistCd ?? data[index].account.accCd)
+                                                                            .then((value) {
+                                                                          if (value !=
+                                                                              null) {
+                                                                            Navigator.pop(context);
+
+                                                                            AppSnackBar.showGetXCustomSnackBar(
+                                                                                message: value,
+                                                                                backgroundColor: Colors.green);
+
+                                                                            getDate();
+                                                                          }
+                                                                        });
+                                                                      },
+                                                                      child: Text(
+                                                                          'Yes'),
+                                                                    ),
+                                                                  ],
+                                                                );
+                                                              },
+                                                            );
+
+                                                            // Services()
+                                                            //     .deleteOrder(
+                                                            //         data[index]
+                                                            //             .oId,
+                                                            //         context)
+                                                            //     .then((value) {
+                                                            //   if (value !=
+                                                            //       null) {
+                                                            //     // Fluttertoast
+                                                            //     //     .showToast(
+                                                            //     //         msg:
+                                                            //     //             value);
+                                                            //     AppSnackBar
+                                                            //         .showGetXCustomSnackBar(
+                                                            //             message:
+                                                            //                 value);
+                                                            //
+                                                            //     getDate();
+                                                            //   }
+                                                            // });
+                                                          },
+                                                          icon: Icon(
+                                                            Icons
+                                                                .delete_outline,
+                                                            color: Colors.red,
+                                                          ))
+                                                      : Container(),
+                                                )
+                                              ],
+                                            )
+                                          ]),
+                                        ],
                                       ),
                                     ),
-                                  );
-                                }),
-                  ),
-                  Container(
-                    padding: EdgeInsets.only(
-                        left: 10, right: 10, bottom: 20, top: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Colors.grey)),
+                                  ),
+                                );
+                              }),
+                ),
+                Container(
+                  padding:
+                      EdgeInsets.only(left: 10, right: 10, bottom: 35, top: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.grey,
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Total Order Amt:",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                "₹ ${Helper.parseNumericValue(_calculateTotalOrderAmt().toStringAsFixed(2))}",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Total Bill Amt:",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                "₹ ${Helper.parseNumericValue(_calculateTotalNetAmt().toStringAsFixed(2))}",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
                     ),
                   ),
-                ],
-              ),
-              Visibility(
-                  visible: loading,
-                  child: Container(
-                    height: MediaQuery.of(context).size.height,
-                    width: MediaQuery.of(context).size.width,
-                    decoration:
-                        BoxDecoration(color: Colors.grey.withOpacity(0.5)),
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ))
-            ],
-          ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Total Order Amt:",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              "₹ ${Helper.parseNumericValue(_calculateTotalOrderAmt().toStringAsFixed(2))}",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                                // color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        color: Colors.grey,
+                        height: 40,
+                        width: 1.5,
+                      ),
+                      SizedBox(
+                        width: 20,
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Total Bill Amt:",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              "₹ ${Helper.parseNumericValue(_calculateTotalNetAmt().toStringAsFixed(2))}",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Visibility(
+                visible: loading,
+                child: Container(
+                  height: MediaQuery.of(context).size.height,
+                  width: MediaQuery.of(context).size.width,
+                  decoration:
+                      BoxDecoration(color: Colors.grey.withOpacity(0.5)),
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ))
+          ],
         ),
       ),
     );

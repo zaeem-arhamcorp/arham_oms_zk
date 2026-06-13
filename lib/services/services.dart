@@ -2370,6 +2370,52 @@ class Services {
     return null;
   }
 
+  Future<String?> getItemWiseOrderExportFile(
+      context, fromDate, toDate, itemCd, deptCd, type) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    var queryString =
+        "fromDate=${Helper.toApi(fromDate)}&toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
+
+    if (itemCd != null) {
+      queryString = "$queryString&itemCd=$itemCd";
+    }
+
+    if (deptCd != null) {
+      queryString = "$queryString&deptCd=$deptCd";
+    }
+
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURLReport}items-wise-order-report?$queryString"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print(Uri.parse(
+          "${AppConfig.baseURLReport}items-wise-order-report?$queryString"));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body)["data"];
+      } else {
+        print('print 51_order');
+
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      //Fluttertoast.showToast(msg: "Something went wrong");
+      print("Error in Services getOrderReport data ${e.toString()}");
+      return null;
+    }
+    return null;
+  }
+
   Future<ItemWiseDetailReportModal?> getItemWiseSaleDetailReport(
       context, fromDate, toDate, itemCd) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
@@ -2759,6 +2805,48 @@ class Services {
         return json.decode(response.body)["data"];
       } else {
         print('print 57');
+
+        ub.userSignout(context).then((value) {
+          Get.offAll(() => LoginPage());
+        });
+      }
+    } catch (e, stack) {
+      CrashlyticsService.recordNonFatal(e, stack);
+      AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
+      //Fluttertoast.showToast(msg: "Something went wrong");
+      print("Error in Services getOrderReport data ${e.toString()}");
+      return null;
+    }
+    return null;
+  }
+
+  Future<String?> getPartyWiseItemOrderExportFile(
+      context, fromdate, toDate, partyCd, deptCd, type) async {
+    final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
+
+    var queryString =
+        "fromDate=${Helper.toApi(fromdate)}&toDate=${Helper.toApi(toDate)}&partyCd=$partyCd&export=true&exportType=$type";
+
+    if (deptCd != null) {
+      queryString = "$queryString&deptCd=$deptCd";
+    }
+
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+            "${AppConfig.baseURLReport}party-wise-item-order?$queryString"),
+        headers: {
+          "Authorization": "Bearer ${ub.token}",
+          'x-app-type': 'oms',
+        },
+      );
+      print(Uri.parse(
+          "${AppConfig.baseURLReport}party-wise-item-order?$queryString"));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body)["data"];
+      } else {
+        print('print 57_order');
 
         ub.userSignout(context).then((value) {
           Get.offAll(() => LoginPage());

@@ -283,12 +283,12 @@ class _ItemWisePartyWiseSaleReportViewState
         Provider.of<ProfileProvider>(context, listen: false);
 
     var moduleEntryAccess = p.data?.modulesList?.firstWhere(
-          (module) => module.mODULENO == "312",
+          (module) => module.mODULENO == "324",
           orElse: () => Modules(),
         ) ??
         Modules();
 
-    if (moduleEntryAccess.mODULENO == "312") {
+    if (moduleEntryAccess.mODULENO == "324") {
       viewRight = moduleEntryAccess.rEADRIGHT!;
       addRight = moduleEntryAccess.wRITERIGHT!;
       updateRight = moduleEntryAccess.uPDATERIGHT!;
@@ -301,7 +301,7 @@ class _ItemWisePartyWiseSaleReportViewState
       print('Delete Rights $deleteRight');
       print('Print Rights $printRight');
     } else {
-      print("Module with MODULE_NO '312' not found.");
+      print("Module with MODULE_NO '324' not found.");
     }
 
     _focusSearchNode.addListener(() {
@@ -614,7 +614,7 @@ class _ItemWisePartyWiseSaleReportViewState
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(
-        title: "Party Wise Item Wise Sale Report",
+        title: "Party Wise Item Wise Order Report",
         actions: [
           if (printRight)
             PopupMenuButton<dynamic>(
@@ -632,7 +632,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           loading = true;
                         });
                         Services()
-                            .getPartyWiseItemExportFile(
+                            .getPartyWiseItemOrderExportFile(
                                 context,
                                 Helper.toApi(fromdateController.text),
                                 Helper.toApi(toDateController.text),
@@ -649,7 +649,7 @@ class _ItemWisePartyWiseSaleReportViewState
                             Get.to(() => PdfViewerScreen(
                                 pdfUrl: value,
                                 fileName:
-                                    "Party Wise Item Wise Sale Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}"));
+                                    "Party Wise Item Wise Order Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}"));
                           } else {
                             setState(() {
                               loading = false;
@@ -672,7 +672,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           loading = true;
                         });
                         Services()
-                            .getPartyWiseItemExportFile(
+                            .getPartyWiseItemOrderExportFile(
                                 context,
                                 Helper.toApi(fromdateController.text),
                                 Helper.toApi(toDateController.text),
@@ -685,7 +685,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           if (value != null) {
                             Helper.saveFileAndroid(
                                     value,
-                                    "Party Wise Item Wise Sale Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
+                                    "Party Wise Item Wise Order Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
                                     "Excel file has been downloaded")
                                 .then((value) => {
                                       setState(() {
@@ -714,7 +714,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           loading = true;
                         });
                         Services()
-                            .getPartyWiseItemExportFile(
+                            .getPartyWiseItemOrderExportFile(
                                 context,
                                 Helper.toApi(fromdateController.text),
                                 Helper.toApi(toDateController.text),
@@ -727,7 +727,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           if (value != null) {
                             Helper.saveFileAndroid(
                                     value,
-                                    "Party Wise Item Wise Sale Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
+                                    "Party Wise Item Wise Order Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
                                     "Pdf file has been downloaded")
                                 .then((value) async {
                               setState(() {
@@ -765,7 +765,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           loading = true;
                         });
                         Services()
-                            .getPartyWiseItemExportFile(
+                            .getPartyWiseItemOrderExportFile(
                                 context,
                                 Helper.toApi(fromdateController.text),
                                 Helper.toApi(toDateController.text),
@@ -778,7 +778,7 @@ class _ItemWisePartyWiseSaleReportViewState
                           if (value != null) {
                             Helper.saveFileAndroid(
                                     value,
-                                    "Party Wise Item Wise Sale Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
+                                    "Party Wise Item Wise Order Report${party.party != '' ? "_" + (party.party.toLowerCase().capitalize ?? "") : ""}_${DateFormat('dd-MM-yyyy').format(DateFormat("yyyy-MM-dd").parse(toDateController.text))}",
                                     "Pdf file has been downloaded")
                                 .then((value) async {
                               setState(() {
@@ -836,7 +836,7 @@ class _ItemWisePartyWiseSaleReportViewState
                     child: Row(
                       children: [
                         Text(
-                          "Total Qty: ",
+                          "Qty: ",
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Flexible(
@@ -851,7 +851,7 @@ class _ItemWisePartyWiseSaleReportViewState
                     child: Row(
                       children: [
                         Text(
-                          "Total Free Qty: ",
+                          "Free Qty: ",
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Flexible(
@@ -1319,7 +1319,7 @@ class _ItemWisePartyWiseSaleReportViewState
                                                                     enableFilter:
                                                                         true,
                                                                     label: const Text(
-                                                                        'Free Qty'),
+                                                                        'Free'),
                                                                     dropdownMenuEntries: otherDescOptions
                                                                         .map((e) => DropdownMenuEntry<dynamic>(
                                                                             value:
@@ -1463,23 +1463,35 @@ class _ItemWisePartyWiseSaleReportViewState
                                                                 // },
                                                                 child:
                                                                     Container(
-                                                                        decoration: BoxDecoration(
-                                                                            color: Color(
-                                                                                0xffFFAE37),
-                                                                            borderRadius: BorderRadius.circular(
-                                                                                8)),
+                                                                        decoration:
+                                                                            BoxDecoration(
+                                                                          color:
+                                                                              Color(0xffFFAE37),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(8),
+                                                                        ),
                                                                         child:
-                                                                            Text(
-                                                                          "Add To Cart",
-                                                                          style: TextStyle(
+                                                                            Row(
+                                                                          children: [
+                                                                            Icon(
+                                                                              Icons.add_shopping_cart,
+                                                                              size: 20,
                                                                               color: Colors.white,
-                                                                              fontSize: 12),
+                                                                            ),
+                                                                            SizedBox(
+                                                                              width: 3,
+                                                                            ),
+                                                                            Text(
+                                                                              "Add",
+                                                                              style: TextStyle(color: Colors.white, fontSize: 12),
+                                                                            ),
+                                                                          ],
                                                                         ),
                                                                         padding: EdgeInsets.only(
                                                                             left:
-                                                                                18,
+                                                                                8,
                                                                             right:
-                                                                                18,
+                                                                                8,
                                                                             top:
                                                                                 8,
                                                                             bottom:
@@ -1499,8 +1511,8 @@ class _ItemWisePartyWiseSaleReportViewState
                                             children: [
                                               Row(
                                                 children: <Widget>[
-                                                  Expanded(
-                                                    flex: 2,
+                                                  SizedBox(
+                                                    width: 110,
                                                     child: Column(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
@@ -1515,6 +1527,9 @@ class _ItemWisePartyWiseSaleReportViewState
                                                         ),
                                                         Text(
                                                           "${data[index].deptName}",
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                           style: TextStyle(
                                                               fontSize: 12,
                                                               color:
@@ -1523,29 +1538,29 @@ class _ItemWisePartyWiseSaleReportViewState
                                                       ],
                                                     ),
                                                   ),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          "Item Cd",
-                                                          style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.black),
-                                                        ),
-                                                        Text(
-                                                          "${data[index].itemCd}",
-                                                          style: TextStyle(
-                                                              fontSize: 12,
-                                                              color:
-                                                                  Colors.grey),
-                                                        )
-                                                      ],
-                                                    ),
-                                                  ),
+                                                  // Expanded(
+                                                  //   child: Column(
+                                                  //     crossAxisAlignment:
+                                                  //         CrossAxisAlignment
+                                                  //             .start,
+                                                  //     children: [
+                                                  //       Text(
+                                                  //         "Item Cd",
+                                                  //         style: TextStyle(
+                                                  //             fontSize: 12,
+                                                  //             color:
+                                                  //                 Colors.black),
+                                                  //       ),
+                                                  //       Text(
+                                                  //         "${data[index].itemCd}",
+                                                  //         style: TextStyle(
+                                                  //             fontSize: 12,
+                                                  //             color:
+                                                  //                 Colors.grey),
+                                                  //       )
+                                                  //     ],
+                                                  //   ),
+                                                  // ),
                                                   Expanded(
                                                     flex: 2,
                                                     child: Column(

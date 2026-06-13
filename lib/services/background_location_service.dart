@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/network_helper.dart';
@@ -193,7 +192,6 @@ class BackgroundLocationService {
   Future<void> initialize() async {
     try {
       print('[BackgroundLocationService] Initializing background service...');
-      print('[BackgroundLocationService] Platform: ${Platform.operatingSystem}');
 
       // Configure the background service callback
       await _service.configure(
@@ -242,11 +240,6 @@ class BackgroundLocationService {
     String title = 'Location Tracking Active',
     String message = 'Background location tracking is active',
   }) async {
-    // Notification channel is Android-only
-    if (!Platform.isAndroid) {
-      print('[BackgroundLocationService] ℹ️ iOS: Skipping native notification (not supported)');
-      return;
-    }
     try {
       print(
           '[BackgroundLocationService] 📌 Setting notification as ongoing...');
@@ -312,23 +305,14 @@ class BackgroundLocationService {
       }
 
       if (permission == LocationPermission.whileInUse) {
-        if (Platform.isIOS) {
-          // iOS: whileInUse is sufficient for background location tracking
-          // with UIBackgroundModes: location enabled in Info.plist.
-          // iOS does not show "Always" in the initial prompt.
-          print(
-              '[BackgroundLocationService] ℹ️ iOS: whileInUse permission accepted (background modes handle continuous tracking)');
-        } else {
-          // Android: Require "Always" for background tracking
-          print(
-              '[BackgroundLocationService] ❌ Background location needs "Allow all the time" permission');
-          return {
-            'success': false,
-            'message':
-                'Please enable "Allow all the time" location permission for route tracking.',
-            'error': 'Background location permission not granted',
-          };
-        }
+        print(
+            '[BackgroundLocationService] ❌ Background location needs "Allow all the time" permission');
+        return {
+          'success': false,
+          'message':
+              'Please enable "Allow all the time" location permission for route tracking.',
+          'error': 'Background location permission not granted',
+        };
       }
 
       print('[BackgroundLocationService] ✅ Location permissions granted');
@@ -458,19 +442,14 @@ class BackgroundLocationService {
         await _service.startService();
 
         // Start native watchdog for extra recovery after app swipe/kill.
-        // Android-only: native MethodChannel not available on iOS
-        if (Platform.isAndroid) {
-          try {
-            await trackingControlPlatform
-                .invokeMethod('startTrackingRecoveryWatchdog');
-            print(
-                '[BackgroundLocationService] ✅ Native tracking recovery watchdog enabled');
-          } catch (e) {
-            print(
-                '[BackgroundLocationService] ⚠️ Could not enable native recovery watchdog: $e');
-          }
-        } else {
-          print('[BackgroundLocationService] ℹ️ iOS: Native watchdog not available');
+        try {
+          await trackingControlPlatform
+              .invokeMethod('startTrackingRecoveryWatchdog');
+          print(
+              '[BackgroundLocationService] ✅ Native tracking recovery watchdog enabled');
+        } catch (e) {
+          print(
+              '[BackgroundLocationService] ⚠️ Could not enable native recovery watchdog: $e');
         }
 
         // Give the service a moment to fully initialize before updating notification
@@ -684,17 +663,14 @@ class BackgroundLocationService {
       _service.invoke('terminateService');
 
       // Disable native watchdog so it does not restart tracking after punch-out.
-      // Android-only: native MethodChannel not available on iOS
-      if (Platform.isAndroid) {
-        try {
-          await trackingControlPlatform
-              .invokeMethod('stopTrackingRecoveryWatchdog');
-          print(
-              '[BackgroundLocationService] ✅ Native recovery watchdog disabled');
-        } catch (e) {
-          print(
-              '[BackgroundLocationService] ⚠️ Could not disable native recovery watchdog: $e');
-        }
+      try {
+        await trackingControlPlatform
+            .invokeMethod('stopTrackingRecoveryWatchdog');
+        print(
+            '[BackgroundLocationService] ✅ Native recovery watchdog disabled');
+      } catch (e) {
+        print(
+            '[BackgroundLocationService] ⚠️ Could not disable native recovery watchdog: $e');
       }
 
       // Wait a moment for the service to stop
@@ -798,19 +774,14 @@ class BackgroundLocationService {
       _currentTripId = null;
 
       // ✅ STOP FOREGROUND SERVICE - Clear notification via platform channel
-      // Android-only: native MethodChannel not available on iOS
-      if (Platform.isAndroid) {
-        print('[BackgroundLocationService] 🛑 Stopping foreground service...');
-        try {
-          // Invoke Android to stop the foreground service and dismiss notification
-          await trackingControlPlatform.invokeMethod('stopForegroundService');
-          print('[BackgroundLocationService] ✅ Foreground service stopped');
-        } catch (e) {
-          print(
-              '[BackgroundLocationService] ⚠️ Error stopping foreground service: $e');
-        }
-      } else {
-        print('[BackgroundLocationService] ℹ️ iOS: Foreground service stop not needed');
+      print('[BackgroundLocationService] 🛑 Stopping foreground service...');
+      try {
+        // Invoke Android to stop the foreground service and dismiss notification
+        await trackingControlPlatform.invokeMethod('stopForegroundService');
+        print('[BackgroundLocationService] ✅ Foreground service stopped');
+      } catch (e) {
+        print(
+            '[BackgroundLocationService] ⚠️ Error stopping foreground service: $e');
       }
 
       print(
@@ -919,13 +890,25 @@ class BackgroundLocationService {
     return prefs.getBool(key) ?? false;
   }
 
+  /// Returns true if the user manually punched in after today's auto punch-out.
+  /// When true, the auto punch-out state should NOT be preserved — the user
+  /// has explicitly started a new shift on the same calendar day.
+  Future<bool> isManualReopenActiveToday() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final manualReopenDate =
+          prefs.getString(_manualReopenAfterAutoPunchOutDateKey);
+      if (manualReopenDate == null || manualReopenDate.isEmpty) return false;
+      final today = _formatLocalDate(DateTime.now());
+      return manualReopenDate == today;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Dismiss any lingering route-tracking foreground notification from main isolate.
   /// Safe to call after auto punch-out/deferred sync when no trip should remain active.
   Future<void> dismissTrackingForegroundArtifacts() async {
-    if (!Platform.isAndroid) {
-      print('[BackgroundLocationService] ℹ️ iOS: Foreground service dismissal not needed');
-      return;
-    }
     try {
       await trackingControlPlatform.invokeMethod('stopForegroundService');
       print(

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/helper/notification_services.dart';
+import 'package:arham_corporation/helper/route_label_helper.dart';
 import 'package:arham_corporation/models/dashboardmodal.dart';
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/product/controller/product_controller.dart';
@@ -692,27 +693,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               'Punch Out',
               style: TextStyle(color: Colors.red),
             ),
+            // onPressed: () async {
+            //   location.setRemarks('PUNCH OUT');
+            //   final punchSucceeded = await location.sendLocation(userProvider,
+            //       profile: profileProvider);
+            //
+            //   if (!mounted) {
+            //     return;
+            //   }
+            //
+            //   if (punchSucceeded) {
+            //     _profileProvider.clearPendingStaleTripPunchOut();
+            //     if (Get.isDialogOpen == true) {
+            //       Get.back();
+            //     }
+            //   } else {
+            //     AppSnackBar.showGetXCustomSnackBar(
+            //       message:
+            //           'Punch out failed. Please connect to the internet and try again.',
+            //       backgroundColor: Colors.red,
+            //     );
+            //   }
+            // },
             onPressed: () async {
               location.setRemarks('PUNCH OUT');
-              final punchSucceeded = await location.sendLocation(userProvider,
-                  profile: profileProvider);
 
-              if (!mounted) {
-                return;
-              }
+              final punchSucceeded = await location.sendLocation(
+                userProvider,
+                profile: profileProvider,
+              );
 
-              if (punchSucceeded) {
-                _profileProvider.clearPendingStaleTripPunchOut();
-                if (Get.isDialogOpen == true) {
-                  Get.back();
-                }
-              } else {
+              if (!mounted) return;
+
+              if (!punchSucceeded) {
                 AppSnackBar.showGetXCustomSnackBar(
                   message:
                       'Punch out failed. Please connect to the internet and try again.',
                   backgroundColor: Colors.red,
                 );
+                return;
               }
+
+              _profileProvider.clearPendingStaleTripPunchOut();
+
+              print('Pending Punch Out Dialog Before Get.back');
+              Get.back(result: true);
+              print('Pending Punch Out Dialog After Get.back');
             },
           ),
         ],
@@ -2332,55 +2358,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                           textAlign:
                                                               TextAlign.right,
                                                         ),
-                                                        Builder(builder: (ctx) {
-                                                          try {
-                                                            final beatCtrl = Get
-                                                                    .isRegistered<
-                                                                        BeatController>()
-                                                                ? Get.find<
-                                                                    BeatController>()
-                                                                : Get.put(
-                                                                    BeatController());
-                                                            final beats = beatCtrl
-                                                                .getBeatsForDate(
-                                                                    DateTime
-                                                                        .now());
-                                                            final beatName =
-                                                                beats.isNotEmpty
-                                                                    ? beats
-                                                                        .first
-                                                                        .beatName
-                                                                    : '';
-                                                            if (beatName
-                                                                .isEmpty)
-                                                              return SizedBox
-                                                                  .shrink();
-                                                            return Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Text(
-                                                                  ", $beatName",
-                                                                  style:
-                                                                      TextStyle(
-                                                                    fontSize:
-                                                                        14,
-                                                                    color: Colors
-                                                                        .grey
-                                                                        .shade700,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            );
-                                                          } catch (e) {
-                                                            return SizedBox
-                                                                .shrink();
-                                                          }
-                                                        }),
                                                       ],
                                                     ),
                                                     // SizedBox(height: 2),
@@ -2725,6 +2702,55 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                             Divider(
                               thickness: 0.8,
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 3,
+                                    horizontal: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: Color(0xFFE2EEFD)),
+                                  child: Builder(builder: (ctx) {
+                                    final singularRouteLabel =
+                                        RouteLabelHelper.singularMaster(
+                                            _profileProvider);
+                                    try {
+                                      final beatCtrl =
+                                          Get.isRegistered<BeatController>()
+                                              ? Get.find<BeatController>()
+                                              : Get.put(BeatController());
+                                      final beats = beatCtrl
+                                          .getBeatsForDate(DateTime.now());
+                                      final beatName = beats.isNotEmpty
+                                          ? beats.first.beatName
+                                          : '';
+                                      if (beatName.isEmpty)
+                                        return SizedBox.shrink();
+                                      return Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${singularRouteLabel} - ${beatName}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    } catch (e) {
+                                      return SizedBox.shrink();
+                                    }
+                                  }),
+                                ),
+                              ],
                             ),
                           ],
                         ),

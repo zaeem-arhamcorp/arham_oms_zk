@@ -51,6 +51,7 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
 
     // Initialize with all beats from controller
     filteredBeats = List.from(beatController.beats);
+    print('Beat count on sheet open: ${beatController.beats.length}');
 
     if (widget.initialSelectedBeat != null) {
       selectedBeat = widget.initialSelectedBeat;

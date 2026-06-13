@@ -1244,6 +1244,8 @@ class _LoginPageState extends State<LoginPage> {
               message: response['message'] ?? "Verification failed",
             );
           }
+        } else {
+          global.loadinglogin(false);
         }
       });
     }
@@ -1335,6 +1337,19 @@ class _LoginPageState extends State<LoginPage> {
                   productController.selectedPartyName.value = '';
                   productController.selectedPartyId.value = '';
                 }
+                //
+                // // Dynamically subscribe if the logging in user matches Master
+                // try {
+                //   if (newRole.isNotEmpty) {
+                //     print(
+                //         '[LoginPage] Syncing push alerts channel for role: $newRole');
+                //     await NotificationService()
+                //         .updateRoleBasedSubscription(newRole, 'M');
+                //   }
+                // } catch (e) {
+                //   print('[LoginPage] Failed setup push role topic link: $e');
+                // }
+
                 Get.offAll(() => BottomnavigationBarScreen());
                 AppSnackBar.showGetXCustomSnackBar(
                   message: 'Login Success',
@@ -1518,7 +1533,7 @@ class _LoginPageState extends State<LoginPage> {
         AuthServices()
             .performLoginWithMobileOTP(
                 mobileNo.value, verifyOTPController.value.text, context)
-            .then((value) {
+            .then((value) async {
           if (value != null) {
             FocusManager.instance.primaryFocus?.unfocus();
             global.loadingsignup(false);
@@ -1531,6 +1546,20 @@ class _LoginPageState extends State<LoginPage> {
               //tempToken = json.decode(value)["tempToken"];
               tempToken = json.decode(value)["token"];
             });
+            //
+            // // Extract role from direct OTP login payload response
+            // try {
+            //   final String otpUserRole = json.decode(value)["role"] ?? "";
+            //   if (otpUserRole.isNotEmpty) {
+            //     print(
+            //         '[LoginPage-OTP] Dynamic role extraction resolved: $otpUserRole');
+            //     await NotificationService()
+            //         .updateRoleBasedSubscription(otpUserRole, 'M');
+            //   }
+            // } catch (e) {
+            //   print(
+            //       '[LoginPage-OTP] Dynamic role evaluation registration failed: $e');
+            // }
 
             if (tempToken.isNotEmpty) {
               _fetchFirmDropdown(tempToken);

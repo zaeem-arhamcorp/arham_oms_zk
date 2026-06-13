@@ -758,7 +758,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFFF0F3F2),
       appBar: CustomAppBar(
         title: 'Profile',
         actions: [
@@ -908,74 +908,114 @@ class _ProfilePageState extends State<ProfilePage> {
               SizedBox(
                 height: 20,
               ),
-              _buildProfileTextField(
+              _buildProfileTextField1(
                 controller: _nameClt,
                 label: "Name",
+                icon: Icons.person,
               ),
               const SizedBox(height: 4),
-              _buildProfileTextField(
+              _buildProfileTextField1(
                 controller: _codeClt,
                 label: "User Type",
+                icon: Icons.badge_outlined,
               ),
               const SizedBox(height: 4),
-              _buildProfileTextField(
+              _buildProfileTextField1(
                 controller: _addressClt,
                 label: "Company Name",
+                icon: Icons.business,
               ),
               const SizedBox(height: 4),
-              _buildProfileTextField(
+              _buildProfileTextField1(
                 controller: _phoneNoClt,
                 label: "Phone No",
+                icon: Icons.call,
               ),
               const SizedBox(height: 4),
-              _buildProfileTextField(
+              _buildProfileTextField1(
                 controller: _emailController,
                 label: "Email",
+                icon: Icons.mail_outline_outlined,
               ),
               if (p.data != null &&
                   p.data!.modulesList!.any((module) =>
                       module.mODULENO == "236" &&
                       module.rEADRIGHT == true)) ...[
                 const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 8.0, horizontal: 8.0), // Consistent padding
-                  child: Container(
-                    child: TextFormField(
-                      controller: _monthlyTargetController,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        label: Text("Monthly Target"),
-                        focusedBorder: const OutlineInputBorder(), // Use const
-                        enabledBorder: const OutlineInputBorder(), // Use const
-                        isDense: true,
-                        suffixIcon: IconButton(
-                          onPressed: () async {
-                            final text = _monthlyTargetController.text.trim();
-                            final isEmpty = text.isEmpty ||
-                                text.toLowerCase() == 'no monthly target';
-                            if (isEmpty) {
-                              await Get.to(() => const MonthlyTargetView());
-                            } else {
-                              await Get.to(() => const EditMonthlyTargetView());
-                            }
-
-                            if (mounted) {
-                              await _loadMonthlyTargetAmount();
-                            }
-                          },
-                          icon: Icon(
-                            (_monthlyTargetController.text.trim().isEmpty ||
-                                    _monthlyTargetController.text
-                                            .trim()
-                                            .toLowerCase() ==
-                                        'no monthly target')
-                                ? Icons.add
-                                : Icons.edit,
-                          ),
+                Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.track_changes_outlined,
+                          color: Colors.blue,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Monthly Target",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _monthlyTargetController.text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () async {
+                          final text = _monthlyTargetController.text.trim();
+                          final isEmpty = text.isEmpty ||
+                              text.toLowerCase() == 'no monthly target';
+
+                          if (isEmpty) {
+                            await Get.to(() => const MonthlyTargetView());
+                          } else {
+                            await Get.to(() => const EditMonthlyTargetView());
+                          }
+
+                          if (mounted) {
+                            await _loadMonthlyTargetAmount();
+                          }
+                        },
+                        icon: Icon(
+                          (_monthlyTargetController.text.trim().isEmpty ||
+                                  _monthlyTargetController.text
+                                          .trim()
+                                          .toLowerCase() ==
+                                      'no monthly target')
+                              ? Icons.add_circle_outline
+                              : Icons.edit_outlined,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -989,7 +1029,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Container(
                     width: MediaQuery.of(context).size.width,
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: Color(0xFFC53232),
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: TextButton(
@@ -1005,10 +1045,24 @@ class _ProfilePageState extends State<ProfilePage> {
                         _showDeleteConfirmationDialog(context,
                             userProvider); // Pass userProvider if needed for deletion
                       },
-                      child: const Text(
-                        "Delete Account",
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(
+                            width: 5,
+                          ),
+                          Text(
+                            "Delete Account",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1025,6 +1079,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileTextField({
     required TextEditingController controller,
     required String label,
+    Icon? icon,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -1040,6 +1095,73 @@ class _ProfilePageState extends State<ProfilePage> {
             isDense: true,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileTextField1({
+    required TextEditingController controller,
+    required String label,
+    IconData? icon,
+    Color? labelIconBg,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (icon != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: labelIconBg ?? Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: Colors.blue,
+              ),
+            ),
+          if (icon != null) const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    textSelectionTheme: const TextSelectionThemeData(
+                      selectionColor: Color(0xFF5ECCFF), // Highlight color
+                      selectionHandleColor: Colors.blue, // Handle color
+                    ),
+                  ),
+                  child: SelectableText(
+                    controller.text,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

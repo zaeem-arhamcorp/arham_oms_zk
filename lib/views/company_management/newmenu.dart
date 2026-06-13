@@ -145,8 +145,8 @@ class _NewMenuState extends State<NewMenu> {
     //var deleteRight = specificModule.dELETERIGHT;
 
     return Scaffold(
-      //backgroundColor: Color(0xFFF0F3F2),
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFFF0F3F2),
+      // backgroundColor: Colors.white30,
       appBar: CustomAppBar(
         title: 'Menus',
       ),
@@ -392,8 +392,10 @@ class _NewMenuState extends State<NewMenu> {
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 0.75,
+        crossAxisCount: 3,
+        crossAxisSpacing: 5,
+        mainAxisSpacing: 5,
+        childAspectRatio: 1,
       ),
       itemCount: iconTextBoxes.length,
       itemBuilder: (context, index) => iconTextBoxes[index],
@@ -421,61 +423,67 @@ class IconTextBox extends StatelessWidget {
   final String? iconUrl;
   final String label;
 
-  IconTextBox({this.icon, this.iconUrl, required this.label});
+  const IconTextBox({
+    super.key,
+    this.icon,
+    this.iconUrl,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         double iconSize =
-            constraints.maxWidth * 0.4; // Adjust the multiplier as needed
-        double fontSize =
-            constraints.maxWidth * 0.1; // Adjust the multiplier as needed
+            constraints.maxWidth * 0.30; // Adjust the multiplier as needed
 
         return Container(
-          padding: EdgeInsets.all(1.0),
+          margin: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(5),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(iconSize * 0.25),
-                // Adjust padding relative to icon size
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade100,
-                  shape: BoxShape.circle,
-                ),
-                child: iconUrl != null
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 12,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                iconUrl != null
                     ? Image.asset(
                         iconUrl!,
                         width: iconSize,
                         height: iconSize,
+                        color: const Color(0xFF0057E7), // optional
                       )
                     : Icon(
                         icon,
+                        color: const Color(0xFF0057E7),
                         size: iconSize,
-                        color: Colors.black,
                       ),
-              ),
-              SizedBox(height: 3),
-              Flexible(
-                child: Text(
+                const SizedBox(height: 8),
+                Text(
                   label,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                    letterSpacing: 0.5,
-                  ),
                   textAlign: TextAlign.center,
-                  softWrap: true,
-                  overflow: TextOverflow.visible,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

@@ -2396,8 +2396,9 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     final bool isOperator = ub.role == AppConfig.operatoruser;
 
     if (isOperator && !_isOrderLocationReady) {
+      print("Location is still being fetched. Please wait...");
       AppSnackBar.showGetXCustomSnackBar(
-        message: 'Location is still being fetched. Please wait.',
+        message: 'Please wait...',
         enforceNetworkMessage: false,
       );
       setState(() {

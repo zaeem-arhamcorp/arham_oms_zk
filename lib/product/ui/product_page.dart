@@ -368,69 +368,72 @@ Future<bool> _showSelfieDialogAndUpload(
                   const SizedBox(height: 8),
 
                   // Image upload area
-                  GestureDetector(
-                    onTap: () async {
-                      print(
-                          '[SELFIE-DIALOG] onUploadTap called - picking from camera');
-                      final file = await _pickSelfieFromCamera();
-                      if (file != null) {
-                        print('[SELFIE-DIALOG] File selected: ${file.path}');
+                  Obx(() {
+                    return GestureDetector(
+                      onTap: () async {
                         print(
-                            '[SELFIE-DIALOG] File exists: ${await file.exists()}');
-                        selfieFile.value = file;
-                        print('[SELFIE-DIALOG] selfieFile.value set');
-                      } else {
-                        print('[SELFIE-DIALOG] File pick returned null');
-                      }
-                    },
-                    child: Container(
-                      height: 140,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: selfieFile.value != null
-                                ? Image.file(selfieFile.value!,
-                                    fit: BoxFit.cover)
-                                : Center(
-                                    child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.camera_alt_outlined,
-                                        color: Colors.black,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      const Text(
-                                        'Take selfie',
-                                        style: TextStyle(fontSize: 18),
-                                      ),
-                                    ],
-                                  )),
-                          ),
-                          if (selfieFile.value != null)
-                            Positioned(
-                              top: 6,
-                              right: 6,
-                              child: IconButton(
-                                icon:
-                                    const Icon(Icons.cancel, color: Colors.red),
-                                onPressed: () {
-                                  print(
-                                      '[SELFIE-DIALOG] Deleting selected file');
-                                  selfieFile.value = null;
-                                },
-                              ),
+                            '[SELFIE-DIALOG] onUploadTap called - picking from camera');
+                        final file = await _pickSelfieFromCamera();
+                        if (file != null) {
+                          print('[SELFIE-DIALOG] File selected: ${file.path}');
+                          print(
+                              '[SELFIE-DIALOG] File exists: ${await file.exists()}');
+                          selfieFile.value = file;
+                          print('[SELFIE-DIALOG] selfieFile.value set');
+                        } else {
+                          print('[SELFIE-DIALOG] File pick returned null');
+                        }
+                      },
+                      child: Container(
+                        height: 140,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: selfieFile.value != null
+                                  ? Image.file(selfieFile.value!,
+                                      fit: BoxFit.fitHeight)
+                                  : Center(
+                                      child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.camera_alt_outlined,
+                                          color: Colors.black,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        const Text(
+                                          'Take selfie',
+                                          style: TextStyle(fontSize: 18),
+                                        ),
+                                      ],
+                                    )),
                             ),
-                        ],
+                            if (selfieFile.value != null)
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: IconButton(
+                                  icon: const Icon(Icons.cancel,
+                                      color: Colors.red),
+                                  onPressed: () {
+                                    print(
+                                        '[SELFIE-DIALOG] Deleting selected file');
+                                    selfieFile.value = null;
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
 
                   const SizedBox(height: 20),
 

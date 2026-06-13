@@ -102,6 +102,15 @@ class ProfileProvider extends DisposableProvider {
       }
 
       if (await backgroundService.isAutoPunchOutCompletedToday()) {
+        // Even though auto punch-out fired today, the user may have manually
+        // punched back in afterwards (e.g. at 11:02 PM after the 11 PM auto
+        // punch-out). In that case a new active trip exists and we must NOT
+        // override isPunchIn — the user is genuinely punched in.
+        if (await backgroundService.isManualReopenActiveToday()) {
+          print(
+              '[PROFILE-ONLINE] ℹ️ Auto punch-out completed today BUT manual reopen is active — not preserving punch-out state.');
+          return false;
+        }
         return true;
       }
 

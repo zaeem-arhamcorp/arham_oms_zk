@@ -285,6 +285,18 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
                 final bool isNotCompleted =
                     trip.status.toLowerCase() != 'completed';
 
+                bool startedToday = false;
+
+                try {
+                  final startDate =
+                      DateTime.parse(trip.startTime.replaceAll(' ', 'T'));
+                  final now = DateTime.now();
+
+                  startedToday = startDate.year == now.year &&
+                      startDate.month == now.month &&
+                      startDate.day == now.day;
+                } catch (_) {}
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
@@ -308,7 +320,7 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
                         const SizedBox(height: 10),
 
                         // Updated Condition and linked to _handlePunchOut
-                        if (isNotCompleted)
+                        if (isNotCompleted && !startedToday)
                           SizedBox(
                             width:
                                 double.infinity, // Makes the button full width

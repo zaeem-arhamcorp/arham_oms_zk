@@ -20,7 +20,6 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../widgets/user_search_dropdown.dart';
 import 'route%20timeline/route_map_view.dart';
 
 class RouteReportScreen extends StatefulWidget {
@@ -1590,6 +1589,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
     final hasSelfie = _tripHasSelfie(trip);
 
     final bool isNotCompleted = tripStatus != 'COMPLETED';
+    final bool isTripToday = start?.day == DateTime.now().day;
 
     Color statusBg;
     Color statusBorder;
@@ -1654,7 +1654,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isNotCompleted) ...[
+            if (isNotCompleted && !isTripToday) ...[
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -1972,36 +1972,213 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
           //   ),
           // ),
           // SizedBox(height: 5),
-          UserSearchDropdown(
-            users: _usersForDropdown,
-            selectedUserCode: _selectedUserCode,
-            loading: _loadingUsers,
-            hint: "Select User",
-            compact: true,
-            onSearchQueryChanged: _onUserSearchQueryChanged,
-            onChanged: (value) {
-              final profileProvider =
-                  Provider.of<ProfileProvider>(context, listen: false);
-              CrashlyticsService.logAction(
-                'route_report_user_filter_changed',
-                context: {'selected_user_cd': value ?? ''},
-              );
-              setState(() {
-                _selectedUserCode = value ?? '';
-                _selectedUserName = value == ''
-                    ? (profileProvider.userName?.trim().isNotEmpty ?? false)
-                        ? profileProvider.userName!.trim()
-                        : null
-                    : _usersForDropdown.firstWhere(
-                        (user) => user['userCode'] == value,
-                        orElse: () => {'userName': 'Unknown'},
-                      )['userName'];
-              });
-              _fetchTrips();
-            },
+          // UserSearchDropdown(
+          //   users: _usersForDropdown,
+          //   selectedUserCode: _selectedUserCode,
+          //   loading: _loadingUsers,
+          //   hint: "Select User",
+          //   compact: true,
+          //   onSearchQueryChanged: _onUserSearchQueryChanged,
+          //   onChanged: (value) {
+          //     final profileProvider =
+          //         Provider.of<ProfileProvider>(context, listen: false);
+          //     CrashlyticsService.logAction(
+          //       'route_report_user_filter_changed',
+          //       context: {'selected_user_cd': value ?? ''},
+          //     );
+          //     setState(() {
+          //       _selectedUserCode = value ?? '';
+          //       _selectedUserName = value == ''
+          //           ? (profileProvider.userName?.trim().isNotEmpty ?? false)
+          //               ? profileProvider.userName!.trim()
+          //               : null
+          //           : _usersForDropdown.firstWhere(
+          //               (user) => user['userCode'] == value,
+          //               orElse: () => {'userName': 'Unknown'},
+          //             )['userName'];
+          //     });
+          //     _fetchTrips();
+          //   },
+          // ),
+          GestureDetector(
+            onTap: _showUserBottomSheet,
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Color(0xFF0D5C92),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.person_outline,
+                    color: Color(0xFF0D5C92),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedUserName?.isNotEmpty == true
+                          ? _selectedUserName!
+                          : "Select User",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _selectedUserCode.isEmpty
+                            ? Color(0xFF0D5C92)
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down),
+                ],
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showUserBottomSheet() async {
+    final TextEditingController searchController = TextEditingController();
+
+    List<Map<String, dynamic>> filteredUsers = List.from(_usersForDropdown);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.8,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 50,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Select User",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          hintText: "Search user",
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setModalState(() {
+                            filteredUsers = _usersForDropdown.where((u) {
+                              final name = (u['userName'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+
+                              final code = (u['userCode'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+
+                              return name.contains(value.toLowerCase()) ||
+                                  code.contains(value.toLowerCase());
+                            }).toList();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: filteredUsers.length,
+                        separatorBuilder: (_, __) => const Divider(
+                          height: 1,
+                        ),
+                        itemBuilder: (context, index) {
+                          final user = filteredUsers[index];
+
+                          final bool selected =
+                              user['userCode'] == _selectedUserCode;
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              child: Text(
+                                (user['userName'] ?? '').toString().isNotEmpty
+                                    ? user['userName']
+                                        .toString()[0]
+                                        .toUpperCase()
+                                    : "?",
+                              ),
+                            ),
+                            title: Text(
+                              user['userName'] ?? '',
+                            ),
+                            subtitle: Text(
+                              user['userCode'] ?? '',
+                            ),
+                            trailing: selected
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.blue,
+                                  )
+                                : null,
+                            onTap: () {
+                              final profileProvider =
+                                  Provider.of<ProfileProvider>(
+                                context,
+                                listen: false,
+                              );
+
+                              setState(() {
+                                _selectedUserCode = user['userCode'] ?? '';
+
+                                _selectedUserName = user['userName'] ?? '';
+
+                                if (_selectedUserCode.isEmpty) {
+                                  _selectedUserName = profileProvider.userName;
+                                }
+                              });
+
+                              Navigator.pop(sheetContext);
+
+                              _fetchTrips();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

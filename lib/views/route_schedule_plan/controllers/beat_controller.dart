@@ -39,6 +39,9 @@ class BeatController extends GetxController {
     if (hasBeatAccess) {
       if (_beats.isNotEmpty) return;
       await fetchBeats();
+      print('Controller hash: $hashCode');
+      print('Has Beat Access: $hasBeatAccess');
+      print('[BeatController] fetchBeats called');
     } else {
       print('Beat fetching skipped: module permission checks not met');
       return null;
