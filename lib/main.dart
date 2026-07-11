@@ -25,6 +25,7 @@ import 'package:arham_corporation/services/location_tracking_workmanager.dart';
 import 'package:arham_corporation/views/item_wise_sale/providers/item_list_provider.dart'
     as item_wise_sale_provider;
 import 'package:arham_corporation/views/splashScreen.dart';
+import 'package:arham_corporation/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,7 +46,9 @@ void main() {
 
     WidgetsFlutterBinding.ensureInitialized();
 
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     //
     // // Initialize Notification Platform Rules immediately after Firebase setup
     // print('[Main] Initializing Notification Channel Platforms...');
