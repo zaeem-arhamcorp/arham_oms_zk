@@ -74,7 +74,7 @@ dependencies:
   flutter_typeahead: ^5.2.0
   win32: ^5.5.1
   number_paginator: ^1.1.1
-  whatsapp_share: ^2.0.2
+  whatsapp_share_plus: ^1.0.2
   pinput: ^6.0.1
   image_picker: ^1.1.2
   file_picker: ^10.3.2
