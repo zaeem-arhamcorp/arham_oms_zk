@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
-import '../controllers/edit_account_controller.dart';
 import '../../route_schedule_plan/controllers/beat_controller.dart';
+import '../controllers/edit_account_controller.dart';
 import '../widgets/form_widgets.dart';
 
 class EditAccountScreen extends StatefulWidget {
@@ -41,65 +41,80 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Edit Party'),
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: controller.formKey,
-            child: Column(
-              children: [
-                FormWidgets.basicInfo(controller),
-                FormWidgets.imageUpload(controller),
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: controller.formKey,
+              child: Column(
+                children: [
+                  FormWidgets.basicInfo(controller),
+                  FormWidgets.imageUpload(controller),
 
-                Row(
-                  children: [
-                    Obx(() => Checkbox(
-                          value: controller.isLicensedVisible.value,
-                          onChanged: (v) =>
-                              controller.toggleLicenseFields(v ?? false),
-                        )),
-                    const Text('License & Tax Information'),
-                  ],
-                ),
-
-                Obx(() => controller.isLicensedVisible.value
-                    ? FormWidgets.licenseInfo(controller)
-                    : const SizedBox()),
-
-                const SizedBox(height: 20),
-
-                /// UPDATE BUTTON
-                Obx(
-                  () => Row(
+                  Row(
                     children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: controller.isLoading.value
-                              ? null
-                              : () {
-                                  if (controller.formKey.currentState!
-                                      .validate()) {
-                                    controller.updateAccount(context);
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: controller.isLoading.value
-                              ? const CircularProgressIndicator()
-                              : const Text('Update Party'),
-                        ),
-                      ),
+                      Obx(() => Checkbox(
+                            value: controller.isLicensedVisible.value,
+                            onChanged: (v) =>
+                                controller.toggleLicenseFields(v ?? false),
+                          )),
+                      const Text('License & Tax Information'),
                     ],
                   ),
-                ),
-              ],
+
+                  Obx(() => controller.isLicensedVisible.value
+                      ? FormWidgets.licenseInfo(controller)
+                      : const SizedBox()),
+
+                  const SizedBox(height: 20),
+
+                  /// UPDATE BUTTON
+                  Obx(
+                    () => Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: controller.isLoading.value
+                                ? null
+                                : () {
+                                    if (controller.formKey.currentState!
+                                        .validate()) {
+                                      controller.updateAccount(context);
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: controller.isLoading.value
+                                ? const CircularProgressIndicator()
+                                : const Text('Update Party'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,13 +25,6 @@ class ActivityRecognitionService {
   Future<bool> initialize() async {
     try {
       print('[ActivityRecognitionService] Initializing...');
-
-      // iOS does not support Android's Activity Recognition API.
-      // GPS speed-based fallback is used instead (see _inferActivityFromSpeed in BackgroundLocationService).
-      if (Platform.isIOS) {
-        print('[ActivityRecognitionService] ℹ️ iOS: Native activity recognition not available, using GPS speed-based fallback');
-        return true;
-      }
 
       // If running in background isolate, skip permission request
       // The permission should have already been requested during punch-in on main thread
@@ -119,13 +111,6 @@ class ActivityRecognitionService {
   Future<String> getCurrentActivity() async {
     try {
       print('[ActivityRecognitionService] Fetching current activity...');
-
-      // iOS: No native activity recognition, return UNKNOWN
-      if (Platform.isIOS) {
-        _currentActivity = 'UNKNOWN';
-        print('[ActivityRecognitionService] ℹ️ iOS: Returning UNKNOWN (GPS speed fallback used)');
-        return 'UNKNOWN';
-      }
 
       try {
         // Try MethodChannel first (works from main thread only)

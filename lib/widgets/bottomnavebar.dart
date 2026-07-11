@@ -1,17 +1,18 @@
-import 'package:arham_corporation/product/ui/product_page.dart';
-import 'package:arham_corporation/views/company_management/newmenu.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/product/ui/product_page.dart';
 import 'package:arham_corporation/providers/location_provider.dart';
+import 'package:arham_corporation/views/company_management/newmenu.dart';
 import 'package:arham_corporation/views/homepage.dart';
 import 'package:arham_corporation/views/profilePage.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/profile_provider.dart';
 import '../providers/user_provider.dart';
-import '../views/dailyReportScreen.dart';
 import '../services/battery_optimization_service.dart';
+import '../views/dailyReportScreen.dart';
 
 class BottomnavigationBarScreen extends StatefulWidget {
   const BottomnavigationBarScreen({Key? key}) : super(key: key);
@@ -144,6 +145,7 @@ class _BottomnavigationBarScreenState extends State<BottomnavigationBarScreen> {
               resizeToAvoidBottomInset: true,
               body: pages[_selectedIndex],
               bottomNavigationBar: BottomNavigationBar(
+                // selectedItemColor: Color(0xFF0057E7),
                 selectedItemColor: Colors.black,
                 unselectedItemColor: Colors.grey,
                 //backgroundColor: Color(0xFFE2E2E2),

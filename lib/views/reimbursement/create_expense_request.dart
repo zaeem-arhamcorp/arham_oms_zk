@@ -771,307 +771,325 @@ class _CreateExpenseRequestState extends State<CreateExpenseRequest> {
         //     ),
         //   ),
         // ],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                key: ValueKey(_selectedDate.toIso8601String()),
-                initialValue: DateFormat('yyyy-MM-dd').format(_selectedDate),
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Date',
-                  border: OutlineInputBorder(),
-                  suffixIcon: Icon(Icons.calendar_today),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  key: ValueKey(_selectedDate.toIso8601String()),
+                  initialValue: DateFormat('yyyy-MM-dd').format(_selectedDate),
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  onTap: _pickDate,
                 ),
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: 16),
-              // Expense type checkboxes
+                const SizedBox(height: 16),
+                // Expense type checkboxes
 
-              Row(
-                children: [
-                  Expanded(
-                    child: CheckboxListTile(
-                      value: _selectedExpenseTypes.contains('DAILY_ALLOWANCE'),
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text('Daily Allowance'),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedExpenseTypes.add('DAILY_ALLOWANCE');
-                          } else {
-                            _selectedExpenseTypes.remove('DAILY_ALLOWANCE');
-                          }
-                        });
-                      },
+                Row(
+                  children: [
+                    Expanded(
+                      child: CheckboxListTile(
+                        value:
+                            _selectedExpenseTypes.contains('DAILY_ALLOWANCE'),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: const Text('Daily Allowance'),
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedExpenseTypes.add('DAILY_ALLOWANCE');
+                            } else {
+                              _selectedExpenseTypes.remove('DAILY_ALLOWANCE');
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CheckboxListTile(
+                        value:
+                            _selectedExpenseTypes.contains('OTHER_ALLOWANCE'),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: const Text('Other Allowance'),
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedExpenseTypes.add('OTHER_ALLOWANCE');
+                            } else {
+                              _selectedExpenseTypes.remove('OTHER_ALLOWANCE');
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // if (_selectedExpenseTypes.isNotEmpty)
+                //   Padding(
+                //     padding: const EdgeInsets.only(bottom: 8.0),
+                //     child: Wrap(
+                //       spacing: 8,
+                //       children: _selectedExpenseTypes
+                //           .map((type) => Chip(label: Text(type)))
+                //           .toList(),
+                //     ),
+                //   ),
+
+                if (_selectedExpenseTypes.contains("DAILY_ALLOWANCE"))
+                  Container(
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Daily Allowance",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        TextFormField(
+                          controller: _dailyAmountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Amount(₹)',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            final parsed = double.tryParse(value?.trim() ?? '');
+                            if (parsed == null || parsed <= 0) {
+                              return 'Enter a valid amount';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _dailyNotesController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'Notes',
+                            border: OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return 'Please enter notes';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                            'Image: ${_dailyImageFile?.name ?? 'No image selected'}'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _pickImageDailyAllowance,
+                                icon: const Icon(Icons.image),
+                                label: const Text('Pick Image'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _dailyImageFile == null
+                                  ? null
+                                  : () => setState(() {
+                                        _dailyImageFile = null;
+                                      }),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                            'Doc: ${_dailyDoc?.name ?? 'No document selected'}'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _pickDocDaily,
+                                icon: const Icon(Icons.attach_file),
+                                label: const Text('Pick Document'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _dailyDoc == null
+                                  ? null
+                                  : () => setState(() {
+                                        _dailyDoc = null;
+                                      }),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CheckboxListTile(
-                      value: _selectedExpenseTypes.contains('OTHER_ALLOWANCE'),
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text('Other Allowance'),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedExpenseTypes.add('OTHER_ALLOWANCE');
-                          } else {
-                            _selectedExpenseTypes.remove('OTHER_ALLOWANCE');
-                          }
-                        });
-                      },
+
+                if (_selectedExpenseTypes.contains("OTHER_ALLOWANCE"))
+                  Container(
+                    margin: EdgeInsets.only(top: 16),
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Other Allowance",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        TextFormField(
+                          controller: _otherAmountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Amount(₹)',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            final parsed = double.tryParse(value?.trim() ?? '');
+                            if (parsed == null || parsed <= 0) {
+                              return 'Enter a valid amount';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _otherNotesController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'Notes',
+                            border: OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return 'Please enter notes';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                            'Image: ${_otherImage?.name ?? 'No image selected'}'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _pickImageOtherAllowance,
+                                icon: const Icon(Icons.image),
+                                label: const Text('Pick Image'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _otherImage == null
+                                  ? null
+                                  : () => setState(() {
+                                        _otherImage = null;
+                                      }),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                            'Doc: ${_otherDoc?.name ?? 'No document selected'}'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _pickDocOther,
+                                icon: const Icon(Icons.attach_file),
+                                label: const Text('Pick Document'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _otherDoc == null
+                                  ? null
+                                  : () => setState(() {
+                                        _otherDoc = null;
+                                      }),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // if (_selectedExpenseTypes.isNotEmpty)
-              //   Padding(
-              //     padding: const EdgeInsets.only(bottom: 8.0),
-              //     child: Wrap(
-              //       spacing: 8,
-              //       children: _selectedExpenseTypes
-              //           .map((type) => Chip(label: Text(type)))
-              //           .toList(),
-              //     ),
-              //   ),
 
-              if (_selectedExpenseTypes.contains("DAILY_ALLOWANCE"))
-                Container(
-                  padding: EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Daily Allowance",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(
-                        height: 10,
-                      ),
-                      TextFormField(
-                        controller: _dailyAmountController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Amount(₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          final parsed = double.tryParse(value?.trim() ?? '');
-                          if (parsed == null || parsed <= 0) {
-                            return 'Enter a valid amount';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _dailyNotesController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes',
-                          border: OutlineInputBorder(),
-                          alignLabelWithHint: true,
-                        ),
-                        validator: (value) {
-                          if ((value ?? '').trim().isEmpty) {
-                            return 'Please enter notes';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                          'Image: ${_dailyImageFile?.name ?? 'No image selected'}'),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickImageDailyAllowance,
-                              icon: const Icon(Icons.image),
-                              label: const Text('Pick Image'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _dailyImageFile == null
-                                ? null
-                                : () => setState(() {
-                                      _dailyImageFile = null;
-                                    }),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Doc: ${_dailyDoc?.name ?? 'No document selected'}'),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickDocDaily,
-                              icon: const Icon(Icons.attach_file),
-                              label: const Text('Pick Document'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _dailyDoc == null
-                                ? null
-                                : () => setState(() {
-                                      _dailyDoc = null;
-                                    }),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ),
-                    ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submitExpenseRequest,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Submit Request'),
                   ),
                 ),
-
-              if (_selectedExpenseTypes.contains("OTHER_ALLOWANCE"))
-                Container(
-                  margin: EdgeInsets.only(top: 16),
-                  padding: EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Other Allowance",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(
-                        height: 10,
-                      ),
-                      TextFormField(
-                        controller: _otherAmountController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Amount(₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          final parsed = double.tryParse(value?.trim() ?? '');
-                          if (parsed == null || parsed <= 0) {
-                            return 'Enter a valid amount';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _otherNotesController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes',
-                          border: OutlineInputBorder(),
-                          alignLabelWithHint: true,
-                        ),
-                        validator: (value) {
-                          if ((value ?? '').trim().isEmpty) {
-                            return 'Please enter notes';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                          'Image: ${_otherImage?.name ?? 'No image selected'}'),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickImageOtherAllowance,
-                              icon: const Icon(Icons.image),
-                              label: const Text('Pick Image'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _otherImage == null
-                                ? null
-                                : () => setState(() {
-                                      _otherImage = null;
-                                    }),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Doc: ${_otherDoc?.name ?? 'No document selected'}'),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickDocOther,
-                              icon: const Icon(Icons.attach_file),
-                              label: const Text('Pick Document'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _otherDoc == null
-                                ? null
-                                : () => setState(() {
-                                      _otherDoc = null;
-                                    }),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitExpenseRequest,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Submit Request'),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -148,7 +148,7 @@ class MonthlyTargetApiService extends GetxService {
         return false;
       }
     } else {
-      appLog('pob-sync skipped: moduleNo 236 not found', tag: 'MonthlyTarget');
+      appLog('POB sync skipped: moduleNo 236 not found', tag: 'MonthlyTarget');
       return false;
     }
   }

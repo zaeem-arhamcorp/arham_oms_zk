@@ -162,4 +162,27 @@ class ApiService {
       'json': jsonDecode(response.body),
     };
   }
+
+  Future<Map<String, dynamic>> delete(
+    String endpoint, {
+    Map<String, String>? headers,
+  }) async {
+    final url = _resolveUrl(endpoint);
+
+    print(url);
+
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        ...?headers,
+      },
+    );
+
+    return {
+      'statusCode': response.statusCode,
+      'body': response.body,
+      'json': response.body.isNotEmpty ? jsonDecode(response.body) : null,
+    };
+  }
 }

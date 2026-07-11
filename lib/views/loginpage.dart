@@ -690,7 +690,9 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: Text(
-                                'Login with OTP',
+                                isLoginWithOTP.value
+                                    ? 'Login with User Code'
+                                    : 'Login with OTP',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -702,7 +704,8 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             Icon(
                               isLoginWithOTP.value
-                                  ? Icons.check_circle
+                                  ? Icons
+                                      .arrow_forward_ios_rounded //previously - check_circle
                                   : Icons.arrow_forward_ios_rounded,
                               color: const Color(0xFF1269EA),
                               size: 22,

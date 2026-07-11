@@ -1715,7 +1715,10 @@ class DatabaseHelper {
   /// Insert a new location record (punch-in/punch-out)
   Future<int> insertLocation(Map<String, dynamic> locationData) async {
     final db = await database;
-    return await db.insert('locations', locationData);
+    final id = await db.insert('locations', locationData);
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM locations')) ?? 0;
+    print('[DATABASE] 📥 insertLocation: ID=$id, REMARK=${locationData['REMARK']}, sync_status=${locationData['sync_status']}. Total rows in locations=$count');
+    return id;
   }
 
   /// Get all pending location records (not synced)
@@ -1778,6 +1781,7 @@ class DatabaseHelper {
       where: 'locId = ?',
       whereArgs: [locId],
     );
+    print('[DATABASE] 🔄 updateLocationSyncStatus: locId=$locId updated to status=$status');
   }
 
   /// Clear all synced locations
@@ -1790,7 +1794,9 @@ class DatabaseHelper {
   /// Delete a specific location
   Future<void> deleteLocation(int locId) async {
     final db = await database;
-    await db.delete('locations', where: 'locId = ?', whereArgs: [locId]);
+    final deleted = await db.delete('locations', where: 'locId = ?', whereArgs: [locId]);
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM locations')) ?? 0;
+    print('[DATABASE] 🗑️ deleteLocation: locId=$locId, deletedRows=$deleted. Remaining rows in locations=$count');
   }
 
   /// Insert order tracking record (start/end order)

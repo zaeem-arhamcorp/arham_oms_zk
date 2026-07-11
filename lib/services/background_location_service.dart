@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'activity_recognition_service.dart';
 import 'database_helper.dart';
 import 'location_sync_service.dart';
+import 'trip_prefs_helper.dart';
 
 /// Background Location Tracking Service
 /// Captures GPS location every 40 seconds during active punch-in.
@@ -32,7 +33,7 @@ class BackgroundLocationService {
   final FlutterBackgroundService _service = FlutterBackgroundService();
   static const Duration _captureInterval = Duration(seconds: 40);
   static const double _maxAcceptedAccuracyMeters = 30.0;
-  static const String _activeTripTokenKey = 'active_trip_token';
+  // _activeTripTokenKey removed — use TripPrefsHelper.tripToken(syncId) instead
   static const String _pendingAutoPunchOutKey = 'pending_auto_punch_out';
   static const String _pendingAutoPunchOutTripIdKey =
       'pending_auto_punch_out_trip_id';
@@ -403,11 +404,16 @@ class BackgroundLocationService {
         // ALSO STORE IN PERSISTENT STORAGE in case app is backgrounded
         try {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('active_trip_id', tripId);
-          await prefs.setString('active_user_cd', userCd);
-          await prefs.setInt('active_sync_id', syncId);
-          await prefs.setString(_activeTripTokenKey, token);
-          await prefs.setBool('tracking_explicitly_stopped', false);
+          // Write firm-specific keys so Firm A never bleeds into Firm B
+          await prefs.setInt(TripPrefsHelper.tripId(syncId), tripId);
+          await prefs.setString(TripPrefsHelper.userCd(syncId), userCd);
+          await prefs.setInt(TripPrefsHelper.syncIdKey(syncId), syncId);
+          await prefs.setString(TripPrefsHelper.tripToken(syncId), token);
+          await prefs.setBool(TripPrefsHelper.explicitlyStopped(syncId), false);
+          // Global pointer: which firm is currently being tracked
+          await prefs.setInt(TripPrefsHelper.currentTrackingSyncId, syncId);
+          // Clean up legacy global keys from previous installs
+          await TripPrefsHelper.clearLegacyKeys(prefs);
 
           final now = DateTime.now();
           final today = _formatLocalDate(now);
@@ -501,13 +507,31 @@ class BackgroundLocationService {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      final tripId = prefs.getInt('active_trip_id');
-      final userCd = prefs.getString('active_user_cd');
-      final syncId = prefs.getInt('active_sync_id');
-      final token =
-          prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
-      final explicitlyStopped =
-          prefs.getBool('tracking_explicitly_stopped') ?? false;
+      // Resolve which firm is currently being tracked via the global pointer
+      final trackingSyncId =
+          prefs.getInt(TripPrefsHelper.currentTrackingSyncId);
+      // Fall back to legacy global key during migration (first run after update)
+      final legacySyncId = prefs.getInt(TripPrefsHelper.legacySyncId);
+      final resolvedSyncId = trackingSyncId ?? legacySyncId;
+
+      // Read firm-specific keys when syncId is available; fall back to legacy
+      final tripId = resolvedSyncId != null
+          ? (prefs.getInt(TripPrefsHelper.tripId(resolvedSyncId)) ??
+              prefs.getInt(TripPrefsHelper.legacyTripId))
+          : prefs.getInt(TripPrefsHelper.legacyTripId);
+      final userCd = resolvedSyncId != null
+          ? (prefs.getString(TripPrefsHelper.userCd(resolvedSyncId)) ??
+              prefs.getString(TripPrefsHelper.legacyUserCd))
+          : prefs.getString(TripPrefsHelper.legacyUserCd);
+      final syncId = resolvedSyncId;
+      final token = resolvedSyncId != null
+          ? (prefs.getString(TripPrefsHelper.tripToken(resolvedSyncId)) ??
+              prefs.getString('token'))
+          : prefs.getString('token');
+      final explicitlyStopped = resolvedSyncId != null
+          ? (prefs.getBool(TripPrefsHelper.explicitlyStopped(resolvedSyncId)) ??
+              false)
+          : (prefs.getBool(TripPrefsHelper.legacyExplicitlyStopped) ?? false);
       final deferredAutoPunchOutPending =
           prefs.getBool(_pendingAutoPunchOutKey) ?? false;
       final autoPunchOutCompletedToday = await isAutoPunchOutCompletedToday();
@@ -519,11 +543,13 @@ class BackgroundLocationService {
       if (autoPunchOutCompletedToday && !allowManualReopenToday) {
         print(
             '[BackgroundLocationService] Resume skipped: auto punch-out already completed today. Clearing stale active-trip context.');
-        await prefs.setBool('tracking_explicitly_stopped', true);
-        await prefs.remove('active_trip_id');
-        await prefs.remove('active_user_cd');
-        await prefs.remove('active_sync_id');
-        await prefs.remove(_activeTripTokenKey);
+        if (syncId != null) {
+          await prefs.setBool(TripPrefsHelper.explicitlyStopped(syncId), true);
+          await TripPrefsHelper.clearFirmKeys(prefs, syncId);
+        }
+        // Also clear legacy global keys
+        await TripPrefsHelper.clearLegacyKeys(prefs);
+        await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
         await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
 
         _isRunning = false;
@@ -557,7 +583,9 @@ class BackgroundLocationService {
       _token = token;
 
       // Clear explicit-stop marker when we are intentionally resuming.
-      await prefs.setBool('tracking_explicitly_stopped', false);
+      // Use firm-specific key; also clear legacy key for migration safety.
+      await prefs.setBool(TripPrefsHelper.explicitlyStopped(syncId), false);
+      await prefs.setBool(TripPrefsHelper.legacyExplicitlyStopped, false);
 
       bool serviceRunning = false;
       try {
@@ -648,7 +676,16 @@ class BackgroundLocationService {
       // restart can self-terminate in _onStart.
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('tracking_explicitly_stopped', true);
+        // Resolve which firm to mark as stopped
+        final stoppedSyncId = _currentSyncId ??
+            prefs.getInt(TripPrefsHelper.currentTrackingSyncId);
+        if (stoppedSyncId != null) {
+          await prefs.setBool(
+              TripPrefsHelper.explicitlyStopped(stoppedSyncId), true);
+        }
+        // Also write legacy key so the Kotlin watchdog can still detect
+        // the stop until TrackingRecoveryManager.kt is fully migrated.
+        await prefs.setBool(TripPrefsHelper.legacyExplicitlyStopped, true);
       } catch (e) {
         print(
             '[BackgroundLocationService] ⚠️ Could not persist explicit-stop marker: $e');
@@ -687,10 +724,22 @@ class BackgroundLocationService {
             '[BackgroundLocationService] ⚠️ Trip data not in memory, checking SharedPreferences...');
         try {
           final prefs = await SharedPreferences.getInstance();
-          tripIdToUse = prefs.getInt('active_trip_id');
-          tokenToUse =
-              prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
-          syncIdToUse = prefs.getInt('active_sync_id');
+          // Resolve from firm-specific keys using global pointer
+          final ptrSyncId =
+              prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+                  prefs.getInt(TripPrefsHelper.legacySyncId);
+          if (ptrSyncId != null) {
+            tripIdToUse = prefs.getInt(TripPrefsHelper.tripId(ptrSyncId)) ??
+                prefs.getInt(TripPrefsHelper.legacyTripId);
+            tokenToUse =
+                prefs.getString(TripPrefsHelper.tripToken(ptrSyncId)) ??
+                    prefs.getString('token');
+            syncIdToUse = ptrSyncId;
+          } else {
+            tripIdToUse = prefs.getInt(TripPrefsHelper.legacyTripId);
+            tokenToUse = prefs.getString('token');
+            syncIdToUse = prefs.getInt(TripPrefsHelper.legacySyncId);
+          }
           if (tripIdToUse != null &&
               tokenToUse != null &&
               syncIdToUse != null) {
@@ -741,10 +790,11 @@ class BackgroundLocationService {
             // Clear SharedPreferences after successful end
             try {
               final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('active_trip_id');
-              await prefs.remove('active_user_cd');
-              await prefs.remove('active_sync_id');
-              await prefs.remove(_activeTripTokenKey);
+              if (syncIdToUse != null) {
+                await TripPrefsHelper.clearFirmKeys(prefs, syncIdToUse);
+              }
+              await TripPrefsHelper.clearLegacyKeys(prefs);
+              await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
               await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
               print(
                   '[BackgroundLocationService] ✅ Cleared trip data from SharedPreferences');
@@ -808,10 +858,19 @@ class BackgroundLocationService {
 
       if (tripIdToUse == null || tokenToUse == null || syncIdToUse == null) {
         final prefs = await SharedPreferences.getInstance();
-        tripIdToUse = prefs.getInt('active_trip_id');
-        tokenToUse =
-            prefs.getString(_activeTripTokenKey) ?? prefs.getString('token');
-        syncIdToUse = prefs.getInt('active_sync_id');
+        final ptrSyncId = prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+            prefs.getInt(TripPrefsHelper.legacySyncId);
+        if (ptrSyncId != null) {
+          tripIdToUse = prefs.getInt(TripPrefsHelper.tripId(ptrSyncId)) ??
+              prefs.getInt(TripPrefsHelper.legacyTripId);
+          tokenToUse = prefs.getString(TripPrefsHelper.tripToken(ptrSyncId)) ??
+              prefs.getString('token');
+          syncIdToUse = ptrSyncId;
+        } else {
+          tripIdToUse = prefs.getInt(TripPrefsHelper.legacyTripId);
+          tokenToUse = prefs.getString('token');
+          syncIdToUse = prefs.getInt(TripPrefsHelper.legacySyncId);
+        }
       }
 
       if (tripIdToUse == null || tokenToUse == null || syncIdToUse == null) {
@@ -844,10 +903,11 @@ class BackgroundLocationService {
       if (tripEndResponse.statusCode == 200 ||
           tripEndResponse.statusCode == 201) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('active_trip_id');
-        await prefs.remove('active_user_cd');
-        await prefs.remove('active_sync_id');
-        await prefs.remove(_activeTripTokenKey);
+        if (syncIdToUse != null) {
+          await TripPrefsHelper.clearFirmKeys(prefs, syncIdToUse);
+        }
+        await TripPrefsHelper.clearLegacyKeys(prefs);
+        await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
         await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
         print(
             '[BackgroundLocationService] ✅ Trip ended and SharedPreferences cleared');
@@ -933,7 +993,12 @@ class BackgroundLocationService {
       final syncId = prefs.getInt(_pendingAutoPunchOutSyncIdKey);
       final endTimeMs = prefs.getInt(_pendingAutoPunchOutTimeMsKey);
       final pendingLocId = prefs.getInt(_pendingAutoPunchOutLocIdKey);
-      final userCd = prefs.getString('active_user_cd') ?? '';
+      // Try firm-specific key first, fall back to legacy
+      final userCd = (syncId != null
+              ? prefs.getString(TripPrefsHelper.userCd(syncId))
+              : null) ??
+          prefs.getString(TripPrefsHelper.legacyUserCd) ??
+          '';
 
       if (tripId == null || syncId == null || endTimeMs == null) {
         print(
@@ -1005,10 +1070,9 @@ class BackgroundLocationService {
         await markResolvedAutoPunchOut(userCd: userCd, syncId: syncId);
       }
 
-      await prefs.remove('active_trip_id');
-      await prefs.remove('active_user_cd');
-      await prefs.remove('active_sync_id');
-      await prefs.remove(_activeTripTokenKey);
+      await TripPrefsHelper.clearFirmKeys(prefs, syncId);
+      await TripPrefsHelper.clearLegacyKeys(prefs);
+      await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
       await prefs.remove(_pendingAutoPunchOutKey);
       await prefs.remove(_pendingAutoPunchOutTripIdKey);
       await prefs.remove(_pendingAutoPunchOutSyncIdKey);
@@ -1033,15 +1097,31 @@ class BackgroundLocationService {
     // stopped, do not allow the plugin service to remain alive.
     try {
       final prefs = await SharedPreferences.getInstance();
-      final explicitlyStopped =
-          prefs.getBool('tracking_explicitly_stopped') ?? false;
-      final hasTrip = prefs.getInt('active_trip_id') != null;
-      final hasUser = (prefs.getString('active_user_cd') ?? '').isNotEmpty;
-      final hasSync = prefs.getInt('active_sync_id') != null;
-      final hasToken = (prefs.getString(_activeTripTokenKey) ??
-              prefs.getString('token') ??
-              '')
-          .isNotEmpty;
+      // Resolve active firm via global pointer (firm-specific) or legacy key
+      final guardSyncId = prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+          prefs.getInt(TripPrefsHelper.legacySyncId);
+      final explicitlyStopped = guardSyncId != null
+          ? (prefs.getBool(TripPrefsHelper.explicitlyStopped(guardSyncId)) ??
+              prefs.getBool(TripPrefsHelper.legacyExplicitlyStopped) ??
+              false)
+          : (prefs.getBool(TripPrefsHelper.legacyExplicitlyStopped) ?? false);
+      final hasTrip = guardSyncId != null
+          ? (prefs.getInt(TripPrefsHelper.tripId(guardSyncId)) != null ||
+              prefs.getInt(TripPrefsHelper.legacyTripId) != null)
+          : prefs.getInt(TripPrefsHelper.legacyTripId) != null;
+      final hasUser = guardSyncId != null
+          ? ((prefs.getString(TripPrefsHelper.userCd(guardSyncId)) ??
+                  prefs.getString(TripPrefsHelper.legacyUserCd) ??
+                  '')
+              .isNotEmpty)
+          : (prefs.getString(TripPrefsHelper.legacyUserCd) ?? '').isNotEmpty;
+      final hasSync = guardSyncId != null;
+      final hasToken = guardSyncId != null
+          ? ((prefs.getString(TripPrefsHelper.tripToken(guardSyncId)) ??
+                  prefs.getString('token') ??
+                  '')
+              .isNotEmpty)
+          : (prefs.getString('token') ?? '').isNotEmpty;
 
       if (explicitlyStopped || !(hasTrip && hasUser && hasSync && hasToken)) {
         print(
@@ -1215,11 +1295,16 @@ class BackgroundLocationService {
             '[AUTO-PUNCH-OUT] Already completed for $today. Stopping active tracking.');
 
         // Defensive cleanup in case stale active-trip context remained.
-        await prefs.setBool('tracking_explicitly_stopped', true);
-        await prefs.remove('active_trip_id');
-        await prefs.remove('active_user_cd');
-        await prefs.remove('active_sync_id');
-        await prefs.remove(_activeTripTokenKey);
+        final cleanupSyncId =
+            prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+                prefs.getInt(TripPrefsHelper.legacySyncId);
+        if (cleanupSyncId != null) {
+          await prefs.setBool(
+              TripPrefsHelper.explicitlyStopped(cleanupSyncId), true);
+          await TripPrefsHelper.clearFirmKeys(prefs, cleanupSyncId);
+        }
+        await TripPrefsHelper.clearLegacyKeys(prefs);
+        await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
         await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
 
         final instance = BackgroundLocationService();
@@ -1280,17 +1365,16 @@ class BackgroundLocationService {
         await prefs.setInt(_pendingAutoPunchOutSyncIdKey, syncId);
         await prefs.setInt(_pendingAutoPunchOutTimeMsKey, createdAt);
         await prefs.setInt(_pendingAutoPunchOutLocIdKey, locId);
-        await prefs.setBool('tracking_explicitly_stopped', true);
+        await prefs.setBool(TripPrefsHelper.explicitlyStopped(syncId), true);
 
         // tracking_control channel is registered on MainActivity engine only.
         // In background isolate, rely on persisted stop markers instead.
         print(
             '[AUTO-PUNCH-OUT] Background isolate: skipping watchdog channel call; using explicit-stop flags.');
 
-        await prefs.remove('active_trip_id');
-        await prefs.remove('active_user_cd');
-        await prefs.remove('active_sync_id');
-        await prefs.remove(_activeTripTokenKey);
+        await TripPrefsHelper.clearFirmKeys(prefs, syncId);
+        await TripPrefsHelper.clearLegacyKeys(prefs);
+        await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
         await prefs.remove(_manualReopenAfterAutoPunchOutDateKey);
         await prefs.setBool(autoDoneKey, true);
 
@@ -1383,10 +1467,9 @@ class BackgroundLocationService {
       print(
           '[AUTO-PUNCH-OUT] Background isolate: skipping watchdog channel call; using explicit-stop flags.');
 
-      await prefs.remove('active_trip_id');
-      await prefs.remove('active_user_cd');
-      await prefs.remove('active_sync_id');
-      await prefs.remove(_activeTripTokenKey);
+      await TripPrefsHelper.clearFirmKeys(prefs, syncId);
+      await TripPrefsHelper.clearLegacyKeys(prefs);
+      await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
       await prefs.remove(_pendingAutoPunchOutKey);
       await prefs.remove(_pendingAutoPunchOutTripIdKey);
       await prefs.remove(_pendingAutoPunchOutSyncIdKey);

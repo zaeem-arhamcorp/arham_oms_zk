@@ -169,7 +169,9 @@ class PartyProvider extends DisposableProvider {
         final parsed = partynameModalFromJson(response.body).data;
         // Filter to only include parties (groupCD 135 or 85), exclude stockists (groupCD 136)
         final filteredData = parsed
-            .where((party) => (party.groupCD == 135 || party.groupCD == 85))
+            .where((party) => (party.groupCD == 135 ||
+                party.groupCD == 85 ||
+                party.groupCD == 83))
             .toList();
         data.addAll(filteredData);
 

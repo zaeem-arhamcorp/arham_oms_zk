@@ -20,6 +20,7 @@ class _ReferralViewState extends State<ReferralView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         foregroundColor: Colors.white,
         title: const Text(
@@ -38,6 +39,18 @@ class _ReferralViewState extends State<ReferralView> {
             ),
           ),
         ],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
+              ],
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: Obx(

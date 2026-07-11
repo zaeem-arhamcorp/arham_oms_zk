@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class CommonButton extends StatelessWidget {
   final String buttonText;
   final VoidCallback onPressed;
@@ -27,27 +26,36 @@ class CommonButton extends StatelessWidget {
       absorbing: isDisable,
       child: Opacity(
         opacity: isDisable ? 0.5 : 1.0,
-        child: SizedBox(
+        child: Container(
           height: 50,
           width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: ElevatedButton(
             onPressed: onPressed,
             style: ElevatedButton.styleFrom(
               shape: RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(10), // Rounded corners
+                borderRadius: BorderRadius.circular(10), // Rounded corners
               ),
-              backgroundColor: Color(0XFF2c9ed9),
-              minimumSize:
-              Size(double.infinity, 40), // Full-width button
+              // backgroundColor: Color(0XFF2c9ed9),
+              backgroundColor: Colors.transparent,
+              minimumSize: Size(double.infinity, 40), // Full-width button
             ),
             child: isLoading
                 ? const SizedBox(
                     width: 25,
                     height: 25,
                     child: CircularProgressIndicator(
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       strokeWidth: 3,
                     ),
                   )

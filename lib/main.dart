@@ -16,6 +16,7 @@ import 'package:arham_corporation/providers/person_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/services/background_location_service.dart';
+import 'package:arham_corporation/services/ios_background_location_service.dart';
 import 'package:arham_corporation/services/connectivity_service.dart';
 import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/database_helper.dart';
@@ -25,7 +26,6 @@ import 'package:arham_corporation/views/item_wise_sale/providers/item_list_provi
     as item_wise_sale_provider;
 import 'package:arham_corporation/views/splashScreen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:arham_corporation/firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -38,34 +38,20 @@ import 'package:workmanager/workmanager.dart';
 
 import 'constants/constants.dart';
 
-Future<void>? _initFuture;
+void main() {
+  runZonedGuarded(() async {
+    SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(statusBarColor: Color(0XFF2c9ed9)));
 
-Future<void> initializeAppServices() {
-  if (_initFuture != null) return _initFuture!;
-  _initFuture = _initializeAppServicesInternal();
-  return _initFuture!;
-}
+    WidgetsFlutterBinding.ensureInitialized();
 
-Future<void> _initializeAppServicesInternal() async {
-  final String platformName = Platform.isIOS
-      ? 'iOS'
-      : (Platform.isAndroid ? 'Android' : Platform.operatingSystem);
-  print('[Main] 📱 Platform: $platformName');
-  print('[Main] 🚀 Asynchronous app services initialization started...');
+    await Firebase.initializeApp();
+    //
+    // // Initialize Notification Platform Rules immediately after Firebase setup
+    // print('[Main] Initializing Notification Channel Platforms...');
+    // await NotificationService().initializePlatformNotifications();
+    // print('[Main] ✅ Notification Channel Platforms Initialized');
 
-  // 1. Initialize Firebase Core with options & 6s timeout
-  try {
-    print('[Main] 📡 Initializing Firebase...');
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    ).timeout(const Duration(seconds: 6));
-    print('[Main] ✅ Firebase initialized successfully');
-  } catch (e) {
-    print('[Main] ❌ Firebase initialization failed or timed out: $e');
-  }
-
-  // 2. Set up Error/Crashlytics Handlers
-  try {
     FlutterError.onError = (errorDetails) {
       FlutterError.presentError(errorDetails);
       unawaited(CrashlyticsService.recordFlutterFatal(
@@ -82,115 +68,91 @@ Future<void> _initializeAppServicesInternal() async {
       ));
       return true;
     };
-    print('[Main] ✅ Error and Crashlytics handlers registered');
-  } catch (e) {
-    print('[Main] ⚠️ Error setting up error handlers: $e');
-  }
 
-  // 3. Initialize Hive with self-healing recovery
-  try {
-    final directory = await getApplicationDocumentsDirectory();
-    print('[Main] 📂 App documents directory: ${directory.path}');
-    print('[Main] 🗄️ Initializing Hive...');
-    await Hive.initFlutter();
-    print('[Main] ✅ Hive.initFlutter() completed');
-
+    // ✅ Initialize Hive BEFORE building widgets
+    Directory directory = await getApplicationDocumentsDirectory();
+    Hive.initFlutter();
+    Hive.init(directory.path);
     Hive.registerAdapter(OrdermodalAdapter());
     Hive.registerAdapter(OrderItmAdapter());
     Hive.registerAdapter(DatumOrderListAdapter());
     Hive.registerAdapter(DataOrdritmAdapter());
-    print('[Main] ✅ Hive adapters registered');
+    await Hive.openBox<Ordermodal>(Constants.addOrder);
+    await Hive.openBox<DatumOrderList>(Constants.orderFetch);
 
-    // Open Constants.addOrder with self-healing
-    try {
-      await Hive.openBox<Ordermodal>(Constants.addOrder);
-      print('[Main] ✅ Hive box opened: ${Constants.addOrder}');
-    } catch (e) {
-      print('[Main] ⚠️ Error opening Hive box ${Constants.addOrder}, attempting recovery...');
-      try {
-        await Hive.deleteBoxFromDisk(Constants.addOrder);
-        await Hive.openBox<Ordermodal>(Constants.addOrder);
-        print('[Main] ✅ Hive box recovered and opened: ${Constants.addOrder}');
-      } catch (recoveryError) {
-        print('[Main] ❌ Failed to recover Hive box ${Constants.addOrder}: $recoveryError');
-      }
-    }
-
-    // Open Constants.orderFetch with self-healing
-    try {
-      await Hive.openBox<DatumOrderList>(Constants.orderFetch);
-      print('[Main] ✅ Hive box opened: ${Constants.orderFetch}');
-    } catch (e) {
-      print('[Main] ⚠️ Error opening Hive box ${Constants.orderFetch}, attempting recovery...');
-      try {
-        await Hive.deleteBoxFromDisk(Constants.orderFetch);
-        await Hive.openBox<DatumOrderList>(Constants.orderFetch);
-        print('[Main] ✅ Hive box recovered and opened: ${Constants.orderFetch}');
-      } catch (recoveryError) {
-        print('[Main] ❌ Failed to recover Hive box ${Constants.orderFetch}: $recoveryError');
-      }
-    }
-
-    print('[Main] ✅ All Hive boxes opened successfully');
-  } catch (e, stack) {
-    print('[Main] ❌ Hive initialization error: $e');
-    print('[Main] ❌ Hive stack: $stack');
-    try {
-      unawaited(CrashlyticsService.recordNonFatal(
-        e,
-        stack,
-        reason: 'hive_initialization_failed_$platformName',
-      ));
-    } catch (_) {}
-  }
-
-  // 4. Pre-warm SQLite Database (non-blocking)
-  try {
-    print('[Main] 🗄️ Warming up SQLite database...');
+    // ✅ Initialize SQLite database BEFORE building widgets
     await DatabaseHelper().database;
-    print('[Main] ✅ SQLite database warm-up completed');
-  } catch (e, stack) {
-    print('[Main] ⚠️ SQLite database warm-up failed (non-fatal): $e');
+
+    // ✅ Initialize background location service BEFORE building widgets
+    if (Platform.isAndroid) {
+      print('[Main] Initializing Android background location service...');
+      await BackgroundLocationService().initialize();
+      print('[Main] ✅ Android background location service initialized');
+
+      // ✅ Initialize periodic recovery for app-kill scenarios (no boot recovery)
+      print('[Main] Initializing Workmanager core...');
+      try {
+        await Workmanager().initialize(
+          locationTrackingCallbackDispatcher,
+          isInDebugMode: false,
+        );
+        print('[Main] ✅ Workmanager core initialized');
+      } catch (e, stack) {
+        print('[Main] ⚠️ Workmanager init warning: $e');
+        await CrashlyticsService.recordNonFatal(
+          e,
+          stack,
+          reason: 'workmanager_init_warning',
+        );
+      }
+
+      print('[Main] Initializing location tracking WorkManager...');
+      await LocationTrackingWorkmanager.initialize();
+      await LocationTrackingWorkmanager.registerPeriodicRecoveryTask();
+      await LocationTrackingWorkmanager.logLastWorkerHeartbeat();
+      print('[Main] ✅ Location tracking WorkManager initialized');
+
+      // ✅ Initialize heartbeat workmanager BEFORE building widgets
+      print('[Main] Initializing heartbeat WorkManager...');
+      await HeartbeatWorkmanager.initialize();
+      await HeartbeatWorkmanager.registerPeriodicHeartbeatTask();
+      await HeartbeatWorkmanager.logHeartbeatWorkerHeartbeat();
+      print('[Main] ✅ Heartbeat WorkManager initialized');
+    } else if (Platform.isIOS) {
+      print('[Main] Initializing iOS background location service listener...');
+      IOSBackgroundLocationService().setupMethodChannelListener();
+      print('[Main] ✅ iOS background location service listener initialized');
+    }
+
+    // ✅ Attempt immediate resume if app was killed with active tracking
+    print('[Main] Checking for active trip to resume...');
     try {
-      unawaited(CrashlyticsService.recordNonFatal(
+      final resumed = Platform.isIOS
+          ? await IOSBackgroundLocationService().resumeTrackingIfActiveTrip()
+          : await BackgroundLocationService().resumeTrackingIfActiveTrip();
+      if (resumed) {
+        print('[Main] ✅ Active trip resumed on app startup');
+      } else {
+        print('[Main] ℹ️ No active trip to resume');
+      }
+    } catch (e, stack) {
+      print('[Main] ⚠️ Error resuming active trip: $e');
+      await CrashlyticsService.recordNonFatal(
         e,
         stack,
-        reason: 'sqlite_warmup_failed_$platformName',
-      ));
-    } catch (_) {}
-  }
+        reason: 'resume_active_trip_failed',
+      );
+    }
 
-  // 5. Preferred orientation
-  try {
+    // ✅ NOW set orientation and build app (all initialization done)
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    print('[Main] ✅ Preferred orientations set');
-  } catch (e) {
-    print('[Main] ⚠️ Preferred orientations setup failed: $e');
-  }
-}
-
-void main() {
-  runZonedGuarded(() async {
-    SystemChrome.setSystemUIOverlayStyle(
-        SystemUiOverlayStyle(statusBarColor: Color(0XFF2c9ed9)));
-
-    WidgetsFlutterBinding.ensureInitialized();
-
-    // Start services initialization immediately in the background
-    unawaited(initializeAppServices());
-
-    // Run MyApp immediately so the first frame isn't blocked on services init
     runApp(const MyApp());
   }, (error, stack) {
-    print('[runZonedGuarded] Uncaught startup error: $error');
-    print(stack);
-    try {
-      unawaited(CrashlyticsService.recordFatal(
-        error,
-        stack,
-        reason: 'run_zoned_guarded_uncaught',
-      ));
-    } catch (_) {}
+    unawaited(CrashlyticsService.recordFatal(
+      error,
+      stack,
+      reason: 'run_zoned_guarded_uncaught',
+    ));
   });
 }
 
@@ -232,10 +194,29 @@ class MyApp extends StatelessWidget {
         splitScreenMode: true,
         builder: (context, child) {
           // Initialize connectivity & background service
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
             print('[MyApp] Initializing services after first frame...');
             ConnectivityService().initialize(context);
             print('[MyApp] ✅ ConnectivityService initialized');
+            //
+            // // Dynamically bind active profile notification parameters on app start
+            // try {
+            //   // Access the UserProvider safely without context sub-listeners
+            //   final UserProvider ub =
+            //       Provider.of<UserProvider>(context, listen: false);
+            //
+            //   if (ub.role != null && ub.role!.isNotEmpty) {
+            //     print(
+            //         '[MyApp] Processing automatic startup notification checks for role: ${ub.role}');
+            //
+            //     // Keep 'M' or whatever matching string benchmark matches your platform's Master Role format
+            //     await NotificationService()
+            //         .updateRoleBasedSubscription(ub.role!, 'M');
+            //   }
+            // } catch (e) {
+            //   print(
+            //       '[MyApp] Notification roles validation error during setup flow: $e');
+            // }
           });
 
           return GetMaterialApp(

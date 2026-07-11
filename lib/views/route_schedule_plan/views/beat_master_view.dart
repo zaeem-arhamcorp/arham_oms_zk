@@ -1,5 +1,5 @@
-import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/helper/route_label_helper.dart';
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
 import 'package:arham_corporation/views/route_schedule_plan/models/beat_master_model.dart';
@@ -198,102 +198,117 @@ class _BeatMasterViewState extends State<BeatMasterView> {
           ),
         ],
         foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _futureBeatData,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: SafeArea(
+        child: FutureBuilder<List<dynamic>>(
+          future: _futureBeatData,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
 
-          final data = snapshot.data ?? [];
-          final beats = data.isNotEmpty
-              ? data[0] as List<BeatMasterModel>
-              : <BeatMasterModel>[];
-          final userNameByCode = data.length > 1
-              ? data[1] as Map<String, String>
-              : <String, String>{};
+            final data = snapshot.data ?? [];
+            final beats = data.isNotEmpty
+                ? data[0] as List<BeatMasterModel>
+                : <BeatMasterModel>[];
+            final userNameByCode = data.length > 1
+                ? data[1] as Map<String, String>
+                : <String, String>{};
 
-          if (beats.isEmpty) {
-            return Center(child: Text(RouteLabelHelper.emptyState(p)));
-          }
+            if (beats.isEmpty) {
+              return Center(child: Text(RouteLabelHelper.emptyState(p)));
+            }
 
-          return ListView.separated(
-            itemCount: beats.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final beat = beats[index];
-              final assignedUserLabel =
-                  userNameByCode[beat.userCd ?? ''] ?? beat.userCd ?? '';
-              return ListTile(
-                leading: CircleAvatar(
-                  child: Text((beat.beatName ?? '').isNotEmpty
-                      ? (beat.beatName!.substring(0, 1))
-                      : '?'),
-                ),
-                title: Text(beat.beatName ?? ''),
-                subtitle: assignedUserLabel.isNotEmpty
-                    ? Text('User Assigned: $assignedUserLabel')
-                    : null,
-                trailing: p.data != null &&
-                        p.data!.modulesList!.any((module) =>
-                            module.mODULENO == "120" &&
-                            (module.uPDATERIGHT == true ||
-                                module.dELETERIGHT == true))
-                    ? PopupMenuButton<String>(
-                        onSelected: (value) => _onMenuSelected(value, beat),
-                        itemBuilder: (ctx) => [
-                          if (p.data != null &&
-                              p.data!.modulesList!.any((module) =>
-                                  module.mODULENO == "120" &&
-                                  module.uPDATERIGHT == true))
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.edit,
-                                    color: Colors.grey,
-                                    size: 18,
-                                  ),
-                                  SizedBox(
-                                    width: 5,
-                                  ),
-                                  Text('Edit'),
-                                ],
-                              ),
-                            ),
-                          if (p.data != null &&
-                              p.data!.modulesList!.any((module) =>
-                                  module.mODULENO == "120" &&
+            return ListView.separated(
+              itemCount: beats.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final beat = beats[index];
+                final assignedUserLabel =
+                    userNameByCode[beat.userCd ?? ''] ?? beat.userCd ?? '';
+                return ListTile(
+                  leading: CircleAvatar(
+                    child: Text((beat.beatName ?? '').isNotEmpty
+                        ? (beat.beatName!.substring(0, 1))
+                        : '?'),
+                  ),
+                  title: Text(beat.beatName ?? ''),
+                  subtitle: assignedUserLabel.isNotEmpty
+                      ? Text('User Assigned: $assignedUserLabel')
+                      : null,
+                  trailing: p.data != null &&
+                          p.data!.modulesList!.any((module) =>
+                              module.mODULENO == "120" &&
+                              (module.uPDATERIGHT == true ||
                                   module.dELETERIGHT == true))
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    CupertinoIcons.delete_solid,
-                                    color: Colors.red,
-                                    size: 18,
-                                  ),
-                                  SizedBox(
-                                    width: 5,
-                                  ),
-                                  Text('Delete'),
-                                ],
+                      ? PopupMenuButton<String>(
+                          onSelected: (value) => _onMenuSelected(value, beat),
+                          itemBuilder: (ctx) => [
+                            if (p.data != null &&
+                                p.data!.modulesList!.any((module) =>
+                                    module.mODULENO == "120" &&
+                                    module.uPDATERIGHT == true))
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.edit,
+                                      color: Colors.grey,
+                                      size: 18,
+                                    ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
+                                    Text('Edit'),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
-                      )
-                    : SizedBox.shrink(),
-              );
-            },
-          );
-        },
+                            if (p.data != null &&
+                                p.data!.modulesList!.any((module) =>
+                                    module.mODULENO == "120" &&
+                                    module.dELETERIGHT == true))
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.delete_solid,
+                                      color: Colors.red,
+                                      size: 18,
+                                    ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
+                                    Text('Delete'),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        )
+                      : SizedBox.shrink(),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

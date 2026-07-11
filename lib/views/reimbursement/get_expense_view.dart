@@ -44,6 +44,18 @@ class _GetExpenseViewState extends State<GetExpenseView> {
                 ),
               ),
           ],
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF3B82F6),
+                  Color(0xFF0057E7),
+                ],
+              ),
+            ),
+          ),
           bottom: const TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white,
@@ -54,11 +66,13 @@ class _GetExpenseViewState extends State<GetExpenseView> {
             ],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            MyReimbursementsView(),
-            ReimbursementApprovalsView(),
-          ],
+        body: SafeArea(
+          child: const TabBarView(
+            children: [
+              MyReimbursementsView(),
+              ReimbursementApprovalsView(),
+            ],
+          ),
         ),
       ),
     );

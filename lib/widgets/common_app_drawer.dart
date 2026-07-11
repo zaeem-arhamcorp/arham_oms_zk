@@ -70,12 +70,13 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
+              backgroundColor: Colors.white,
               title: Row(
                 children: [
                   Icon(Icons.cloud_download, color: Color(0xFF2c9ed9)),
                   SizedBox(width: 8),
                   Text('Go Offline'),
-                ],
+                ], //Permanently delete you account and all associated data
               ),
               content: SizedBox(
                 width: 400,
@@ -146,7 +147,10 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 if (!isCaching && !cachingComplete)
                   TextButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: Text('CANCEL'),
+                    child: Text(
+                      'CANCEL',
+                      style: TextStyle(color: Colors.black54),
+                    ),
                   ),
                 if (!isCaching && !cachingComplete)
                   ElevatedButton(
@@ -349,7 +353,7 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                   child: Image.asset(
                     'assets/arhamOMS_icon.png',
                     fit: BoxFit.contain,
-                    width: MediaQuery.of(context).size.width * 0.55,
+                    width: MediaQuery.of(context).size.width * 0.65,
                     // Don't use full screen height here
                     height: MediaQuery.of(context).size.height *
                         0.14, // Reduce height
@@ -412,15 +416,23 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
           //   ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "109" && module.rEADRIGHT == true))
+                  module.mODULENO == "109" && module.rEADRIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.nat_rounded,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.nat_rounded,
+                  size: 25,
+                  // color: Colors.teal,
+                ),
               ),
               title: Text(
                 'Narration',
-                style: TextStyle(fontSize: 20),
+                style: TextStyle(fontSize: 18),
               ),
               onTap: () {
                 Get.to(NarrationView(), arguments: {
@@ -432,39 +444,88 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                   "PrintRight": narrationPrintRights,
                 });
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
-          if (ub.role == AppConfig.masteruser)
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
+          if (ub.role == AppConfig.masteruser) ...[
             ListTile(
-              leading: Icon(
-                Icons.business_sharp,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.business_sharp,
+                  size: 25,
+                  // color: Colors.deepPurple,
+                ),
               ),
               title: Text(
                 'Firm Management',
-                style: TextStyle(fontSize: 20),
+                style: TextStyle(fontSize: 18),
               ),
               onTap: () {
                 Get.to(() => FirmListPage());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "110" && module.rEADRIGHT == true))
+                  module.mODULENO == "110" && module.rEADRIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.group,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.group,
+                  size: 25,
+                  // color: Colors.blue,
+                ),
               ),
               title: Text(
                 'User Management',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => UserScreen());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           // ListTile(
           //   leading: Icon(
           //     Icons.account_circle,
@@ -480,92 +541,186 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
           // ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "102" && module.rEADRIGHT == true))
+                  module.mODULENO == "102" && module.rEADRIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.store,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.store,
+                  size: 25,
+                  // color: Colors.orange,
+                ),
               ),
               title: Text(
                 'Party Master',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => AccountListScreen());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
-          if (ub.role == AppConfig.masteruser)
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
+          if (ub.role == AppConfig.masteruser) ...[
             ListTile(
-              leading: Icon(
-                Icons.settings,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.settings,
+                  size: 25,
+                ),
               ),
               title: Text(
                 'Settings',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => SettingScreen());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "235" && module.wRITERIGHT == true))
+                  module.mODULENO == "235" && module.wRITERIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                CupertinoIcons.scope,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  CupertinoIcons.scope,
+                  size: 25,
+                  // color: Colors.blue,
+                ),
               ),
               title: Text(
                 'Secondary Sales',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => SecondaryTargetView());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "120" && module.rEADRIGHT == true))
+                  module.mODULENO == "120" && module.rEADRIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.route_sharp,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.route_sharp,
+                  size: 25,
+                  // color: Colors.orange,
+                ),
               ),
               title: Text(
                 RouteLabelHelper.masterTitle(p),
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => BeatMasterView());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "233" && module.rEADRIGHT == true))
+                  module.mODULENO == "233" && module.rEADRIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.route_outlined,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.route_outlined,
+                  size: 25,
+                  // color: Colors.brown,
+                ),
               ),
               title: Text(
                 RouteLabelHelper.plannerTitle(p),
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => BeatListView());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           // ✅ Show Go Offline button only if offline mode is enabled
           Selector<ProfileProvider, bool>(
             selector: (context, profileProvider) =>
@@ -578,134 +733,284 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
               }
               print(
                   '[HomePage] Offline mode enabled - showing Go Offline button');
-              return ListTile(
-                leading: Icon(
-                  Icons.cloud_download,
-                  size: 30,
-                ),
-                title: Text(
-                  'Go Offline',
-                  style: TextStyle(
-                    fontSize: 20,
+              return Column(
+                children: [
+                  ListTile(
+                    leading: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.cloud_download,
+                        size: 25,
+                        // color: Colors.blue,
+                      ),
+                    ),
+                    title: Text(
+                      'Go Offline',
+                      style: TextStyle(
+                        fontSize: 18,
+                      ),
+                    ),
+                    onTap: () {
+                      _showOfflineCachingDialog();
+                    },
+                    trailing: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 18,
+                    ),
                   ),
-                ),
-                onTap: () {
-                  _showOfflineCachingDialog();
-                },
+                  Divider(
+                    height: 0.5,
+                    color: Colors.grey[200],
+                    indent: 20,
+                    endIndent: 20,
+                  ),
+                ],
               );
             },
           ),
           ListTile(
-            leading: Icon(
-              Icons.key,
-              size: 30,
+            leading: Container(
+              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.key,
+                size: 25,
+                // color: Colors.deepPurple,
+              ),
             ),
             title: Text(
               'Change Password',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
               ),
             ),
             onTap: () {
               Get.to(() => ChangePasswordView());
             },
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+            ),
+          ),
+          Divider(
+            height: 0.5,
+            color: Colors.grey[200],
+            indent: 20,
+            endIndent: 20,
           ),
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "232" && module.wRITERIGHT == true))
+                  module.mODULENO == "232" && module.wRITERIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.add_task,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.add_task,
+                  size: 25,
+                  // color: Colors.brown,
+                ),
               ),
               title: Text(
-                'Assign Tasks',
+                'Create Tasks',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => AssignTaskView());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           if (p.data != null &&
               p.data!.modulesList!.any((module) =>
-                  module.mODULENO == "232" && module.rEADRIGHT == true))
+                  module.mODULENO == "232" && module.rEADRIGHT == true)) ...[
             ListTile(
-              leading: Icon(
-                Icons.task,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.task,
+                  size: 25,
+                  // color: Colors.orange,
+                ),
               ),
               title: Text(
                 'View Tasks',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => TaskListView());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           ListTile(
-            leading: Icon(
-              Icons.group_add,
-              size: 30,
+            leading: Container(
+              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.group_add,
+                size: 25,
+                // color: Colors.green,
+              ),
             ),
             title: Text(
               'Generate Referral',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
               ),
             ),
             onTap: () {
               Get.to(() => ReferralView());
             },
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+            ),
+          ),
+          Divider(
+            height: 0.5,
+            color: Colors.grey[200],
+            indent: 20,
+            endIndent: 20,
           ),
           // Reimbursement (Module 231)
           if (_profileProvider.data?.modulesList != null &&
               _profileProvider.data!.modulesList!.any((module) =>
                   module.mODULENO == "231" &&
-                  (module.rEADRIGHT == true || module.wRITERIGHT == true)))
+                  (module.rEADRIGHT == true || module.wRITERIGHT == true))) ...[
             ListTile(
-              leading: Icon(
-                Icons.attach_money,
-                size: 30,
+              leading: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black54,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.attach_money,
+                    size: 18,
+                    // color: Colors.pink,
+                  ),
+                ),
               ),
               title: Text(
                 'Reimbursement',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                 ),
               ),
               onTap: () {
                 Get.to(() => GetExpenseView());
               },
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 18,
+              ),
             ),
+            Divider(
+              height: 0.5,
+              color: Colors.grey[200],
+              indent: 20,
+              endIndent: 20,
+            ),
+          ],
           ListTile(
-            leading: Icon(
-              Icons.info_outline,
-              size: 30,
+            leading: Container(
+              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.info_outline,
+                size: 25,
+                // color: Colors.deepPurple,
+              ),
             ),
             title: Text(
               'About Us',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
               ),
             ),
             onTap: () {
               Get.to(() => AboutPage());
             },
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+            ),
+          ),
+          Divider(
+            height: 0.5,
+            color: Colors.grey[200],
+            indent: 20,
+            endIndent: 20,
           ),
           ListTile(
-            leading: Icon(
-              Icons.logout,
-              color: Colors.red,
-              size: 30,
+            leading: Container(
+              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.logout,
+                color: Colors.red,
+                size: 25,
+              ),
             ),
             title: Text(
               'Logout',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
               ),
             ),
             onTap: () {
@@ -747,6 +1052,10 @@ class _CommonAppDrawerState extends State<CommonAppDrawer> {
                 },
               );
             },
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+            ),
           ),
           // ListTile(
           //   leading: Icon(

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/constants/constants.dart';
@@ -11,8 +10,10 @@ import 'package:arham_corporation/models/salesRegisterReportModal.dart';
 import 'package:arham_corporation/network.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/item_list_provider.dart';
+import 'package:arham_corporation/providers/party_provider.dart';
 import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/services/crashlytics_service.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/widgets/common_text.dart';
 import 'package:arham_corporation/widgets/common_upload_input_dialog.dart';
@@ -24,20 +25,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:whatsapp_share/whatsapp_share.dart';
-
-import '../providers/global.dart';
-import '../providers/party_provider.dart';
-
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:arham_corporation/services/crashlytics_service.dart';
+import 'package:provider/provider.dart';
+// import 'package:whatsapp_share/whatsapp_share.dart';
+// import 'package:whatsapp_share_improved/whatsapp_share_improved.dart';
+import 'package:whatsapp_share_plus/whatsapp_share_plus.dart';
+
+import '../providers/global.dart';
+// import '../providers/party_providercorporation/services/crashlytics_service.dart';
 
 class SalesRegisterReportScreen extends StatefulWidget {
   @override
@@ -78,15 +77,18 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
   var proofOfDeliveryUrl = RxnString();
 
   Future<bool?> checkWhatsappInstalled() async {
-    isWhatsappInstalled =
-        await WhatsappShare.isInstalled(package: Package.whatsapp) ?? false;
+    // isWhatsappInstalled =
+    //     await WhatsappShareImproved.isInstalled(package: Package.whatsapp) ??
+    //         false;
+    isWhatsappInstalled = await WhatsappSharePlus.isWhatsappInstalled();
     return null;
   }
 
   Future<bool?> checkWhatsappBussinessInstalled() async {
-    isWhatsappBussinessInstalled =
-        await WhatsappShare.isInstalled(package: Package.businessWhatsapp) ??
-            false;
+    // isWhatsappBussinessInstalled = await WhatsappShareImproved.isInstalled(
+    //         package: Package.businessWhatsapp) ??
+    //     false;
+    isWhatsappBussinessInstalled = await WhatsappSharePlus.isWhatsappBusinessInstalled();
     return null;
   }
 
@@ -258,7 +260,8 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                                 onChanged: (value) {
                                   //4
                                   setStatee(() {
-                                    _tempParty = Helper.buildSearchList(value, party);
+                                    _tempParty =
+                                        Helper.buildSearchList(value, party);
                                   });
                                 }),
                           ),
@@ -574,15 +577,19 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                             setState(() {
                               loading = false;
                             });
-                            if (value != null)
-                              await WhatsappShare.shareFile(
-                                      phone: "91",
-                                      filePath: [value],
-                                      package: Package.whatsapp)
-                                  .catchError((err) {
-                                print(err);
-                                return false;
-                              });
+                             if (value != null) {
+                               // await WhatsappShareImproved.shareFile(
+                               //         phone: "91",
+                               //         filePath: [value],
+                               //         package: Package.whatsapp)
+                               await WhatsappSharePlus.shareImageToWhatsapp(
+                                       phone: "91",
+                                       imagePath: value)
+                                   .catchError((err) {
+                                 print(err);
+                                 return false;
+                               });
+                             }
                           });
                         } else {
                           setState(() {
@@ -618,15 +625,19 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
                             setState(() {
                               loading = false;
                             });
-                            if (value != null)
-                              await WhatsappShare.shareFile(
-                                      phone: "91",
-                                      filePath: [value],
-                                      package: Package.businessWhatsapp)
-                                  .catchError((err) {
-                                print(err);
-                                return false;
-                              });
+                             if (value != null) {
+                               // await WhatsappShareImproved.shareFile(
+                               //         phone: "91",
+                               //         filePath: [value],
+                               //         package: Package.businessWhatsapp)
+                               await WhatsappSharePlus.shareImageToWhatsappBusiness(
+                                       phone: "91",
+                                       imagePath: value)
+                                   .catchError((err) {
+                                 print(err);
+                                 return false;
+                               });
+                             }
                           });
                         } else {
                           setState(() {
@@ -2186,4 +2197,3 @@ class _SalesRegisterReportScreenState extends State<SalesRegisterReportScreen> {
     );
   }
 }
-

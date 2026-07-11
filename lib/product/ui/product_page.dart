@@ -171,13 +171,16 @@ Future<File?> _pickSelfieFromCamera() async {
   }
 }
 
-Future<bool> _uploadSelfie(File selfie, String userCd) async {
+Future<bool> _uploadSelfie(
+    BuildContext context, File selfie, String userCd) async {
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  var syncId = userProvider.syncId;
   try {
     isSelfieUploading.value = true;
 
     // Retrieve trip ID from SharedPreferences (stored during punch-in)
     final prefs = await SharedPreferences.getInstance();
-    final tripId = prefs.getInt('active_trip_id') ?? 0;
+    final tripId = prefs.getInt('active_trip_id_$syncId') ?? 0;
 
     print('[SELFIE-UPLOAD] File path: ${selfie.path}');
     print('[SELFIE-UPLOAD] Checking if file exists...');
@@ -486,10 +489,15 @@ Future<bool> _showSelfieDialogAndUpload(
                                     );
                                     return;
                                   }
+                                  final userProvider =
+                                      Provider.of<UserProvider>(context,
+                                          listen: false);
+                                  var syncId = userProvider.syncId;
                                   final prefs =
                                       await SharedPreferences.getInstance();
                                   final tripId =
-                                      prefs.getInt('active_trip_id') ?? 0;
+                                      prefs.getInt('active_trip_id_$syncId') ??
+                                          0;
                                   if (tripId <= 0) {
                                     print('[SELFIE-DIALOG] No active trip');
                                     AppSnackBar.showGetXCustomSnackBar(
@@ -502,7 +510,7 @@ Future<bool> _showSelfieDialogAndUpload(
                                   print(
                                       '[SELFIE-DIALOG] Calling _uploadSelfie...');
                                   final ok = await _uploadSelfie(
-                                      selfieFile.value!, userCd);
+                                      context, selfieFile.value!, userCd);
                                   if (ok) {
                                     print('[SELFIE-DIALOG] Upload successful');
                                     await _setSelfieUploadedToday();
@@ -852,6 +860,8 @@ class _ProductsPageState extends State<ProductsPage> {
     _focusNode.requestFocus();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await controller.fetchDepartments();
+
       final profile = Provider.of<ProfileProvider>(context, listen: false);
       final party = Provider.of<PartyProvider>(context, listen: false);
 
@@ -1333,8 +1343,14 @@ class _ProductsPageState extends State<ProductsPage> {
                                   module.mODULENO == "120" &&
                                   module.rEADRIGHT == true);
 
+                          final isSelfieSettingEnabled =
+                              profile.data?.profileSettings.any((e) =>
+                                      e.variable == 'takeSelfieOnStartOrder' &&
+                                      e.value == 'Y') ??
+                                  false;
+
                           // If module 120 is not available, skip selfie and show menu
-                          if (!hasModule120) {
+                          if (!isSelfieSettingEnabled) {
                             showMenu();
                           } else {
                             // All validations passed - check selfie
@@ -1354,7 +1370,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           }
                         },
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Color(0xFF0057E7),
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(
                       vertical: 7,
@@ -1466,6 +1482,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                 print(
                                     '[END_ORDER] ✅ Background: Products fetched');
 
+                                await controller.fetchDepartments();
+                                print(
+                                    '[START_ORDER] ✅ Background: Departments fetched');
+
                                 setState(() {
                                   isLoading = false;
                                 });
@@ -1510,7 +1530,7 @@ class _ProductsPageState extends State<ProductsPage> {
                           }
                         },
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Color(0xFF0057E7),
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(
                       vertical: 7,
@@ -1555,7 +1575,7 @@ class _ProductsPageState extends State<ProductsPage> {
               showMenu();
             },
             style: TextButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: Color(0xFF0057E7),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(11),
@@ -1682,7 +1702,7 @@ class _ProductsPageState extends State<ProductsPage> {
                     showStockistMenu();
                   },
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Color(0xFF0057E7),
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(
                       vertical: 7,
@@ -2206,6 +2226,17 @@ class _ProductsPageState extends State<ProductsPage> {
     print('[START_ORDER_MENU] 🔍 offlineModeEnabled=$offlineModeEnabled');
     print('[START_ORDER_MENU] ✅ Showing party selection menu immediately');
 
+    // Evaluation variables consistent with AccountListScreen
+    final bool isOmsWithoutErpSync = profileProvider.data?.profileSettings
+            .any((e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+        false;
+
+    bool showMoreOption = false;
+    if (isOmsWithoutErpSync &&
+        (viewRight || addRight || updateRight || deleteRight)) {
+      showMoreOption = true;
+    }
+
     // 🛡️ Mounted guard: Prevent null context crash if user navigates away
     if (!mounted) return;
 
@@ -2229,6 +2260,8 @@ class _ProductsPageState extends State<ProductsPage> {
 
     Future.microtask(() async {
       try {
+        await controller.fetchDepartments();
+        print('✅ Background: Departments fetched');
         await pp.getPartyNameProductPage(
           pageContext,
           allowCacheFallback: offlineModeEnabled,
@@ -2278,8 +2311,14 @@ class _ProductsPageState extends State<ProductsPage> {
               return StatefulBuilder(builder: (context, StateSetter setStatee) {
                 return Padding(
                   padding: MediaQuery.of(context).viewInsets,
-                  child: SizedBox(
+                  child: Container(
                     height: 450,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(25.0),
+                      ),
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2287,7 +2326,14 @@ class _ProductsPageState extends State<ProductsPage> {
                         if (_isSorting)
                           Container(
                             height: 40,
-                            color: Colors.grey[100],
+                            // color: Colors.grey[100],
+                            // color: Colors.white,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(25.0),
+                              ),
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -2307,12 +2353,16 @@ class _ProductsPageState extends State<ProductsPage> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            SizedBox(
+                              height: 5,
+                            ),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.only(
-                                      left: 20.0, bottom: 5.0, top: 20.0),
+                                      left: 20.0, top: 20.0),
                                   child: Text("Select Party:",
                                       style: TextStyle(
                                           fontSize: 20.0,
@@ -2325,31 +2375,47 @@ class _ProductsPageState extends State<ProductsPage> {
                                         module.mODULENO == "102" &&
                                         (module.wRITERIGHT == true ||
                                             module.uPDATERIGHT == true)))
-                                  TextButton(
-                                    onPressed: () async {
-                                      final accName = await Get.to(
-                                        () => const AddAccountScreen(),
-                                        binding: AccountBindings(),
-                                      );
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 20.0),
+                                    child: TextButton(
+                                      onPressed: () async {
+                                        final accName = await Get.to(
+                                          () => const AddAccountScreen(),
+                                          binding: AccountBindings(),
+                                        );
 
-                                      if (accName != null &&
-                                          accName is String) {
-                                        //  STEP 1: Refresh party list (VERY IMPORTANT)
-                                        await pp.getPartyNameProductPage(
-                                            pageContext);
+                                        if (accName != null &&
+                                            accName is String) {
+                                          //  STEP 1: Refresh party list (VERY IMPORTANT)
+                                          await pp.getPartyNameProductPage(
+                                              pageContext);
 
-                                        //  STEP 2: Rebuild bottom sheet UI
-                                        if (mounted && context.mounted) {
-                                          setStatee(() {});
+                                          //  STEP 2: Rebuild bottom sheet UI
+                                          if (mounted && context.mounted) {
+                                            setStatee(() {});
+                                          }
+
+                                          //  STEP 3: (Optional) Update selected values
+                                          controller.selectedPartyName.value =
+                                              accName;
+                                          controller.selectedPartyId.value = '';
                                         }
-
-                                        //  STEP 3: (Optional) Update selected values
-                                        controller.selectedPartyName.value =
-                                            accName;
-                                        controller.selectedPartyId.value = '';
-                                      }
-                                    },
-                                    child: const Text('Add Account'),
+                                      },
+                                      style: TextButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.only(
+                                          // top: 5,
+                                          left: 5,
+                                          right: 5,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                        ),
+                                      ),
+                                      child: const Text('Insert Party'),
+                                    ),
                                   ),
                               ],
                             ),
@@ -2500,6 +2566,11 @@ class _ProductsPageState extends State<ProductsPage> {
                                                             .fetchProductsFromAPI();
                                                         print(
                                                             '[START_ORDER] ✅ Background: Products fetched');
+
+                                                        await controller
+                                                            .fetchDepartments();
+                                                        print(
+                                                            '[START_ORDER] ✅ Background: Departments fetched');
 
                                                         if (controller
                                                             .selectedPartyId

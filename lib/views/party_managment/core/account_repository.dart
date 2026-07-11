@@ -230,4 +230,44 @@ class AccountRepository extends GetxService {
       };
     }
   }
+
+  Future<Map<String, dynamic>> deleteAccount({
+    required String accCode,
+    required String token,
+  }) async {
+    try {
+      // Constructs URL endpoints dynamically matching your setup pattern
+      final response = await _apiService.delete(
+        "master-entry/account/$accCode",
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-app-type': 'oms',
+        },
+      );
+
+      appLog('Delete API response: $response', tag: 'AccountRepository');
+
+      final statusCode = response['statusCode'] as int?;
+      final json = response['json'] as Map<String, dynamic>?;
+
+      if (statusCode == 200 || statusCode == 201) {
+        return {
+          'success': true,
+          'message': json?['message'] ?? 'Account deleted successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'error': 'Failed to delete account: $statusCode',
+          'message': json?['message'] ?? 'Deletion failed',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': e.toString(),
+        'message': 'Failed to delete account due to local exception: $e',
+      };
+    }
+  }
 }

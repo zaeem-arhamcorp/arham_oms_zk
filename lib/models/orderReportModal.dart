@@ -14,21 +14,36 @@ class OrderReportModal {
   OrderReportModal({
     required this.message,
     required this.data,
+    this.totalOrderAmount,
+    this.totalBillAmount,
   });
 
   String message;
   List<DatumOrder> data;
+  double? totalOrderAmount;
+  double? totalBillAmount;
 
-  factory OrderReportModal.fromJson(Map<String, dynamic> json) =>
-      OrderReportModal(
-        message: json["message"],
-        data: List<DatumOrder>.from(
-            json["data"].map((x) => DatumOrder.fromJson(x))),
-      );
+  factory OrderReportModal.fromJson(Map<String, dynamic> json) {
+    final payload = json['payload'] as Map<String, dynamic>?;
+    return OrderReportModal(
+      message: json["message"],
+      data: List<DatumOrder>.from(
+          json["data"].map((x) => DatumOrder.fromJson(x))),
+      totalOrderAmount: double.tryParse(
+          payload?['TOTAL_ORDER_AMOUNT']?.toString() ?? ''),
+      totalBillAmount: double.tryParse(
+          payload?['TOTAL_BILL_AMOUNT']?.toString() ?? ''),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         "message": message,
         "data": List<dynamic>.from(data.map((x) => x.toJson())),
+        if (totalOrderAmount != null)
+          "payload": {
+            "TOTAL_ORDER_AMOUNT": totalOrderAmount,
+            "TOTAL_BILL_AMOUNT": totalBillAmount,
+          },
       };
 }
 
@@ -82,7 +97,10 @@ class DatumOrder {
         remark: json['REMARK'] ?? "",
         canEdit: json['CAN_EDIT'] ?? true, // Default to true if not provided
         account: Account.fromJson(json["account"]),
-        user: User.fromJson(json['usermast']),
+        // user: User.fromJson(json['usermast']),
+        user: json["usermast"] != null
+            ? User.fromJson(json["usermast"])
+            : User(userCd: '', userName: ''),
         ordritms: List<Ordritm>.from(
             json["ordritms"].map((x) => Ordritm.fromJson(x))),
         stockistCd:

@@ -795,13 +795,45 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           if (latestLocData != null) {
             lat = (latestLocData['latitude'] ?? 0.0).toString();
             long = (latestLocData['longitude'] ?? 0.0).toString();
-            print('[LOCATION] 📍 Continuous tracking: lat=$lat, lng=$long');
+            print(
+                '[ORDER][LOCATION] 📍 Continuous tracking: lat=$lat, lng=$long');
           } else {
             print(
-                '[LOCATION] ⚠️ No continuous tracking data, using default (0, 0)');
+                '[ORDER][LOCATION] ⚠️ No continuous tracking data, using Geolocator');
+            try {
+              final permission = await Geolocator.checkPermission();
+              if (permission == LocationPermission.denied) {
+                await Geolocator.requestPermission();
+              }
+
+              final position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 30),
+              );
+
+              lat = position.latitude.toString();
+              long = position.longitude.toString();
+
+              // Store in on-demand table
+              final partyId =
+                  profile.YN == "Y" ? party.punchInOutPartyId : party.partyid;
+              final db = DatabaseHelper();
+              await db.insertOnDemandLocation(
+                partyId: partyId,
+                latitude: position.latitude,
+                longitude: position.longitude,
+                activityType: 'ORDER_PLACEMENT',
+              );
+
+              print(
+                  '[ORDER][LOCATION] 📍 On-demand (Geolocator): lat=$lat, lng=$long [stored in DB]');
+            } catch (e) {
+              print(
+                  '[ORDER][LOCATION] ⚠️ Error fetching on-demand location: $e, using default (0, 0)');
+            }
           }
         } catch (e) {
-          print('[LOCATION] ⚠️ Error fetching continuous location: $e');
+          print('[ORDER][LOCATION] ⚠️ Error fetching continuous location: $e');
         }
       } else {
         // 📍 ON-DEMAND: Get fresh location via Geolocator
@@ -831,14 +863,15 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
           );
 
           print(
-              '[LOCATION] 📍 On-demand (Geolocator): lat=$lat, lng=$long [stored in DB]');
+              '[ORDER][LOCATION] 📍 On-demand (Geolocator): lat=$lat, lng=$long [stored in DB]');
         } catch (e) {
           print(
-              '[LOCATION] ⚠️ Error fetching on-demand location: $e, using default (0, 0)');
+              '[ORDER][LOCATION] ⚠️ Error fetching on-demand location: $e, using default (0, 0)');
         }
       }
     } catch (e) {
-      print('[LOCATION] ⚠️ Unexpected error in _getLocationForOrder: $e');
+      print(
+          '[ORDER][LOCATION] ⚠️ Unexpected error in _getLocationForOrder: $e');
     }
 
     return {'lat': lat, 'long': long};
@@ -1000,7 +1033,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
 
       if (!mounted) return;
 
-      unawaited(_prepareOrderLocation(p, party));
+      print('[DEBUG] Before _prepareOrderLocation');
+      // unawaited(_prepareOrderLocation(p, party));
+      await _prepareOrderLocation(p, party);
+      print('[DEBUG] After _prepareOrderLocation');
 
       if ((p.data?.profileSettings
                   .any((e) => e.variable == 'punchInOut' && e.value == 'N') ??
@@ -2486,9 +2522,25 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         final selectedPartyName =
             profile.YN == "Y" ? party.punchInOutParty : party.party;
 
+        // if (profile.data?.profileSettings
+        //         .firstWhere(
+        //             (element) => element.variable == 'showItemWiseRemarks')
+        //         .value ==
+        //     'Y') {
+        //   try {
+        //     await _savePendingOrderSharePayloadIfPossible(
+        //       partyId: selectedPartyId,
+        //       partyName: selectedPartyName,
+        //     );
+        //   } catch (e, stack) {
+        //     CrashlyticsService.recordNonFatal(e, stack);
+        //     print('[Order Share] Failed to save share payload: $e');
+        //   }
+        // }
         if (profile.data?.profileSettings
-                .firstWhere(
-                    (element) => element.variable == 'showItemWiseRemarks')
+                .firstWhere((element) =>
+                    element.variable ==
+                    'askWhatsAppShareOnOrder') // previously 'showItemWiseRemarks'
                 .value ==
             'Y') {
           try {

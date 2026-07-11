@@ -34,10 +34,35 @@ class BeatService {
     throw Exception('Failed to fetch beats: ${response.statusCode}');
   }
 
+  Future<List<dynamic>> fetchBeatsWithUserCd(
+      {String? token, required String userCd}) async {
+    final uri = Uri.parse('${baseUrl}beat/master?userCd=$userCd');
+    print('[BeatService] userCd: $userCd');
+    debugPrint('[BeatService] fetchBeats token: ${token ?? 'null'}');
+    debugPrint('[BeatService] fetchBeats apiUrl: $uri');
+    final sanitizedToken = token?.trim();
+
+    final response = await http.get(uri, headers: {
+      if (sanitizedToken != null && sanitizedToken.isNotEmpty)
+        'Authorization': 'Bearer $sanitizedToken',
+      'x-app-type': 'oms',
+    });
+
+    debugPrint('[BeatService] fetchBeats statusCode: ${response.statusCode}');
+    debugPrint('[BeatService] fetchBeats response: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
+      return decoded?['data'] as List<dynamic>? ?? [];
+    }
+
+    throw Exception('Failed to fetch beats: ${response.statusCode}');
+  }
+
   /// Fetch beats scheduled for a specific user
   Future<List<dynamic>> fetchUserBeatSchedule(
       {required String userCd, String? token}) async {
-    final uri = Uri.parse('${baseUrl}beat/scheduler?user_cd=$userCd');
+    final uri = Uri.parse('${baseUrl}beat/scheduler?userCd=$userCd');
     debugPrint('[BeatService] ${token ?? 'null'}');
     debugPrint('[BeatService] $uri');
 
@@ -151,6 +176,9 @@ class BeatService {
     debugPrint('[BeatService] createBeat response: ${response.body}');
 
     if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 409) {
+        throw Exception('Beat already exists');
+      }
       throw Exception('Failed to create beat: ${response.statusCode}');
     }
   }

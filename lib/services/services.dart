@@ -728,9 +728,10 @@ class Services {
         return json.decode(response.body)["message"];
       } else {
         print('print 12');
-        ub.userSignout(context).then((value) {
-          Get.offAll(() => LoginPage());
-        });
+        return json.decode(response.body)["message"];
+        // ub.userSignout(context).then((value) {
+        //   Get.offAll(() => LoginPage());
+        // });
       }
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
@@ -743,53 +744,115 @@ class Services {
 
   //Report Api Call Start
 
-  Future<OrderReportModal?> getOrderReport(
-      context, partyCd, fromdate, toDate, userCd, filterOrderType) async {
+  Future<OrderReportModal?> getOrderReport(context, partyCd, fromdate, toDate,
+      userCd, filterOrderType, String? stockistCd,
+      {void Function(List<DatumOrder>)? onPageLoaded,
+      void Function(double? totalOrderAmount, double? totalBillAmount)?
+          onTotalsLoaded}) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print(ub.token);
-    var queryString =
-        "partyCd=$partyCd&fromDate=$fromdate&toDate=$toDate&filterOrderType=$filterOrderType";
-    if (userCd != null) {
-      queryString = "$queryString&userCd=$userCd";
-    }
+
+    const int itemsPerPage = 1000;
+    int currentPage = 1;
+    final List<DatumOrder> allData = [];
+    double? totalOrderAmount;
+    double? totalBillAmount;
 
     try {
-      final http.Response response = await http.get(
-        Uri.parse("${AppConfig.baseURLReport}orders?$queryString"),
-        headers: {
-          "Authorization": "Bearer ${ub.token}",
-          'x-app-type': 'oms',
-        },
-      );
-      print("Order URL ${AppConfig.baseURLReport}orders?$queryString");
-      print("Order Report ${response.body}");
+      while (true) {
+        final queryParams = <String, String>{
+          'fromDate': fromdate,
+          'toDate': toDate,
+          'filterOrderType': filterOrderType.toString(),
+          'page': currentPage.toString(),
+          'items_per_page': itemsPerPage.toString(),
+        };
+        if (partyCd != null && partyCd.toString().isNotEmpty) {
+          queryParams['partyCd'] = partyCd.toString();
+        }
+        if (userCd != null && userCd.toString().isNotEmpty) {
+          queryParams['userCd'] = userCd.toString();
+        }
+        if (stockistCd != null && stockistCd.toString().isNotEmpty) {
+          queryParams['stockistCd'] = stockistCd.toString();
+        }
 
-      log(response.body);
-      if (response.statusCode == 200) {
-        return orderReportModalFromJson(response.body);
-      } else {
-        print('print 13');
-        ub.userSignout(context).then((value) {
-          Get.offAll(() => LoginPage());
-        });
+        final uri = Uri.parse('${AppConfig.baseURLReport}orders')
+            .replace(queryParameters: queryParams);
+        print("Order URL $uri");
+
+        final http.Response response = await http.get(
+          uri,
+          headers: {
+            "Authorization": "Bearer ${ub.token}",
+            'x-app-type': 'oms',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final decoded = json.decode(response.body) as Map<String, dynamic>;
+          final pageData = List<DatumOrder>.from(
+            (decoded['data'] as List).map((x) => DatumOrder.fromJson(x)),
+          );
+          allData.addAll(pageData);
+          onPageLoaded?.call(List.from(allData));
+
+          // Read pagination metadata
+          final payload = decoded['payload'] as Map<String, dynamic>?;
+          // Capture aggregate totals from the first page (same across all pages)
+          if (currentPage == 1 && payload != null) {
+            totalOrderAmount = double.tryParse(
+                payload['TOTAL_ORDER_AMOUNT']?.toString() ?? '');
+            totalBillAmount =
+                double.tryParse(payload['TOTAL_BILL_AMOUNT']?.toString() ?? '');
+            onTotalsLoaded?.call(totalOrderAmount, totalBillAmount);
+          }
+          final pagination = payload?['pagination'] as Map<String, dynamic>?;
+          if (pagination != null) {
+            final lastPage =
+                int.tryParse(pagination['LAST_PAGE']?.toString() ?? '') ?? 1;
+            if (currentPage >= lastPage) break;
+            currentPage++;
+          } else {
+            // No pagination metadata — treat as single page
+            if (pageData.length < itemsPerPage) break;
+            currentPage++;
+          }
+        } else {
+          print('Order report fetch failed: ${response.statusCode}');
+          ub.userSignout(context).then((value) {
+            Get.offAll(() => LoginPage());
+          });
+          return null;
+        }
       }
+
+      return OrderReportModal(
+        message: 'Data fetch successfully',
+        data: allData,
+        totalOrderAmount: totalOrderAmount,
+        totalBillAmount: totalBillAmount,
+      );
     } catch (e, stack) {
       CrashlyticsService.recordNonFatal(e, stack);
       AppSnackBar.showGetXCustomSnackBar(message: "Something went wrong");
-      //Fluttertoast.showToast(msg: "Something went wrong");
       print("Error in Services getOrderReport data ${e.toString()}");
     }
     return null;
   }
 
   Future<String?> getOrderExportFile(
-      context, partyCd, fromdate, toDate, userCd, type) async {
+      context, partyCd, fromdate, toDate, userCd, type,
+      [String? stockistCd]) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print("fff");
     var queryString =
         "partyCd=$partyCd&fromDate=${Helper.toApi(fromdate)}&toDate=${Helper.toApi(toDate)}&export=true&exportType=$type";
     if (userCd != null) {
       queryString = "$queryString&userCd=$userCd";
+    }
+    if (stockistCd != null && stockistCd.isNotEmpty) {
+      queryString = "$queryString&stockistCd=$stockistCd";
     }
     try {
       final http.Response response = await http.get(
@@ -821,7 +884,8 @@ class Services {
   }
 
   Future<String?> getOrderExportFileItem(
-      context, partyCd, fromdate, toDate, userCd, type) async {
+      context, partyCd, fromdate, toDate, userCd, type,
+      [String? stockistCd]) async {
     final UserProvider ub = Provider.of<UserProvider>(context, listen: false);
     print("fff");
     var queryString =
@@ -829,6 +893,10 @@ class Services {
     if (userCd != null) {
       queryString = "$queryString&userCd=$userCd";
     }
+    if (stockistCd != null && stockistCd.isNotEmpty) {
+      queryString = "$queryString&stockistCd=$stockistCd";
+    }
+    print("PartyCd: $partyCd, UserCd: $userCd");
     try {
       final http.Response response = await http.get(
         Uri.parse("${AppConfig.baseURLReport}orders?$queryString"),
@@ -2395,7 +2463,8 @@ class Services {
         },
       );
       print(Uri.parse(
-          "${AppConfig.baseURLReport}items-wise-order-report?$queryString"));
+          "[Services][Item-wise-order] ${AppConfig.baseURLReport}items-wise-order-report?$queryString"));
+      print("[Services][Item-wise-order] ${response.body}");
 
       if (response.statusCode == 200) {
         return json.decode(response.body)["data"];
@@ -2485,7 +2554,7 @@ class Services {
           'x-app-type': 'oms',
         },
       );
-      print(response.body);
+      print("[Services][Item-wise-order] ${response.body}");
       if (response.statusCode == 200) {
         return itemWiseReportModalFromJson(response.body);
       } else {
@@ -2529,7 +2598,7 @@ class Services {
           'x-app-type': 'oms',
         },
       );
-      print(response.body);
+      print("[Services][Item-wise-order] ${response.body}");
       if (response.statusCode == 200) {
         return itemWiseDetailReportModalFromJson(response.body);
       } else {

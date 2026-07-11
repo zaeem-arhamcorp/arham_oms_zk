@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'trip_prefs_helper.dart';
 import 'user_status_repository.dart';
 
 /// Heartbeat WorkManager for periodic checks when app is completely closed
@@ -20,10 +20,6 @@ class HeartbeatWorkmanager {
 
   /// Initialize WorkManager for heartbeat tasks
   static Future<void> initialize() async {
-    if (!Platform.isAndroid) {
-      print('[HeartbeatWorkmanager] ⏭️ Skipped on ${Platform.operatingSystem} (Android-only service)');
-      return;
-    }
     // ✅ Workmanager is now initialized in main.dart
     // This method is kept for backward compatibility
     // Do NOT call Workmanager().initialize() again here to avoid double-initialization crashes
@@ -39,10 +35,6 @@ class HeartbeatWorkmanager {
   ///
   /// This runs even if the app is completely closed, ensuring user isn't marked offline
   static Future<void> registerPeriodicHeartbeatTask() async {
-    if (!Platform.isAndroid) {
-      print('[HeartbeatWorkmanager] ⏭️ registerPeriodicHeartbeatTask skipped on ${Platform.operatingSystem}');
-      return;
-    }
     try {
       print(
           '[HeartbeatWorkmanager] Attempting to register periodic heartbeat recovery task...');
@@ -79,10 +71,6 @@ class HeartbeatWorkmanager {
 
   /// Cancel all heartbeat tasks
   static Future<void> cancelHeartbeatTasks() async {
-    if (!Platform.isAndroid) {
-      print('[HeartbeatWorkmanager] ⏭️ cancelHeartbeatTasks skipped on ${Platform.operatingSystem}');
-      return;
-    }
     try {
       print('[HeartbeatWorkmanager] Canceling heartbeat tasks...');
       await Workmanager().cancelByUniqueName(_uniqueTaskName);
@@ -94,10 +82,6 @@ class HeartbeatWorkmanager {
 
   /// Log heartbeat worker stats for debugging
   static Future<void> logHeartbeatWorkerHeartbeat() async {
-    if (!Platform.isAndroid) {
-      print('[HeartbeatWorkmanager] ⏭️ logHeartbeatWorkerHeartbeat skipped on ${Platform.operatingSystem}');
-      return;
-    }
     final prefs = await SharedPreferences.getInstance();
     final registeredAt = prefs.getInt(_lastRegisteredAtKey);
     final firedAt = prefs.getInt(_lastFiredAtKey);
@@ -160,7 +144,14 @@ void heartbeatCallbackDispatcher() {
       await prefs.setInt(HeartbeatWorkmanager._taskCountKey, taskCount);
 
       // Heartbeat should run only during active punch-in tracking sessions.
-      final activeTripId = prefs.getInt('active_trip_id');
+      // Resolve the active firm via global pointer, then check firm-specific trip key.
+      final trackingSyncId =
+          prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+              prefs.getInt(TripPrefsHelper.legacySyncId);
+      final activeTripId = trackingSyncId != null
+          ? (prefs.getInt(TripPrefsHelper.tripId(trackingSyncId)) ??
+              prefs.getInt(TripPrefsHelper.legacyTripId))
+          : prefs.getInt(TripPrefsHelper.legacyTripId);
       if (activeTripId == null || activeTripId <= 0) {
         print(
             '[HeartbeatWorkmanager] [CALLBACK] ℹ️ No active trip. Skipping heartbeat recovery.');

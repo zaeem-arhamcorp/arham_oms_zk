@@ -44,9 +44,9 @@ class FormWidgets {
             labelText: isRequired ? '$label *' : label,
             hintText: hint,
             counterText: '',
-            border: const OutlineInputBorder(),
-            filled: true,
-            fillColor: Colors.grey.shade50,
+            // border: const OutlineInputBorder(),
+            // filled: true,
+            // fillColor: Colors.grey.shade50,
           ),
         ),
         _fieldSpacing,
@@ -55,8 +55,8 @@ class FormWidgets {
   }
 
   // Common spacing
-  static const _fieldSpacing = SizedBox(height: 12);
-
+  // static const _fieldSpacing = SizedBox(height: 12);
+  static const _fieldSpacing = SizedBox(height: 2);
   // Section Header
   static Widget sectionHeader(String title) {
     return Padding(
@@ -77,7 +77,7 @@ class FormWidgets {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        sectionHeader('Basic Information'),
+        // sectionHeader('Basic Information'),
         textField(
           controller: AccountFormFields.accNameController,
           label: 'Account Name',
@@ -92,34 +92,44 @@ class FormWidgets {
           maxLength: 100,
           validator: (v) => FormValidation.validateRequired(v, 'Person Name'),
         ),
-        textField(
-          controller: AccountFormFields.mobile1Controller,
-          label: 'Mobile Number',
-          isNumber: true,
-          isRequired: true,
-          maxLength: 10,
-          validator: (v) =>
-              FormValidation.validatePhone(v) ??
-              FormValidation.validateRequired(v, 'Mobile Number'),
+        Row(
+          children: [
+            Expanded(
+              child: textField(
+                controller: AccountFormFields.mobile1Controller,
+                label: 'Mobile Number',
+                isNumber: true,
+                isRequired: true,
+                maxLength: 10,
+                validator: (v) =>
+                    FormValidation.validatePhone(v) ??
+                    FormValidation.validateRequired(v, 'Mobile Number'),
+              ),
+            ),
+            SizedBox(
+              width: 8,
+            ),
+            Expanded(
+              child: textField(
+                controller: AccountFormFields.whatsappNoController,
+                label: 'Whatsapp Number',
+                isNumber: true,
+                isRequired: true,
+                maxLength: 10,
+                validator: (v) =>
+                    FormValidation.validatePhone(v) ??
+                    FormValidation.validateRequired(v, 'Whatsapp Number'),
+              ),
+            ),
+          ],
         ),
         textField(
-          controller: AccountFormFields.whatsappNoController,
-          label: 'Whatsapp Number',
-          isNumber: true,
-          isRequired: true,
-          maxLength: 10,
-          validator: (v) =>
-              FormValidation.validatePhone(v) ??
-              FormValidation.validateRequired(v, 'Whatsapp Number'),
-        ),
-        textField(
-          controller: AccountFormFields.emailController,
-          label: 'Email',
-          isRequired: true,
-          validator: (v) =>
-              FormValidation.validateEmail(v) ??
-              FormValidation.validateRequired(v, 'Email'),
-        ),
+            controller: AccountFormFields.emailController,
+            label: 'Email',
+            isRequired: false,
+            validator: (v) => FormValidation.validateEmail(v)
+            // ?? FormValidation.validateRequired(v, 'Email'),
+            ),
 
         Builder(
           builder: (context) {
@@ -205,7 +215,16 @@ class FormWidgets {
                                     decoration: const InputDecoration(
                                       prefixIcon: Icon(Icons.search),
                                       hintText: 'Search user',
-                                      border: OutlineInputBorder(),
+                                      border: UnderlineInputBorder(),
+                                      enabledBorder:
+                                          const UnderlineInputBorder(),
+                                      focusedBorder:
+                                          const UnderlineInputBorder(),
+                                      disabledBorder:
+                                          const UnderlineInputBorder(),
+                                      errorBorder: const UnderlineInputBorder(),
+                                      focusedErrorBorder:
+                                          const UnderlineInputBorder(),
                                     ),
                                     onChanged: (value) {
                                       final q = value.trim().toLowerCase();
@@ -279,9 +298,9 @@ class FormWidgets {
                   ),
                   decoration: InputDecoration(
                     labelText: 'User',
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
+                    border: const UnderlineInputBorder(),
+                    // filled: true,
+                    // fillColor: Colors.grey.shade50,
                     suffixIcon: const Icon(
                       Icons.arrow_drop_down,
                     ),
@@ -300,24 +319,47 @@ class FormWidgets {
             controller: AccountFormFields.add1Controller,
             label: 'Address',
             maxLength: 255),
-        textField(
-            controller: AccountFormFields.areaController,
-            label: 'Area',
-            maxLength: 50),
-        textField(
-            controller: AccountFormFields.cityController,
-            label: 'City',
-            maxLength: 50),
-        textField(
-            controller: AccountFormFields.stateController,
-            label: 'State',
-            maxLength: 50),
-        textField(
-          controller: AccountFormFields.pincodeController,
-          label: 'Pincode',
-          maxLength: 10,
-          isNumber: true,
+        Row(
+          children: [
+            Expanded(
+              child: textField(
+                  controller: AccountFormFields.areaController,
+                  label: 'Area',
+                  maxLength: 50),
+            ),
+            SizedBox(
+              width: 8,
+            ),
+            Expanded(
+              child: textField(
+                  controller: AccountFormFields.cityController,
+                  label: 'City',
+                  maxLength: 50),
+            ),
+          ],
         ),
+        Row(
+          children: [
+            Expanded(
+              child: textField(
+                  controller: AccountFormFields.stateController,
+                  label: 'State',
+                  maxLength: 50),
+            ),
+            SizedBox(
+              width: 8,
+            ),
+            Expanded(
+              child: textField(
+                controller: AccountFormFields.pincodeController,
+                label: 'Pincode',
+                maxLength: 10,
+                isNumber: true,
+              ),
+            ),
+          ],
+        ),
+
         // Beat dropdown (loaded from API) - autofills with existing account beat
         Builder(builder: (context) {
           final profileProvider = Provider.of<ProfileProvider>(context);
@@ -480,9 +522,9 @@ class FormWidgets {
                   controller: TextEditingController(text: displayText),
                   decoration: InputDecoration(
                     labelText: singularRouteLabel,
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
+                    border: const UnderlineInputBorder(),
+                    // filled: true,
+                    // fillColor: Colors.grey.shade50,
                     suffixIcon: const Icon(Icons.arrow_drop_down),
                   ),
                 ),

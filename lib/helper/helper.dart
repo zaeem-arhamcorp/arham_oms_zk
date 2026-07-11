@@ -12,11 +12,13 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class Helper {
   static bool canAddParty(ProfileProvider? profileProvider) {
@@ -38,6 +40,17 @@ class Helper {
 
     return profile.modulesList!.any(
       (module) => module.mODULENO == '102' && module.uPDATERIGHT == true,
+    );
+  }
+
+  static bool canDeleteParty(ProfileProvider? profileProvider) {
+    final profile = profileProvider?.data;
+    if (profile == null || profile.modulesList == null) {
+      return false;
+    }
+
+    return profile.modulesList!.any(
+      (module) => module.mODULENO == '102' && module.dELETERIGHT == true,
     );
   }
 
@@ -404,6 +417,14 @@ class Helper {
       );
     }
 
+    final context = Get.context;
+    final profileProvider =
+        Provider.of<ProfileProvider>(context!, listen: false);
+
+    final isOmsWithoutERPSyncEnabled = profileProvider.data?.profileSettings
+            .any((e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+        false;
+
     // Format last-order age into a readable and non-empty label.
     final int? daysAgo = listOfParty[index].lastOrderDays;
 
@@ -453,71 +474,319 @@ class Helper {
       }
     }
 
-    return ListTile(
-      leading: Text("${index + 1}"),
-      trailing: showEditButton
-          ? IconButton(
-              onPressed: () async {
-                final accountData = _toAccountDataMap(listOfParty[index]);
-                final result = await Get.to<bool>(
-                  () => EditAccountScreen(accountData: accountData),
-                  binding: AccountBindings(),
-                );
-
-                if (result == true) {
-                  final context = Get.context;
-                  if (context != null) {
-                    try {
-                      await Provider.of<PartyProvider>(context, listen: false)
-                          .getPartyNameProductPage(context);
-                    } catch (e) {
-                      print(
-                          '[Helper] Failed to refresh party list after edit: $e');
-                    }
-                  }
-                }
-              },
-              icon: Icon(Icons.edit),
-            )
-          : null,
-      title: Text(
-          //"(${listOfParty[index].accCd}) ${listOfParty[index].accName} ${listOfParty[index].person_nm != null ? " - " + listOfParty[index].person_nm : ""}",
-          "(${listOfParty[index].accCd}) "
-          "${listOfParty[index].accName}"
-          "${listOfParty[index].person_nm != null ? " - ${listOfParty[index].person_nm}" : ""} "
-          "||"
-          "${listOfParty[index].clBAL != null ? " CL BAL : ${formatAmount(double.parse(listOfParty[index].clBAL.toString()))}" : ""}",
-          style: TextStyle(fontSize: 15.0, fontWeight: FontWeight.bold)),
-      subtitle: RichText(
-        text: TextSpan(
-          text:
-              "${listOfParty[index].accAddress} || ${listOfParty[index].mobile}",
-          style: TextStyle(color: Colors.black),
+    // return ListTile(
+    //   leading: Text("${index + 1}"),
+    //   trailing: showEditButton
+    //       ? IconButton(
+    //           onPressed: () async {
+    //             final accountData = _toAccountDataMap(listOfParty[index]);
+    //             final result = await Get.to<bool>(
+    //               () => EditAccountScreen(accountData: accountData),
+    //               binding: AccountBindings(),
+    //             );
+    //
+    //             if (result == true) {
+    //               final context = Get.context;
+    //               if (context != null) {
+    //                 try {
+    //                   await Provider.of<PartyProvider>(context, listen: false)
+    //                       .getPartyNameProductPage(context);
+    //                 } catch (e) {
+    //                   print(
+    //                       '[Helper] Failed to refresh party list after edit: $e');
+    //                 }
+    //               }
+    //             }
+    //           },
+    //           icon: Icon(Icons.edit),
+    //         )
+    //       : null,
+    //   title: RichText(
+    //     text: TextSpan(
+    //         //"(${listOfParty[index].accCd}) ${listOfParty[index].accName} ${listOfParty[index].person_nm != null ? " - " + listOfParty[index].person_nm : ""}",
+    //         text: "${listOfParty[index].accName} ",
+    //         style: TextStyle(
+    //             fontSize: 15.0,
+    //             fontWeight: FontWeight.bold,
+    //             color: Colors.black),
+    //         children: [
+    //           TextSpan(
+    //               text:
+    //                   "${listOfParty[index].person_nm != null ? " - ${listOfParty[index].person_nm}" : ""} "),
+    //           TextSpan(text: "||"),
+    //           if (!isOmsWithoutERPSyncEnabled) ...[
+    //             TextSpan(
+    //               text:
+    //                   "${listOfParty[index].clBAL != null ? " CL BAL : ${formatAmount(double.parse(listOfParty[index].clBAL.toString()))}" : ""}",
+    //             ),
+    //           ],
+    //           TextSpan(text: " (${listOfParty[index].accCd})"),
+    //         ]),
+    //   ),
+    //   subtitle: RichText(
+    //     text: TextSpan(
+    //       text:
+    //           "${listOfParty[index].accAddress} || ${listOfParty[index].mobile}",
+    //       style: TextStyle(color: Colors.black),
+    //       children: [
+    //         if (listOfParty[index].accCartItem != null)
+    //           TextSpan(
+    //             text: " || ${listOfParty[index].accCartItem} ",
+    //             style: TextStyle(color: Colors.amber),
+    //           ),
+    //         if (beatName.isNotEmpty)
+    //           TextSpan(
+    //             text: "Beat: $beatName",
+    //             style: TextStyle(
+    //               color: Colors.blue,
+    //               fontWeight: FontWeight.w500,
+    //             ),
+    //           ),
+    //         // TextSpan(
+    //         //   text: "\n$lastOrderText",
+    //         //   style: TextStyle(
+    //         //     color: lastOrderColor,
+    //         //     fontWeight: FontWeight.w500,
+    //         //   ),
+    //         // ),
+    //         WidgetSpan(
+    //           child: Container(
+    //             padding: const EdgeInsets.symmetric(
+    //               horizontal: 5,
+    //               vertical: 1,
+    //             ),
+    //             decoration: BoxDecoration(
+    //               color: lastOrderColor.withValues(alpha: 0.1),
+    //               borderRadius: BorderRadius.circular(5),
+    //             ),
+    //             child: Text(
+    //               lastOrderText,
+    //               style: TextStyle(
+    //                 color: lastOrderColor,
+    //                 fontWeight: FontWeight.w600,
+    //               ),
+    //             ),
+    //           ),
+    //         ),
+    //       ],
+    //     ),
+    //   ),
+    //   dense: true,
+    // );
+    return Card(
+      elevation: 4,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
+      // color: Colors.grey[100],
+      color: Colors.white,
+      child: Container(
+        // margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          // color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (listOfParty[index].accCartItem != null)
-              TextSpan(
-                text: " || ${listOfParty[index].accCartItem}",
-                style: TextStyle(color: Colors.amber),
-              ),
-            if (beatName.isNotEmpty)
-              TextSpan(
-                text: "Beat: $beatName",
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w500,
+            /// Row 1 : Account + Person + More
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    children: [
+                      Text(
+                        listOfParty[index].accName ?? "",
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if ((listOfParty[index].person_nm ?? "").isNotEmpty)
+                        Text(
+                          "- ${listOfParty[index].person_nm}",
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (showEditButton)
+                  SizedBox(
+                    height: 25,
+                    width: 25,
+                    child: PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 24,
+                        minHeight: 24,
+                      ),
+                      splashRadius: 18,
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) async {
+                        if (value == "edit") {
+                          final accountData =
+                              _toAccountDataMap(listOfParty[index]);
+
+                          final result = await Get.to<bool>(
+                            () => EditAccountScreen(
+                              accountData: accountData,
+                            ),
+                            binding: AccountBindings(),
+                          );
+
+                          if (result == true) {
+                            final context = Get.context;
+                            if (context != null) {
+                              await Provider.of<PartyProvider>(
+                                context,
+                                listen: false,
+                              ).getPartyNameProductPage(context);
+                            }
+                          }
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: "edit",
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 18),
+                              SizedBox(width: 8),
+                              Text("Edit"),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+
+            /// Row 2 : Code + Balance
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (!isOmsWithoutERPSyncEnabled &&
+                    listOfParty[index].clBAL != null)
+                  Builder(
+                    builder: (_) {
+                      final balance = double.tryParse(
+                              listOfParty[index].clBAL.toString()) ??
+                          0;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: balance < 0
+                              ? Colors.red.withValues(alpha: 0.08)
+                              : Colors.green.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "CL BAL: ${formatAmount(balance)}",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: balance < 0 ? Colors.red : Colors.green,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    "Code: ${listOfParty[index].accCd}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            /// Row 3 : Address + Phone
+            Theme(
+              data: Theme.of(context).copyWith(
+                textSelectionTheme: TextSelectionThemeData(
+                  // This changes the color of the selection handles
+                  selectionHandleColor: Colors.blue,
+                  // This changes the background color of the selected text (replaces selectionColor)
+                  selectionColor: Colors.blue.shade100,
                 ),
               ),
-            TextSpan(
-              text: "\n$lastOrderText",
-              style: TextStyle(
-                color: lastOrderColor,
-                fontWeight: FontWeight.w500,
+              child: SelectableText(
+                "${listOfParty[index].accAddress}  |  ${listOfParty[index].mobile}",
+                style: TextStyle(
+                  color: Colors.grey.shade700,
+                  fontSize: 12,
+                ),
               ),
+            ),
+
+            const SizedBox(height: 8),
+
+            /// Row 4 : Beat + Last Order
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (beatName.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      "Beat: $beatName",
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: lastOrderColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    lastOrderText,
+                    style: TextStyle(
+                      color: lastOrderColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-      dense: true,
     );
   }
 
@@ -631,5 +900,62 @@ class Helper {
     List versionCells = version.split('.');
     versionCells = versionCells.map((i) => int.parse(i)).toList();
     return versionCells[0] * 100000 + versionCells[1] * 1000 + versionCells[2];
+  }
+
+  static const MethodChannel _shareChannel =
+      MethodChannel('com.arhamerp.app/share');
+
+  /// Returns true if WhatsApp is installed on the device.
+  static Future<bool> isWhatsAppInstalled() async {
+    if (!Platform.isAndroid) return true; // iOS: let system handle it
+    try {
+      final result =
+          await _shareChannel.invokeMethod<bool>('isPackageInstalled', {
+        'package': 'com.whatsapp',
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns true if WhatsApp Business is installed on the device.
+  static Future<bool> isWhatsAppBusinessInstalled() async {
+    if (!Platform.isAndroid) return true; // iOS: let system handle it
+    try {
+      final result =
+          await _shareChannel.invokeMethod<bool>('isPackageInstalled', {
+        'package': 'com.whatsapp.w4b',
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> shareFileToWhatsApp({
+    required String filePath,
+    required bool isBusiness,
+  }) async {
+    if (Platform.isIOS) {
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: 'Sharing Report',
+      );
+    } else if (Platform.isAndroid) {
+      try {
+        await _shareChannel.invokeMethod('shareFileToPackage', {
+          'filePath': filePath,
+          'package': isBusiness ? 'com.whatsapp.w4b' : 'com.whatsapp',
+        });
+      } catch (e, stack) {
+        CrashlyticsService.recordNonFatal(e, stack);
+        // Fallback to standard share sheet if the package-specific intent fails
+        await Share.shareXFiles(
+          [XFile(filePath)],
+          text: 'Sharing Report',
+        );
+      }
+    }
   }
 }

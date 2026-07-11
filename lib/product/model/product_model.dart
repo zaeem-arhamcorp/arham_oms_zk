@@ -45,6 +45,7 @@ class ProductItem {
   final String? cStk;
   final String? orStk;
   final String? minStk;
+  final String? reOrderQty;
   final String? hsnNo;
   final Department deptment;
   final List<String> itemImages;
@@ -79,6 +80,7 @@ class ProductItem {
     this.cStk,
     this.orStk,
     this.minStk,
+    this.reOrderQty,
     this.hsnNo,
     required this.deptment,
     required this.itemImages,
@@ -158,6 +160,7 @@ class ProductItem {
       cStk: json['C_STK']?.toString(),
       orStk: json['OR_STK']?.toString(),
       minStk: json['MIN_STK']?.toString() ?? "",
+      reOrderQty: json['RE_ORDER_QTY']?.toString() ?? "",
       hsnNo: json['HSN_NO']?.toString(),
       deptment: Department.fromJson(json['deptment'] ?? {}),
       itemImages: List<String>.from(json['item_image']?['ITEM_IMG'] ?? []),

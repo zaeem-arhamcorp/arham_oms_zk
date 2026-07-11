@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_settings/app_settings.dart';
@@ -9,11 +8,6 @@ class BatteryOptimizationService {
 
   /// Check if battery optimization is enabled on the device
   static Future<bool> isBatteryOptimizationEnabled() async {
-    // Battery optimization is an Android-only concept
-    if (!Platform.isAndroid) {
-      print('[BatteryOptimization] ℹ️ ${Platform.operatingSystem}: Battery optimization check not applicable');
-      return false;
-    }
     try {
       print(
           '[BatteryOptimization] Calling platform method: isBatteryOptimizationEnabled');

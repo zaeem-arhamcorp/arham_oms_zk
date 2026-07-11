@@ -17,7 +17,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:whatsapp_share/whatsapp_share.dart';
+// import 'package:whatsapp_share_improved/whatsapp_share_improved.dart';
+import 'package:whatsapp_share_plus/whatsapp_share_plus.dart';
 
 class ItemWiseOrderReportView extends StatefulWidget {
   const ItemWiseOrderReportView({Key? key}) : super(key: key);
@@ -56,15 +57,17 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
   var printRight = false;
 
   Future<bool?> checkWhatsappInstalled() async {
-    isWhatsappInstalled =
-        await WhatsappShare.isInstalled(package: Package.whatsapp) ?? false;
+    // isWhatsappInstalled =
+    //     await WhatsappShareImproved.isInstalled(package: Package.whatsapp) ?? false;
+    isWhatsappInstalled = await WhatsappSharePlus.isWhatsappInstalled();
     return null;
   }
 
   Future<bool?> checkWhatsappBussinessInstalled() async {
-    isWhatsappBussinessInstalled =
-        await WhatsappShare.isInstalled(package: Package.businessWhatsapp) ??
-            false;
+    // isWhatsappBussinessInstalled =
+    //     await WhatsappShareImproved.isInstalled(package: Package.businessWhatsapp) ??
+    //         false;
+    isWhatsappBussinessInstalled = await WhatsappSharePlus.isWhatsappBusinessInstalled();
     return null;
   }
 
@@ -590,15 +593,19 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                             setState(() {
                               loading = false;
                             });
-                            if (value != null)
-                              await WhatsappShare.shareFile(
-                                      phone: "91",
-                                      filePath: [value],
-                                      package: Package.whatsapp)
-                                  .catchError((err) {
-                                print(err);
-                                return false;
-                              });
+                            if (value != null) {
+                               // await WhatsappShareImproved.shareFile(
+                               //         phone: "91",
+                               //         filePath: [value],
+                               //         package: Package.whatsapp)
+                               await WhatsappSharePlus.shareImageToWhatsapp(
+                                       phone: "91",
+                                       imagePath: value)
+                                   .catchError((err) {
+                                 print(err);
+                                 return false;
+                               });
+                             }
                           });
                         } else {
                           setState(() {
@@ -638,16 +645,20 @@ class _ItemWiseOrderReportScreenState extends State<ItemWiseOrderReportView> {
                             setState(() {
                               loading = false;
                             });
-                            if (value != null)
-                              await WhatsappShare.shareFile(
-                                      phone: "91",
-                                      filePath: [value],
-                                      package: Package.businessWhatsapp)
-                                  .catchError((err) {
-                                print(err);
-                                return false;
-                              });
-                          });
+                            if (value != null) {
+                                 // await WhatsappShareImproved.shareFile(
+                                 //         phone: "91",
+                                 //         filePath: [value],
+                                 //         package: Package.businessWhatsapp)
+                                 await WhatsappSharePlus.shareImageToWhatsappBusiness(
+                                         phone: "91",
+                                         imagePath: value)
+                                     .catchError((err) {
+                                   print(err);
+                                   return false;
+                                 });
+                               }
+                             });
                         } else {
                           setState(() {
                             loading = false;

@@ -65,120 +65,123 @@ class _AddBeatBottomSheetState extends State<AddBeatBottomSheet> {
     final profile = context.watch<ProfileProvider>();
     final routeLabel = RouteLabelHelper.singularMaster(profile);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                RouteLabelHelper.addTitle(profile),
-                style: TextStyle(
-                  fontSize: 20,
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  RouteLabelHelper.addTitle(profile),
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+              height: 10,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: beatNameController,
+                      decoration: InputDecoration(
+                        labelText: '$routeLabel name',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    UserSearchDropdown(
+                      users: users,
+                      selectedUserCode: selectedUserCode,
+                      loading: loadingUsers,
+                      onChanged: (code) {
+                        setState(() {
+                          selectedUserCode = code;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
               ),
-            ],
-          ),
-          SizedBox(
-            height: 10,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: beatNameController,
-                    decoration: InputDecoration(
-                      labelText: '$routeLabel name',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  UserSearchDropdown(
-                    users: users,
-                    selectedUserCode: selectedUserCode,
-                    loading: loadingUsers,
-                    onChanged: (code) {
-                      setState(() {
-                        selectedUserCode = code;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final beatName = beatNameController.text.trim();
-                    if (beatName.isEmpty) {
-                      AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Please enter beat name',
-                          backgroundColor: Colors.red);
-                      return;
-                    }
-                    if (selectedUserCode == null || selectedUserCode!.isEmpty) {
-                      AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Please select a user',
-                          backgroundColor: Colors.red);
-                      return;
-                    }
-
-                    try {
-                      final token =
-                          Provider.of<UserProvider>(context, listen: false)
-                              .token;
-                      final sanitizedToken = token?.trim();
-                      if (sanitizedToken == null || sanitizedToken.isEmpty) {
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final beatName = beatNameController.text.trim();
+                      if (beatName.isEmpty) {
                         AppSnackBar.showGetXCustomSnackBar(
-                            message: 'User token not found',
+                            message: 'Please enter $routeLabel name',
+                            backgroundColor: Colors.red);
+                        return;
+                      }
+                      if (selectedUserCode == null ||
+                          selectedUserCode!.isEmpty) {
+                        AppSnackBar.showGetXCustomSnackBar(
+                            message: 'Please select a user',
                             backgroundColor: Colors.red);
                         return;
                       }
 
-                      await BeatService().createBeat(
-                        beatName: beatName,
-                        moduleNo: '102',
-                        assignUser: selectedUserCode!,
-                        token: sanitizedToken,
-                      );
+                      try {
+                        final token =
+                            Provider.of<UserProvider>(context, listen: false)
+                                .token;
+                        final sanitizedToken = token?.trim();
+                        if (sanitizedToken == null || sanitizedToken.isEmpty) {
+                          AppSnackBar.showGetXCustomSnackBar(
+                              message: 'User token not found',
+                              backgroundColor: Colors.red);
+                          return;
+                        }
 
-                      if (!mounted) return;
-                      Navigator.of(context).pop();
-                      AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Beat created',
-                          backgroundColor: Colors.green);
-                      widget.onBeatCreated();
-                    } catch (e) {
-                      if (!mounted) return;
-                      AppSnackBar.showGetXCustomSnackBar(
-                          message: 'Create failed: $e',
-                          backgroundColor: Colors.red);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
+                        await BeatService().createBeat(
+                          beatName: beatName,
+                          moduleNo: '102',
+                          assignUser: selectedUserCode!,
+                          token: sanitizedToken,
+                        );
+
+                        if (!mounted) return;
+                        Navigator.of(context).pop();
+                        AppSnackBar.showGetXCustomSnackBar(
+                            message: '$routeLabel created',
+                            backgroundColor: Colors.green);
+                        widget.onBeatCreated();
+                      } catch (e) {
+                        if (!mounted) return;
+                        AppSnackBar.showGetXCustomSnackBar(
+                            message: 'Create failed: $e',
+                            backgroundColor: Colors.red);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Create'),
                   ),
-                  child: const Text('Create'),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-        ],
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

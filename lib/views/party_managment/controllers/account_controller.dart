@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:get/get.dart';
@@ -823,7 +824,6 @@ class AccountController extends GetxController {
             double.tryParse(AccountFormFields.latitudeController.text) ?? 0.0,
         longitude:
             double.tryParse(AccountFormFields.longitudeController.text) ?? 0.0,
-        // 🔹 License fields (only if visible)
         gstNo: isLicensedVisible.value
             ? AccountFormFields.gstNoController.text.trim()
             : '',
@@ -841,37 +841,31 @@ class AccountController extends GetxController {
             : '',
       );
 
-      // appLog('data  ${account.toJson()}');
-
-      // Get token from UserProvider
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final token = userProvider.token;
 
       final result = await _repository.createAccount(account, token: token);
 
       if (result['success']) {
-        successMessage.value = result['message'];
+        successMessage.value =
+            result['message'] ?? 'Account created successfully';
 
-        // Extract ACC_CD from response
         final responseData = result['data'] as Map<String, dynamic>?;
         final accCd = responseData?['data']?['ACC_CD'] as String?;
 
         appLog('[createAccountFromForm] Account created - ACC_CD: $accCd',
             tag: 'AccountController');
 
-        // If image is selected, upload it after a delay
         if (selectedImage.value != null && accCd != null && accCd.isNotEmpty) {
           appLog(
               '[createAccountFromForm] Image selected, waiting 2 seconds before upload',
               tag: 'AccountController');
 
-          // Wait for 2 seconds
           await Future.delayed(const Duration(seconds: 2));
 
           appLog('[createAccountFromForm] Uploading account image',
               tag: 'AccountController');
 
-          // Upload the image
           final imageResult = await _repository.uploadAccountImage(
             accCd: accCd,
             imageFile: selectedImage.value!,
@@ -887,20 +881,34 @@ class AccountController extends GetxController {
             appLog(
                 '[createAccountFromForm] Image upload failed: ${imageResult['error']}',
                 tag: 'AccountController');
-            // Account is created but image upload failed
-            // Still show success but with warning
             successMessage.value =
                 '${result['message']}\nWarning: ${imageResult['message']}';
           }
         }
 
-        final accName = AccountFormFields.accNameController.text.trim();
+        AppSnackBar.showGetXCustomSnackBar(
+          message: successMessage.value,
+          backgroundColor: Colors.green,
+        );
+
         AccountFormFields.clearAll();
         selectedImage.value = null;
-        // Pop and pass account name back
-        Get.back(result: accName);
+
+        // Safe post-frame navigation callback to prevent navigation '_debugLocked' locks
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (Get.isDialogOpen ?? false)
+            Get.back(); // Dismiss loading overlays safely
+          Get.back(
+              result:
+                  true); // Pass TRUE so account_list_screen knows to refresh
+        });
       } else {
-        errorMessage.value = result['error'];
+        errorMessage.value =
+            result['message'] ?? result['error'] ?? 'Creation failed';
+        AppSnackBar.showGetXCustomSnackBar(
+          message: errorMessage.value,
+          backgroundColor: Colors.red,
+        );
       }
     } catch (e, stackTrace) {
       errorMessage.value = 'Error: $e';
@@ -909,6 +917,10 @@ class AccountController extends GetxController {
         tag: 'AccountController',
         error: e,
         stackTrace: stackTrace,
+      );
+      AppSnackBar.showGetXCustomSnackBar(
+        message: 'Something went wrong',
+        backgroundColor: Colors.red,
       );
     } finally {
       isLoading.value = false;

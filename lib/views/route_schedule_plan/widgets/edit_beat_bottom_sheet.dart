@@ -186,79 +186,81 @@ class _EditBeatBottomSheetState extends State<EditBeatBottomSheet> {
     final profile = context.watch<ProfileProvider>();
     final routeLabel = RouteLabelHelper.singularMaster(profile);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                RouteLabelHelper.editTitle(profile),
-                style: TextStyle(
-                  fontSize: 20,
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  RouteLabelHelper.editTitle(profile),
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(
-            height: 10,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: beatNameController,
-                    decoration: InputDecoration(
-                      labelText: '$routeLabel name',
-                      border: OutlineInputBorder(),
+              ],
+            ),
+            SizedBox(
+              height: 10,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: beatNameController,
+                      decoration: InputDecoration(
+                        labelText: '$routeLabel name',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  UserSearchDropdown(
-                    users: users,
-                    selectedUserCode: selectedUserCode,
-                    initialSearchText: initialSearchText,
-                    loading: loadingUsers,
-                    onChanged: (code) {
-                      setState(() {
-                        selectedUserCode = code;
-                        // clear initialSearchText after manual change
-                        initialSearchText = null;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                    const SizedBox(height: 12),
+                    UserSearchDropdown(
+                      users: users,
+                      selectedUserCode: selectedUserCode,
+                      initialSearchText: initialSearchText,
+                      loading: loadingUsers,
+                      onChanged: (code) {
+                        setState(() {
+                          selectedUserCode = code;
+                          // clear initialSearchText after manual change
+                          initialSearchText = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: submitting ? null : _submitUpdate,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: submitting ? null : _submitUpdate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: submitting
+                        ? CircularProgressIndicator()
+                        : const Text('Update'),
                   ),
-                  child: submitting
-                      ? CircularProgressIndicator()
-                      : const Text('Update'),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-        ],
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

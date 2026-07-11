@@ -1,17 +1,15 @@
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
+import 'package:arham_corporation/providers/person_provider.dart';
 import 'package:arham_corporation/views/EditUserScreen.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:arham_corporation/providers/person_provider.dart';
-
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
+import 'package:pagination_flutter/pagination.dart' as pa;
 import 'package:provider/provider.dart';
 
 import '../models/personModal.dart';
-import 'package:pagination_flutter/pagination.dart' as pa;
-
 import '../providers/profile_provider.dart';
 import 'adduserScreen.dart';
 
@@ -29,6 +27,61 @@ class _UserScreenState extends State<UserScreen> {
   int selectedPage = 1;
   bool loading = false;
   int maxUsers = 0;
+
+  Widget _buildUserAvatar(DatumPerson person) {
+    final imageUrl = (person.userImageUrl ?? '').toString().trim();
+    final hasImage = imageUrl.isNotEmpty && imageUrl.toLowerCase() != 'null';
+    final initialLetter = (person.userName ?? '').toString().trim().isNotEmpty
+        ? person.userName.toString().trim()[0].toUpperCase()
+        : '?';
+
+    final avatar = CircleAvatar(
+      radius: 20,
+      backgroundColor: Colors.blue.shade100,
+      child: hasImage
+          ? ClipOval(
+              child: Image.network(
+                imageUrl,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Text(
+                    initialLetter,
+                    style: TextStyle(
+                      color: Colors.blue.shade800,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  );
+                },
+              ),
+            )
+          : Text(
+              initialLetter,
+              style: TextStyle(
+                color: Colors.blue.shade800,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+    );
+
+    if (hasImage) {
+      return GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => _FullScreenImageScreen(imageUrl: imageUrl),
+            ),
+          );
+        },
+        child: avatar,
+      );
+    }
+
+    return avatar;
+  }
 
   setSelectedPage(int index) {
     setState(() {
@@ -308,11 +361,17 @@ class _UserScreenState extends State<UserScreen> {
                       return Card(
                         //margin: EdgeInsets.all(8),
                         elevation: 4,
+                        shadowColor: Colors.black.withValues(alpha: 0.2),
                         color: Colors.white,
                         child: ExpansionTile(
-                          shape: Border(),
-                          collapsedShape: Border(),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: Colors.grey.shade300)),
+                          collapsedShape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: Colors.grey.shade300)),
                           childrenPadding: EdgeInsets.all(8),
+                          leading: _buildUserAvatar(personData[index]),
                           title: Text(personData[index].userName),
                           subtitle: Text(personData[index].userCd),
                           children: [
@@ -602,6 +661,44 @@ class UserOtherDetailContainer extends StatelessWidget {
           ),
           Text("${data}"),
         ],
+      ),
+    );
+  }
+}
+
+class _FullScreenImageScreen extends StatelessWidget {
+  final String imageUrl;
+
+  const _FullScreenImageScreen({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Profile Photo'),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Center(
+          child: InteractiveViewer(
+            minScale: 1.0,
+            maxScale: 5.0,
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.broken_image,
+                  color: Colors.white70,
+                  size: 60,
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }

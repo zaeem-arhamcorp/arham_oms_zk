@@ -41,6 +41,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   late DateTime _toDate;
 
   bool _loading = false;
+  int? _punchingOutTripId;
 
   String? _error;
   List<Map<String, dynamic>> _trips = <Map<String, dynamic>>[];
@@ -1081,14 +1082,19 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
   Future<void> _fetchTrips() async {
     final ub = Provider.of<UserProvider>(context, listen: false);
     final token = ub.token;
+    final syncId = ub.syncId?.trim() ?? '';
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final loggedInUserCd = (profileProvider.userCode?.trim() ?? '');
 
-    // Use selected user when available; if empty, fetch all users' trips.
+    // Use selected user when available; if empty, fall back to the logged-in
+    // user's own user_cd so only their trips are shown by default.
     final userCd = _selectedUserCode.isNotEmpty
         ? _selectedUserCode
-        : (widget.selectedUserCd?.trim() ?? '');
+        : (widget.selectedUserCd?.trim().isNotEmpty == true
+            ? widget.selectedUserCd!.trim()
+            : loggedInUserCd);
     final cacheKey = _routeTripsCacheKey(userCd);
-
-    final syncId = ub.syncId?.trim() ?? '';
 
     if (token == null || token.isEmpty) {
       if (!mounted) return;
@@ -1452,6 +1458,12 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
 
   Future<void> _handlePunchOutFromBanner(
       Map<String, dynamic> trip, int tripId) async {
+    if (_punchingOutTripId != null) return;
+
+    setState(() {
+      _punchingOutTripId = tripId;
+    });
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final startTimeRaw = trip['start_time'] ??
         trip['START_TIME'] ??
@@ -1461,6 +1473,9 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         trip['CREATED_AT'];
 
     if (startTimeRaw == null || startTimeRaw.toString().trim().isEmpty) {
+      setState(() {
+        _punchingOutTripId = null;
+      });
       AppSnackBar.showGetXCustomSnackBar(
           message: "Cannot parse trip start time.",
           backgroundColor: Colors.red);
@@ -1498,27 +1513,61 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       print(body);
 
       if (response.statusCode == 200) {
+        final tripEndMsg = _parseMessage(response, "Punch out successful!");
+
         // 3. CALL 2: Log Location (Only if first call succeeded)
-        await _logPunchOutLocation(targetEnd);
+        final locationResponse = await _logPunchOutLocation(targetEnd);
+
+        String finalMsg = tripEndMsg;
+        if (locationResponse != null) {
+          if (locationResponse.statusCode == 200 ||
+              locationResponse.statusCode == 201) {
+            final locMsg = _parseMessage(locationResponse, "Location logged.");
+            finalMsg = "$tripEndMsg ($locMsg)";
+          } else {
+            finalMsg = "$tripEndMsg (Location log failed)";
+          }
+        }
+
         if (mounted) {
           AppSnackBar.showGetXCustomSnackBar(
-            message: "Punch out and location logged successfully!",
+            message: finalMsg,
             backgroundColor: Colors.green,
           );
           _fetchTrips(); // Refresh Route Report trip history list
         }
       } else {
         print("Punch out failed: ${response.body}");
+        final errMsg = _parseMessage(response, "Error punching out the trip.");
         AppSnackBar.showGetXCustomSnackBar(
-            message: "Error punching out the trip.",
-            backgroundColor: Colors.red);
+            message: errMsg, backgroundColor: Colors.red);
       }
     } catch (e) {
       print("Exception: $e");
+      AppSnackBar.showGetXCustomSnackBar(
+          message: "An unexpected error occurred: $e",
+          backgroundColor: Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _punchingOutTripId = null;
+        });
+      }
     }
   }
 
-  Future<void> _logPunchOutLocation(DateTime targetEnd) async {
+  String _parseMessage(http.Response response, String fallback) {
+    try {
+      final decoded = json.decode(response.body);
+      if (decoded is Map) {
+        final msg = decoded['message'] ?? decoded['msg'] ?? decoded['error'];
+        if (msg != null) return msg.toString();
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
+  Future<http.Response?> _logPunchOutLocation(DateTime targetEnd) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     try {
       Position position = await Geolocator.getCurrentPosition(
@@ -1548,8 +1597,10 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
         body: json.encode(body),
       );
       print("Location log response: ${response.statusCode}");
+      return response;
     } catch (e) {
       print("Error logging location: $e");
+      return null;
     }
   }
 
@@ -1683,23 +1734,49 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                       ],
                     ),
                     GestureDetector(
-                      onTap: () {
-                        _handlePunchOutFromBanner(trip, tripId);
-                      },
+                      onTap: _punchingOutTripId != null
+                          ? null
+                          : () {
+                              _handlePunchOutFromBanner(trip, tripId);
+                            },
                       child: Container(
                         padding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent,
+                          color: _punchingOutTripId == tripId
+                              ? Colors.grey
+                              : Colors.redAccent,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(
-                          "Punch Out",
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white),
-                        ),
+                        child: _punchingOutTripId == tripId
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    "Processing...",
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
+                                  ),
+                                ],
+                              )
+                            : const Text(
+                                "Punch Out",
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
                       ),
                     ),
                   ],
@@ -2086,6 +2163,7 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                         horizontal: 16,
                       ),
                       child: TextField(
+                        autofocus: true,
                         controller: searchController,
                         decoration: InputDecoration(
                           hintText: "Search user",
@@ -2114,62 +2192,69 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: ListView.separated(
-                        itemCount: filteredUsers.length,
-                        separatorBuilder: (_, __) => const Divider(
-                          height: 1,
-                        ),
-                        itemBuilder: (context, index) {
-                          final user = filteredUsers[index];
-
-                          final bool selected =
-                              user['userCode'] == _selectedUserCode;
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              child: Text(
-                                (user['userName'] ?? '').toString().isNotEmpty
-                                    ? user['userName']
-                                        .toString()[0]
-                                        .toUpperCase()
-                                    : "?",
-                              ),
-                            ),
-                            title: Text(
-                              user['userName'] ?? '',
-                            ),
-                            subtitle: Text(
-                              user['userCode'] ?? '',
-                            ),
-                            trailing: selected
-                                ? const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.blue,
-                                  )
-                                : null,
-                            onTap: () {
-                              final profileProvider =
-                                  Provider.of<ProfileProvider>(
-                                context,
-                                listen: false,
-                              );
-
-                              setState(() {
-                                _selectedUserCode = user['userCode'] ?? '';
-
-                                _selectedUserName = user['userName'] ?? '';
-
-                                if (_selectedUserCode.isEmpty) {
-                                  _selectedUserName = profileProvider.userName;
-                                }
-                              });
-
-                              Navigator.pop(sheetContext);
-
-                              _fetchTrips();
-                            },
-                          );
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          return false;
                         },
+                        child: ListView.separated(
+                          itemCount: filteredUsers.length,
+                          separatorBuilder: (_, __) => const Divider(
+                            height: 1,
+                          ),
+                          itemBuilder: (context, index) {
+                            final user = filteredUsers[index];
+
+                            final bool selected =
+                                user['userCode'] == _selectedUserCode;
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                child: Text(
+                                  (user['userName'] ?? '').toString().isNotEmpty
+                                      ? user['userName']
+                                          .toString()[0]
+                                          .toUpperCase()
+                                      : "?",
+                                ),
+                              ),
+                              title: Text(
+                                user['userName'] ?? '',
+                              ),
+                              subtitle: Text(
+                                user['userCode'] ?? '',
+                              ),
+                              trailing: selected
+                                  ? const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.blue,
+                                    )
+                                  : null,
+                              onTap: () {
+                                final profileProvider =
+                                    Provider.of<ProfileProvider>(
+                                  context,
+                                  listen: false,
+                                );
+
+                                setState(() {
+                                  _selectedUserCode = user['userCode'] ?? '';
+
+                                  _selectedUserName = user['userName'] ?? '';
+
+                                  if (_selectedUserCode.isEmpty) {
+                                    _selectedUserName =
+                                        profileProvider.userName;
+                                  }
+                                });
+
+                                Navigator.pop(sheetContext);
+
+                                _fetchTrips();
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -2203,26 +2288,28 @@ class _RouteReportScreenState extends State<RouteReportScreen> {
       ),
       backgroundColor: const Color(0xFFF3F4FA),
       floatingActionButton: null,
-      body: Column(
-        children: [
-          _buildUserDropdown(),
-          _buildDateRangeFilter(),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Colors.red),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildUserDropdown(),
+            _buildDateRangeFilter(),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _trips.isEmpty
+                      ? const Center(child: Text('No trip history found'))
+                      : _buildTripsList(),
             ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _trips.isEmpty
-                    ? const Center(child: Text('No trip history found'))
-                    : _buildTripsList(),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

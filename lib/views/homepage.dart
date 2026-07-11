@@ -36,7 +36,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whatsapp_share/whatsapp_share.dart';
+// import 'package:whatsapp_share_improved/whatsapp_share_improved.dart';
+import 'package:whatsapp_share_plus/whatsapp_share_plus.dart';
 
 import '../providers/item_list_provider.dart';
 import '../services/authservices.dart';
@@ -58,12 +59,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   DashboardModal? data;
   bool nolist = false;
   bool _isOrderShareDialogVisible = false;
+  bool _isStaleTripPunchOutDialogVisible = false;
   String? _queuedSecondarySharePhone;
   String? _queuedSecondaryShareFilePath;
   String _queuedSecondaryShareLabel = 'stockist';
   bool _isHandlingQueuedSecondaryShare = false;
   late ProfileProvider
       _profileProvider; // Store provider reference to avoid accessing during dispose
+  bool _isChangingFirm = false;
 
   Future<void> getDashboarddata() async {
     if (!mounted) return;
@@ -350,6 +353,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         if (!isOfflineModeEnabled) {
           print('[HomePage] Offline mode is disabled - skipping auto-cache');
+          // Still check continuousLocationTracking to decide on battery/location dialogs
+          await Future.delayed(Duration(milliseconds: 1500));
+          if (!mounted) return;
+          final isTrackingEnabled = _isContinuousLocationTrackingEnabled();
+          if (isTrackingEnabled) {
+            _checkAndShowBatteryOptimizationDialog();
+          } else {
+            print(
+                '[HomePage] continuousLocationTracking is disabled - skipping battery and location dialogs');
+          }
           return;
         }
 
@@ -369,13 +382,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           print('[HomePage] Auto-cache already done for firm $syncId');
           // Still show battery dialog even if caching was already done
           await Future.delayed(Duration(milliseconds: 1500));
-          if (!mounted) return; // Guard before checking punchInOut
-          final isPunchEnabled = _isPunchInOutEnabled();
-          if (isPunchEnabled) {
+          if (!mounted)
+            return; // Guard before checking continuousLocationTracking
+          final isTrackingEnabled = _isContinuousLocationTrackingEnabled();
+          if (isTrackingEnabled) {
             _checkAndShowBatteryOptimizationDialog();
           } else {
             print(
-                '[HomePage] punchInOut is disabled - skipping battery and location dialogs');
+                '[HomePage] continuousLocationTracking is disabled - skipping battery and location dialogs');
           }
         }
       } else {
@@ -459,6 +473,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } else {
       print("Module with mODULENO '109' not found.");
     }
+  }
+
+  // @override
+  // void dispose() {
+  //   _profileProvider.removeListener(_handlePendingWarning);
+  //   _profileProvider.removeListener(_handlePendingStaleTripPunchOut);
+  //   WidgetsBinding.instance.removeObserver(this);
+  //   super.dispose();
+  // }
+
+  @override
+  void dispose() {
+    // Remove listener to prevent memory leaks
+    _profileProvider.removeListener(_handlePendingWarning);
+    _profileProvider.removeListener(_handlePendingStaleTripPunchOut);
+    // Unmark HomePage active
+    Global.isHomeActive = false;
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _queueSecondaryShare({
@@ -674,77 +707,84 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _handlePendingStaleTripPunchOut() async {
     if (!mounted) return;
     if (!_profileProvider.pendingStaleTripPunchOut) return;
+    if (_isStaleTripPunchOutDialogVisible) return;
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final location = Provider.of<LocationProvider>(context, listen: false);
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
 
-    await Get.dialog(
-      CupertinoAlertDialog(
-        title: const Text('Punch Out required'),
-        content: const Text(
-          'Your active trip should have been punched out before 11:00 PM. Please punch out now.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: const Text(
-              'Punch Out',
-              style: TextStyle(color: Colors.red),
-            ),
-            // onPressed: () async {
-            //   location.setRemarks('PUNCH OUT');
-            //   final punchSucceeded = await location.sendLocation(userProvider,
-            //       profile: profileProvider);
-            //
-            //   if (!mounted) {
-            //     return;
-            //   }
-            //
-            //   if (punchSucceeded) {
-            //     _profileProvider.clearPendingStaleTripPunchOut();
-            //     if (Get.isDialogOpen == true) {
-            //       Get.back();
-            //     }
-            //   } else {
-            //     AppSnackBar.showGetXCustomSnackBar(
-            //       message:
-            //           'Punch out failed. Please connect to the internet and try again.',
-            //       backgroundColor: Colors.red,
-            //     );
-            //   }
-            // },
-            onPressed: () async {
-              location.setRemarks('PUNCH OUT');
-
-              final punchSucceeded = await location.sendLocation(
-                userProvider,
-                profile: profileProvider,
-              );
-
-              if (!mounted) return;
-
-              if (!punchSucceeded) {
-                AppSnackBar.showGetXCustomSnackBar(
-                  message:
-                      'Punch out failed. Please connect to the internet and try again.',
-                  backgroundColor: Colors.red,
-                );
-                return;
-              }
-
-              _profileProvider.clearPendingStaleTripPunchOut();
-
-              print('Pending Punch Out Dialog Before Get.back');
-              Get.back(result: true);
-              print('Pending Punch Out Dialog After Get.back');
-            },
+    _isStaleTripPunchOutDialogVisible = true;
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text('Punch Out required'),
+          content: const Text(
+            'Your active trip should have been punched out before 11:00 PM. Please punch out now.',
           ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: const Text(
+                'Punch Out',
+                style: TextStyle(color: Colors.red),
+              ),
+              // onPressed: () async {
+              //   location.setRemarks('PUNCH OUT');
+              //   final punchSucceeded = await location.sendLocation(userProvider,
+              //       profile: profileProvider);
+              //
+              //   if (!mounted) {
+              //     return;
+              //   }
+              //
+              //   if (punchSucceeded) {
+              //     _profileProvider.clearPendingStaleTripPunchOut();
+              //     if (Get.isDialogOpen == true) {
+              //       Get.back();
+              //     }
+              //   } else {
+              //     AppSnackBar.showGetXCustomSnackBar(
+              //       message:
+              //           'Punch out failed. Please connect to the internet and try again.',
+              //       backgroundColor: Colors.red,
+              //     );
+              //   }
+              // },
+              onPressed: () async {
+                location.setRemarks('PUNCH OUT');
+
+                final punchSucceeded = await location.sendLocation(
+                  userProvider,
+                  profile: profileProvider,
+                );
+
+                if (!dialogContext.mounted) return;
+
+                if (!punchSucceeded) {
+                  AppSnackBar.showGetXCustomSnackBar(
+                    message:
+                        'Punch out failed. Please connect to the internet and try again.',
+                    backgroundColor: Colors.red,
+                  );
+                  return;
+                }
+
+                _profileProvider.clearPendingStaleTripPunchOut();
+
+                print('Pending Punch Out Dialog Before pop');
+                Navigator.of(dialogContext).pop(true);
+                print('Pending Punch Out Dialog After pop');
+              },
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _isStaleTripPunchOutDialogVisible = false;
+    }
   }
 
   Future<String?> _downloadOrderReportPdfForShare(String reportUrl) async {
@@ -774,10 +814,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (normalizedPhone.isEmpty) return false;
 
     try {
-      await WhatsappShare.shareFile(
+      // await WhatsappShareImproved.shareFile(
+      //   phone: normalizedPhone,
+      //   filePath: [filePath],
+      //   package: Package.whatsapp,
+      // );
+      await WhatsappSharePlus.shareImageToWhatsapp(
         phone: normalizedPhone,
-        filePath: [filePath],
-        package: Package.whatsapp,
+        imagePath: filePath,
       );
       return true;
     } catch (e) {
@@ -1260,21 +1304,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    // Remove listener to prevent memory leaks
-    _profileProvider.removeListener(_handlePendingWarning);
-    // Unmark HomePage active
-    Global.isHomeActive = false;
-    super.dispose();
-  }
-
-  @override
   void setState(VoidCallback fn) {
     if (mounted) {
       super.setState(fn);
     }
     // TODO: implement setState
+  }
+
+  Future<void> _refreshData() async {
+    if (!mounted) return;
+
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+
+    final beatCtrl = Get.isRegistered<BeatController>()
+        ? Get.find<BeatController>()
+        : Get.put(BeatController());
+
+    await Future.wait([
+      getDashboarddata(),
+      loadData(),
+      _fetchActiveTripStatus(),
+      profileProvider.getProfile(),
+    ]);
+
+    // Refresh monthly target
+    _monthlyTargetFuture = _fetchCurrentMonthPobTarget();
+
+    // Refresh today's beat
+    try {
+      String? userCd = profileProvider.data?.userCd?.toString();
+      if (userCd != null && userCd.isNotEmpty) {
+        await beatCtrl.fetchUserBeatSchedule(userCd);
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+
+    try {
+      await (context.read<ProfileProvider>() as dynamic).loadSettings(context);
+    } catch (e) {
+      print('[HomePage] loadSettings fallback failed: $e');
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -1286,6 +1361,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Provider.of<PartyProvider>(context, listen: false);
     final Global global = context.watch<Global>();
     final LocationProvider location = context.watch<LocationProvider>();
+
+    final beatCtrl = Get.isRegistered<BeatController>()
+        ? Get.find<BeatController>()
+        : Get.put(BeatController());
+    final beats = beatCtrl.getBeatsForDate(DateTime.now());
+    final beatName = beats.isNotEmpty ? beats.first.beatName : '';
+
     return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -1450,6 +1532,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 onSelected: (int? newValue) {
                   setState(() async {
                     selectedSyncId = newValue;
+                    _isChangingFirm = true;
 
                     selectedFirmName = firmList.firstWhere(
                       (firm) => firm['syncId'] == newValue,
@@ -1483,6 +1566,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     AppSnackBar.showGetXCustomSnackBar(
                         message: 'Please wait, loading firm data...',
                         backgroundColor: Colors.green);
+
+                    setState(() {
+                      _isChangingFirm = true;
+                    });
 
                     AuthServices()
                         .changeFirmLogin(
@@ -1536,10 +1623,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     '[HomePage] loadSettings fallback failed: $e');
                               }
 
+                              if (mounted) {
+                                setState(() {
+                                  _isChangingFirm = false;
+                                });
+                              }
+
                               Get.offAll(() => BottomnavigationBarScreen());
                             });
                           });
                         });
+                      } else {
+                        if (mounted) {
+                          setState(() {
+                            _isChangingFirm = false;
+                          });
+                        }
                       }
                     });
                   });
@@ -1643,6 +1742,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               icon: Icon(Icons.notifications_none),
             )
           ],
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF3B82F6),
+                  Color(0xFF0057E7),
+                ],
+              ),
+            ),
+          ),
         ),
         drawer: CommonAppDrawer(
           narrationModuleNo: narrationModuleNo,
@@ -2099,7 +2210,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             Text(
                               "₹ ${data != null ? Helper.parseNumericValue(data!.data.labelData.totalSales.toString()) : 0}",
                               style: TextStyle(
-                                color: Color(0XFF2c9ed9),
+                                color: Color(0xFF0057E7),
                                 fontWeight: FontWeight.w600,
                                 fontSize: 17.sp,
                               ),
@@ -2487,7 +2598,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         SizedBox(height: 6),
                                         _buildOverflowProgressBar(
                                           progressPercent,
-                                          baseColor: Color(0XFF2c9ed9),
+                                          baseColor: Color(0xFF3B82F6),
                                         ),
                                       ],
                                     ),
@@ -2703,55 +2814,59 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             Divider(
                               thickness: 0.8,
                             ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 3,
-                                    horizontal: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: Color(0xFFE2EEFD)),
-                                  child: Builder(builder: (ctx) {
-                                    final singularRouteLabel =
-                                        RouteLabelHelper.singularMaster(
-                                            _profileProvider);
-                                    try {
-                                      final beatCtrl =
-                                          Get.isRegistered<BeatController>()
-                                              ? Get.find<BeatController>()
-                                              : Get.put(BeatController());
-                                      final beats = beatCtrl
-                                          .getBeatsForDate(DateTime.now());
-                                      final beatName = beats.isNotEmpty
-                                          ? beats.first.beatName
-                                          : '';
-                                      if (beatName.isEmpty)
-                                        return SizedBox.shrink();
-                                      return Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            '${singularRouteLabel} - ${beatName}',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey.shade700,
-                                              fontWeight: FontWeight.bold,
+                            if (beatName.isNotEmpty) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 3,
+                                      horizontal: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        color: Color(0xFFE2EEFD)),
+                                    child: Builder(builder: (ctx) {
+                                      final singularRouteLabel =
+                                          RouteLabelHelper.singularMaster(
+                                              _profileProvider);
+                                      try {
+                                        // final beatCtrl =
+                                        //     Get.isRegistered<BeatController>()
+                                        //         ? Get.find<BeatController>()
+                                        //         : Get.put(BeatController());
+                                        // final beats = beatCtrl
+                                        //     .getBeatsForDate(DateTime.now());
+                                        // final beatName = beats.isNotEmpty
+                                        //     ? beats.first.beatName
+                                        //     : '';
+                                        if (beatName.isEmpty)
+                                          return SizedBox.shrink();
+                                        return Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '${singularRouteLabel} - ${beatName}',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade700,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      );
-                                    } catch (e) {
-                                      return SizedBox.shrink();
-                                    }
-                                  }),
-                                ),
-                              ],
-                            ),
+                                          ],
+                                        );
+                                      } catch (e) {
+                                        return SizedBox.shrink();
+                                      }
+                                    }),
+                                  ),
+                                ],
+                              ),
+                            ] else ...[
+                              SizedBox.shrink(),
+                            ]
                           ],
                         ),
                       ),
@@ -3038,8 +3153,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                                         .pop(
                                                                             false);
                                                                   },
-                                                                  child: const Text(
-                                                                      'Cancel'),
+                                                                  child: Text(
+                                                                    'Cancel',
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .black54),
+                                                                  ),
                                                                 ),
                                                                 ElevatedButton(
                                                                   onPressed:
@@ -3123,6 +3242,36 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                   await productController
                                                       .clearPartySelection();
                                                 } else {
+                                                  // ✅ Check continuousLocationTracking before Punch IN
+                                                  final isTrackingEnabled =
+                                                      _isContinuousLocationTrackingEnabled();
+                                                  if (isTrackingEnabled) {
+                                                    final hasPermission =
+                                                        await LocationPermissionService
+                                                            .hasBackgroundLocationPermission();
+                                                    if (!hasPermission) {
+                                                      print(
+                                                          '[HomePage] Punch IN blocked: continuousLocationTracking=Y but background location not granted');
+                                                      if (mounted) {
+                                                        await showDialog(
+                                                          context: context,
+                                                          barrierDismissible:
+                                                              false,
+                                                          builder: (context) =>
+                                                              LocationPermissionDialog(),
+                                                        );
+                                                      }
+                                                      // Re-check after dialog closes; abort punch-in if still not granted
+                                                      final hasPermissionNow =
+                                                          await LocationPermissionService
+                                                              .hasBackgroundLocationPermission();
+                                                      if (!hasPermissionNow) {
+                                                        print(
+                                                            '[HomePage] Punch IN aborted: background location still not granted after dialog');
+                                                        return;
+                                                      }
+                                                    }
+                                                  }
                                                   location
                                                       .setRemarks("PUNCH IN");
                                                 }
@@ -3195,199 +3344,206 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               child:
                                                   CircularProgressIndicator(),
                                             )
-                                          : ListView.separated(
-                                              shrinkWrap: true,
-                                              primary: false,
-                                              itemCount: data!.data.labelData
-                                                  .transaction.length,
-                                              itemBuilder: (context, index) {
-                                                final item = data!
-                                                    .data
-                                                    .labelData
-                                                    .transaction[index];
+                                          : RefreshIndicator(
+                                              onRefresh: _refreshData,
+                                              color: Colors.white,
+                                              backgroundColor: Colors.blue,
+                                              child: ListView.separated(
+                                                shrinkWrap: true,
+                                                primary: false,
+                                                itemCount: data!.data.labelData
+                                                    .transaction.length,
+                                                itemBuilder: (context, index) {
+                                                  final item = data!
+                                                      .data
+                                                      .labelData
+                                                      .transaction[index];
 
-                                                return GestureDetector(
-                                                  onTap: () async {
-                                                    if (p.data != null &&
-                                                        p.data!.modulesList!
-                                                            .any((module) =>
-                                                                module.mODULENO ==
-                                                                    "304" &&
-                                                                module.rEADRIGHT ==
-                                                                    true)) {
-                                                      await global
-                                                          .changePartyname(
-                                                              item.name);
-                                                      await party.changeParty(
-                                                          item.name,
-                                                          item.accCd,
-                                                          context);
+                                                  return GestureDetector(
+                                                    onTap: () async {
+                                                      if (p.data != null &&
+                                                          p.data!.modulesList!
+                                                              .any((module) =>
+                                                                  module.mODULENO ==
+                                                                      "304" &&
+                                                                  module.rEADRIGHT ==
+                                                                      true)) {
+                                                        await global
+                                                            .changePartyname(
+                                                                item.name);
+                                                        await party.changeParty(
+                                                            item.name,
+                                                            item.accCd,
+                                                            context);
 
-                                                      Get.to(() =>
-                                                              OrderReportScreen())
-                                                          ?.then((result) {
-                                                        if (result == true) {
-                                                          final party = Provider
-                                                              .of<PartyProvider>(
-                                                                  context,
-                                                                  listen:
-                                                                      false);
-                                                          if (party.partyid
-                                                              .isNotEmpty) {
-                                                            getDashboarddata();
-                                                            _fetchActiveTripStatus();
+                                                        Get.to(() =>
+                                                                OrderReportScreen())
+                                                            ?.then((result) {
+                                                          if (result == true) {
+                                                            final party = Provider
+                                                                .of<PartyProvider>(
+                                                                    context,
+                                                                    listen:
+                                                                        false);
+                                                            if (party.partyid
+                                                                .isNotEmpty) {
+                                                              getDashboarddata();
+                                                              _fetchActiveTripStatus();
+                                                            }
                                                           }
-                                                        }
-                                                      });
-                                                    } else {
-                                                      AppSnackBar
-                                                          .showGetXCustomSnackBar(
-                                                              message:
-                                                                  'There is nothing to do.');
-                                                    }
-                                                  },
-                                                  child: Card(
-                                                    color: Colors.white,
-                                                    elevation: 1,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              6),
-                                                    ),
-                                                    child: Container(
-                                                      padding:
-                                                          EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 5,
+                                                        });
+                                                      } else {
+                                                        AppSnackBar
+                                                            .showGetXCustomSnackBar(
+                                                                message:
+                                                                    'There is nothing to do.');
+                                                      }
+                                                    },
+                                                    child: Card(
+                                                      color: Colors.white,
+                                                      elevation: 1,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
                                                       ),
-                                                      child: Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          /// INDEX CIRCLE (CENTER LEFT)
-                                                          Container(
-                                                            width: 24,
-                                                            height: 24,
-                                                            alignment: Alignment
-                                                                .center,
-                                                            decoration:
-                                                                const BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              color: Color(
-                                                                  0XFF2c9ed9),
-                                                            ),
-                                                            child: Text(
-                                                              "${index + 1}",
-                                                              style:
-                                                                  const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
+                                                      child: Container(
+                                                        padding: EdgeInsets
+                                                            .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 5,
+                                                        ),
+                                                        child: Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            /// INDEX CIRCLE (CENTER LEFT)
+                                                            Container(
+                                                              width: 24,
+                                                              height: 24,
+                                                              alignment:
+                                                                  Alignment
+                                                                      .center,
+                                                              decoration:
+                                                                  const BoxDecoration(
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                                color: Color(
+                                                                    0xFF0057E7),
+                                                              ),
+                                                              child: Text(
+                                                                "${index + 1}",
+                                                                style:
+                                                                    const TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
                                                               ),
                                                             ),
-                                                          ),
 
-                                                          const SizedBox(
-                                                              width: 16),
+                                                            const SizedBox(
+                                                                width: 16),
 
-                                                          /// NAME + MOBILE
-                                                          Expanded(
-                                                            child: Column(
+                                                            /// NAME + MOBILE
+                                                            Expanded(
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .min,
+                                                                children: [
+                                                                  Text(
+                                                                    item.name
+                                                                        .toTitleCase(),
+                                                                    style:
+                                                                        const TextStyle(
+                                                                      fontSize:
+                                                                          14,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                    ),
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                  ),
+                                                                  const SizedBox(
+                                                                      height:
+                                                                          4),
+                                                                  Text(
+                                                                    item.mobile,
+                                                                    style: const TextStyle(
+                                                                        fontSize:
+                                                                            12),
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+
+                                                            const SizedBox(
+                                                                width: 10),
+
+                                                            /// AMOUNT + DATE
+                                                            Column(
                                                               crossAxisAlignment:
                                                                   CrossAxisAlignment
-                                                                      .start,
+                                                                      .end,
                                                               mainAxisSize:
                                                                   MainAxisSize
                                                                       .min,
                                                               children: [
                                                                 Text(
-                                                                  item.name
-                                                                      .toTitleCase(),
+                                                                  "₹ ${Helper.parseNumericValue(item.amount.toString())}",
                                                                   style:
                                                                       const TextStyle(
-                                                                    fontSize:
-                                                                        14,
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .bold,
+                                                                    fontSize:
+                                                                        14,
+                                                                    color: Colors
+                                                                        .green,
                                                                   ),
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
                                                                 ),
                                                                 const SizedBox(
                                                                     height: 4),
                                                                 Text(
-                                                                  item.mobile,
+                                                                  Helper
+                                                                      .convertToFormat(
+                                                                    item.orderDate
+                                                                        .toString(),
+                                                                    'dd-MM-yyyy',
+                                                                  ),
                                                                   style: const TextStyle(
                                                                       fontSize:
                                                                           12),
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
                                                                 ),
                                                               ],
                                                             ),
-                                                          ),
-
-                                                          const SizedBox(
-                                                              width: 10),
-
-                                                          /// AMOUNT + DATE
-                                                          Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .end,
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .min,
-                                                            children: [
-                                                              Text(
-                                                                "₹ ${Helper.parseNumericValue(item.amount.toString())}",
-                                                                style:
-                                                                    const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  fontSize: 14,
-                                                                  color: Colors
-                                                                      .green,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(
-                                                                  height: 4),
-                                                              Text(
-                                                                Helper
-                                                                    .convertToFormat(
-                                                                  item.orderDate
-                                                                      .toString(),
-                                                                  'dd-MM-yyyy',
-                                                                ),
-                                                                style:
-                                                                    const TextStyle(
-                                                                        fontSize:
-                                                                            12),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ],
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                );
-                                              },
-                                              separatorBuilder:
-                                                  (BuildContext context,
-                                                      int index) {
-                                                return SizedBox(
-                                                  height: 5,
-                                                );
-                                              },
+                                                  );
+                                                },
+                                                separatorBuilder:
+                                                    (BuildContext context,
+                                                        int index) {
+                                                  return SizedBox(
+                                                    height: 5,
+                                                  );
+                                                },
+                                              ),
                                             )
 
                                   // ListView.builder(
@@ -3607,6 +3763,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ],
               ),
+              if (_isChangingFirm)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: Container(
+                      color: Colors.black38,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Colors.blue,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              "Switching firm...\nPlease wait",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ));
@@ -3812,14 +3996,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       );
 
                       // ✅ Show battery optimization dialog AFTER offline caching dialog closes
-                      // But skip if punchInOut is disabled
+                      // But skip if continuousLocationTracking is disabled
                       await Future.delayed(Duration(milliseconds: 500));
-                      final isPunchEnabled = _isPunchInOutEnabled();
-                      if (isPunchEnabled) {
+                      final isTrackingEnabled =
+                          _isContinuousLocationTrackingEnabled();
+                      if (isTrackingEnabled) {
                         _checkAndShowBatteryOptimizationDialog();
                       } else {
                         print(
-                            '[HomePage] punchInOut is disabled - skipping battery and location dialogs');
+                            '[HomePage] continuousLocationTracking is disabled - skipping battery and location dialogs');
                       }
                     });
                   }
@@ -4189,7 +4374,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildOverflowProgressBar(
     double percent, {
-    Color baseColor = const Color(0XFF2c9ed9),
+    Color baseColor = const Color(0xFF3B82F6), //0xFF0057E7   0xFF2C9ED9
     Color overflowColor = const Color(0xFFFFC107),
     double height = 6,
   }) {
@@ -4302,25 +4487,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  /// Check if punchInOut feature is enabled in profile settings
-  bool _isPunchInOutEnabled() {
+  /// Check if continuousLocationTracking feature is enabled in profile settings
+  bool _isContinuousLocationTrackingEnabled() {
     try {
       // ✅ Guard: Check if widget is still mounted before accessing context
       if (!mounted) {
         print(
-            '[HomePage] _isPunchInOutEnabled: Widget not mounted, returning default');
+            '[HomePage] _isContinuousLocationTrackingEnabled: Widget not mounted, returning default');
         return true; // Default to true if widget disposed
       }
 
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
-      final isPunchEnabled = profileProvider.data?.profileSettings.any(
-            (e) => e.variable == 'punchInOut' && e.value == 'Y',
+      final isEnabled = profileProvider.data?.profileSettings.any(
+            (e) => e.variable == 'continuousLocationTracking' && e.value == 'Y',
           ) ??
           false;
-      return isPunchEnabled;
+      return isEnabled;
     } catch (e) {
-      print('[HomePage] Error checking punchInOut setting: $e');
+      print('[HomePage] Error checking continuousLocationTracking setting: $e');
       return true; // Default to true to show dialogs if there's an error
     }
   }

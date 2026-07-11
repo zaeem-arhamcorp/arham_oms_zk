@@ -23,6 +23,14 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
   @override
   Widget build(BuildContext context) {
     final UserProvider ub = context.watch<UserProvider>();
+
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+
+    final isOmsWithoutERPSyncEnabled = profileProvider.data?.profileSettings
+            .any((e) => e.variable == 'omsWithoutErpSync' && e.value == 'Y') ??
+        false;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: CustomAppBar(title: widget.data.itemName),
@@ -44,146 +52,154 @@ class _ProductDetailPagestate extends State<ProductDetailPages> {
       //     borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       //   ),
       // ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildImageSlideshow(),
-              SizedBox(height: 10.h),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildImageSlideshow(),
+                SizedBox(height: 10.h),
 
-              /// **Basic Information**
-              _buildInfoCard("Basic Information", [
-                Row(
-                  children: [
-                    Text(
-                      widget.data.itemCd,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    Text(
-                      " - ${widget.data.deptment.deptName}",
-                      style: TextStyle(color: Colors.grey),
-                    )
-                  ],
-                ),
-                SizedBox(
-                  height: 3.h,
-                ),
-                Text(
-                  widget.data.itemName,
-                  style: TextStyle(
-                      fontSize: 19.sp,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0),
-                ),
-                SizedBox(
-                  height: 10,
-                ),
-                _buildDetailRow(
-                  Icons.code,
-                  "Item Code",
-                  widget.data.itemCd,
-                ),
-                _buildDetailRow(
-                  Icons.qr_code_2,
-                  "Alternate Code",
-                  widget.data.itemCd2,
-                ),
-                _buildDetailRow(
-                  Icons.category,
-                  "Category",
-                  widget.data.itemCat,
-                ),
-                _buildDetailRow(
-                  Icons.apartment,
-                  "Department",
-                  widget.data.deptment.deptName,
-                ),
-                _buildDetailRow(
-                  Icons.widgets,
-                  "Sub-Category",
-                  widget.data.subCat,
-                ),
-                _buildDetailRow(
-                  Icons.branding_watermark,
-                  "Brand",
-                  widget.data.itemBrand,
-                ),
-                _buildDetailRow(
-                  Icons.medical_information,
-                  "Drug Contain",
-                  widget.data.itemLname,
-                ),
-                _buildDetailRow(
-                  Icons.sync,
-                  "HSN Code",
-                  widget.data.hsnNo,
-                ),
-              ]),
-              SizedBox(height: 8.h),
-
-              /// **Pricing Details**
-              _buildInfoCard("Pricing Details", [
-                _buildConditionalRow(
-                  Icons.attach_money,
-                  "MRP",
-                  Helper.parseNumericValue(
-                    widget.data.srate3,
+                /// **Basic Information**
+                _buildInfoCard("Basic Information", [
+                  Row(
+                    children: [
+                      Text(
+                        widget.data.itemCd,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      Text(
+                        " - ${widget.data.deptment.deptName}",
+                        style: TextStyle(color: Colors.grey),
+                      )
+                    ],
                   ),
-                ),
-                _buildConditionalRow(Icons.price_check, "Rate",
-                    Helper.parseNumericValue(widget.data.srate1)),
-                if (_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildConditionalRow(Icons.discount, "Discount",
-                      Helper.parseNumericValue(widget.data.sdisc)),
-                if (_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildConditionalRow(Icons.discount, "CD%",
-                      Helper.parseNumericValue(widget.data.sdisc1)),
-                _buildConditionalRow(
-                    Icons.percent, "GST%", widget.data.gstPerc),
-                if (_canLabelSettings(context.read<ProfileProvider>()))
-                  _buildConditionalRow(Icons.local_offer, "Net Rate",
-                      Helper.parseNumericValue(widget.data.nrate)),
-                if (ub.role == AppConfig.masteruser) ...[
-                  _buildConditionalRow(Icons.price_change, "Purch Rate",
-                      Helper.parseNumericValue(widget.data.prate)),
-                  _buildConditionalRow(Icons.percent, "Purch Disc",
-                      Helper.parseNumericValue(widget.data.pdisc)),
-                  _buildConditionalRow(
-                      Icons.rate_review,
-                      "Net Landing",
-                      widget.data.tLAND!.isNotEmpty
-                          ? Helper.parseNumericValue(widget.data.tLAND)
-                          : 0),
-                ],
-              ]),
-              SizedBox(height: 8.h),
-
-              /// **Stock Details**
-              _buildInfoCard("Stock and Other Details", [
-                _buildDetailRow(Icons.inventory, "Closing Stk",
-                    Helper.parseNumericValue(widget.data.cStk)),
-                _buildDetailRow(Icons.inventory_2, "Available Stk",
-                    Helper.parseNumericValue(widget.data.avlStk)),
-                _buildDetailRow(Icons.storage, "Opening Stk",
-                    Helper.parseNumericValue(widget.data.orStk)),
-                if (widget.data.exDt != null)
-                  _buildDetailRow(Icons.date_range, "Expiry Date",
-                      Helper.toUi(widget.data.exDt.toString())),
-                _buildDetailRow(Icons.view_list, "Rack", widget.data.rackNo),
-                _buildDetailRow(Icons.grade, "Grade", widget.data.itemGrade),
-                _buildDetailRow(
-                    Icons.card_giftcard, "Bulk Scheme", widget.data.itemDesc),
-                _buildDetailRow(
-                    Icons.local_shipping, "Pack", widget.data.itemSname),
-                _buildDetailRow(Icons.local_shipping, "Box Packing",
-                    widget.data.itemBoxPacking),
-                if (_canLabelSettings(context.read<ProfileProvider>()))
+                  SizedBox(
+                    height: 3.h,
+                  ),
+                  Text(
+                    widget.data.itemName,
+                    style: TextStyle(
+                        fontSize: 19.sp,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0),
+                  ),
+                  SizedBox(
+                    height: 10,
+                  ),
                   _buildDetailRow(
-                      Icons.science, "Margin", widget.data.frmlSrt1),
-              ]),
-            ],
+                    Icons.code,
+                    "Item Code",
+                    widget.data.itemCd,
+                  ),
+                  _buildDetailRow(
+                    Icons.qr_code_2,
+                    "Alternate Code",
+                    widget.data.itemCd2,
+                  ),
+                  _buildDetailRow(
+                    Icons.category,
+                    "Category",
+                    widget.data.itemCat,
+                  ),
+                  _buildDetailRow(
+                    Icons.apartment,
+                    "Department",
+                    widget.data.deptment.deptName,
+                  ),
+                  _buildDetailRow(
+                    Icons.widgets,
+                    "Sub-Category",
+                    widget.data.subCat,
+                  ),
+                  _buildDetailRow(
+                    Icons.branding_watermark,
+                    "Brand",
+                    widget.data.itemBrand,
+                  ),
+                  _buildDetailRow(
+                    Icons.medical_information,
+                    "Drug Contain",
+                    widget.data.itemLname,
+                  ),
+                  _buildDetailRow(
+                    Icons.sync,
+                    "HSN Code",
+                    widget.data.hsnNo,
+                  ),
+                ]),
+                SizedBox(height: 8.h),
+
+                /// **Pricing Details**
+                _buildInfoCard("Pricing Details", [
+                  _buildConditionalRow(
+                    Icons.attach_money,
+                    "MRP",
+                    Helper.parseNumericValue(
+                      widget.data.srate3,
+                    ),
+                  ),
+                  _buildConditionalRow(Icons.price_check, "Rate",
+                      Helper.parseNumericValue(widget.data.srate1)),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildConditionalRow(Icons.discount, "Discount",
+                        Helper.parseNumericValue(widget.data.sdisc)),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildConditionalRow(Icons.discount, "CD%",
+                        Helper.parseNumericValue(widget.data.sdisc1)),
+                  _buildConditionalRow(
+                      Icons.percent, "GST%", widget.data.gstPerc),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildConditionalRow(Icons.local_offer, "Net Rate",
+                        Helper.parseNumericValue(widget.data.nrate)),
+                  if (ub.role == AppConfig.masteruser) ...[
+                    _buildConditionalRow(Icons.price_change, "Purch Rate",
+                        Helper.parseNumericValue(widget.data.prate)),
+                    _buildConditionalRow(Icons.percent, "Purch Disc",
+                        Helper.parseNumericValue(widget.data.pdisc)),
+                    _buildConditionalRow(
+                        Icons.rate_review,
+                        "Net Landing",
+                        widget.data.tLAND!.isNotEmpty
+                            ? Helper.parseNumericValue(widget.data.tLAND)
+                            : 0),
+                  ],
+                ]),
+                SizedBox(height: 8.h),
+
+                /// **Stock Details**
+                _buildInfoCard("Stock and Other Details", [
+                  if (!isOmsWithoutERPSyncEnabled) ...[
+                    _buildDetailRow(Icons.inventory, "Closing Stk",
+                        Helper.parseNumericValue(widget.data.cStk)),
+                    _buildDetailRow(Icons.inventory_2, "Available Stk",
+                        Helper.parseNumericValue(widget.data.avlStk)),
+                    _buildDetailRow(Icons.storage, "Opening Stk",
+                        Helper.parseNumericValue(widget.data.orStk)),
+                    _buildDetailRow(
+                        Icons.local_shipping, "Min Stk", widget.data.minStk),
+                  ],
+                  if (widget.data.exDt != null)
+                    _buildDetailRow(Icons.date_range, "Expiry Date",
+                        Helper.toUi(widget.data.exDt.toString())),
+                  _buildConditionalRow(Icons.storage, "Reorders Qty",
+                      Helper.parseNumericValue(widget.data.reOrderQty)),
+                  _buildDetailRow(Icons.view_list, "Rack", widget.data.rackNo),
+                  _buildDetailRow(Icons.grade, "Grade", widget.data.itemGrade),
+                  _buildDetailRow(
+                      Icons.card_giftcard, "Bulk Scheme", widget.data.itemDesc),
+                  _buildDetailRow(
+                      Icons.local_shipping, "Pack", widget.data.itemSname),
+                  _buildDetailRow(Icons.local_shipping, "Box Packing",
+                      widget.data.itemBoxPacking),
+                  if (_canLabelSettings(context.read<ProfileProvider>()))
+                    _buildDetailRow(
+                        Icons.science, "Margin", widget.data.frmlSrt1),
+                ]),
+              ],
+            ),
           ),
         ),
       ),

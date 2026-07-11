@@ -339,7 +339,7 @@ class _MonthlyTargetViewState extends State<MonthlyTargetView> {
         actions: [
           IconButton(
             onPressed: _openFilterDialog,
-            icon: const Icon(Icons.filter_alt_outlined),
+            icon: const Icon(Icons.tune),
           ),
         ],
       ),

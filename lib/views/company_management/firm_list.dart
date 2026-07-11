@@ -1,17 +1,19 @@
 import 'dart:convert';
+
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_config.dart';
 import '../../models/firm_model.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/user_provider.dart';
 import 'add_firm.dart';
-import 'firm_details.dart';
 import 'edit_firm.dart';
-import 'package:http/http.dart' as http;
+import 'firm_details.dart';
 
 class FirmListPage extends StatefulWidget {
   @override
@@ -83,10 +85,14 @@ class _FirmListPageState extends State<FirmListPage> {
                   itemBuilder: (context, index) {
                     var firm = firmList[index];
                     return Card(
-                      elevation: 4,
+                      elevation: 8,
+                      shadowColor: Colors.black.withValues(alpha: 0.2),
                       color: Colors.white,
                       margin: EdgeInsets.symmetric(vertical: 8.0),
                       child: ListTile(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.grey.shade300)),
                         title: Text(
                           firm['FIRM_NAME'],
                           style: TextStyle(fontWeight: FontWeight.bold),

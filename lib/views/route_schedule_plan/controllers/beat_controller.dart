@@ -70,6 +70,33 @@ class BeatController extends GetxController {
     }
   }
 
+  Future<void> fetchBeatsWithUserCd() async {
+    _isLoading.value = true;
+    try {
+      String? token;
+      String? userCd;
+      try {
+        final up = Provider.of<UserProvider>(Get.context!, listen: false);
+        final profile =
+            Provider.of<ProfileProvider>(Get.context!, listen: false);
+        token = up.token;
+        userCd = profile.userCode;
+      } catch (_) {
+        token = null;
+      }
+
+      final data =
+          await _service.fetchBeatsWithUserCd(token: token, userCd: userCd!);
+      final list = Beat.listFromJson(data);
+      _beats.assignAll(list);
+    } catch (e) {
+      // ignore errors; leave list empty
+      print('[BeatController] fetchBeats error: $e');
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
   /// Fetch beats scheduled for a specific user and organize by date
   Future<void> fetchUserBeatSchedule(String userCd) async {
     _isLoading.value = true;
@@ -94,6 +121,11 @@ class BeatController extends GetxController {
           organized[beat.assignDate] = [];
         }
         organized[beat.assignDate]!.add(beat);
+        print(
+          'USER: ${beat.userCd} '
+          'DATE: ${beat.assignDate} '
+          'BEAT: ${beat.beatName}',
+        );
       }
       _beatsByDate.assignAll(organized);
 

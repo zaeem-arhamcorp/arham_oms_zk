@@ -291,6 +291,18 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ]
           : [],
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF3B82F6),
+              Color(0xFF0057E7),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -249,7 +249,7 @@ class _AssignTaskViewState extends State<AssignTaskView> {
 
       // Response was successfully parsed from HTTP 200/201, so show success
       if (mounted) {
-        AppSnackBar.snackBarSuccessMsg(context, 'Task assigned successfully!');
+        AppSnackBar.snackBarSuccessMsg(context, 'Task created successfully!');
       }
 
       // Clear form
@@ -892,17 +892,17 @@ class _AssignTaskViewState extends State<AssignTaskView> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                Color(0xFF4771D1),
-                Color(0xFF1C4FBA),
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
               ],
             ),
           ),
         ),
         title: const Text(
-          'Assign Task',
+          'Create Task',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,

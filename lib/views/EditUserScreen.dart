@@ -1,12 +1,14 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 //import 'package:fluttertoast/fluttertoast.dart';
 import 'package:arham_corporation/config/app_config.dart';
+import 'package:arham_corporation/helper/route_label_helper.dart';
 import 'package:arham_corporation/product/widget/app_snack_bar.dart';
 import 'package:arham_corporation/providers/person_provider.dart';
+import 'package:arham_corporation/providers/profile_provider.dart';
 import 'package:arham_corporation/services/services.dart';
 import 'package:arham_corporation/widgets/common_app_input.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
@@ -90,22 +92,22 @@ class _EditUserScreenState extends State<EditUserScreen> {
         if (widget.screenId != 0) {
           filterModules = modules.where((m) {
             if (m.aPPTYPE.toString().trim().toUpperCase() == "OMS") {
-              // Only allow OMSReport modules with matching role
-              return m.moduleType == "OMSReport" ||
-                  m.moduleType == "Transaction" ||
-                  m.moduleType == "Master" && m.role.contains(selectRole!.id);
+              return (m.moduleType == "OMSReport" ||
+                      m.moduleType == "Transaction" ||
+                      m.moduleType == "Master") &&
+                  (m.role != null && m.role.contains(selectRole!.id));
             } else {
-              // For Master & Transaction â†’ always include
               return (m.moduleType == "Master" ||
                       m.moduleType == "Transaction") &&
-                  m.role.contains(selectRole!.id);
+                  (m.role != null && m.role.contains(selectRole!.id));
             }
           }).toList();
+        }
 
           // filterModules = selectRole == "OMS"
           //     ? modules.where((element) => element.role.contains(selectRole!.id)).toList()
           //     : modules;
-        }
+        
       });
     });
   }
@@ -670,15 +672,16 @@ class _EditUserScreenState extends State<EditUserScreen> {
                             filterModules = modules.where((m) {
                               if (m.aPPTYPE.toString().trim().toUpperCase() ==
                                   "OMS") {
-                                // Only allow OMSReport modules with matching role
-                                return m.moduleType == "OMSReport" ||
-                                    m.moduleType == "Transaction" &&
-                                        m.role.contains(selectRole!.id);
+                                return (m.moduleType == "OMSReport" ||
+                                        m.moduleType == "Transaction" ||
+                                        m.moduleType == "Master") &&
+                                    (m.role != null &&
+                                        m.role.contains(selectRole!.id));
                               } else {
-                                // For Master & Transaction â†’ always include
                                 return (m.moduleType == "Master" ||
                                         m.moduleType == "Transaction") &&
-                                    m.role.contains(selectRole!.id);
+                                    (m.role != null &&
+                                        m.role.contains(selectRole!.id));
                               }
                             }).toList();
                             // filterModules = modules
@@ -1130,16 +1133,26 @@ class _EditUserScreenState extends State<EditUserScreen> {
   // Helper method to get modules filtered by type and search term
   List<DatumModules> _getFilteredModulesByType(String moduleType) {
     final searchTerm = moduleSearchClt.text.trim().toLowerCase();
+    final profile = Provider.of<ProfileProvider>(context, listen: false);
     return filterModules.where((module) {
       final typeMatch = module.moduleType == moduleType;
+      String displayName = module.moduleName ?? '';
+      if (displayName.toLowerCase() == 'beats master' ||
+          displayName.toLowerCase() == 'beat master') {
+        displayName = RouteLabelHelper.masterTitle(profile);
+      } else if (displayName.toLowerCase() == 'beats tour plan' ||
+          displayName.toLowerCase() == 'beat tour plan') {
+        displayName = RouteLabelHelper.plannerTitle(profile);
+      }
       final searchMatch = searchTerm.isEmpty ||
-          module.moduleName.toLowerCase().contains(searchTerm);
+          displayName.toLowerCase().contains(searchTerm);
       return typeMatch && searchMatch;
     }).toList();
   }
 
   // Widget builder for module list content
   Widget _buildModuleListContent(List<DatumModules> modulesList) {
+    final profile = context.watch<ProfileProvider>();
     if (modulesList.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1219,6 +1232,15 @@ class _EditUserScreenState extends State<EditUserScreen> {
             itemBuilder: (context, i) {
               bool isReportModule = modulesList[i].moduleType == 'OMSReport';
 
+              String routeLabel = modulesList[i].moduleName ?? '';
+              if (routeLabel.toLowerCase() == 'beats master' ||
+                  routeLabel.toLowerCase() == 'beat master') {
+                routeLabel = RouteLabelHelper.masterTitle(profile);
+              } else if (routeLabel.toLowerCase() == 'beats tour plan' ||
+                  routeLabel.toLowerCase() == 'beat tour plan') {
+                routeLabel = RouteLabelHelper.plannerTitle(profile);
+              }
+
               return Column(
                 children: [
                   Row(
@@ -1228,7 +1250,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                       Expanded(
                         flex: 2,
                         child: Text(
-                          "${modulesList[i].moduleName}",
+                          routeLabel,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

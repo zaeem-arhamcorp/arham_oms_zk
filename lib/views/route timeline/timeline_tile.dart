@@ -245,400 +245,409 @@ class _TimelineTileState extends State<TimelineTile> {
       } catch (_) {}
     }
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Spine Column
-            SizedBox(
-              width: dotSize,
-              child: Column(
-                children: [
-                  Container(
-                    width: dotSize,
-                    height: dotSize,
-                    decoration: BoxDecoration(
-                      color: dotBg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: dotColor, width: 1.5),
-                    ),
-                    child: Center(
-                      child: Icon(meta.icon, size: 14, color: dotColor),
-                    ),
-                  ),
-                  if (!widget.isLast)
-                    Expanded(
-                      child: Container(
-                        width: lineW,
-                        margin: const EdgeInsets.symmetric(vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isDarkTheme
-                              ? Colors.white.withOpacity(0.10)
-                              : Colors.black.withOpacity(0.09),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+    return MediaQuery(
+      // Lock font scaling to 1× regardless of the device's system font-size
+      // setting. This keeps every Text/RichText inside the tile at its
+      // designed size on all devices and accessibility font-scale levels.
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Spine Column
+              SizedBox(
+                width: dotSize,
+                child: Column(
+                  children: [
+                    Container(
+                      width: dotSize,
+                      height: dotSize,
+                      decoration: BoxDecoration(
+                        color: dotBg,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: dotColor, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Icon(meta.icon, size: 14, color: dotColor),
                       ),
                     ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Card Content Panel
-            Expanded(
-              child: Container(
-                margin: EdgeInsets.only(bottom: widget.isLast ? 0 : 8),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: _isHovered && isOrderClickable
-                          ? dotColor.withOpacity(0.18)
-                          : borderColor,
-                      width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(
-                          _isHovered && isOrderClickable ? 0.35 : 0.22),
-                      blurRadius: _isHovered && isOrderClickable ? 12 : 5,
-                      offset: Offset(0, _isHovered && isOrderClickable ? 4 : 2),
-                    )
+                    if (!widget.isLast)
+                      Expanded(
+                        child: Container(
+                          width: lineW,
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isDarkTheme
+                                ? Colors.white.withOpacity(0.10)
+                                : Colors.black.withOpacity(0.09),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Top Header row
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                mainLabel,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: textPrimary,
-                                  letterSpacing: 0.15,
-                                ),
-                              ),
-                              if (isWaiting && waitingDuration.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF97316)
-                                        .withOpacity(0.07),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'Duration : $waitingDuration',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFFF97316)),
-                                  ),
-                                ),
-                              if (isOrderEnd && endDuration.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444)
-                                        .withOpacity(0.07),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'Duration : $endDuration',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFFEF4444)),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          // Address Details
-                          if (addressText.isNotEmpty) ...[
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              const SizedBox(width: 10),
+              // Card Content Panel
+              Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(bottom: widget.isLast ? 0 : 8),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: _isHovered && isOrderClickable
+                            ? dotColor.withOpacity(0.18)
+                            : borderColor,
+                        width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                            _isHovered && isOrderClickable ? 0.35 : 0.22),
+                        blurRadius: _isHovered && isOrderClickable ? 12 : 5,
+                        offset:
+                            Offset(0, _isHovered && isOrderClickable ? 4 : 2),
+                      )
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Header row
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 1.0),
-                                  child: Icon(Icons.location_on,
-                                      size: 11, color: textSecondary),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    addressText,
-                                    style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: textAddress,
-                                        height: 1.4),
+                                Text(
+                                  mainLabel,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: textPrimary,
+                                    letterSpacing: 0.15,
                                   ),
                                 ),
+                                if (isWaiting && waitingDuration.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF97316)
+                                          .withOpacity(0.07),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Duration : $waitingDuration',
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFF97316)),
+                                    ),
+                                  ),
+                                if (isOrderEnd && endDuration.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444)
+                                          .withOpacity(0.07),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Duration : $endDuration',
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFEF4444)),
+                                    ),
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 5),
-                          ],
-                          // Meta Timestamps Section
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2.0),
-                            child: Wrap(
-                              spacing: 12,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                // IN/OUT Badge
-                                if (isOrderStart || isOrderEnd)
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.fiber_manual_record,
-                                          size: 8, color: inOutColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        isOrderStart ? "IN" : "OUT",
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: inOutColor,
-                                          letterSpacing: 0.6,
-                                        ),
-                                      ),
-                                    ],
+                            // Address Details
+                            if (addressText.isNotEmpty) ...[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 1.0),
+                                    child: Icon(Icons.location_on,
+                                        size: 11, color: textSecondary),
                                   ),
-
-                                // Timestamp Data Details
-                                if (timestamp.isNotEmpty) ...[
-                                  // Calendar block
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.calendar_today,
-                                          size: 11, color: textSecondary),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        datePart,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: textSecondary,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  // Clock block
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.access_time,
-                                          size: 13, color: textSecondary),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        timePart,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: textSecondary,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ] else
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.access_time,
-                                          size: 11, color: textMuted),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Not recorded',
-                                        style: TextStyle(
-                                            fontSize: 12, color: textMuted),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                          // Optional Notes
-                          if (showNote) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              '"$noteText"',
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: textSecondary,
-                                  fontStyle: FontStyle.italic,
-                                  height: 1.45),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    // Action Footer Row
-                    if (hasFooter) ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                              top: BorderSide(color: dividerColor, width: 1)),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                if (isOrderPlaced &&
-                                    orderAmountDisplay.isNotEmpty)
-                                  RichText(
-                                    text: TextSpan(
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      addressText,
                                       style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: textSecondary),
+                                          fontSize: 11,
+                                          color: textAddress,
+                                          height: 1.4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                            ],
+                            // Meta Timestamps Section
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 2.0),
+                              child: Wrap(
+                                spacing: 12,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  // IN/OUT Badge
+                                  if (isOrderStart || isOrderEnd)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const TextSpan(text: 'Amount: '),
-                                        TextSpan(
-                                          text: '₹',
+                                        Icon(Icons.fiber_manual_record,
+                                            size: 8, color: inOutColor),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isOrderStart ? "IN" : "OUT",
                                           style: TextStyle(
-                                            color: isPositiveAmount
-                                                ? const Color(0xFF10B981)
-                                                : const Color(0xFFEF4444),
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: orderAmountDisplay,
-                                          style: TextStyle(
-                                            color: isPositiveAmount
-                                                ? const Color(0xFF10B981)
-                                                : const Color(0xFFEF4444),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: inOutColor,
+                                            letterSpacing: 0.6,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  )
-                                else
-                                  const SizedBox.shrink(),
-                                // Row(
-                                //   children: [
-                                //     if (isOrderClickable)
-                                //       TextButton.icon(
-                                //         style: TextButton.styleFrom(
-                                //           padding: const EdgeInsets.symmetric(
-                                //               horizontal: 5),
-                                //           minimumSize: Size.zero,
-                                //           tapTargetSize:
-                                //               MaterialTapTargetSize.shrinkWrap,
-                                //         ),
-                                //         onPressed: () =>
-                                //             widget.onViewItems(widget.event),
-                                //         icon: const Icon(Icons.inventory_2_outlined,
-                                //             size: 12, color: Color(0xFF3B82F6)),
-                                //         label: const Text(
-                                //           'View items',
-                                //           style: TextStyle(
-                                //               fontSize: 12,
-                                //               color: Color(0xFF3B82F6),
-                                //               fontWeight: FontWeight.w600),
-                                //         ),
-                                //       ),
-                                //     if (canOpenHistory) ...[
-                                //       const SizedBox(width: 8),
-                                //       TextButton.icon(
-                                //         style: TextButton.styleFrom(
-                                //           padding: EdgeInsets.zero,
-                                //           minimumSize: Size.zero,
-                                //           tapTargetSize:
-                                //               MaterialTapTargetSize.shrinkWrap,
-                                //         ),
-                                //         onPressed: () =>
-                                //             widget.onViewHistory(widget.event),
-                                //         icon: const Icon(Icons.history,
-                                //             size: 12, color: Color(0xFF8B5CF6)),
-                                //         label: const Text(
-                                //           'History',
-                                //           style: TextStyle(
-                                //               fontSize: 12,
-                                //               color: Color(0xFF8B5CF6),
-                                //               fontWeight: FontWeight.w600),
-                                //         ),
-                                //       ),
-                                //     ],
-                                //   ],
-                                // ),
-                              ],
-                            ),
-                            SizedBox(
-                              height: 3,
-                            ),
-                            Row(
-                              children: [
-                                if (isOrderClickable)
-                                  TextButton.icon(
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.only(right: 5),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
+
+                                  // Timestamp Data Details
+                                  if (timestamp.isNotEmpty) ...[
+                                    // Calendar block
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.calendar_today,
+                                            size: 11, color: textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          datePart,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textSecondary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    onPressed: () =>
-                                        widget.onViewItems(widget.event),
-                                    icon: const Icon(Icons.inventory_2_outlined,
-                                        size: 12, color: Color(0xFF3B82F6)),
-                                    label: const Text(
-                                      'View items',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF3B82F6),
-                                          fontWeight: FontWeight.w600),
+                                    // Clock block
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.access_time,
+                                            size: 13, color: textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          timePart,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textSecondary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                if (canOpenHistory) ...[
-                                  const SizedBox(width: 8),
-                                  TextButton.icon(
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: Size.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
+                                  ] else
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.access_time,
+                                            size: 11, color: textMuted),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Not recorded',
+                                          style: TextStyle(
+                                              fontSize: 12, color: textMuted),
+                                        ),
+                                      ],
                                     ),
-                                    onPressed: () =>
-                                        widget.onViewHistory(widget.event),
-                                    icon: const Icon(Icons.history,
-                                        size: 12, color: Color(0xFF8B5CF6)),
-                                    label: const Text(
-                                      'History',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF8B5CF6),
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
                                 ],
-                              ],
+                              ),
                             ),
+                            // Optional Notes
+                            if (showNote) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                '"$noteText"',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: textSecondary,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.45),
+                              ),
+                            ],
                           ],
                         ),
                       ),
+                      // Action Footer Row
+                      if (hasFooter) ...[
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                                top: BorderSide(color: dividerColor, width: 1)),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          child: Builder(
+                            builder: (context) {
+                              // LayoutBuilder is incompatible with the
+                              // IntrinsicHeight ancestor widget — it doesn't
+                              // support intrinsic dimensions and causes a layout
+                              // assertion. Use MediaQuery instead to derive the
+                              // available footer width at build time.
+                              final double footerWidth = MediaQuery.sizeOf(
+                                          context)
+                                      .width -
+                                  25.0 // spine dot column width
+                                  -
+                                  10.0 // gap between spine and card
+                                  -
+                                  24.0 // card horizontal padding (12 × 2)
+                                  -
+                                  24.0; // footer horizontal padding (12 × 2)
+                              const double threshold = 280.0;
+                              final bool singleRow = footerWidth >= threshold;
+
+                              // Buttons — always kept together as a single unit
+                              final buttonsRow = Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isOrderClickable)
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        padding:
+                                            const EdgeInsets.only(right: 5),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () =>
+                                          widget.onViewItems(widget.event),
+                                      icon: const Icon(
+                                          Icons.inventory_2_outlined,
+                                          size: 13,
+                                          color: Color(0xFF3B82F6)),
+                                      label: const Text(
+                                        'View Items',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF3B82F6),
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  if (canOpenHistory) ...[
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () =>
+                                          widget.onViewHistory(widget.event),
+                                      icon: const Icon(Icons.history,
+                                          size: 15, color: Color(0xFF8B5CF6)),
+                                      label: const Text(
+                                        'History',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF8B5CF6),
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              );
+
+                              // Amount widget (null when not applicable)
+                              final amountWidget = (isOrderPlaced &&
+                                      orderAmountDisplay.isNotEmpty)
+                                  ? RichText(
+                                      text: TextSpan(
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: textSecondary),
+                                        children: [
+                                          const TextSpan(
+                                              text: 'Amount: ',
+                                              style: TextStyle(fontSize: 13)),
+                                          TextSpan(
+                                            text: '₹',
+                                            style: TextStyle(
+                                              color: isPositiveAmount
+                                                  ? const Color(0xFF10B981)
+                                                  : const Color(0xFFEF4444),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: orderAmountDisplay,
+                                            style: TextStyle(
+                                              color: isPositiveAmount
+                                                  ? const Color(0xFF10B981)
+                                                  : const Color(0xFFEF4444),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : null;
+
+                              if (amountWidget == null) {
+                                // No amount — right-align buttons only
+                                return Align(
+                                  alignment: Alignment.centerRight,
+                                  child: buttonsRow,
+                                );
+                              }
+
+                              if (singleRow) {
+                                return Row(
+                                  children: [
+                                    amountWidget,
+                                    const Spacer(),
+                                    buttonsRow,
+                                  ],
+                                );
+                              } else {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    amountWidget,
+                                    const SizedBox(height: 4),
+                                    buttonsRow,
+                                  ],
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

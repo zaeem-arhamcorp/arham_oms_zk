@@ -554,11 +554,11 @@ class _TaskListViewState extends State<TaskListView> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                Color(0xFF245B87),
-                Color(0xFF1B3F6B),
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
               ],
             ),
           ),

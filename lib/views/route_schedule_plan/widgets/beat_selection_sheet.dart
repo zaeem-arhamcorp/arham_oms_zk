@@ -19,13 +19,13 @@ class BeatSelectionResult {
 
 class BeatSelectionSheet extends StatefulWidget {
   final DateTime selectedDate;
-  final Map<String, String> userNameByCode;
+  final Map<String, String>? userNameByCode;
   final Beat? initialSelectedBeat;
   final bool allowRemoveOption;
 
   const BeatSelectionSheet({
     required this.selectedDate,
-    required this.userNameByCode,
+    this.userNameByCode,
     this.initialSelectedBeat,
     this.allowRemoveOption = false,
     super.key,
@@ -38,6 +38,7 @@ class BeatSelectionSheet extends StatefulWidget {
 class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
   final TextEditingController _controller = TextEditingController();
   late BeatController beatController;
+  bool isLoading = true;
 
   List<Beat> filteredBeats = [];
   Beat? selectedBeat;
@@ -49,15 +50,31 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
         ? Get.find<BeatController>()
         : Get.put(BeatController());
 
-    // Initialize with all beats from controller
-    filteredBeats = List.from(beatController.beats);
-    print('Beat count on sheet open: ${beatController.beats.length}');
+    _loadBeats();
+  }
 
-    if (widget.initialSelectedBeat != null) {
-      selectedBeat = widget.initialSelectedBeat;
-      _controller.text = widget.initialSelectedBeat!.beatName;
-      filteredBeats = [widget.initialSelectedBeat!];
-    }
+  Future<void> _loadBeats() async {
+    print('Before API: ${beatController.beats.length}');
+    await beatController.fetchBeatsWithUserCd();
+    print('After API: ${beatController.beats.length}');
+
+    if (!mounted) return;
+
+    setState(() {
+      // Initialize with all beats from controller
+      filteredBeats = List.from(beatController.beats);
+      print('Beat count on sheet open: ${beatController.beats.length}');
+
+      if (widget.initialSelectedBeat != null) {
+        selectedBeat = widget.initialSelectedBeat;
+        _controller.text = widget.initialSelectedBeat!.beatName;
+        filteredBeats = [widget.initialSelectedBeat!];
+      }
+
+      isLoading = false;
+    });
+
+    print('Beat count after API: ${beatController.beats.length}');
   }
 
   void _filter(String value) {
@@ -76,6 +93,12 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
     setState(() {
       selectedBeat = null;
     });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -148,34 +171,40 @@ class _BeatSelectionSheetState extends State<BeatSelectionSheet> {
                 border: Border.all(color: Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: filteredBeats.isEmpty
+              child: isLoading == true
                   ? Center(
-                      child: Text("No ${routeLabelPlural.toLowerCase()} found"))
-                  : ListView.builder(
-                      itemCount: filteredBeats.length,
-                      itemBuilder: (context, index) {
-                        final beat = filteredBeats[index];
-                        final userName =
-                            widget.userNameByCode[beat.userCd] ?? '';
-                        final displayTitle = userName.isNotEmpty
-                            ? "${beat.beatName} - $userName"
-                            : beat.beatName;
+                      child: CircularProgressIndicator(),
+                    )
+                  : filteredBeats.isEmpty
+                      ? Center(
+                          child: Text(
+                              "No ${routeLabelPlural.toLowerCase()} found"))
+                      : ListView.builder(
+                          itemCount: filteredBeats.length,
+                          itemBuilder: (context, index) {
+                            final beat = filteredBeats[index];
+                            final userName =
+                                widget.userNameByCode?[beat.userCd] ?? '';
+                            final displayTitle = userName.isNotEmpty
+                                ? "${beat.beatName} - $userName"
+                                : beat.beatName;
 
-                        return ListTile(
-                          title: Text(displayTitle),
-                          subtitle: beat.userCd.isNotEmpty && userName.isEmpty
-                              ? Text('Assigned user: ${beat.userCd}')
-                              : null,
-                          onTap: () {
-                            setState(() {
-                              selectedBeat = beat;
-                              _controller.text = beat.beatName;
-                              filteredBeats = [beat];
-                            });
+                            return ListTile(
+                              title: Text(displayTitle),
+                              // subtitle:
+                              //     beat.userCd.isNotEmpty && userName.isEmpty
+                              //         ? Text('Assigned user: ${beat.userCd}')
+                              //         : null,
+                              onTap: () {
+                                setState(() {
+                                  selectedBeat = beat;
+                                  _controller.text = beat.beatName;
+                                  filteredBeats = [beat];
+                                });
+                              },
+                            );
                           },
-                        );
-                      },
-                    ),
+                        ),
             ),
 
             SizedBox(height: 16),

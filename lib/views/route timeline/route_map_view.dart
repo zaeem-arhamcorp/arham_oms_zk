@@ -6,9 +6,12 @@ import 'dart:ui' as ui;
 import 'package:arham_corporation/config/app_config.dart';
 import 'package:arham_corporation/helper/helper.dart';
 import 'package:arham_corporation/providers/user_provider.dart';
+import 'package:arham_corporation/views/route%20timeline/history/history_view.dart';
+import 'package:arham_corporation/views/route%20timeline/items/items_view.dart';
 import 'package:arham_corporation/views/route%20timeline/timeline_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
+import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -927,6 +930,9 @@ class _RouteMapViewState extends State<RouteMapView> {
     return canonicalFallback.isNotEmpty ? canonicalFallback : 'absent';
   }
 
+  late final userProvider = Provider.of<UserProvider>(context, listen: false);
+  late var syncId = userProvider.syncId;
+
   int _extractTripIdFromUserPayload(Map<String, dynamic> user) {
     // Important: never use generic user `id` fields as trip IDs.
     // Some user payloads do not include current trip id; falling back to user id
@@ -937,7 +943,7 @@ class _RouteMapViewState extends State<RouteMapView> {
       user['tripId'],
       user['trip_id'],
       user['activeTripId'],
-      user['active_trip_id'],
+      user['active_trip_id_$syncId'],
       user['ACTIVE_TRIP_ID'],
       user['currentTripId'],
       user['current_trip_id'],
@@ -2293,7 +2299,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     DatePicker.showDatePicker(
       context,
       showTitleActions: true,
-      minTime: DateTime(2024, 1, 1),
+      minTime: DateTime(2000, 1, 1),
       maxTime: DateTime.now(),
       currentTime: _selectedTimelineDate,
       locale: LocaleType.en,
@@ -3778,99 +3784,105 @@ class _RouteMapViewState extends State<RouteMapView> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // If user detail is shown, go back to users list instead of navigating away
-        if (_selectedUser != null) {
-          _clearSelectedUser();
-          return false; // Prevent default pop behavior
-        }
-        return true; // Allow default pop behavior (navigate away)
-      },
-      child: Scaffold(
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // Google Map (Background)
-              GoogleMap(
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                },
-                initialCameraPosition: const CameraPosition(
-                  target: _defaultCenter,
-                  zoom: 12,
-                ),
-                myLocationEnabled: true,
-                polylines: _polylines,
-                markers: _hideUserLocationMarkers
-                    ? _markers
-                    : {..._markers, ..._userLocationMarkers},
-              ),
-
-              // Back Button (with smart behavior)
-              Positioned(
-                top: 5,
-                left: 0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: IconButton(
-                    onPressed: () {
-                      // If user detail is shown, go back to users list
-                      if (_selectedUser != null) {
-                        _clearSelectedUser();
-                      } else {
-                        // Otherwise navigate away
-                        Navigator.pop(context);
-                      }
-                    },
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  ),
-                ),
-              ),
-
-              // Tap overlay (to collapse sheet when fully expanded)
-              if (_currentSheetSize > 0.85)
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: () {
-                      // Scroll users list to top if visible
-                      if (_selectedUser == null) {
-                        // First scroll the main sheet with scrollController
-                        if (_usersListScrollController.hasClients) {
-                          _usersListScrollController.animateTo(
-                            0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      }
-                      _sheetController.animateTo(
-                        0.35,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOut,
-                      );
-                    },
-                    child: Container(color: Colors.black.withOpacity(0.2)),
-                  ),
-                ),
-
-              // Bottom Sheet (Foreground - anchored at bottom)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: DraggableScrollableSheet(
-                  controller: _sheetController,
-                  expand: false,
-                  initialChildSize: 0.35,
-                  minChildSize: 0.25,
-                  maxChildSize: 0.9,
-                  builder: (context, scrollController) {
-                    return _selectedUser == null
-                        ? _buildUsersListSheet(scrollController)
-                        : _buildTimelineSheet(scrollController);
+    return MediaQuery(
+      // Lock font scaling to 1× regardless of the device's system font-size
+      // setting. This keeps every Text/RichText in this screen at its
+      // designed size on all devices and accessibility font-scale levels.
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: WillPopScope(
+        onWillPop: () async {
+          // If user detail is shown, go back to users list instead of navigating away
+          if (_selectedUser != null) {
+            _clearSelectedUser();
+            return false; // Prevent default pop behavior
+          }
+          return true; // Allow default pop behavior (navigate away)
+        },
+        child: Scaffold(
+          body: SafeArea(
+            child: Stack(
+              children: [
+                // Google Map (Background)
+                GoogleMap(
+                  onMapCreated: (controller) {
+                    _mapController = controller;
                   },
+                  initialCameraPosition: const CameraPosition(
+                    target: _defaultCenter,
+                    zoom: 12,
+                  ),
+                  myLocationEnabled: true,
+                  polylines: _polylines,
+                  markers: _hideUserLocationMarkers
+                      ? _markers
+                      : {..._markers, ..._userLocationMarkers},
                 ),
-              ),
-            ],
+
+                // Back Button (with smart behavior)
+                Positioned(
+                  top: 5,
+                  left: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: IconButton(
+                      onPressed: () {
+                        // If user detail is shown, go back to users list
+                        if (_selectedUser != null) {
+                          _clearSelectedUser();
+                        } else {
+                          // Otherwise navigate away
+                          Navigator.pop(context);
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    ),
+                  ),
+                ),
+
+                // Tap overlay (to collapse sheet when fully expanded)
+                if (_currentSheetSize > 0.85)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () {
+                        // Scroll users list to top if visible
+                        if (_selectedUser == null) {
+                          // First scroll the main sheet with scrollController
+                          if (_usersListScrollController.hasClients) {
+                            _usersListScrollController.animateTo(
+                              0,
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        }
+                        _sheetController.animateTo(
+                          0.35,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      },
+                      child: Container(color: Colors.black.withOpacity(0.2)),
+                    ),
+                  ),
+
+                // Bottom Sheet (Foreground - anchored at bottom)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: DraggableScrollableSheet(
+                    controller: _sheetController,
+                    expand: false,
+                    initialChildSize: 0.35,
+                    minChildSize: 0.25,
+                    maxChildSize: 0.9,
+                    builder: (context, scrollController) {
+                      return _selectedUser == null
+                          ? _buildUsersListSheet(scrollController)
+                          : _buildTimelineSheet(scrollController);
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -4178,6 +4190,7 @@ class _RouteMapViewState extends State<RouteMapView> {
     }
 
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ListTile(
         onTap: () => _selectUser(user),
@@ -4206,6 +4219,49 @@ class _RouteMapViewState extends State<RouteMapView> {
   }
 
   Widget _buildTimelineSheet(ScrollController scrollController) {
+    final tripId = _getTripIdAtIndex(_selectedTripIndex);
+    final summary = _normalizeTripSummary(_tripSummaryData[tripId] ?? {});
+
+    final productiveCallsCount =
+        _readSummaryNum(summary, <String>['productive_calls_count'])?.toInt() ??
+            0;
+    final nonProductiveCallsCount = _readSummaryNum(summary, <String>[
+          'non_productive_calls_count',
+        ])?.toInt() ??
+        0;
+    final totalSaleAmount =
+        _readSummaryNum(summary, <String>['total_sale_amount'])?.toDouble() ??
+            0.0;
+    final totalSaleAmountText = totalSaleAmount % 1 == 0
+        ? totalSaleAmount.toInt().toString()
+        : totalSaleAmount.toStringAsFixed(2);
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final badgeBgProductive = isDark
+        ? const Color(0xFF14532D).withOpacity(0.3)
+        : const Color(0xFFE8F5E9);
+    final badgeBorderProductive =
+        isDark ? const Color(0xFF16A34A) : const Color(0xFF81C784);
+    final badgeTextProductive =
+        isDark ? const Color(0xFF4ADE80) : const Color(0xFF2E7D32);
+
+    final badgeBgNonProd = isDark
+        ? const Color(0xFF7F1D1D).withOpacity(0.3)
+        : const Color(0xFFFFEBEE);
+    final badgeBorderNonProd =
+        isDark ? const Color(0xFFDC2626) : const Color(0xFFEF9A9A);
+    final badgeTextNonProd =
+        isDark ? const Color(0xFFF87171) : const Color(0xFFC62828);
+
+    final badgeBgPob = isDark
+        ? const Color(0xFF7C2D12).withOpacity(0.3)
+        : const Color(0xFFFFF3E0);
+    final badgeBorderPob =
+        isDark ? const Color(0xFFD97706) : const Color(0xFFFFB74D);
+    final badgeTextPob =
+        isDark ? const Color(0xFFFB923C) : const Color(0xFFE65100);
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -4216,39 +4272,168 @@ class _RouteMapViewState extends State<RouteMapView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with back button and date picker
+            // Header with back button, user avatar, name, phone number, and merged badges
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
-              child: Row(
+              child: Column(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: _clearSelectedUser,
-                    tooltip: 'Back to Users',
-                  ),
-                  SizedBox(width: 3),
-                  _buildTappableUserAvatar(
-                    photoUrl: _selectedUser?['photoUrl']?.toString() ?? '',
-                    userName: _selectedUser?['userName']?.toString() ?? '',
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedUser?['userName'] ?? 'User',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: _clearSelectedUser,
+                        tooltip: 'Back to Users',
+                      ),
+                      const SizedBox(width: 3),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: _buildTappableUserAvatar(
+                          photoUrl:
+                              _selectedUser?['photoUrl']?.toString() ?? '',
+                          userName:
+                              _selectedUser?['userName']?.toString() ?? '',
                         ),
-                        Text(
-                          _selectedUser?['phone'] ?? '',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _selectedUser?['userName'] ?? 'User',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _selectDate,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.blue),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.calendar_today,
+                                          size: 12,
+                                          color: Colors.blue,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          DateFormat(
+                                            'dd MMM yyyy',
+                                          ).format(_selectedTimelineDate),
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              _selectedUser?['phone'] ?? '',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: badgeBgProductive,
+                                border: Border.all(
+                                    color: badgeBorderProductive, width: 1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Productive $productiveCallsCount',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: badgeTextProductive,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: badgeBgNonProd,
+                                border: Border.all(
+                                    color: badgeBorderNonProd, width: 1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Non-Prod $nonProductiveCallsCount',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: badgeTextNonProd,
+                                ),
+                              ),
+                            ),
+                            if (totalSaleAmount > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: badgeBgPob,
+                                  border: Border.all(
+                                      color: badgeBorderPob, width: 1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'POB ₹${Helper.parseNumericValue(totalSaleAmountText)}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: badgeTextPob,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),
@@ -4257,51 +4442,22 @@ class _RouteMapViewState extends State<RouteMapView> {
               ),
             ),
             const Divider(),
-            // Date Filter
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Trip Date:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  GestureDetector(
-                    onTap: _selectDate,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Colors.blue,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            DateFormat(
-                              'dd MMM yyyy',
-                            ).format(_selectedTimelineDate),
-                            style: const TextStyle(color: Colors.blue),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            if (_isLoadingRemainingTrips)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Text(
+                  'Loading remaining trips: $_loadedTripsCount/$_totalTripsToLoad',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
               ),
-            ),
-            const Divider(),
-            // Trips Tab Bar (if multiple trips)
-            if (_tripsForSelectedDate.length > 1)
+            // Trip Summary
+            _buildTripSummaryWidget(),
+            // Trips Tab Bar (moved to bottom of summary section)
+            if (_tripsForSelectedDate.length > 1) ...[
+              const Divider(),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -4370,20 +4526,7 @@ class _RouteMapViewState extends State<RouteMapView> {
                   }),
                 ),
               ),
-            const Divider(),
-            if (_isLoadingRemainingTrips)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'Loading remaining trips: $_loadedTripsCount/$_totalTripsToLoad',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                ),
-              ),
-            // Trip Summary
-            _buildTripSummaryWidget(),
+            ],
             const Divider(),
             // Timeline List
             if (_loadingTimeline)
@@ -4396,153 +4539,6 @@ class _RouteMapViewState extends State<RouteMapView> {
                 padding: EdgeInsets.all(32.0),
                 child: Center(child: Text('No activities for this trip')),
               )
-            // else
-            //   ListView.builder(
-            //     physics: const NeverScrollableScrollPhysics(),
-            //     shrinkWrap: true,
-            //     itemCount: _timelineData.length,
-            //     padding: const EdgeInsets.symmetric(horizontal: 16),
-            //     itemBuilder: (context, index) {
-            //       final item = _timelineData[index];
-            //       final tripId = item['tripId'] as int? ?? 0;
-            //       final timestamp = item['timestamp'] as String? ?? '';
-            //       final eventType = item['event_type'] as String? ?? '';
-            //       final title = item['name'] ??
-            //           item['title'] ??
-            //           _formatEventType(eventType) ??
-            //           'Activity';
-            //       final subtitle =
-            //           item['description'] ?? item['subtitle'] ?? '';
-            //
-            //       // Format date and time
-            //       String dateStr = 'N/A';
-            //       String timeStr = 'N/A';
-            //       try {
-            //         if (timestamp.isNotEmpty) {
-            //           final dt = DateTime.parse(timestamp);
-            //           dateStr = DateFormat('dd MMM').format(dt);
-            //           timeStr = DateFormat('hh:mm a').format(dt);
-            //         }
-            //       } catch (_) {}
-            //
-            //       final isFirst = index == 0;
-            //       final isLast = index == _timelineData.length - 1;
-            //       final bullet = _getBulletForEvent(eventType);
-            //
-            //       // Check if this is an order_placed event
-            //       final isOrderPlaced =
-            //           eventType.toLowerCase() == 'order_placed';
-            //       final orderItems = _extractOrderItemsFromTimelineItem(item);
-            //       final partyInfo = _extractPartyInfoFromTimelineItem(item);
-            //       final partyName = partyInfo['partyName'] ?? '';
-            //       final partyCode = partyInfo['partyCode'] ?? '';
-            //       final partyAddress = partyInfo['partyAddress'] ?? '';
-            //       final displayTitle = partyName.isNotEmpty &&
-            //               _shouldShowPartyNameForTimelineItem(
-            //                 title.toString(),
-            //                 eventType,
-            //               )
-            //           ? '$title - $partyName'
-            //           : title.toString();
-            //
-            //       if (isOrderPlaced && orderItems.isEmpty) {
-            //         final dynamic rawOrder = item['ORDER'] ?? item['order'];
-            //         final orderKeys = rawOrder is Map
-            //             ? rawOrder.keys.map((k) => k.toString()).join(',')
-            //             : 'none';
-            //         print(
-            //           '[RouteMapView] [ORDER_DEBUG] Empty order items for order_placed | O_ID=${item['O_ID'] ?? item['o_id'] ?? '-'} | eventKeys=${item.keys.take(30).join(',')} | orderKeys=$orderKeys',
-            //         );
-            //       }
-            //
-            //       print(
-            //         '[RouteMapView] Timeline Event - Type: "$eventType", isOrderPlaced: $isOrderPlaced, itemsCount: ${orderItems.length}, partyName: "$partyName"',
-            //       );
-            //
-            //       // Build action buttons for order_placed events
-            //       Widget? actionButtons;
-            //       if (isOrderPlaced) {
-            //         actionButtons = Row(
-            //           children: [
-            //             GestureDetector(
-            //               onTap: () {
-            //                 _showOrderItemsDialog(
-            //                   orderItems,
-            //                   partyName,
-            //                   partyCode,
-            //                   partyAddress,
-            //                 );
-            //               },
-            //               child: Row(
-            //                 children: [
-            //                   Icon(
-            //                     Icons.visibility,
-            //                     size: 15,
-            //                     color: Colors.blue,
-            //                   ),
-            //                   SizedBox(width: 3),
-            //                   Text(
-            //                     'View Items',
-            //                     style: TextStyle(
-            //                       color: Colors.blue,
-            //                       decoration: TextDecoration.underline,
-            //                       decorationColor: Colors.blue,
-            //                     ),
-            //                   ),
-            //                 ],
-            //               ),
-            //             ),
-            //             const SizedBox(width: 15),
-            //             GestureDetector(
-            //               onTap: () {
-            //                 _fetchAndShowPartyHistory(
-            //                   _selectedUser?['userCode'] as String? ?? '',
-            //                   partyCode,
-            //                   partyName: partyName,
-            //                 );
-            //               },
-            //               child: Row(
-            //                 children: [
-            //                   Icon(Icons.history, size: 15, color: Colors.blue),
-            //                   SizedBox(width: 3),
-            //                   Text(
-            //                     'View History',
-            //                     style: TextStyle(
-            //                       color: Colors.blue,
-            //                       decoration: TextDecoration.underline,
-            //                       decorationColor: Colors.blue,
-            //                     ),
-            //                   ),
-            //                 ],
-            //               ),
-            //             ),
-            //           ],
-            //         );
-            //       }
-            //
-            //       return GestureDetector(
-            //         onTap: tripId > 0
-            //             ? () {
-            //                 setState(() {
-            //                   _selectedTrip = item;
-            //                 });
-            //                 _fetchAndDisplayTripRoute(tripId);
-            //               }
-            //             : null,
-            //         child: CommonTimelineTile(
-            //           date: dateStr,
-            //           time: timeStr,
-            //           title: displayTitle,
-            //           subtitle: subtitle.toString(),
-            //           isFirst: isFirst,
-            //           isLast: isLast,
-            //           bulletWidget: bullet,
-            //           actionButtons: actionButtons,
-            //         ),
-            //       );
-            //     },
-            //   ),
-            // Locate line 961 inside your _buildTimelineSheet function
             else
               ListView.builder(
                 physics: const NeverScrollableScrollPhysics(),
@@ -4574,18 +4570,32 @@ class _RouteMapViewState extends State<RouteMapView> {
                       onViewItems: (eventData) {
                         final extractedItems =
                             _extractOrderItemsFromTimelineItem(eventData);
-                        _showOrderItemsDialog(
-                          extractedItems,
-                          partyName,
-                          partyCode,
-                          partyAddress,
+                        Get.to(
+                          () => ItemsView(
+                            items: extractedItems,
+                            partyName: partyName,
+                            partyCode: partyCode,
+                            partyAddress: partyAddress,
+                          ),
+                          transition: Transition.rightToLeft,
                         );
                       },
                       onViewHistory: (eventData) {
-                        _fetchAndShowPartyHistory(
-                          _selectedUser?['userCode'] as String? ?? '',
-                          partyCode,
-                          partyName: partyName,
+                        final ub = Provider.of<UserProvider>(
+                          context,
+                          listen: false,
+                        );
+                        final token = ub.token ?? '';
+                        if (token.isEmpty) return;
+                        Get.to(
+                          () => HistoryView(
+                            userCode:
+                                _selectedUser?['userCode'] as String? ?? '',
+                            partyCode: partyCode,
+                            partyName: partyName,
+                            token: token,
+                          ),
+                          transition: Transition.rightToLeft,
                         );
                       },
                     ),
@@ -4620,171 +4630,170 @@ class _RouteMapViewState extends State<RouteMapView> {
     // Extract call and sales data from summary
     final totalCallsCount =
         _readSummaryNum(summary, <String>['total_calls_count'])?.toInt() ?? 0;
-    final productiveCallsCount =
-        _readSummaryNum(summary, <String>['productive_calls_count'])?.toInt() ??
-            0;
-    final nonProductiveCallsCount = _readSummaryNum(summary, <String>[
-          'non_productive_calls_count',
-        ])?.toInt() ??
-        0;
-    final totalSaleAmount =
-        _readSummaryNum(summary, <String>['total_sale_amount'])?.toDouble() ??
-            0.0;
-    final totalSaleAmountText = totalSaleAmount % 1 == 0
-        ? totalSaleAmount.toInt().toString()
-        : totalSaleAmount.toStringAsFixed(2);
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // First row: Distance, Duration, Total Calls
+          // 3-Card Row: Duration, Distance, Total Calls
           Row(
             children: [
+              // Duration Card
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Distance',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF2C1B20)
+                        : const Color(0xFFFFF1F2),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF5C2B30)
+                          : const Color(0xFFFECDD3),
+                      width: 1,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${totalDistance.toStringAsFixed(2)} km',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 20,
+                        color: isDark
+                            ? const Color(0xFFFB7185)
+                            : const Color(0xFFE11D48),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        totalDurationFormatted,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'DURATION',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              // Distance Card
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Duration',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF132A1C)
+                        : const Color(0xFFF0FDF4),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF204E30)
+                          : const Color(0xFFDCFCE7),
+                      width: 1,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      totalDurationFormatted,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.route,
+                        size: 20,
+                        color: isDark
+                            ? const Color(0xFF34D399)
+                            : const Color(0xFF16A34A),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        '${totalDistance.toStringAsFixed(1)} Km',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'DISTANCE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              // Total Calls Card
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Calls',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF112B2B)
+                        : const Color(0xFFF0FDFA),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF1A5252)
+                          : const Color(0xFFCCFBF1),
+                      width: 1,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      totalCallsCount.toString(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.call,
+                        size: 20,
+                        color: isDark
+                            ? const Color(0xFF22D3EE)
+                            : const Color(0xFF0D9488),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Second row: Productive Calls, Non-Productive Calls, Total Sale Amount
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Productive Calls',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 6),
+                      Text(
+                        totalCallsCount.toString(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      productiveCallsCount.toString(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                      const SizedBox(height: 3),
+                      Text(
+                        'TOTAL CALLS',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Non-Productive Calls',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      nonProductiveCallsCount.toString(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Sale Amount',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '₹${Helper.parseNumericValue(totalSaleAmountText)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

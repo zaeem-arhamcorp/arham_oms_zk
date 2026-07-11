@@ -1,6 +1,10 @@
 import 'package:arham_corporation/models/profileModal.dart';
 import 'package:arham_corporation/views/ItemWisePartyWisePurchaseReportScreen.dart';
 import 'package:arham_corporation/views/item_wise_sale/views/item_wise_order_report_view.dart';
+import 'package:arham_corporation/views/menu/widgets/menu_grid_tile.dart';
+import 'package:arham_corporation/views/menu/widgets/menu_grid_view.dart';
+import 'package:arham_corporation/views/menu/widgets/menu_list_tile.dart';
+import 'package:arham_corporation/views/menu/widgets/menu_list_view.dart';
 import 'package:arham_corporation/views/party_wise_item_wise_order/views/item_wise_party_wise_sale_report_view.dart';
 import 'package:arham_corporation/views/reimbursement/get_expense_view.dart';
 import 'package:arham_corporation/views/route%20timeline/route_map_view.dart';
@@ -38,7 +42,15 @@ class NewMenu extends StatefulWidget {
   State<NewMenu> createState() => _NewMenuState();
 }
 
+enum MenuViewType {
+  grid,
+  list,
+}
+
 class _NewMenuState extends State<NewMenu> {
+  MenuViewType _viewType = MenuViewType.grid;
+  final Map<String, bool> _expandedSections = {};
+
   bool receiptDeleteRight = false;
   bool receiptReadRight = false;
   bool receiptPrintRight = false;
@@ -144,214 +156,264 @@ class _NewMenuState extends State<NewMenu> {
     //var specificModule = p.data!.modulesList!.firstWhere((module) => module.mODULENO == "214");
     //var deleteRight = specificModule.dELETERIGHT;
 
-    return Scaffold(
-      backgroundColor: Color(0xFFF0F3F2),
-      // backgroundColor: Colors.white30,
-      appBar: CustomAppBar(
-        title: 'Menus',
-      ),
-      // appBar: AppBar(
-      //   title: Text(
-      //     'Menus',
-      //     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-      //   ),
-      drawer: CommonAppDrawer(
-        narrationModuleNo: narrationModuleNo,
-        narrationReadRight: narrationReadRight,
-        narrationWriteRights: narrationWriteRights,
-        narrationUpdateRights: narrationUpdateRights,
-        narrationDeleteRight: narrationDeleteRight,
-        narrationPrintRights: narrationPrintRights,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                _buildSection("Transaction", [
-                  //if (p.data != null && p.data!.moduleNos.contains("16"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "214" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.receipt_long_outlined, "Receipt Entry \n", () {
-                      Get.to(() => ReceivableReceiptSettlementPage(),
-                          arguments: {
-                            "DeleteRight": receiptDeleteRight,
-                            "ReadRight": receiptReadRight,
-                          });
-                    }),
-                  //if (p.data != null && p.data!.moduleNos.contains("17"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "215" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.payments_outlined, "Payment Entry\n", () {
-                      Get.to(() => PayablePaymentSettlementPage(), arguments: {
-                        "DeleteRight": paymentDeleteRight,
-                        "ReadRight": paymentReadRight,
-                      });
-                    }),
-                  //if (p.data != null && p.data!.moduleNos.contains("12"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "312" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.shopping_bag_outlined,
-                        "Party wise item wise Sale", () {
-                      Get.to(() => ItemWisePartyWiseSaleReportScreen());
-                    }),
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: Scaffold(
+        // backgroundColor: Color(0xFFF0F3F2),
+        // backgroundColor: Colors.white30,
+        backgroundColor: Colors.white,
+        appBar: CustomAppBar(
+          title: 'Menus',
+          actions: [
+            IconButton(
+              icon: Icon(
+                _viewType == MenuViewType.grid
+                    ? Icons.view_list
+                    : Icons.grid_view_rounded,
+              ),
+              onPressed: () {
+                setState(() {
+                  _viewType = _viewType == MenuViewType.grid
+                      ? MenuViewType.list
+                      : MenuViewType.grid;
+                });
+              },
+            ),
+          ],
+        ),
+        // appBar: AppBar(
+        //   title: Text(
+        //     'Menus',
+        //     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        //   ),
+        drawer: CommonAppDrawer(
+          narrationModuleNo: narrationModuleNo,
+          narrationReadRight: narrationReadRight,
+          narrationWriteRights: narrationWriteRights,
+          narrationUpdateRights: narrationUpdateRights,
+          narrationDeleteRight: narrationDeleteRight,
+          narrationPrintRights: narrationPrintRights,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  _buildSection("Transaction", [
+                    //if (p.data != null && p.data!.moduleNos.contains("16"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "214" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.receipt_long_outlined,
+                          Colors.green, "Receipt Entry \n", () {
+                        Get.to(() => ReceivableReceiptSettlementPage(),
+                            arguments: {
+                              "DeleteRight": receiptDeleteRight,
+                              "ReadRight": receiptReadRight,
+                            });
+                      }),
+                    //if (p.data != null && p.data!.moduleNos.contains("17"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "215" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.payments_outlined, Colors.blue,
+                          "Payment Entry\n", () {
+                        Get.to(() => PayablePaymentSettlementPage(),
+                            arguments: {
+                              "DeleteRight": paymentDeleteRight,
+                              "ReadRight": paymentReadRight,
+                            });
+                      }),
+                    //if (p.data != null && p.data!.moduleNos.contains("12"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "312" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.add_shopping_cart, Colors.orange,
+                          "Party wise item wise Sale", () {
+                        Get.to(() => ItemWisePartyWiseSaleReportScreen());
+                      }),
 
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "306" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.shopping_bag_outlined,
-                        "Party wise item wise purchase", () {
-                      Get.to(() => ItemWisePartyWisePurchaseReportScreen());
-                    }),
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "231" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.attach_money, "Reimbursement", () {
-                      Get.to(() => GetExpenseView());
-                    }),
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "324" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.shopping_bag_outlined,
-                        "Party wise item wise Order", () {
-                      Get.to(() => ItemWisePartyWiseSaleReportView());
-                    }),
-                ]),
-                _buildSection("Ledgers", [
-                  //if (p.data != null && p.data!.moduleNos.contains("02"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "302" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.leaderboard_outlined, "Account Ledger", () {
-                      Get.to(() => AccountLedgerScreen());
-                    }, iconUrl: "assets/icons/Account-Ledger.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("03"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "303" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.account_balance_wallet, "Item Ledger", () {
-                      Get.to(() => ItemLedgerReportScreen());
-                    }, iconUrl: "assets/icons/item-ledger.png"),
-                ]),
-                _buildSection("Outstanding", [
-                  //if (p.data != null && p.data!.moduleNos.contains("07"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "307" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.receipt_long, "Receivable\n", () {
-                      Get.to(() => OutStandingReportReceivableScreen());
-                    }, iconUrl: "assets/icons/Receivable.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("14"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "314" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.payment, "Payable\n", () {
-                      Get.to(() => OutStandingReportPayableScreen());
-                    }, iconUrl: "assets/icons/Payable.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("10"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "310" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.account_balance, "Party Wise Receivable", () {
-                      Get.to(
-                          () => PartyWiseOutStandingReportReceivableScreen());
-                    }, iconUrl: "assets/icons/Party-Receivable.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("15"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "315" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.account_balance, "Party Wise Payable", () {
-                      Get.to(() => PartyWiseOutStandingReportPayableScreen());
-                    }, iconUrl: "assets/icons/Party-Payable.png"),
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "311" &&
-                          module.rEADRIGHT == true) &&
-                      ub.role == AppConfig.masteruser &&
-                      p.data?.profileSettings
-                              .firstWhere((element) =>
-                                  element.variable == 'showUserLinkData')
-                              .value ==
-                          "Y")
-                    _buildIconTextBox(
-                        Icons.account_balance, "User Wise Party Wise", () {
-                      Get.to(() => UserWiseOutStandingReportScreen());
-                    }, iconUrl: "assets/icons/User-Outstanding.png"),
-                ]),
-                _buildSection("Reports", [
-                  //if (p.data != null && p.data!.moduleNos.contains("04"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "304" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Order Report",
-                        () {
-                      Get.to(() => OrderReportScreen(),
-                          arguments: {"OrderPrint Right": orderPrintRight});
-                    }, iconUrl: "assets/icons/order-report.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("05"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "305" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.payment, "Stock Report", () {
-                      Get.to(() => StockReportScreen());
-                    }, iconUrl: "assets/icons/stock-report.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("08"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "308" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Item Wise Sale",
-                        () {
-                      Get.to(() => ItemWiseSaleReportScreen());
-                    }, iconUrl: "assets/icons/item-wise-sale.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("09"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "309" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Party Wise Sale ",
-                        () {
-                      Get.to(() => PartyWiseReportScreen());
-                    }, iconUrl: "assets/icons/party-wise-sale.png"),
-                  //if (p.data != null && p.data!.moduleNos.contains("13"))
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "313" && module.rEADRIGHT == true))
-                    _buildIconTextBox(
-                        Icons.account_balance, "Sales Register Report", () {
-                      Get.to(() => SalesRegisterReportScreen());
-                    }, iconUrl: "assets/icons/Sales-Register.png"),
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "321" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Route Summary",
-                        () {
-                      Get.to(() => const RouteReportScreen());
-                    }, iconUrl: "assets/icons/route_report_icon.png"),
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "321" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Route Report",
-                        () {
-                      Get.to(() => const RouteMapView());
-                    }, iconUrl: "assets/icons/route_report.png"),
-                  if (p.data != null &&
-                      p.data!.modulesList!.any((module) =>
-                          module.mODULENO == "325" && module.rEADRIGHT == true))
-                    _buildIconTextBox(Icons.account_balance, "Item Wise Order",
-                        () {
-                      Get.to(() => ItemWiseOrderReportView());
-                    }, iconUrl: "assets/icons/item-wise-sale.png"),
-                ]),
-              ],
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "306" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.add_shopping_cart,
+                          Colors.deepPurple,
+                          "Party wise item wise purchase", () {
+                        Get.to(() => ItemWisePartyWisePurchaseReportScreen());
+                      }),
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "231" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.attach_money, Colors.teal, "Reimbursement", () {
+                        Get.to(() => GetExpenseView());
+                      }),
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "324" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.add_shopping_cart, Colors.pink,
+                          "Party wise item wise Order", () {
+                        Get.to(() => ItemWisePartyWiseSaleReportView());
+                      }),
+                  ]),
+                  _buildSection("Ledgers", [
+                    //if (p.data != null && p.data!.moduleNos.contains("02"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "302" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.leaderboard_outlined,
+                          Colors.deepPurple, "Account Ledger", () {
+                        Get.to(() => AccountLedgerScreen());
+                      }, iconUrl: "assets/icons/Account-Ledger.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("03"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "303" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance_wallet,
+                          Colors.blue, "Item Ledger", () {
+                        Get.to(() => ItemLedgerReportScreen());
+                      }, iconUrl: "assets/icons/item-ledger.png"),
+                  ]),
+                  _buildSection("Outstanding", [
+                    //if (p.data != null && p.data!.moduleNos.contains("07"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "307" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.receipt_long, Colors.green, "Receivable\n", () {
+                        Get.to(() => OutStandingReportReceivableScreen());
+                      }, iconUrl: "assets/icons/Receivable.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("14"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "314" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.payment, Colors.pink, "Payable\n",
+                          () {
+                        Get.to(() => OutStandingReportPayableScreen());
+                      }, iconUrl: "assets/icons/Payable.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("10"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "310" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance, Colors.orange,
+                          "Party Wise Receivable", () {
+                        Get.to(
+                            () => PartyWiseOutStandingReportReceivableScreen());
+                      }, iconUrl: "assets/icons/Party-Receivable.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("15"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "315" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance,
+                          Colors.deepPurple, "Party Wise Payable", () {
+                        Get.to(() => PartyWiseOutStandingReportPayableScreen());
+                      }, iconUrl: "assets/icons/Party-Payable.png"),
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "311" &&
+                            module.rEADRIGHT == true) &&
+                        ub.role == AppConfig.masteruser &&
+                        p.data?.profileSettings
+                                .firstWhere((element) =>
+                                    element.variable == 'showUserLinkData')
+                                .value ==
+                            "Y")
+                      _buildIconTextBox(Icons.account_balance, Colors.teal,
+                          "User Wise Party Wise", () {
+                        Get.to(() => UserWiseOutStandingReportScreen());
+                      }, iconUrl: "assets/icons/User-Outstanding.png"),
+                  ]),
+                  _buildSection("Reports", [
+                    //if (p.data != null && p.data!.moduleNos.contains("04"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "304" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.account_balance, Colors.blue, "Order Report",
+                          () {
+                        Get.to(() => OrderReportScreen(),
+                            arguments: {"OrderPrint Right": orderPrintRight});
+                      }, iconUrl: "assets/icons/order-report.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("05"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "305" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.payment, Colors.orange, "Stock Report", () {
+                        Get.to(() => StockReportScreen());
+                      }, iconUrl: "assets/icons/stock-report.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("08"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "308" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.account_balance, Colors.green, "Item Wise Sale",
+                          () {
+                        Get.to(() => ItemWiseSaleReportScreen());
+                      }, iconUrl: "assets/icons/item-wise-sale.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("09"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "309" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance, Colors.pink,
+                          "Party Wise Sale ", () {
+                        Get.to(() => PartyWiseReportScreen());
+                      }, iconUrl: "assets/icons/party-wise-sale.png"),
+                    //if (p.data != null && p.data!.moduleNos.contains("13"))
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "313" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance, Colors.blue,
+                          "Sales Register Report", () {
+                        Get.to(() => SalesRegisterReportScreen());
+                      }, iconUrl: "assets/icons/Sales-Register.png"),
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "321" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance,
+                          Colors.deepPurple, "Route Summary", () {
+                        Get.to(() => const RouteReportScreen());
+                      }, iconUrl: "assets/icons/route_report_icon.png"),
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "321" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(
+                          Icons.account_balance, Colors.brown, "Route Report",
+                          () {
+                        Get.to(() => const RouteMapView());
+                      }, iconUrl: "assets/icons/route_report.png"),
+                    if (p.data != null &&
+                        p.data!.modulesList!.any((module) =>
+                            module.mODULENO == "325" &&
+                            module.rEADRIGHT == true))
+                      _buildIconTextBox(Icons.account_balance, Colors.orange,
+                          "Item Wise Order", () {
+                        Get.to(() => ItemWiseOrderReportView());
+                      }, iconUrl: "assets/icons/item-wise-sale.png"),
+                  ]),
+                ],
+              ),
             ),
           ),
         ),
@@ -363,130 +425,118 @@ class _NewMenuState extends State<NewMenu> {
     if (iconTextBoxes.isEmpty)
       return SizedBox.shrink(); // Return empty widget if no iconTextBoxes
 
+    final bool isExpanded = _expandedSections[title] ?? false;
+
+    final List<Widget> visibleItems =
+        isExpanded ? iconTextBoxes : iconTextBoxes.take(3).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(title),
-        _buildIconTextWrap(iconTextBoxes),
-        Divider(color: Colors.black), // Add divider after the section
+        _buildSectionTitle(
+          title,
+          iconTextBoxes.length > 3,
+        ),
+
+        // _buildIconTextWrap(iconTextBoxes),
+        _viewType == MenuViewType.grid
+            ? MenuGridView(items: visibleItems)
+            : MenuListView(items: visibleItems),
+        SizedBox(
+          height: 10,
+        ),
+        _viewType == MenuViewType.grid
+            ? Divider(
+                color: Colors.grey[200],
+                height: 0.5,
+              ) // Add divider after the section
+            : SizedBox.shrink(),
       ],
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, bool showViewAll) {
     double screenWidth = MediaQuery.of(context).size.width;
-    double horizontalMargin = screenWidth * 0.05; // 5% of screen width
+    double horizontalMargin = screenWidth * 0.03; // 5% of screen width
+
+    final bool isExpanded = _expandedSections[title] ?? false;
 
     return Container(
       alignment: Alignment.centerLeft,
-      margin: EdgeInsets.only(top: 8.0, bottom: 8, left: horizontalMargin),
-      child: Text(
-        title,
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 25),
+      margin: EdgeInsets.only(top: 8.0, bottom: 0, left: horizontalMargin),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          if (showViewAll)
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _expandedSections[title] = !isExpanded;
+                });
+              },
+              child: Text(
+                isExpanded ? "View Less" : "View All",
+                style: TextStyle(
+                  color: Color(0xFF3B82F6),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildIconTextWrap(List<Widget> iconTextBoxes) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 5,
-        mainAxisSpacing: 5,
-        childAspectRatio: 1,
-      ),
-      itemCount: iconTextBoxes.length,
-      itemBuilder: (context, index) => iconTextBoxes[index],
-    );
-  }
+  // Widget _buildIconTextWrap(List<Widget> iconTextBoxes) {
+  //   return GridView.builder(
+  //     shrinkWrap: true,
+  //     physics: NeverScrollableScrollPhysics(),
+  //     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+  //       crossAxisCount: 2,
+  //       crossAxisSpacing: 5,
+  //       mainAxisSpacing: 5,
+  //       childAspectRatio: 2,
+  //     ),
+  //     itemCount: iconTextBoxes.length,
+  //     itemBuilder: (context, index) => iconTextBoxes[index],
+  //   );
+  // }
 
-  Widget _buildIconTextBox(IconData icon, String label, VoidCallback onTap,
-      {String? iconUrl}) {
+  Widget _buildIconTextBox(
+    IconData icon,
+    Color iconColor,
+    String label,
+    VoidCallback onTap, {
+    String? iconUrl,
+  }) {
+    if (_viewType == MenuViewType.list) {
+      return MenuListTile(
+        icon: icon,
+        iconColor: iconColor,
+        iconUrl: iconUrl,
+        label: label,
+        onTap: onTap,
+      );
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 100,
-        child: IconTextBox(
+        child: MenuGridTile(
           icon: icon,
+          iconColor: iconColor,
+          // iconColor: Color(0xFF0057E7),
           label: label,
           iconUrl: iconUrl,
         ),
       ),
-    );
-  }
-}
-
-class IconTextBox extends StatelessWidget {
-  final IconData? icon;
-  final String? iconUrl;
-  final String label;
-
-  const IconTextBox({
-    super.key,
-    this.icon,
-    this.iconUrl,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double iconSize =
-            constraints.maxWidth * 0.30; // Adjust the multiplier as needed
-
-        return Container(
-          margin: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 12,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                iconUrl != null
-                    ? Image.asset(
-                        iconUrl!,
-                        width: iconSize,
-                        height: iconSize,
-                        color: const Color(0xFF0057E7), // optional
-                      )
-                    : Icon(
-                        icon,
-                        color: const Color(0xFF0057E7),
-                        size: iconSize,
-                      ),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

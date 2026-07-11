@@ -31,7 +31,7 @@ class SelectableChip extends StatelessWidget {
       ),
       selected: isSelected,
       onSelected: onSelected,
-      selectedColor: Colors.blue,
+      selectedColor: Color(0xFF3B82F6),
       backgroundColor: Colors.grey[300],
       checkmarkColor: Colors.white,
       shape: RoundedRectangleBorder(

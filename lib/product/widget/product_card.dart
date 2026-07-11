@@ -217,8 +217,22 @@ class _ProductCardState extends State<ProductCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _infoRow('Pack : ', widget.product.itemSname),
-              _infoRow('Box Pack : ', widget.product.itemBoxPacking!),
+              Expanded(
+                child: Wrap(
+                  children: [
+                    _infoRow('Pack : ', widget.product.itemSname),
+                    // _infoRow('Box Pack : ', widget.product.itemBoxPacking!),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Wrap(
+                  children: [
+                    // _infoRow('Pack : ', widget.product.itemSname),
+                    _infoRow('Box Pack : ', widget.product.itemBoxPacking!),
+                  ],
+                ),
+              ),
             ],
           ),
           SizedBox(

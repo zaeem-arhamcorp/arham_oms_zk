@@ -20,7 +20,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:whatsapp_share/whatsapp_share.dart';
+// import 'package:whatsapp_share_improved/whatsapp_share_improved.dart';
+import 'package:whatsapp_share_plus/whatsapp_share_plus.dart';
 
 import '../providers/global.dart';
 import '../providers/party_provider.dart';
@@ -67,15 +68,17 @@ class _OutStandingReportReceivableScreenState
   }
 
   Future<bool?> checkWhatsappInstalled() async {
-    isWhatsappInstalled =
-        await WhatsappShare.isInstalled(package: Package.whatsapp) ?? false;
+    // isWhatsappInstalled =
+    //     await WhatsappShareImproved.isInstalled(package: Package.whatsapp) ?? false;
+    isWhatsappInstalled = await WhatsappSharePlus.isWhatsappInstalled();
     return null;
   }
 
   Future<bool?> checkWhatsappBussinessInstalled() async {
-    isWhatsappBussinessInstalled =
-        await WhatsappShare.isInstalled(package: Package.businessWhatsapp) ??
-            false;
+    // isWhatsappBussinessInstalled =
+    //     await WhatsappShareImproved.isInstalled(package: Package.businessWhatsapp) ??
+    //         false;
+    isWhatsappBussinessInstalled = await WhatsappSharePlus.isWhatsappBusinessInstalled();
     return null;
   }
 
@@ -532,10 +535,13 @@ class _OutStandingReportReceivableScreenState
                               // On iOS: Use native share dialog
                               await shareFileToWhatsAppIOS(value);
                             } else {
-                              await WhatsappShare.shareFile(
+                              // await WhatsappShareImproved.shareFile(
+                              //         phone: "91",
+                              //         filePath: [value],
+                              //         package: Package.whatsapp)
+                              await WhatsappSharePlus.shareImageToWhatsapp(
                                       phone: "91",
-                                      filePath: [value],
-                                      package: Package.whatsapp)
+                                      imagePath: value)
                                   .catchError((err) {
                                 return false;
                               });
@@ -574,14 +580,18 @@ class _OutStandingReportReceivableScreenState
                             setState(() {
                               loading = false;
                             });
-                            if (value != null)
-                              await WhatsappShare.shareFile(
-                                      phone: "91",
-                                      filePath: [value],
-                                      package: Package.businessWhatsapp)
-                                  .catchError((err) {
-                                return false;
-                              });
+                             if (value != null) {
+                               // await WhatsappShareImproved.shareFile(
+                               //         phone: "91",
+                               //         filePath: [value],
+                               //         package: Package.businessWhatsapp)
+                               await WhatsappSharePlus.shareImageToWhatsappBusiness(
+                                       phone: "91",
+                                       imagePath: value)
+                                   .catchError((err) {
+                                 return false;
+                               });
+                             }
                           });
                         } else {
                           setState(() {

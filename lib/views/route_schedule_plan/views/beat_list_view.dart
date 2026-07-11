@@ -389,16 +389,16 @@ class _BeatListViewState extends State<BeatListView> {
     Beat? initialBeat,
     bool allowRemoveOption = false,
   }) async {
-    if (beatController.beats.isEmpty) {
-      await beatController.fetchBeats();
-    }
+    // if (beatController.beats.isEmpty) {
+    //   await beatController.fetchBeatsWithUserCd();
+    // }
 
     final result = await showModalBottomSheet<BeatSelectionResult>(
       context: context,
       isScrollControlled: true,
       builder: (_) => BeatSelectionSheet(
         selectedDate: date,
-        userNameByCode: _userNameByCode,
+        // userNameByCode: _userNameByCode,
         initialSelectedBeat: initialBeat,
         allowRemoveOption: allowRemoveOption,
       ),

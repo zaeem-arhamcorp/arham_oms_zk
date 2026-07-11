@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_helper.dart';
 import 'order_tracking_service.dart';
+import 'trip_prefs_helper.dart';
 
 class SyncService {
   final DatabaseHelper db = DatabaseHelper();
@@ -1008,8 +1009,8 @@ class SyncService {
 
           if (remarkStr.toUpperCase() == 'PUNCH OUT') {
             print(
-                '[SyncService] 🛑 Punch-out detected. Triggering trip-end...');
-            await _triggerTripEnd(token); // Trip-End API hit
+                '[SyncService] 🛑 Punch-out detected. Triggering trip-end and stopping background service...');
+            await _triggerTripEnd(token); // Trip-End API hit + stops service
           }
         } else if (response.statusCode == 401) {
           print('[SyncService] ⚠️ Auth expired during location sync');
@@ -1036,53 +1037,102 @@ class SyncService {
   }
 
   Future<void> _triggerTripEnd(String token) async {
-    // 1. Retrieve the necessary data from SharedPreferences or memory
+    // 1. Retrieve the necessary data from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
-    final int? tripId = prefs.getInt('active_trip_id');
-    final int? syncId = prefs.getInt('active_sync_id');
+    // Resolve active firm via global pointer; fall back to legacy global key
+    final trackingSyncId = prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+        prefs.getInt(TripPrefsHelper.legacySyncId);
+    final int? tripId = trackingSyncId != null
+        ? (prefs.getInt(TripPrefsHelper.tripId(trackingSyncId)) ??
+            prefs.getInt(TripPrefsHelper.legacyTripId))
+        : prefs.getInt(TripPrefsHelper.legacyTripId);
+    final int? syncId = trackingSyncId;
 
     if (tripId == null || syncId == null) {
       print(
           '[SyncService] ⚠️ No active trip found in SharedPreferences; skipping trip-end.');
+      // Even if there is no trip to end, make sure the background service is
+      // fully stopped so it does not keep sending location points.
+      await _stopBackgroundServiceAfterTripEnd(prefs);
       return;
     }
 
-    // 2. Prepare the payload (matching your established format)
-    final String endTime = DateTime.now().toIso8601String();
+    // 2. Prepare the payload — sync_id must be int, use timezone-aware end_time
+    //    to match the format used by stopTracking() / endActiveTripOnServer().
+    final now = DateTime.now();
+    final offset = now.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final absOffset = offset.abs();
+    final offsetHours = absOffset.inHours.toString().padLeft(2, '0');
+    final offsetMinutes = (absOffset.inMinutes % 60).toString().padLeft(2, '0');
+    final String endTime =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}'
+        'T${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}'
+        '$sign$offsetHours:$offsetMinutes';
+
     final body = {
-      "trip_id": tripId,
-      "sync_id": syncId.toString(),
-      "end_time": endTime,
+      'trip_id': tripId, // int — must match server expectation
+      'sync_id': syncId, // int — NOT toString()
+      'end_time': endTime, // timezone-aware local time
     };
 
     // 3. Hit the /location/trip/end API
     try {
       print('[SyncService] 📤 Triggering trip-end API for trip: $tripId');
       final uri = Uri.parse('${AppConfig.baseURL}location/trip/end');
-      print('[SyncService] $uri');
+      print('[SyncService] API HIT: $uri');
+      print('[SyncService] Payload: $body');
       final response = await http.post(
         uri,
         headers: {
-          "Authorization": "Bearer $token",
+          'Authorization': 'Bearer $token',
           'x-app-type': 'oms',
           'Content-Type': 'application/json',
         },
         body: json.encode(body),
       );
-      print('[SyncService] $body');
-      print('[SyncService] ${response.statusCode}');
+      print('[SyncService] Trip-end response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('[SyncService] ✅ Trip ended successfully on server.');
-        // Clear the active trip from storage once the server acknowledges the end
-        await prefs.remove('active_trip_id');
-        await prefs.remove('active_sync_id');
       } else {
         print(
             '[SyncService] ❌ Trip end API failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('[SyncService] ❌ Exception in _triggerTripEnd: $e');
+    } finally {
+      // 4. ALWAYS stop the background service and clear ALL SharedPreferences
+      //    keys regardless of whether the API call succeeded. The punch-out was
+      //    already synced to the server (the /locations call succeeded), so the
+      //    service MUST NOT keep running and collecting / sending location points.
+      await _stopBackgroundServiceAfterTripEnd(prefs);
+    }
+  }
+
+  /// Stop the background location service and clear all active-trip
+  /// SharedPreferences keys after a punch-out has been successfully synced.
+  Future<void> _stopBackgroundServiceAfterTripEnd(
+      SharedPreferences prefs) async {
+    try {
+      // Resolve the firm we're stopping so we clear firm-specific keys
+      final trackingSyncId = prefs.getInt(TripPrefsHelper.currentTrackingSyncId) ??
+          prefs.getInt(TripPrefsHelper.legacySyncId);
+
+      // Mark as explicitly stopped FIRST so the background guard in _onStart
+      // will immediately self-terminate if the plugin tries to restart.
+      if (trackingSyncId != null) {
+        await prefs.setBool(
+            TripPrefsHelper.explicitlyStopped(trackingSyncId), true);
+        await TripPrefsHelper.clearFirmKeys(prefs, trackingSyncId);
+      }
+      // Always clear legacy keys to cover migration path
+      await TripPrefsHelper.clearLegacyKeys(prefs);
+      await prefs.remove(TripPrefsHelper.currentTrackingSyncId);
+
+      print('[SyncService] ✅ SharedPreferences cleared after trip-end.');
+    } catch (e) {
+      print('[SyncService] ⚠️ Could not clear SharedPreferences: $e');
     }
   }
 

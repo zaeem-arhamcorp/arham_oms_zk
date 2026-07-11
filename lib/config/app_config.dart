@@ -21,11 +21,13 @@ class AppConfig {
 
   //7801855177 - Aakash Bhai (Mak Marketing)
 
-  //9033881931 Rizwan Ansari  - 1    Master
-  //9227451051 Mubassira      - 1    Master
-  //9723760786 Zaeem Kadri    - 1    Master
-  //9875       Abrar          - 98   Parent
-  //9824747862 Firoj Khan     - 1    Child
+  //9898922173 369 Components - 22173   Operator
+
+  //9033881931 Rizwan Ansari  - 1       Master
+  //9227451051 Mubassira      - 1       Master
+  //9723760786 Zaeem Kadri    - 1       Master
+  //9875       Abrar          - 98      Parent
+  //9824747862 Firoj Khan     - 1       Child
 
   //Nevil Pharma
   //9033546913 Mahesh Patadiya - Password: 101
@@ -47,15 +49,15 @@ class AppConfig {
   ///--------------------------------------------------------------------------------------------------------------------------
 
   // TODO: Update today's date in ProfilePage before building apk
-  // static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
+  static const String baseURL = "http://192.168.1.12:4002/api/"; //TODO: Local
 
   // TODO: Update today's date in ProfilePage before building apk
   // static const String baseURL =
   //     "https://apidev.arhamcorp.in/api/"; //TODO: Stage
 
   // TODO: Remove today's date from ProfilePage before building apk
-  static const String baseURL =
-      "https://api.arhamcorp.in/api/"; //TODO: Production
+  // static const String baseURL =
+  //       "https://api.arhamcorp.in/api/"; //TODO: Production
 
   //static const String baseURL = "https://pharma.skyhubs.in/api/";
   static const String baseURLReport = "${baseURL}reports/";

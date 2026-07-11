@@ -18,6 +18,7 @@ import '../services/crashlytics_service.dart';
 import '../services/database_helper.dart';
 import '../services/services.dart';
 import '../services/sync_service.dart';
+import '../services/trip_prefs_helper.dart';
 import '../views/loginpage.dart';
 
 class ProfileProvider extends DisposableProvider {
@@ -432,6 +433,7 @@ class ProfileProvider extends DisposableProvider {
           } catch (e) {
             print('[PROFILE-OFFLINE] ❌ Failed to restore order state: $e');
           }
+          notifyListeners();
           return;
         }
       } catch (e) {
@@ -615,9 +617,38 @@ class ProfileProvider extends DisposableProvider {
 
                   if (serverPunchRemark != null &&
                       serverPunchRemark.isNotEmpty) {
-                    _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
-                    print(
-                        '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=${_data!.isPunchIn}');
+                    // ⚠️ MULTI-FIRM GUARD:
+                    // The /orders-tracking API returns the last punch across ALL firms.
+                    // If the user is punched IN on a DIFFERENT firm (tracked by
+                    // active_tracking_sync_id), we must NOT set isPunchIn=true for
+                    // the current firm — that would cause the bleed bug.
+                    bool serverStateIsForThisFirm = true;
+                    if (serverPunchRemark == 'PUNCH IN') {
+                      try {
+                        final prefsCheck = await SharedPreferences.getInstance();
+                        final trackedSyncId = prefsCheck
+                            .getInt(TripPrefsHelper.currentTrackingSyncId);
+                        if (trackedSyncId != null && trackedSyncId != syncId) {
+                          // Server says PUNCH IN but it belongs to a different firm
+                          serverStateIsForThisFirm = false;
+                          print(
+                              '[PROFILE-ONLINE] 🚫 Server "PUNCH IN" belongs to firm $trackedSyncId, not current firm $syncId — treating as PUNCH OUT for this firm');
+                        }
+                      } catch (e) {
+                        print(
+                            '[PROFILE-ONLINE] ⚠️ Could not verify firm pointer: $e');
+                      }
+                    }
+
+                    if (serverStateIsForThisFirm) {
+                      _data!.isPunchIn = serverPunchRemark == 'PUNCH IN';
+                      print(
+                          '[PROFILE-ONLINE] ✅ Applied SERVER punch state directly: isPunchIn=\${_data!.isPunchIn}');
+                    } else {
+                      _data!.isPunchIn = false;
+                      print(
+                          '[PROFILE-ONLINE] ✅ Applied NOT-PUNCHED-IN for this firm (server punch belongs to another firm)');
+                    }
                   }
                 }
               } else {

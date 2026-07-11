@@ -67,11 +67,24 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         foregroundColor: Colors.white,
         title: const Text(
           'Referral Earnings',
           style: TextStyle(color: Colors.white),
+        ),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF3B82F6),
+                Color(0xFF0057E7),
+              ],
+            ),
+          ),
         ),
       ),
       body: SafeArea(
@@ -85,63 +98,69 @@ class _ReferralEarningsViewState extends State<ReferralEarningsView> {
 
             return Padding(
               padding: const EdgeInsets.all(16),
-              child: Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: Color(0xfffafafa),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Earnings',
-                      style: TextStyle(
-                        // color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+              child: Card(
+                color: Colors.white,
+                elevation: 8,
+                shadowColor: Colors.black.withOpacity(0.2),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    // color: Color(0xfffafafa),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    // boxShadow: const [
+                    //   BoxShadow(
+                    //     color: Colors.black26,
+                    //     blurRadius: 10,
+                    //     offset: Offset(0, 6),
+                    //   ),
+                    // ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Total Earnings',
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      data != null ? '₹${data.totalEarnings}' : '--',
-                      style: const TextStyle(
-                        // color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
+                      const SizedBox(height: 4),
+                      Text(
+                        data != null ? '₹${data.totalEarnings}' : '--',
+                        style: const TextStyle(
+                          // color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      data != null
-                          ? 'Paid: ₹${data.paidEarnings} | Pending: ₹${data.pendingEarnings}'
-                          : 'No earnings yet',
-                      style: const TextStyle(
-                        // color: Colors.white70,
-                        fontSize: 12,
+                      const SizedBox(height: 10),
+                      Text(
+                        data != null
+                            ? 'Paid: ₹${data.paidEarnings} | Pending: ₹${data.pendingEarnings}'
+                            : 'No earnings yet',
+                        style: const TextStyle(
+                          // color: Colors.white70,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      data != null
-                          ? 'Total referrals: ${data.totalReferrals} | Successful: ${data.successfulReferrals}'
-                          : '',
-                      style: const TextStyle(
-                        // color: Colors.white70,
-                        fontSize: 12,
+                      const SizedBox(height: 8),
+                      Text(
+                        data != null
+                            ? 'Total referrals: ${data.totalReferrals} | Successful: ${data.successfulReferrals}'
+                            : '',
+                        style: const TextStyle(
+                          // color: Colors.white70,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );

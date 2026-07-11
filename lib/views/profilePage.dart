@@ -18,6 +18,7 @@ import 'package:arham_corporation/views/monthly_target/services/api_services.dar
 import 'package:arham_corporation/widgets/common_app_drawer.dart';
 import 'package:arham_corporation/widgets/custom_app_bar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -758,7 +759,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     return Scaffold(
-      backgroundColor: Color(0xFFF0F3F2),
+      // backgroundColor: Color(0xFFF0F3F2),
+      backgroundColor: Colors.white,
       appBar: CustomAppBar(
         title: 'Profile',
         actions: [
@@ -944,7 +946,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 4),
                 Container(
                   margin:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -1019,54 +1021,120 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               ],
-              Padding(
-                padding: const EdgeInsets.only(
-                  top: 30.0,
-                  left: 9,
-                  right: 9,
-                ), // Increased top padding
-                child: Center(
-                  child: Container(
-                    width: MediaQuery.of(context).size.width,
-                    decoration: BoxDecoration(
-                      color: Color(0xFFC53232),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12), // Added padding
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                              8), // Match card's border radius
+              if (userProvider.role == AppConfig.masteruser) ...[
+                Padding(
+                  padding: const EdgeInsets.only(
+                    top: 8.0,
+                    left: 5,
+                    right: 5,
+                  ), // Increased top padding
+                  child: Center(
+                    child: Container(
+                      width: MediaQuery.of(context).size.width,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.red,
                         ),
                       ),
-                      onPressed: () {
-                        _showDeleteConfirmationDialog(context,
-                            userProvider); // Pass userProvider if needed for deletion
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            color: Colors.white,
-                            size: 20,
+                      padding: const EdgeInsets.all(5),
+                      // decoration: BoxDecoration(
+                      //   color: Colors.white,
+                      //   border: Border.all(color: Colors.grey.shade300),
+                      //   borderRadius: BorderRadius.circular(8),
+                      // ),
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          // padding: const EdgeInsets.symmetric(
+                          //     horizontal: 20, vertical: 12), // Added padding
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                                8), // Match card's border radius
                           ),
-                          SizedBox(
-                            width: 5,
-                          ),
-                          Text(
-                            "Delete Account",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                        ),
+                        onPressed: () {
+                          _showDeleteConfirmationDialog(context,
+                              userProvider); // Pass userProvider if needed for deletion
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(180),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.delete,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 10,
+                            ),
+                            // Column(
+                            //   crossAxisAlignment: CrossAxisAlignment.start,
+                            //   children: [
+                            //     Text(
+                            //       "Delete Account",
+                            //       style: TextStyle(
+                            //           color: Colors.red,
+                            //           fontWeight: FontWeight.bold),
+                            //     ),
+                            //     Text(
+                            //       "Permanently delete you account and all associated data",
+                            //       style: TextStyle(
+                            //         color: Colors.red,
+                            //         fontWeight: FontWeight.bold,
+                            //         fontSize: 10,
+                            //       ),
+                            //     ),
+                            //   ],
+                            // ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Delete Account",
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 220,
+                                    child: Text(
+                                      "Permanently delete your account and all associated data",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        // fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.red,
+                              size: 20,
+                            )
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
+              ],
+              SizedBox(
+                height: 35,
               ),
             ],
           ),
@@ -1105,63 +1173,68 @@ class _ProfilePageState extends State<ProfilePage> {
     IconData? icon,
     Color? labelIconBg,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (icon != null)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: labelIconBg ?? Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: Colors.blue,
-              ),
-            ),
-          if (icon != null) const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w600,
-                  ),
+    return Card(
+      color: Colors.white,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
+      child: Container(
+        // margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (icon != null)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: labelIconBg ?? Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 4),
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    textSelectionTheme: const TextSelectionThemeData(
-                      selectionColor: Color(0xFF5ECCFF), // Highlight color
-                      selectionHandleColor: Colors.blue, // Handle color
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: Colors.blue,
+                ),
+              ),
+            if (icon != null) const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  child: SelectableText(
-                    controller.text,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black,
+                  const SizedBox(height: 4),
+                  Theme(
+                    data: Theme.of(context).copyWith(
+                      textSelectionTheme: const TextSelectionThemeData(
+                        selectionColor: Color(0xFF5ECCFF), // Highlight color
+                        selectionHandleColor: Colors.blue, // Handle color
+                      ),
+                    ),
+                    child: SelectableText(
+                      controller.text,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1179,7 +1252,8 @@ class _ProfilePageState extends State<ProfilePage> {
               "Are you sure you want to delete your account? This action cannot be undone."),
           actions: <Widget>[
             TextButton(
-              child: const Text("No"),
+              child:
+                  const Text("Cancel", style: TextStyle(color: Colors.black54)),
               onPressed: () {
                 Navigator.of(dialogContext).pop(); // Close the dialog
               },
@@ -1312,6 +1386,8 @@ class _ProfilePhotoPreviewScreen extends StatelessWidget {
                 label: const Text('Change Photo'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.blue,
                 ),
               ),
             ),
