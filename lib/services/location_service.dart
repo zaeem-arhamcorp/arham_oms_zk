@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:arham_corporation/helper/network_helper.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -7,18 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import 'activity_recognition_service.dart';
 import 'background_location_service.dart';
-import 'ios_background_location_service.dart';
 import 'database_helper.dart';
 import 'location_sync_service.dart';
-import 'trip_prefs_helper.dart';
 
 class LocationService {
-  // Note: token is now stored under TripPrefsHelper.tripToken(syncId) — no global key.
+  static const String _activeTripTokenKey = 'active_trip_token';
   final DatabaseHelper db = DatabaseHelper();
   final BackgroundLocationService _backgroundService =
       BackgroundLocationService();
-  final IOSBackgroundLocationService _iosBackgroundService =
-      IOSBackgroundLocationService();
   final LocationSyncService _syncService = LocationSyncService();
 
   /// Punch in/out operation: captures location and saves to local + online (if online)
@@ -211,16 +206,6 @@ class LocationService {
     final today = DateTime.now();
     final vouchDt =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    try {
-      final dbHelper = await db.database;
-      final allPunches = await dbHelper.query('locations');
-      print('[LocationService.getTodaysPunches] 🔍 DUMPING ALL PUNCHES IN LOCATIONS TABLE:');
-      for (var row in allPunches) {
-        print('[LocationService.getTodaysPunches]   Row: ID=${row['locId']}, USER_CD=${row['USER_CD']}, VOUCH_DT=${row['VOUCH_DT']}, SYNC_ID=${row['SYNC_ID']}, REMARK=${row['REMARK']}, sync_status=${row['sync_status']}');
-      }
-    } catch (e) {
-      print('[LocationService.getTodaysPunches] Failed to dump locations: $e');
-    }
     final punches = await db.getLocationsByUserAndDate(userCd, vouchDt, syncId);
     print(
         '[LocationService.getTodaysPunches] Query: USER_CD="$userCd", VOUCH_DT="$vouchDt", SYNC_ID="$syncId" → ${punches.length} results');
@@ -364,23 +349,14 @@ class LocationService {
 
       // Step 4: Start background location tracking service
       print('[LocationService] 🚀 Starting background location tracking...');
-      final trackingResult = Platform.isIOS
-          ? await _iosBackgroundService.startTracking(
-              userCd: userCd,
-              syncId: syncId,
-              token: token,
-              startLat: startLat,
-              startLng: startLng,
-              moduleNo: moduleNo,
-            )
-          : await _backgroundService.startTracking(
-              userCd: userCd,
-              syncId: syncId,
-              token: token,
-              startLat: startLat,
-              startLng: startLng,
-              moduleNo: moduleNo,
-            );
+      final trackingResult = await _backgroundService.startTracking(
+        userCd: userCd,
+        syncId: syncId,
+        token: token,
+        startLat: startLat,
+        startLng: startLng,
+        moduleNo: moduleNo,
+      );
 
       if (trackingResult['success']) {
         final tripId = trackingResult['trip_id'] as int;
@@ -522,23 +498,14 @@ class LocationService {
 
       // Step 3: Start background location tracking service
       print('$logTag 🚀 Restarting background location tracking service...');
-      final trackingResult = Platform.isIOS
-          ? await _iosBackgroundService.startTracking(
-              userCd: userCd,
-              syncId: syncId,
-              token: token,
-              startLat: currentLat,
-              startLng: currentLng,
-              moduleNo: moduleNo,
-            )
-          : await _backgroundService.startTracking(
-              userCd: userCd,
-              syncId: syncId,
-              token: token,
-              startLat: currentLat,
-              startLng: currentLng,
-              moduleNo: moduleNo,
-            );
+      final trackingResult = await _backgroundService.startTracking(
+        userCd: userCd,
+        syncId: syncId,
+        token: token,
+        startLat: currentLat,
+        startLng: currentLng,
+        moduleNo: moduleNo,
+      );
 
       if (trackingResult['success']) {
         final tripId = trackingResult['trip_id'] as int?;
@@ -581,9 +548,8 @@ class LocationService {
     try {
       print('[LocationService] 🔄 RESUME EXISTING TRIP - trip_id=$tripId');
 
-      final deferredAutoPunchOutPending = Platform.isIOS
-          ? await _iosBackgroundService.hasPendingAutoPunchOut()
-          : await _backgroundService.hasPendingAutoPunchOut();
+      final deferredAutoPunchOutPending =
+          await _backgroundService.hasPendingAutoPunchOut();
       if (deferredAutoPunchOutPending) {
         print(
             '[LocationService] ⏸️ Resume skipped: deferred auto punch-out sync is pending');
@@ -595,22 +561,17 @@ class LocationService {
         };
       }
 
-      // Store trip data in SharedPreferences using firm-specific keys
+      // Store trip data in SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(TripPrefsHelper.tripId(syncId), tripId);
-      await prefs.setString(TripPrefsHelper.userCd(syncId), userCd);
-      await prefs.setInt(TripPrefsHelper.syncIdKey(syncId), syncId);
-      await prefs.setString(TripPrefsHelper.tripToken(syncId), token);
-      // Global pointer so background service knows which firm is active
-      await prefs.setInt(TripPrefsHelper.currentTrackingSyncId, syncId);
-      // Clean up legacy global keys
-      await TripPrefsHelper.clearLegacyKeys(prefs);
-      print('[LocationService] ✅ Trip data stored in SharedPreferences (firm-specific)');
+      await prefs.setInt('active_trip_id', tripId);
+      await prefs.setString('active_user_cd', userCd);
+      await prefs.setInt('active_sync_id', syncId);
+      await prefs.setString(_activeTripTokenKey, token);
+      print('[LocationService] ✅ Trip data stored in SharedPreferences');
 
       // Resume background service with existing trip_id
-      final resumeSuccess = Platform.isIOS
-          ? await _iosBackgroundService.resumeTrackingIfActiveTrip()
-          : await _backgroundService.resumeTrackingIfActiveTrip();
+      final resumeSuccess =
+          await _backgroundService.resumeTrackingIfActiveTrip();
 
       if (resumeSuccess) {
         print('[LocationService] ✅ RESUME TRACKING SUCCESSFUL');
@@ -664,24 +625,16 @@ class LocationService {
         'total_failed': 0,
       };
 
-      int? tripIdToClear = Platform.isIOS
-          ? _iosBackgroundService.currentTripId
-          : _backgroundService.currentTripId;
+      int? tripIdToClear = _backgroundService.currentTripId;
       if (tripIdToClear == null) {
         final prefs = await SharedPreferences.getInstance();
-        // Read from firm-specific key; fall back to legacy for migration
-        tripIdToClear = prefs.getInt(TripPrefsHelper.tripId(syncId)) ??
-            prefs.getInt(TripPrefsHelper.legacyTripId);
+        tripIdToClear = prefs.getInt('active_trip_id');
       }
 
       // Step 2: Stop background location capture if continuous tracking was enabled
       if (continuousLocationTracking) {
         print('[LocationService] 🛑 Stopping background tracking service...');
-        if (Platform.isIOS) {
-          await _iosBackgroundService.stopTracking(endTripOnServer: false);
-        } else {
-          await _backgroundService.stopTracking(endTripOnServer: false);
-        }
+        await _backgroundService.stopTracking(endTripOnServer: false);
         print('[LocationService] ✅ Background tracking stopped');
 
         // Step 3: Sync all remaining unsynced location data
@@ -692,9 +645,7 @@ class LocationService {
             '[LocationService]   ${syncStats['total_synced']} synced, ${syncStats['total_failed']} failed');
 
         // Step 4: End trip on server only after pending points have synced.
-        final tripEnded = Platform.isIOS
-            ? await _iosBackgroundService.endActiveTripOnServer()
-            : await _backgroundService.endActiveTripOnServer();
+        final tripEnded = await _backgroundService.endActiveTripOnServer();
         print(
             '[LocationService] ${tripEnded ? '✅' : '⚠️'} Trip end after sync');
 
@@ -780,11 +731,7 @@ class LocationService {
 
       // Try to stop service even on error
       try {
-        if (Platform.isIOS) {
-          await _iosBackgroundService.stopTracking();
-        } else {
-          await _backgroundService.stopTracking();
-        }
+        await _backgroundService.stopTracking();
       } catch (_) {}
 
       return {
@@ -854,9 +801,7 @@ class LocationService {
 
   /// Check if background tracking is currently active
   bool isTrackingActive() {
-    return Platform.isIOS
-        ? _iosBackgroundService.isRunning
-        : _backgroundService.isRunning;
+    return _backgroundService.isRunning;
   }
 
   /// Get current tracking statistics
