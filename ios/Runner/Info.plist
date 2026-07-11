@@ -94,5 +94,9 @@
     <!-- Location Permission: Always (legacy, iOS 10) -->
     <key>NSLocationAlwaysUsageDescription</key>
     <string>ArhamOMS needs your location at all times to track your route during punch-in hours, even when the app is in the background.</string>
+
+	<!-- Motion/Fitness Permission (Required by App Store due to referenced APIs) -->
+    <key>NSMotionUsageDescription</key>
+    <string>ArhamOMS needs motion access to determine your movement state and improve location tracking accuracy.</string>
 </dict>
 </plist>
