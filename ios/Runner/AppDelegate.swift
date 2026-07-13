@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import CoreLocation
 import UserNotifications
+import GoogleMaps
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -14,6 +15,9 @@ import UserNotifications
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        // Initialize Google Maps SDK before registering plugins using Google Maps API key
+        GMSServices.provideAPIKey("AIzaSyCHNYtneNSu_KZwoGAK7pFGWhJpKFVaiaI")
+
         // Initialize Flutter engine first
         GeneratedPluginRegistrant.register(with: self)
 
