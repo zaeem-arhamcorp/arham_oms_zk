@@ -324,6 +324,20 @@ class NotificationService {
   void cancelNotificationById(int id) => _localNotifications.cancel(id);
 
   Future<bool> requestNotificationPermission() async {
+    if (Platform.isIOS) {
+      // On iOS, request notification permission using flutter_local_notifications
+      // to avoid compile-time permission_handler Podfile macro limitations.
+      final bool? granted = await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+      return granted ?? false;
+    }
+
     PermissionStatus status;
     if (Platform.isAndroid) {
       final deviceInfo = DeviceInfoPlugin();
@@ -334,10 +348,6 @@ class NotificationService {
       } else {
         return true; // Older Android versions don't require explicit runtime permission for basic notifications
       }
-    } else if (Platform.isIOS) {
-      // For iOS, permission is typically requested during initialization.
-      // This call will prompt if not yet determined, or return current status.
-      status = await Permission.notification.request();
     } else {
       return true; // Platform not requiring explicit permission (e.g., desktop, web - adjust as needed)
     }
