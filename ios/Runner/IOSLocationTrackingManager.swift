@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Flutter
+import UserNotifications
 
 /// IOSLocationTrackingManager
 ///
@@ -26,7 +27,7 @@ class IOSLocationTrackingManager: NSObject, CLLocationManagerDelegate {
 
     /// Distance filter in meters. Prevents excessive callbacks when stationary
     /// while still giving iOS enough events to enforce the 40-second gate.
-    private static let distanceFilterMeters: CLLocationDistance = 10.0
+    private static let distanceFilterMeters: CLLocationDistance = kCLDistanceFilterNone
 
     /// Maximum accepted accuracy in meters. Locations with worse accuracy are dropped.
     private static let maxAcceptedAccuracyMeters: CLLocationAccuracy = 30.0
@@ -61,6 +62,10 @@ class IOSLocationTrackingManager: NSObject, CLLocationManagerDelegate {
     /// Queued location update received before Flutter engine was ready.
     /// Dispatched once the method channel is set.
     private var pendingLocationUpdate: CLLocation?
+
+    /// Background timer to force location updates
+    private var backgroundTimer: DispatchSourceTimer?
+    private let queue = DispatchQueue(label: "com.arhamerp.app.locationTimer", attributes: .concurrent)
 
     // MARK: - Initialization
 
@@ -145,6 +150,9 @@ class IOSLocationTrackingManager: NSObject, CLLocationManagerDelegate {
         currentTripId = nil
         lastDispatchTime = nil
 
+        stopBackgroundTimer()
+        removeTrackingNotification()
+
         NSLog("[IOSLocationTracking] ✅ All location services stopped")
     }
 
@@ -207,6 +215,12 @@ class IOSLocationTrackingManager: NSObject, CLLocationManagerDelegate {
 
         NSLog("[IOSLocationTracking] 📍 Starting significant-change monitoring (backup)")
         significantChangeLocationManager.startMonitoringSignificantLocationChanges()
+
+        // Show local tracking notification
+        showTrackingNotification()
+
+        // Start background timer to force periodic updates
+        startBackgroundTimer()
     }
 
     /// Dispatch a location update to Flutter via MethodChannel.
@@ -305,5 +319,51 @@ class IOSLocationTrackingManager: NSObject, CLLocationManagerDelegate {
         @unknown default:
             NSLog("[IOSLocationTracking] ℹ️ Unknown authorization status")
         }
+    }
+
+    private func startBackgroundTimer() {
+        backgroundTimer?.cancel()
+        
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + IOSLocationTrackingManager.captureIntervalSeconds, repeating: IOSLocationTrackingManager.captureIntervalSeconds)
+        timer.setEventHandler { [weak self] in
+            guard let self = self else { return }
+            NSLog("[IOSLocationTracking] ⏳ Background timer tick - Requesting location update...")
+            DispatchQueue.main.async {
+                if self.isTracking {
+                    self.continuousLocationManager.requestLocation()
+                }
+            }
+        }
+        timer.resume()
+        backgroundTimer = timer
+        NSLog("[IOSLocationTracking] ✅ Background timer started (interval=\(IOSLocationTrackingManager.captureIntervalSeconds)s)")
+    }
+
+    private func stopBackgroundTimer() {
+        backgroundTimer?.cancel()
+        backgroundTimer = nil
+        NSLog("[IOSLocationTracking] 🛑 Background timer stopped")
+    }
+
+    private func showTrackingNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Route Tracking Active"
+        content.body = "Your location is being tracked during this route. Please DO NOT close the app."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(identifier: "RouteTrackingNotification", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                NSLog("[IOSLocationTracking] ❌ Error showing local notification: \(error.localizedDescription)")
+            } else {
+                NSLog("[IOSLocationTracking] 🔔 Local tracking notification displayed")
+            }
+        }
+    }
+
+    private func removeTrackingNotification() {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["RouteTrackingNotification"])
+        NSLog("[IOSLocationTracking] 🔔 Local tracking notification removed")
     }
 }
