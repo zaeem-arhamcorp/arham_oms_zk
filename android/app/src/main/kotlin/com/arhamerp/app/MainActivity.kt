@@ -6,6 +6,7 @@ import io.flutter.plugins.GeneratedPluginRegistrant
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.PowerManager
 import android.content.Context
@@ -24,7 +25,7 @@ class MainActivity : FlutterActivity() {
     private val TRACKING_CONTROL_CHANNEL = "com.arhamerp.app/tracking_control"
     private val ACTIVITY_RECOGNITION_CHANNEL = "com.arhamerp.app/activity_recognition"
     private val MY_CHANNEL = "my_channel"
-    
+
     private lateinit var activityRecognitionManager: ActivityRecognitionManager
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -152,6 +153,69 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
+
+        // Channel for general WhatsApp/WhatsApp Business sharing
+        val SHARE_CHANNEL = "com.arhamerp.app/share"
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isPackageInstalled" -> {
+                        val packageName = call.argument<String>("package")
+                        if (packageName == null) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
+                        val installed = try {
+                            applicationContext.packageManager.getPackageInfo(packageName, 0)
+                            true
+                        } catch (e: PackageManager.NameNotFoundException) {
+                            false
+                        }
+                        android.util.Log.d("ShareChannel", "isPackageInstalled($packageName) = $installed")
+                        result.success(installed)
+                    }
+                    "shareFileToPackage" -> {
+                        val filePath = call.argument<String>("filePath")
+                        val packageName = call.argument<String>("package")
+                        if (filePath == null || packageName == null) {
+                            result.error("INVALID_ARGUMENTS", "File path or package name is null", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val file = java.io.File(filePath)
+                            val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                                applicationContext,
+                                "${applicationContext.packageName}.provider",
+                                file
+                            )
+                            val extension = file.name.substringAfterLast('.', "").lowercase()
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = when (extension) {
+                                    "pdf" -> "application/pdf"
+                                    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    "xls" -> "application/vnd.ms-excel"
+                                    "csv" -> "text/csv"
+                                    "png" -> "image/png"
+                                    "jpg", "jpeg" -> "image/jpeg"
+                                    else -> "*/*"
+                                }
+                                putExtra(Intent.EXTRA_STREAM, fileUri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                setPackage(packageName)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            android.util.Log.e("ShareChannel", "Error sharing file: ${e.message}", e)
+                            result.error("SHARE_ERROR", e.message, null)
+                        }
+                    }
+                    else -> {
+                        result.notImplemented()
+                    }
+                }
+            }
     }
 
     private fun isBatteryOptimizationEnabled(): Boolean {
@@ -163,13 +227,13 @@ class MainActivity : FlutterActivity() {
                 // - true: App is whitelisted (can run in background freely)
                 // - false: App is restricted (battery optimization is limiting it)
                 val isIgnoringBatteryOpt = powerManager.isIgnoringBatteryOptimizations(packageName)
-                
+
                 // Show dialog when app is NOT whitelisted (restricted from background)
                 val shouldShowDialog = !isIgnoringBatteryOpt
-                
-                android.util.Log.d("BatteryOptimization", 
+
+                android.util.Log.d("BatteryOptimization",
                     "isBatteryOptimizationEnabled: isIgnoringBatteryOpt=$isIgnoringBatteryOpt, shouldShow=$shouldShowDialog")
-                
+
                 shouldShowDialog
             } else {
                 android.util.Log.d("BatteryOptimization", "PowerManager is null")
@@ -208,7 +272,7 @@ class MainActivity : FlutterActivity() {
      * Sets the foreground service notification as ongoing (non-dismissible).
      * Users cannot swipe away or dismiss the notification.
      * This is important for background location tracking to remain persistent.
-     * 
+     *
      * Uses the same notification channel and ID as flutter_background_service plugin.
      */
     private fun setForegroundNotificationOngoing(
@@ -218,7 +282,7 @@ class MainActivity : FlutterActivity() {
     ) {
         try {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            
+
             // Use the SAME channel ID as flutter_background_service plugin
             val notification = NotificationCompat.Builder(this, "flutter_background_service")
                 .setContentTitle(title)
@@ -228,7 +292,7 @@ class MainActivity : FlutterActivity() {
                 .setAutoCancel(false)
                 .setOngoing(true)
                 .build()
-            
+
             // Apply FLAG_ONGOING_EVENT to make it non-dismissible
             notification.flags = notification.flags or Notification.FLAG_ONGOING_EVENT
 
@@ -236,7 +300,7 @@ class MainActivity : FlutterActivity() {
             manager.notify(notificationId, notification)
             android.util.Log.d("NotificationManager", "✅ Foreground notification updated: '$title' - '$message'")
             android.util.Log.d("NotificationManager", "   Channel: flutter_background_service, ID: $notificationId")
-            
+
             // Post again after a short delay to ensure it sticks (in case plugin overwrites it)
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 try {
@@ -254,7 +318,7 @@ class MainActivity : FlutterActivity() {
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            
+
             // Create the flutter_background_service channel (high importance for persistent services)
             val backgroundServiceChannel = NotificationChannel(
                 "flutter_background_service",
@@ -268,7 +332,7 @@ class MainActivity : FlutterActivity() {
             }
             manager.createNotificationChannel(backgroundServiceChannel)
             android.util.Log.d("NotificationChannel", "✅ Created 'flutter_background_service' channel")
-            
+
             // Also ensure the app_channel exists
             val appChannel = NotificationChannel(
                 "app_channel",
@@ -290,12 +354,12 @@ class MainActivity : FlutterActivity() {
     private fun stopForegroundLocationService() {
         try {
             android.util.Log.d("TrackingControl", "🛑 Stopping foreground location service...")
-            
+
             // Step 1: Stop the FlutterBackgroundService
             val serviceIntent = Intent(this, id.flutter.flutter_background_service.BackgroundService::class.java)
             stopService(serviceIntent)
             android.util.Log.d("TrackingControl", "✅ Background service stopped")
-            
+
             // Step 2: Cancel the ongoing notification
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(888)  // Use the same ID as flutter_background_service plugin
@@ -304,7 +368,7 @@ class MainActivity : FlutterActivity() {
             // Step 3: Make sure watchdog is disabled (already should be from Dart side)
             TrackingRecoveryManager.stopWatchdog(applicationContext)
             android.util.Log.d("TrackingControl", "✅ Watchdog disabled")
-            
+
             android.util.Log.d("TrackingControl", "✅ Foreground location service completely stopped")
         } catch (e: Exception) {
             android.util.Log.e("TrackingControl", "❌ Error stopping foreground service: ${e.message}")

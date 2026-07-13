@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import CoreLocation
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -15,6 +16,9 @@ import CoreLocation
     ) -> Bool {
         // Initialize Flutter engine first
         GeneratedPluginRegistrant.register(with: self)
+
+        // Request system push/local notification authorizations on iOS
+        registerForNotifications(application: application)
 
         // Create the location tracking manager
         locationTrackingManager = IOSLocationTrackingManager()
@@ -205,5 +209,17 @@ import CoreLocation
                 result(FlutterMethodNotImplemented)
             }
         }
+    }
+
+    // MARK: - Native iOS Notification Authorization Prompt
+    private func registerForNotifications(application: UIApplication) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                NSLog("[AppDelegate] ❌ Notification permission error: \(error.localizedDescription)")
+            } else {
+                NSLog("[AppDelegate] 🔔 Notification permission status: \(granted)")
+            }
+        }
+        application.registerForRemoteNotifications()
     }
 }
